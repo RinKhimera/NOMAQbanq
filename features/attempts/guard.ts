@@ -4,6 +4,7 @@ import type { Db } from "@/db"
 import { type AttemptTiming, isExpired } from "@/lib/attempt-clock"
 import { isOpen } from "@/lib/exam-phase"
 import { DEFAULT_PAUSE_MINUTES } from "../exams/schemas"
+import type { ExamAudienceType } from "../exams/schemas"
 import { hasActiveAccess } from "../payments/dal"
 
 /**
@@ -64,7 +65,7 @@ export type ExamAttempt = {
   exam: {
     enablePause: boolean
     pauseDurationMinutes: number | null
-    audienceType: "subscribers" | "restricted"
+    audienceType: ExamAudienceType
   }
 }
 
@@ -111,7 +112,7 @@ type ExamRow = {
   completion_time: number
   pause_duration_minutes: number | null
   enable_pause: boolean
-  audience_type: "subscribers" | "restricted"
+  audience_type: ExamAudienceType
 }
 
 const requireTraining = async (

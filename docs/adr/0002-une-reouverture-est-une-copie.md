@@ -16,7 +16,7 @@ Nous décidons qu'une **réouverture** (`CONTEXT.md`) crée un nouvel examen
 blanc : l'action « Rouvrir » ouvre le formulaire de création pré-rempli depuis
 l'examen source, dates vides, et la création existante l'enregistre. L'examen
 d'origine garde ses participations, ses scores et son classement. En
-contrepartie, `updateExam` refuse de repousser dans le futur la fin d'un examen
+contrepartie, l'enregistrement d'un examen (`saveExam`) refuse de repousser dans le futur la fin d'un examen
 clos qui a des participations (`REOPEN_BY_DATES`) ; prolonger un examen encore
 ouvert, reprogrammer un examen clos sans participation ou corriger sa fin vers
 une autre date passée restent permis.

@@ -5,15 +5,17 @@ import {
   ArrowUp,
   ArrowUpDown,
   Image as ImageIcon,
-  Minus,
   Plus,
   SearchX,
   TriangleAlert,
   X,
 } from "lucide-react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import {
+  NotUsedSinceField,
+  notUsedSinceLabel,
+} from "@/components/admin/not-used-since-field"
 import {
   answersLabel,
   countLabel,
@@ -52,21 +54,19 @@ import type {
   QuestionSortBy,
 } from "@/features/questions/dal"
 import { QUESTIONS_PAGE_SIZE } from "@/features/questions/page-size"
-import { RECENT_EXAMS_DEFAULT } from "@/features/questions/recent-exams"
-import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { NOT_USED_SINCE_MAX } from "@/features/questions/recent-exams"
+import { useUrlListState } from "@/hooks/use-url-list-state"
 import { adminPhaseOf } from "@/lib/exam-phase"
 import { EXAM_STATUS_CONFIG } from "@/lib/exam-status"
 import { formatMediumDate } from "@/lib/format"
 import { scoreTone } from "@/lib/score"
 import { TONE_COLOR } from "@/lib/tone"
-import { TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import { ExportQuestionsButton } from "./export-questions-button"
 import {
   DEFAULT_QUESTION_LIST,
   FIRST_ORDER,
   type ImageFilter,
-  NOT_USED_SINCE_MAX,
   type QuestionListState,
   type QuestionTab,
   panelFilterCount,
@@ -82,9 +82,6 @@ const IMAGE_OPTIONS: { value: ImageFilter; label: string }[] = [
   { value: "with", label: "Avec" },
   { value: "without", label: "Sans" },
 ]
-
-const notUsedSinceLabel = (n: number) =>
-  `Pas utilisée depuis ${countLabel(n, "examen")}`
 
 const sameDay = (a: number, b: number) =>
   formatMediumDate(a) === formatMediumDate(b)
@@ -167,92 +164,6 @@ const SortButton = ({
   )
 }
 
-/** « Toutes » ou « Pas utilisée depuis [n] examens », n de 1 à 20. */
-const NotUsedSinceField = ({
-  value,
-  onChange,
-}: {
-  value: number | null
-  onChange: (value: number | null) => void
-}) => {
-  const [count, setCount] = useState(value ?? RECENT_EXAMS_DEFAULT)
-  // Le nombre ne recharge la liste qu'une fois la saisie posée : chaque
-  // rechargement recalcule l'agrégat de la banque.
-  useDebouncedValue(count, 400, (n) => {
-    if (value !== null && n !== value) onChange(n)
-  })
-  const setN = (n: number) =>
-    setCount(Math.max(1, Math.min(NOT_USED_SINCE_MAX, n)))
-  return (
-    <div className="flex flex-col gap-2 text-sm">
-      <label className="flex min-h-8 cursor-pointer items-center gap-2">
-        <input
-          type="radio"
-          name="not-used-since"
-          checked={value === null}
-          onChange={() => onChange(null)}
-          className="size-4 accent-(--accent)"
-        />
-        Toutes
-      </label>
-      <div className="flex min-h-8 flex-wrap items-center gap-2">
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="radio"
-            name="not-used-since"
-            checked={value !== null}
-            onChange={() => onChange(count)}
-            aria-label={notUsedSinceLabel(count)}
-            className="size-4 accent-(--accent)"
-          />
-          Pas utilisée depuis
-        </label>
-        <span
-          role="group"
-          aria-label="Nombre d'examens"
-          className="border-line-strong inline-flex h-8 items-center rounded-md border"
-        >
-          <button
-            type="button"
-            aria-label="Moins"
-            disabled={count <= 1}
-            onClick={() => setN(count - 1)}
-            className={cn(
-              TOUCH_TARGET,
-              "focus-ring text-ink-2 hover:bg-surface-2 flex size-8 cursor-pointer items-center justify-center rounded-l-md disabled:cursor-default disabled:opacity-40",
-            )}
-          >
-            <Minus aria-hidden className="size-3" />
-          </button>
-          <input
-            inputMode="numeric"
-            aria-label="Nombre d'examens"
-            value={count}
-            onFocus={() => value === null && onChange(count)}
-            onChange={(e) =>
-              setN(Number(e.target.value.replace(/\D/g, "")) || 1)
-            }
-            className="w-8 bg-transparent text-center font-mono text-sm outline-none"
-          />
-          <button
-            type="button"
-            aria-label="Plus"
-            disabled={count >= NOT_USED_SINCE_MAX}
-            onClick={() => setN(count + 1)}
-            className={cn(
-              TOUCH_TARGET,
-              "focus-ring text-ink-2 hover:bg-surface-2 flex size-8 cursor-pointer items-center justify-center rounded-r-md disabled:cursor-default disabled:opacity-40",
-            )}
-          >
-            <Plus aria-hidden className="size-3" />
-          </button>
-        </span>
-        <span aria-hidden>{count > 1 ? "examens" : "examen"}</span>
-      </div>
-    </div>
-  )
-}
-
 /**
  * Liste des questions : onglets à compteur, recherche, domaine et filtres
  * secondaires, 20 lignes par page. Un clic sur une ligne ouvre la page de
@@ -272,41 +183,14 @@ export const QuestionsClient = ({
   initialNow: number
 }) => {
   const router = useRouter()
-  const pathname = usePathname()
-  const [isPending, startTransition] = useTransition()
-  const [search, setSearch] = useState(state.q)
-  // Recherche envoyée par la frappe : un `q` d'URL qui en diffère vient
-  // d'ailleurs (retour arrière, lien) et réaligne le champ.
-  const [sentQ, setSentQ] = useState(state.q)
-  if (state.q !== sentQ) {
-    setSentQ(state.q)
-    setSearch(state.q)
-  }
-
-  // Dernier état demandé : pendant un rechargement, `state` (les props) est
-  // encore l'ancien, et un second changement effacerait le premier.
-  const requested = useRef(state)
-  useEffect(() => {
-    requested.current = state
-  }, [state])
-  const latest = () => requested.current
-
-  const go = (next: QuestionListState) =>
-    startTransition(() => {
-      requested.current = next
-      const params = serializeQuestionList(next)
-      router.replace(params.size ? `${pathname}?${params}` : pathname, {
-        scroll: false,
-      })
+  const { search, setSearch, isPending, startTransition, latest, go } =
+    useUrlListState({
+      state,
+      serialize: serializeQuestionList,
+      withSearch: (current, q) => withChange(current, { q }),
     })
   const change = (c: Partial<Omit<QuestionListState, "page">>) =>
     go(withChange(latest(), c))
-
-  useDebouncedValue(search, 300, (value) => {
-    if (value.trim() === latest().q) return
-    setSentQ(value.trim())
-    change({ q: value.trim() })
-  })
 
   const onSort = (field: QuestionSortBy) => {
     const current = latest()
@@ -577,6 +461,7 @@ export const QuestionsClient = ({
             help="Examen blanc le plus récent, par date d'ouverture, qui contient la question."
           >
             <NotUsedSinceField
+              max={NOT_USED_SINCE_MAX}
               value={state.notUsedSince}
               onChange={(notUsedSince) => change({ notUsedSince })}
             />

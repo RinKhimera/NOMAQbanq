@@ -16,6 +16,7 @@ import { optionLetter } from "@/components/quiz/question-card/answer-option"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { examHref } from "@/constants/exam-routes"
 import type { QuestionAnswerBreakdown } from "@/features/analytics/dal"
 import type { QuestionDetail, QuestionExamUse } from "@/features/questions/dal"
 import type { KeyReview } from "@/features/questions/key-review"
@@ -282,7 +283,7 @@ const ExamsUsing = ({
               >
                 {links ? (
                   <Link
-                    href={`/admin/examens/${e.id}`}
+                    href={examHref(e.id)}
                     prefetch={false}
                     className="focus-ring rounded-xs hover:underline hover:underline-offset-3"
                   >

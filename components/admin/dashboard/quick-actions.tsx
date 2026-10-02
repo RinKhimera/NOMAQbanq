@@ -6,6 +6,7 @@ import {
   Users,
 } from "lucide-react"
 import Link from "next/link"
+import { examCreateHref } from "@/constants/exam-routes"
 import { DashboardPanel } from "./dashboard-panel"
 
 const TILE =
@@ -30,7 +31,7 @@ export function QuickActions({
         <Link href="/admin/questions" prefetch={false} className={TILE}>
           <Tile icon={Plus} label="Ajouter une question" />
         </Link>
-        <Link href="/admin/examens/creer" prefetch={false} className={TILE}>
+        <Link href={examCreateHref()} prefetch={false} className={TILE}>
           <Tile icon={ClipboardPlus} label="Créer un examen" />
         </Link>
         <button type="button" onClick={onManualPaymentClick} className={TILE}>

@@ -28,31 +28,33 @@ import {
 } from "../attempts/guard"
 import { hasActiveAccess } from "../payments/dal"
 import { viewerOf } from "../questions/answer-key-lock"
+import { drawFromBank, getBankSupply } from "../questions/dal"
 import { type SelectableUser, searchSelectableUsers } from "../users/dal"
+import { completionLines, planCompletion } from "./completion"
 import {
   type ExamAudienceUser,
   type QuestionExplanationView,
   getExamAudience,
   getExamQuestionExplanations,
+  getRemainingSeats,
 } from "./dal"
 import {
-  type CreateExamInput,
   DEFAULT_PAUSE_MINUTES,
+  type ExamAudienceType,
   type FinalizeExamInput,
   MAX_PAUSE_MINUTES,
   SECONDS_PER_QUESTION,
   type SaveExamAnswerInput,
   type SaveExamFlagInput,
   type SaveExamInput,
-  type UpdateExamInput,
-  createExamSchema,
+  composeQuestionsSchema,
+  deleteExamSchema,
+  examIdSchema,
   finalizeExamSchema,
-  finalizePreparedExamSchema,
   loadExamQuestionExplanationsSchema,
   saveExamAnswerSchema,
   saveExamFlagSchema,
   saveExamSchema,
-  updateExamSchema,
 } from "./schemas"
 
 const fail = (error: string) => ({ success: false as const, error })
@@ -220,7 +222,7 @@ const writeQuestions = async (tx: Tx, examId: string, ids: string[]) => {
 const writeAudience = async (
   tx: Tx,
   examId: string,
-  audienceType: "subscribers" | "restricted",
+  audienceType: ExamAudienceType,
   userIds: string[],
 ) => {
   await tx.delete(examAudience).where(eq(examAudience.examId, examId))
@@ -256,7 +258,7 @@ const shuffled = <T>(items: T[]): T[] => {
 const datesAndAudienceErrors = (d: {
   startDate: number | null
   endDate: number | null
-  audienceType: "subscribers" | "restricted"
+  audienceType: ExamAudienceType
   audienceSize: number
 }): ExamFieldErrors => {
   const errors: ExamFieldErrors = {}
@@ -344,7 +346,7 @@ type ExamSettings = {
   questionIds?: string[]
   enablePause: boolean
   pauseDurationMinutes?: number
-  audienceType: "subscribers" | "restricted"
+  audienceType: ExamAudienceType
   audienceUserIds: string[]
 }
 
@@ -505,7 +507,7 @@ export const finalizePreparedExam = async (input: {
   examId: string
 }): Promise<FinalizePreparedExamResult> => {
   const session = await requireRole(["admin"])
-  const parsed = finalizePreparedExamSchema.safeParse(input)
+  const parsed = examIdSchema.safeParse(input)
   if (!parsed.success) return fail("Examen requis")
   const { examId } = parsed.data
 
@@ -522,95 +524,183 @@ export const finalizePreparedExam = async (input: {
   }
 }
 
-export type CreateExamResult =
-  { success: true; examId: string } | ExamWriteFailure
+// ============================================
+// Admin : compositeur du jeu de questions
+// ============================================
+
+export type ComposeResult =
+  | {
+      success: true
+      /** Taille du jeu après l'écriture. */
+      count: number
+      /** `false` : un examen finalisé vient de repasser en préparation. */
+      finalized: boolean
+    }
+  | ExamWriteFailure
 
 /**
- * [Admin] Crée un examen complet (`ExamForm`, jeu choisi d'un bloc) : l'enregistre en
- * préparation puis le finalise, dans la même transaction.
+ * Change le jeu sous le verrou de l'examen : refusé dès la première
+ * participation (`HAS_PARTICIPATIONS`), jamais au-delà du visé. Un examen
+ * finalisé repasse en préparation : il devra être refinalisé, ordre remélangé.
  */
-export const createExam = async (
-  input: CreateExamInput,
-): Promise<CreateExamResult> => {
-  const session = await requireRole(["admin"])
+const composeTx = async (
+  tx: Tx,
+  examId: string,
+  change: (current: string[]) => Promise<string[]>,
+): Promise<{ count: number; finalized: boolean }> => {
+  const exam = await lockExam(tx, examId)
+  if (await hasParticipationsTx(tx, examId)) {
+    throw new Error("HAS_PARTICIPATIONS")
+  }
+  const current = await examQuestionIds(tx, examId)
+  const next = await change(current)
+  if (sameSet(current, next)) {
+    return { count: current.length, finalized: exam.finalizedAt !== null }
+  }
+  // Seul un ajout peut dépasser le visé : un retrait reste permis sur un jeu
+  // déjà plus grand que lui (un visé à 0 est possible tant que le défaut de la
+  // colonne existe, voir `db/schema/exams.ts`).
+  if (next.length > exam.targetQuestionCount && next.length > current.length) {
+    throw new ExamInvalid({
+      questionIds: `Le jeu ne peut pas dépasser les ${exam.targetQuestionCount} questions visées.`,
+    })
+  }
+  await writeQuestions(tx, examId, next)
+  if (exam.finalizedAt !== null) {
+    await tx
+      .update(exams)
+      .set({ finalizedAt: null, completionTime: null })
+      .where(eq(exams.id, examId))
+  }
+  return { count: next.length, finalized: false }
+}
 
-  const parsed = createExamSchema.safeParse(input)
+const compose = async (
+  input: unknown,
+  tag: string,
+  change: (tx: Tx, current: string[], ids: string[]) => Promise<string[]>,
+): Promise<ComposeResult> => {
+  const session = await requireRole(["admin"])
+  const parsed = composeQuestionsSchema.safeParse(input)
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
-  const d = parsed.data
-
+  const { examId, questionIds } = parsed.data
   try {
-    const now = Date.now()
-    const examId = await db.transaction(async (tx) => {
-      const id = await insertExamTx(
-        tx,
-        { ...d, targetQuestionCount: d.questionIds.length },
-        session.user.id,
-      )
-      await finalizeInTx(tx, id, now)
-      return id
-    })
-    revalidatePath("/admin/examens")
-    return { success: true, examId }
+    const result = await db.transaction((tx) =>
+      composeTx(tx, examId, (current) => change(tx, current, questionIds)),
+    )
+    revalidateExam(examId)
+    revalidatePath(`/admin/examens/${examId}/questions`)
+    return { success: true, ...result }
   } catch (error) {
-    return examWriteFailure(error, "[createExam]", session.user.id)
+    return examWriteFailure(error, tag, session.user.id)
   }
 }
 
+/** [Admin] Ajoute des questions au jeu (compositeur), à la suite des autres. */
+export const addExamQuestions = async (input: {
+  examId: string
+  questionIds: string[]
+}): Promise<ComposeResult> =>
+  compose(input, "[addExamQuestions]", async (tx, current, ids) => {
+    const known = new Set(current)
+    const added = [...new Set(ids)].filter((id) => !known.has(id))
+    await assertQuestionsExist(tx, added)
+    return [...current, ...added]
+  })
+
+/** [Admin] Retire des questions du jeu (compositeur). */
+export const removeExamQuestions = async (input: {
+  examId: string
+  questionIds: string[]
+}): Promise<ComposeResult> =>
+  compose(input, "[removeExamQuestions]", async (_tx, current, ids) => {
+    const removed = new Set(ids)
+    return current.filter((id) => !removed.has(id))
+  })
+
+export type CompletionPreview =
+  | {
+      success: true
+      /** Questions tirées, à ajouter par `addExamQuestions`. */
+      questionIds: string[]
+      /** Par domaine, du plus fourni au moins fourni ; `fallback` = récentes faute d'anciennes. */
+      lines: { domain: string; count: number; fallback: number }[]
+    }
+  | { success: false; error: string }
+
 /**
- * [Admin] Met à jour un examen depuis `ExamForm`, qui envoie un
- * examen complet : l'enregistre (voir `updateExamTx`), puis le refinalise
- * dans la même transaction s'il est (re)passé en préparation.
+ * [Admin] Aperçu de « Compléter les N restantes » : un tirage réparti comme la
+ * banque, sans questions récentes ni clés à vérifier, avec repli sur les
+ * récentes d'un domaine qui manque d'anciennes (voir `planCompletion`). Rien
+ * n'est écrit : « Appliquer » passe par `addExamQuestions`, qui revérifie le
+ * verrou et le visé.
  */
-export const updateExam = async (
-  input: UpdateExamInput,
-): Promise<{
-  success: boolean
-  error?: string
-  fieldErrors?: ExamFieldErrors
-}> => {
+export const previewExamCompletion = async (input: {
+  examId: string
+}): Promise<CompletionPreview> => {
   const session = await requireRole(["admin"])
-
-  const parsed = updateExamSchema.safeParse(input)
-  if (!parsed.success) {
-    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
-  }
-  const { id, ...d } = parsed.data
-
+  const parsed = examIdSchema.safeParse(input)
+  if (!parsed.success) return fail("Examen requis")
+  const { examId } = parsed.data
   try {
-    const now = Date.now()
-    await db.transaction(async (tx) => {
-      const { finalized } = await updateExamTx(
-        tx,
-        id,
-        { ...d, targetQuestionCount: d.questionIds.length },
-        now,
-      )
-      if (!finalized) await finalizeInTx(tx, id, now)
-    })
-    revalidateExam(id)
-    return { success: true }
+    const need = await getRemainingSeats(examId)
+    if (need === null) return fail(EXAM_ERRORS.NOT_FOUND)
+    const drawn = await drawFromBank(
+      examId,
+      planCompletion(await getBankSupply(examId), need),
+    )
+    return {
+      success: true,
+      questionIds: drawn.map((q) => q.id),
+      lines: completionLines(drawn),
+    }
   } catch (error) {
-    return examWriteFailure(error, "[updateExam]", session.user.id)
+    captureServerError("[previewExamCompletion]", error, {
+      userId: session.user.id,
+    })
+    return fail("Erreur serveur. Réessayez.")
   }
 }
 
 /** [Admin] Supprime un examen (participations + réponses + jonctions en cascade FK). */
-export const deleteExam = async ({
-  examId,
-}: {
+export const deleteExam = async (input: {
   examId: string
+  /**
+   * Participations que l'admin a vues en confirmant : s'il y en a davantage
+   * (un étudiant a démarré entre-temps), la suppression est refusée.
+   */
+  expectedParticipations: number
 }): Promise<{ success: boolean; error?: string }> => {
-  await requireRole(["admin"])
-  if (!examId) return fail("Examen requis")
+  const session = await requireRole(["admin"])
+  const parsed = deleteExamSchema.safeParse(input)
+  if (!parsed.success) return fail("Examen requis")
+  const { examId, expectedParticipations } = parsed.data
 
   try {
-    await db.delete(exams).where(eq(exams.id, examId))
+    const outcome = await db.transaction(async (tx) => {
+      await lockExam(tx, examId)
+      const [row] = await tx
+        .select({ n: sql<number>`count(*)`.mapWith(Number) })
+        .from(examParticipations)
+        .where(eq(examParticipations.examId, examId))
+      if ((row?.n ?? 0) > expectedParticipations) return "CHANGED" as const
+      await tx.delete(exams).where(eq(exams.id, examId))
+      return "DELETED" as const
+    })
+    if (outcome === "CHANGED") {
+      return fail(
+        "Des participations ont commencé depuis l'ouverture de la page : rechargez-la avant de supprimer.",
+      )
+    }
     revalidatePath("/admin/examens")
     return { success: true }
   } catch (error) {
-    captureServerError("[deleteExam]", error)
+    if (error instanceof Error && error.message === "NOT_FOUND") {
+      return fail(EXAM_ERRORS.NOT_FOUND)
+    }
+    captureServerError("[deleteExam]", error, { userId: session.user.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -677,6 +767,8 @@ export const deleteParticipation = async ({
       .where(eq(examParticipations.id, participationId))
 
     revalidatePath(`/admin/examens/${p.examId}`)
+    // L'étudiant peut repasser l'examen : sa liste, sa page et son tableau de bord changent.
+    revalidatePath("/tableau-de-bord", "layout")
     return { success: true }
   } catch (error) {
     captureServerError("[deleteParticipation]", error)
@@ -727,7 +819,7 @@ export const startExam = async ({
         .for("update")
 
       // Verrou de ligne examen (après le verrou user, ordre déterministe) :
-      // commun avec updateExam → un remplacement du set de questions ne peut pas
+      // commun avec les écritures du jeu → un remplacement du set de questions ne peut pas
       // s'intercaler entre la création de la participation et la pré-création des
       // examAnswers.
       const [exam] = await tx

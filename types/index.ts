@@ -39,13 +39,6 @@ export type ExamStatusConfig = {
   icon: LucideIcon
 }
 
-export type ExamStatItem = {
-  title: string
-  value: string | number
-  icon: LucideIcon
-  iconClassName?: string
-}
-
 /**
  * Exam type without embedded participants (V2 normalized schema)
  * Use this for admin list views and other places that don't need participant details

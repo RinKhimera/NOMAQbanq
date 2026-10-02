@@ -2,6 +2,7 @@
 
 import { and, desc, eq, gt, isNotNull, isNull, sql } from "drizzle-orm"
 import { revalidatePath, revalidateTag } from "next/cache"
+import type { QuestionFile } from "@/components/admin/question-detail/question-detail-content"
 import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
@@ -28,22 +29,21 @@ import {
 } from "@/lib/storage"
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
 import { questionSuccessStats } from "../analytics/answers-sql"
+import { getQuestionAnswerBreakdown } from "../analytics/dal"
 import { MARKETING_STATS_TAG } from "../marketing/cache-tags"
 import { lockFor } from "./answer-key-lock"
 import {
-  type QuestionDetail,
   type QuestionExportRow,
-  type QuestionFiltersInput,
   type QuestionSelection,
-  type QuestionsPage,
-  getAllQuestionIds,
   getQuestionById,
+  getQuestionExams,
   getQuestionsForExport,
-  getQuestionsWithFilters,
   getQuizAnswerKey,
   getRandomQuizQuestions,
 } from "./dal"
+import { keyReview } from "./key-review"
 import { normalizeObjectifCMC } from "./lib"
+import { diagnoseCorrection } from "./normalization"
 import { signQuizToken, verifyQuizToken } from "./quiz-token"
 import {
   type ConfirmQuestionKeyInput,
@@ -61,26 +61,34 @@ import {
 
 const fail = (error: string) => ({ success: false as const, error })
 
-/** [Admin] Charge une page de la liste filtrée (browser : filtres + « charger plus »). */
-export const loadQuestionsPage = async (
-  filters: QuestionFiltersInput,
-): Promise<QuestionsPage> => {
-  await requireRole(["admin"])
-  return getQuestionsWithFilters(filters)
-}
-
-/** [Admin] Détail complet d'une question (aperçu d'un examen). `null` si introuvable. */
-export const loadQuestionById = async (
+/**
+ * [Admin] Fiche d'une question pour un aperçu (compositeur d'examen) : le même
+ * contenu que la page de détail. `null` si introuvable ou supprimée.
+ */
+export const loadQuestionFile = async (
   id: string,
-): Promise<QuestionDetail | null> => {
+): Promise<QuestionFile | null> => {
   await requireRole(["admin"])
-  return getQuestionById(id)
-}
-
-/** [Admin] Tous les ids de questions (auto-complete sélection examen). */
-export const loadAllQuestionIds = async (): Promise<string[]> => {
-  await requireRole(["admin"])
-  return getAllQuestionIds()
+  const [question, breakdown, exams] = await Promise.all([
+    getQuestionById(id),
+    getQuestionAnswerBreakdown(id),
+    getQuestionExams(id),
+  ])
+  if (!question) return null
+  return {
+    question,
+    breakdown,
+    exams,
+    review: keyReview({
+      answerCount: breakdown.answerCount,
+      keySuspect: breakdown.keySuspect,
+      confirmation: question.keyConfirmation,
+    }),
+    formatIssues: diagnoseCorrection({
+      explanation: question.explanation,
+      references: question.references ?? [],
+    }),
+  }
 }
 
 // ============================================

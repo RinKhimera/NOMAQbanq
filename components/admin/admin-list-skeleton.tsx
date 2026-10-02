@@ -1,20 +1,17 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  SkeletonCard,
   SkeletonStatRow,
   SkeletonTable,
 } from "@/components/ui/skeleton-patterns"
 
 type AdminListSkeletonProps = {
   statCount?: number
-  /** Nombre de colonnes de la table réelle — ignoré si `layout="cards"`. */
+  /** Nombre de colonnes de la table réelle. */
   columns?: number
-  /** `examens` liste des cartes, pas une table : le gabarit doit suivre. */
-  layout?: "table" | "cards"
 }
 
 /**
- * Squelette des 4 écrans de liste admin (utilisateurs, questions, examens,
+ * Squelette des écrans de liste admin (utilisateurs, questions,
  * transactions), qui partagent la même anatomie : stat cards → barre de filtres
  * → liste paginée. Monté par le `loading.tsx` de ces routes UNIQUEMENT — leurs
  * segments enfants (détail, création, modification) ont leur propre `loading.tsx`
@@ -27,7 +24,6 @@ type AdminListSkeletonProps = {
 export const AdminListSkeleton = ({
   statCount = 4,
   columns = 5,
-  layout = "table",
 }: AdminListSkeletonProps) => (
   <output
     aria-label="Chargement de la liste"
@@ -43,14 +39,6 @@ export const AdminListSkeleton = ({
       <Skeleton className="h-10 w-40" />
       <Skeleton className="h-10 w-40" />
     </div>
-    {layout === "cards" ? (
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }, (_, i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </div>
-    ) : (
-      <SkeletonTable columns={columns} rows={8} />
-    )}
+    <SkeletonTable columns={columns} rows={8} />
   </output>
 )

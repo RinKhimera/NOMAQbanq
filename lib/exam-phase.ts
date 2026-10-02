@@ -26,32 +26,49 @@ export const phaseOf = (
 }
 
 /**
- * Phase vue par l'admin, qui voit aussi les examens en préparation : sans
- * finalisation, leurs dates peuvent manquer. « Désactivé » prime.
+ * Calendrier d'un examen vu par l'admin, en epoch ms : sans finalisation
+ * (`finalizedAt` nul, examen en préparation), ses dates peuvent manquer.
  */
-export type AdminExamWindow = {
-  isActive: boolean
-  finalizedAt: number | null
+export type ExamSchedule = {
   startDate: number | null
   endDate: number | null
+  finalizedAt: number | null
 }
+
+/**
+ * Fenêtre d'un examen finalisé, `null` en préparation. Dates nulles sur un
+ * examen finalisé : exclu par la contrainte `exams_finalized_complete`.
+ */
+export const finalizedWindow = (
+  exam: ExamSchedule,
+): { startDate: number; endDate: number } | null =>
+  exam.finalizedAt === null || exam.startDate === null || exam.endDate === null
+    ? null
+    : { startDate: exam.startDate, endDate: exam.endDate }
+
+/** Examen finalisé et ouvert (à venir ou en cours) : celui qui tient le verrou de clé. */
+export const isFinalizedOpen = (exam: ExamSchedule, now: number): boolean => {
+  const window = finalizedWindow(exam)
+  return window !== null && isOpen(window, now)
+}
+
+/** Examen finalisé et clos : il se rouvre, sa fin ne se repousse plus s'il a des participations. */
+export const isFinalizedClosed = (exam: ExamSchedule, now: number): boolean => {
+  const window = finalizedWindow(exam)
+  return window !== null && !isOpen(window, now)
+}
+
+/** Phase vue par l'admin, qui voit aussi les examens en préparation. « Désactivé » prime. */
+export type AdminExamWindow = ExamSchedule & { isActive: boolean }
 
 export const adminPhaseOf = (
   exam: AdminExamWindow,
   now: number,
 ): ExamStatus => {
   if (!exam.isActive) return "inactive"
-  // Dates nulles sur un examen finalisé : exclu par `exams_finalized_complete`.
-  if (
-    exam.finalizedAt === null ||
-    exam.startDate === null ||
-    exam.endDate === null
-  )
-    return "preparation"
-  return phaseOf(
-    { isActive: true, startDate: exam.startDate, endDate: exam.endDate },
-    now,
-  )
+  const window = finalizedWindow(exam)
+  if (window === null) return "preparation"
+  return phaseOf({ isActive: true, ...window }, now)
 }
 
 /**

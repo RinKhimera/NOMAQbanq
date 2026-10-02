@@ -243,12 +243,12 @@ ni pour un examen ouvert.
 _Avoid_ : rang global, percentile d'entraînement
 
 **Classement d'examen** :
-Les participations terminées d'un examen blanc, par score lisible décroissant,
-qu'un étudiant consulte après la clôture. Sa population est celle du
-percentile d'examen (participations d'étudiants, hors comptes admin et
-supprimés) : rang et percentile comptent les mêmes participants. La fiche admin
-d'un examen montre toutes les participations, comptes admin et supprimés
-signalés.
+Les participations terminées d'un examen blanc, par score décroissant, que
+seul l'admin consulte, sur la fiche de l'examen ; un étudiant n'en voit que son
+percentile, dans ses résultats. Sa population est celle du percentile d'examen
+(participations d'étudiants, hors comptes admin et supprimés) : rang et
+percentile comptent les mêmes participants. La fiche liste aussi les copies des
+comptes admin et supprimés, signalées et sans rang.
 _Avoid_ : leaderboard, palmarès
 
 **Maîtrise par domaine** :

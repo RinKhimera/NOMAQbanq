@@ -1,10 +1,14 @@
 import { notFound } from "next/navigation"
 import {
   getAdminExam,
-  getEligibleExamCandidates,
+  getEligibleSubscriberCount,
   getExamAudience,
+  getExamFigures,
 } from "@/features/exams/dal"
+import { getExamSelection } from "@/features/questions/dal"
+import { currentTimeMs } from "@/lib/clock"
 import { ExamForm } from "../../_components/exam-form"
+import { examFormFromExam } from "../../_components/exam-form-model"
 
 export default async function AdminEditExamPage({
   params,
@@ -14,20 +18,35 @@ export default async function AdminEditExamPage({
   const { id } = await params
   const data = await getAdminExam(id)
   if (!data) notFound()
+  const { exam } = data
 
-  const [candidates, initialAudience] = await Promise.all([
-    getEligibleExamCandidates(),
-    getExamAudience(id),
+  const [audience, selection, figures, subscriberCount] = await Promise.all([
+    exam.audienceType === "restricted" ? getExamAudience(id) : [],
+    getExamSelection(id),
+    getExamFigures(id),
+    getEligibleSubscriberCount(),
   ])
 
   return (
     <ExamForm
-      mode="edit"
-      examId={id}
-      exam={data.exam}
-      questionIds={data.questions.map((q) => q._id)}
-      candidates={candidates}
-      initialAudience={initialAudience}
+      key={id}
+      initialNow={currentTimeMs()}
+      subscriberCount={subscriberCount}
+      initialValues={examFormFromExam(exam, audience)}
+      saved={{
+        id,
+        title: exam.title,
+        startDate: exam.startDate,
+        endDate: exam.endDate,
+        finalizedAt: exam.finalizedAt,
+        isActive: exam.isActive,
+        targetQuestionCount: exam.targetQuestionCount,
+        questionCount: exam.questionCount,
+        participations: figures?.participations ?? 0,
+        locked: figures?.locked ?? false,
+      }}
+      selection={selection}
+      reopening={null}
     />
   )
 }

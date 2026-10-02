@@ -15,7 +15,6 @@ import {
   startExam,
 } from "@/features/exams/actions"
 import {
-  getExamLeaderboard,
   getExamWithQuestions,
   getExamsWithParticipation,
   getParticipantExamResults,
@@ -208,23 +207,5 @@ describe("examen désactivé", () => {
     expect(await ids()).not.toContain(examId)
     asUser(ADMIN_ID, "admin")
     expect(await ids()).toContain(examId)
-  })
-
-  it("le classement d'un examen désactivé est vide pour un non-participant", async () => {
-    const examId = await seedExam({ closed: true })
-    await db.insert(examParticipations).values({
-      examId,
-      userId: RUNNER_ID,
-      status: "completed",
-      score: 50,
-      startedAt: new Date(Date.now() - 5 * DAY),
-      completedAt: new Date(Date.now() - 5 * DAY + 1000),
-    })
-    await deactivate(examId)
-
-    asUser(NEWCOMER_ID)
-    expect(await getExamLeaderboard(examId)).toEqual([])
-    asUser(RUNNER_ID)
-    expect(await getExamLeaderboard(examId)).toHaveLength(1)
   })
 })

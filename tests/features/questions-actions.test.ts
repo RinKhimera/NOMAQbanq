@@ -104,7 +104,6 @@ vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   return { ...actual, lockFor: mocks.lockFor }
 })
 vi.mock("@/features/questions/dal", () => ({
-  getAllQuestionIds: vi.fn(async () => []),
   getQuestionById: vi.fn(async () => null),
   getQuestionsForExport: mocks.getQuestionsForExport,
   getQuestionsWithFilters: vi.fn(async () => ({ items: [] })),

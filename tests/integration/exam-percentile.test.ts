@@ -330,12 +330,16 @@ describe("classement d'examen : même population que le percentile", () => {
     { score: 95, deleted: true },
   ]
 
-  it("côté étudiant, écarte les comptes admin et supprimés, et le rang recoupe le percentile", async () => {
+  it("hors comptes admin et supprimés, le rang recoupe le percentile", async () => {
     const { examId, userIds } = await seedExam(population)
     asUser(userIds[0])
-
-    const leaderboard = await getExamLeaderboard(examId)
     const percentile = (await getMyExamPercentiles())[examId]
+
+    asUser(createId(), "admin")
+    // Population du classement : ce que l'écran range (`populationRanks`).
+    const leaderboard = (await getExamLeaderboard(examId)).filter(
+      (e) => e.user?.flag === null,
+    )
 
     expect(leaderboard.map((e) => e.score)).toEqual([90, 70, 60, 50, 40])
     const rank = leaderboard.findIndex((e) => e.user?.id === userIds[0])
@@ -364,7 +368,7 @@ describe("classement d'examen : même population que le percentile", () => {
   })
 
   it("départage les ex æquo de façon stable, par participation", async () => {
-    const { examId, userIds } = await seedExam([
+    const { examId } = await seedExam([
       { score: 60 },
       { score: 60 },
       { score: 60 },
@@ -375,7 +379,7 @@ describe("classement d'examen : même population que le percentile", () => {
       .update(examParticipations)
       .set({ completedAt: new Date(Date.now() - 5 * DAY) })
       .where(eq(examParticipations.examId, examId))
-    asUser(userIds[0])
+    asUser(createId(), "admin")
 
     const order = (await getExamLeaderboard(examId)).map(
       (e) => e.participationId,

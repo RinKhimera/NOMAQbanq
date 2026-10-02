@@ -1,13 +1,15 @@
+import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import {
   getAdminExam,
-  getEligibleExamCandidates,
   getExamAudience,
+  getExamFigures,
   getExamLeaderboard,
 } from "@/features/exams/dal"
 import { currentTimeMs } from "@/lib/clock"
-import { getCurrentSession } from "@/lib/dal"
-import { ExamDetailsClient } from "./_components/exam-details-client"
+import { ExamDetailClient } from "./_components/exam-detail-client"
+
+export const metadata: Metadata = { title: "Examen blanc" }
 
 export default async function AdminExamDetailsPage({
   params,
@@ -15,25 +17,22 @@ export default async function AdminExamDetailsPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const data = await getAdminExam(id)
-  if (!data) notFound()
-
-  const [leaderboard, candidates, audience, session] = await Promise.all([
+  const [data, figures, leaderboard] = await Promise.all([
+    getAdminExam(id),
+    getExamFigures(id),
     getExamLeaderboard(id),
-    getEligibleExamCandidates(),
-    getExamAudience(id),
-    getCurrentSession(),
   ])
+  if (!data || !figures) notFound()
+
+  const audience =
+    data.exam.audienceType === "restricted" ? await getExamAudience(id) : []
 
   return (
-    <ExamDetailsClient
-      examId={id}
+    <ExamDetailClient
       exam={data.exam}
-      questions={data.questions}
+      figures={figures}
       leaderboard={leaderboard}
-      candidates={candidates}
       audience={audience}
-      currentUserId={session?.user?.id}
       initialNow={currentTimeMs()}
     />
   )

@@ -12,6 +12,10 @@ export const MIN_PAUSE_MINUTES = 1
 export const MAX_PAUSE_MINUTES = 60
 export const DEFAULT_PAUSE_MINUTES = 15
 
+/** Audience d'un examen : abonnés Examens, ou liste restreinte. */
+export const EXAM_AUDIENCES = ["subscribers", "restricted"] as const
+export type ExamAudienceType = (typeof EXAM_AUDIENCES)[number]
+
 const examFields = {
   title: z
     .string()
@@ -19,27 +23,14 @@ const examFields = {
     .min(1, "Le titre est requis")
     .max(200, "Le titre ne peut pas dépasser 200 caractères"),
   description: z.string().trim().max(2000).optional(),
-  // Epoch ms (le formulaire convertit ses Date en ms avant l'appel).
-  startDate: z.number().int("Date de début invalide"),
-  endDate: z.number().int("Date de fin invalide"),
-  questionIds: z
-    .array(z.string().min(1))
-    .min(MIN_EXAM_QUESTIONS, `Au moins ${MIN_EXAM_QUESTIONS} questions`)
-    .max(MAX_EXAM_QUESTIONS, `Au plus ${MAX_EXAM_QUESTIONS} questions`),
-  enablePause: z.boolean().default(false),
   pauseDurationMinutes: z
     .number()
     .int()
     .min(MIN_PAUSE_MINUTES)
     .max(MAX_PAUSE_MINUTES)
     .optional(),
-  // Audience : ouvert aux abonnés (défaut) ou restreint à une liste choisie.
-  audienceType: z.enum(["subscribers", "restricted"]).default("subscribers"),
-  audienceUserIds: z.array(z.string().min(1)).max(5000).default([]),
 }
 
-const datesOrdered = (d: { startDate: number; endDate: number }) =>
-  d.endDate > d.startDate
 const datesIssue = {
   message: "La date de fin doit être postérieure à la date de début",
   path: ["endDate"],
@@ -51,32 +42,6 @@ const uniqueIssue = {
   message: "Des questions sont sélectionnées en double",
   path: ["questionIds"],
 }
-// Audience restreinte → au moins un utilisateur sélectionné.
-const audienceValid = (d: {
-  audienceType: "subscribers" | "restricted"
-  audienceUserIds: string[]
-}) => d.audienceType === "subscribers" || d.audienceUserIds.length >= 1
-const audienceIssue = {
-  message: "Sélectionnez au moins un utilisateur",
-  path: ["audienceUserIds"],
-}
-
-export const createExamSchema = z
-  .object(examFields)
-  .refine(datesOrdered, datesIssue)
-  .refine(uniqueQuestions, uniqueIssue)
-  .refine(audienceValid, audienceIssue)
-// `z.input` : les champs à défaut (`enablePause`, `audienceType`,
-// `audienceUserIds`) restent optionnels pour l'appelant ; le parse applique les
-// défauts et le corps d'action lit `parsed.data` (type de sortie complet).
-export type CreateExamInput = z.input<typeof createExamSchema>
-
-export const updateExamSchema = z
-  .object({ id: z.string().min(1), ...examFields })
-  .refine(datesOrdered, datesIssue)
-  .refine(uniqueQuestions, uniqueIssue)
-  .refine(audienceValid, audienceIssue)
-export type UpdateExamInput = z.input<typeof updateExamSchema>
 
 const targetIssue = `Entre ${MIN_EXAM_QUESTIONS} et ${MAX_EXAM_QUESTIONS} questions`
 
@@ -106,7 +71,7 @@ export const saveExamSchema = z
       .optional(),
     enablePause: z.boolean(),
     pauseDurationMinutes: examFields.pauseDurationMinutes,
-    audienceType: z.enum(["subscribers", "restricted"]),
+    audienceType: z.enum(EXAM_AUDIENCES),
     audienceUserIds: z.array(z.string().min(1)).max(5000),
   })
   .refine(
@@ -127,8 +92,23 @@ export const saveExamSchema = z
   )
 export type SaveExamInput = z.input<typeof saveExamSchema>
 
-export const finalizePreparedExamSchema = z.object({
+/** Ajout ou retrait de questions du jeu (compositeur). */
+export const composeQuestionsSchema = z.object({
   examId: z.string().min(1),
+  questionIds: z
+    .array(z.string().min(1))
+    .min(1, "Aucune question")
+    .max(MAX_EXAM_QUESTIONS, `Au plus ${MAX_EXAM_QUESTIONS} questions`),
+})
+
+/** Une action qui ne vise qu'un examen (finaliser, aperçu de complétion). */
+export const examIdSchema = z.object({
+  examId: z.string().min(1),
+})
+
+export const deleteExamSchema = examIdSchema.extend({
+  /** Participations vues par l'admin en confirmant. */
+  expectedParticipations: z.number().int().min(0),
 })
 
 export const saveExamAnswerSchema = z.object({

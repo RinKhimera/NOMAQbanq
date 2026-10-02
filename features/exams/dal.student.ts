@@ -6,7 +6,6 @@ import {
   exists,
   inArray,
   isNotNull,
-  isNull,
   lte,
   or,
   sql,
@@ -41,11 +40,13 @@ import {
 } from "../questions/answer-key-lock"
 import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
 import {
+  type SubmittedStatus,
   countQuestionsByExam,
   finalizedDate,
   finalizedDates,
 } from "./dal.shared"
 import { DEFAULT_PAUSE_MINUTES } from "./schemas"
+import type { ExamAudienceType } from "./schemas"
 
 // Questions RÉPONDUES d'une participation, corrélées à la ligne
 // `exam_participations` lue — la forme attendue par `scoreWithheldFor`. Avec
@@ -127,7 +128,7 @@ export type ExamListItem = {
   // Type d'audience : un examen `restricted` présent dans cette liste implique que
   // l'utilisateur en est membre (filtre `audienceWhere`) → éligible à le démarrer
   // même sans abonnement (calcul d'éligibilité par-examen côté client).
-  audienceType: "subscribers" | "restricted"
+  audienceType: ExamAudienceType
   userHasTaken: boolean
   userParticipation: ExamListParticipation | null
 }
@@ -320,7 +321,7 @@ export type ExamWithQuestions = {
     enablePause: boolean
     pauseDurationMinutes: number | null
     questionCount: number
-    audienceType: "subscribers" | "restricted"
+    audienceType: ExamAudienceType
   }
   questions: QuizQuestion[]
 } | null
@@ -599,6 +600,7 @@ export type ExamResultsView =
         score: number | null
         completedAt: number | null
         startedAt: number | null
+        status: SubmittedStatus
         answers: {
           questionId: string
           selectedAnswer: string | null
@@ -798,6 +800,7 @@ export const getParticipantExamResults = async (
         : p.score,
       completedAt: p.completedAt?.getTime() ?? null,
       startedAt: p.startedAt?.getTime() ?? null,
+      status: p.status,
       answers: answerRows.map((a) => ({
         questionId: a.questionId,
         selectedAnswer: a.selectedAnswer ?? null,
@@ -988,148 +991,6 @@ export const getExamSubmissionSummary = cache(
     }
   },
 )
-
-// ============================================
-// Leaderboard
-// ============================================
-
-/** Compte hors population du classement étudiant. */
-export type LeaderboardFlag = "admin" | "deleted"
-
-export type LeaderboardEntry = {
-  participationId: string
-  user: {
-    id: string
-    name: string
-    username: string | null
-    image: string | null
-    /**
-     * Compte hors population du classement étudiant, que seul le classement
-     * admin montre. Un admin supprimé est `deleted`.
-     */
-    flag: LeaderboardFlag | null
-  } | null
-  /** `null` = score retenu pour le lecteur (sa propre ligne seulement). */
-  score: number | null
-  completedAt: number | null
-}
-
-const leaderboardFlag = (u: {
-  role: string
-  deletedAt: Date | null
-}): LeaderboardFlag | null => {
-  if (u.deletedAt) return "deleted"
-  if (u.role === "admin") return "admin"
-  return null
-}
-
-/**
- * Classement (participations complétées, score décroissant). Admin : toutes les
- * participations, comptes admin et supprimés signalés par `flag`. Non-admin :
- * uniquement après `endDate` ET (a participé OU a un accès examen actif), sur
- * la population du percentile d'examen (comptes étudiants non supprimés) ;
- * un examen désactivé exige la participation. Sinon `[]`.
- */
-export const getExamLeaderboard = async (
-  examId: string,
-): Promise<LeaderboardEntry[]> => {
-  const session = await getCurrentSession()
-
-  const [exam] = await db
-    .select({
-      endDate: exams.endDate,
-      audienceType: exams.audienceType,
-      isActive: exams.isActive,
-    })
-    .from(exams)
-    .where(and(eq(exams.id, examId), isNotNull(exams.finalizedAt)))
-    .limit(1)
-  if (!exam) return []
-
-  const isAdmin = session?.user?.role === "admin"
-  if (!isAdmin) {
-    if (!session?.user) return []
-    if (
-      !canReadResults(
-        { endDate: finalizedDate(exam.endDate) },
-        session.user,
-        Date.now(),
-      )
-    )
-      return []
-
-    const participated = await hasParticipation(examId, session.user.id)
-    if (!exam.isActive && !participated) return []
-
-    if (exam.audienceType === "restricted") {
-      // Examen restreint : seul un membre de l'audience voit le classement
-      // (confidentiel) — l'abonnement ou une participation ne suffisent pas.
-      const [member] = await db
-        .select({ userId: examAudience.userId })
-        .from(examAudience)
-        .where(
-          and(
-            eq(examAudience.examId, examId),
-            eq(examAudience.userId, session.user.id),
-          ),
-        )
-        .limit(1)
-      if (!member) return []
-    } else if (!participated && !(await hasAccess("exam", session.user.id))) {
-      return []
-    }
-  }
-
-  // Retenue selon le PROPRIÉTAIRE de chaque ligne : son score lu par un
-  // camarade lui revient. Les lignes retenues sortent du rang (tri sur le
-  // score lisible, `nulls last`) — trier sur le score brut serait un oracle.
-  const shownScore = isAdmin ? examParticipations.score : ownerReadableScore
-  const rows = await db
-    .select({
-      participationId: examParticipations.id,
-      score: shownScore,
-      completedAt: examParticipations.completedAt,
-      userId: user.id,
-      name: user.name,
-      username: user.username,
-      image: user.image,
-      role: user.role,
-      deletedAt: user.deletedAt,
-    })
-    .from(examParticipations)
-    .innerJoin(user, eq(user.id, examParticipations.userId))
-    .where(
-      and(
-        eq(examParticipations.examId, examId),
-        inArray(examParticipations.status, ["completed", "auto_submitted"]),
-        isAdmin
-          ? undefined
-          : and(eq(user.role, "user"), isNull(user.deletedAt)),
-      ),
-    )
-    .orderBy(
-      sql`${shownScore} desc nulls last`,
-      asc(examParticipations.completedAt),
-      // Un lot auto-soumis partage le même `completedAt` : sans clé unique,
-      // l'ordre des ex æquo changerait d'un rendu à l'autre.
-      asc(examParticipations.id),
-    )
-    .limit(500)
-
-  return rows.map((r) => ({
-    participationId: r.participationId,
-    user: {
-      id: r.userId,
-      name: r.name,
-      // Seul le classement admin affiche et recherche le @username.
-      username: isAdmin ? r.username : null,
-      image: r.image ?? null,
-      flag: leaderboardFlag(r),
-    },
-    score: r.score,
-    completedAt: r.completedAt?.getTime() ?? null,
-  }))
-}
 
 // ============================================
 // Dashboard étudiant

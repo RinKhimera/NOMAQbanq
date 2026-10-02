@@ -9,7 +9,7 @@ import {
   questions,
   user,
 } from "@/db/schema"
-import { createExam, startExam, updateExam } from "@/features/exams/actions"
+import { startExam } from "@/features/exams/actions"
 import {
   getExamReopeningSource,
   getParticipantExamResults,
@@ -17,6 +17,7 @@ import {
 import { lockFor } from "@/features/questions/answer-key-lock"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -216,13 +217,13 @@ afterAll(async () => {
     .where(inArray(user.id, [ADMIN_ID, STUDENT_ID, DELETED_USER_ID]))
 })
 
-describe("updateExam — les dates d'un examen clos", () => {
+describe("modification d'un examen complet — les dates d'un examen clos", () => {
   it("refuse de repousser dans le futur la fin d'un examen clos qui a des participations, sans rien écrire", async () => {
     asAdmin()
     const before = await examRow(CLOSED_TAKEN_ID)
     const now = Date.now()
 
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: CLOSED_TAKEN_ID,
       title: `REO renommé ${suffix}`,
       startDate: now,
@@ -244,7 +245,7 @@ describe("updateExam — les dates d'un examen clos", () => {
   it("renvoie vers « Rouvrir » même quand les questions changent aussi", async () => {
     asAdmin()
     const now = Date.now()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: CLOSED_TAKEN_ID,
       title: `REO clos passé ${suffix}`,
       startDate: now,
@@ -263,7 +264,7 @@ describe("updateExam — les dates d'un examen clos", () => {
 
   it("permet de corriger la fin d'un examen clos vers une autre date passée", async () => {
     asAdmin()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: CLOSED_TAKEN_ID,
       title: `REO clos passé ${suffix}`,
       startDate: CLOSED_START.getTime(),
@@ -283,7 +284,7 @@ describe("updateExam — les dates d'un examen clos", () => {
   it("permet de reprogrammer un examen clos sans participation", async () => {
     asAdmin()
     const now = Date.now()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: CLOSED_EMPTY_ID,
       title: `REO clos vide ${suffix}`,
       startDate: now + DAY,
@@ -301,7 +302,7 @@ describe("updateExam — les dates d'un examen clos", () => {
   it("permet de prolonger un examen ouvert qui a des participations", async () => {
     asAdmin()
     const now = Date.now()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: OPEN_TAKEN_ID,
       title: `REO ouvert ${suffix}`,
       startDate: now - DAY,
@@ -349,11 +350,11 @@ describe("getExamReopeningSource — ce qu'une réouverture reprend", () => {
   })
 })
 
-describe("réouverture — une copie créée par createExam", () => {
+describe("réouverture — une copie créée par le formulaire", () => {
   it("l'ancien participant garde ses résultats, peut passer la copie, et sa correction d'origine est différée le temps de la copie", async () => {
     asAdmin()
     const now = Date.now()
-    const created = await createExam({
+    const created = await createFinalizedExam({
       title: `REO clos passé ${suffix} (réouverture)`,
       startDate: now - 60_000,
       endDate: now + 7 * DAY,

@@ -98,8 +98,8 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   reçoit le 404, il n'a rien à acheter). Budget-temps anti-triche
   gardé À L'ÉCRITURE (verbe `answer` de `requireAttempt`, au-delà de
   `startedAt + completionTime + grâce`), pas seulement à la finalisation.
-  `updateExam` et `startExam` prennent un `FOR UPDATE` commun sur la ligne
-  `exams` ; `requireAttempt` ne verrouille QUE la participation (`OF p`).
+  Toute écriture du jeu de questions et `startExam` prennent un `FOR UPDATE`
+  commun sur la ligne `exams` ; `requireAttempt` ne verrouille QUE la participation (`OF p`).
 - **Verrou de clé de réponse = un seul module**,
   `features/questions/answer-key-lock.ts` (voir `CONTEXT.md`). Tant qu'un
   examen contenant une question est ouvert, sa clé est retenue pour tout
@@ -168,8 +168,17 @@ colonne)` dans le WHERE des canaux de
   qu'un examen ouvert (`end_date > now()`) et finalisé contient la question.
 - **Dernière utilisation** : `notUsedInLastExams(n, colonne)`
   (`features/questions/last-use.ts`), prédicat corrélé (examens par date
-  d'ouverture, désactivés compris, examens en préparation exclus), à
-  reprendre par le compositeur d'examen.
+  d'ouverture, désactivés compris, examens en préparation exclus) ; sa
+  lecture par question est `getLastUses` (même ordre), et une question est
+  récente quand cet examen est l'un des `RECENT_EXAMS_DEFAULT` derniers.
+- **Compositeur d'examen** : la règle de complétion est pure
+  (`planCompletion`, `features/exams/completion.ts` : prorata des questions
+  disponibles par domaine, anciennes puis récentes du même domaine, report
+  sur les autres domaines, jamais une clé à vérifier) ; la DAL fournit l'offre
+  (`getBankSupply`) et tire au hasard (`drawFromBank`). Les écritures
+  (`addExamQuestions`, `removeExamQuestions`) passent par `composeTx`, sous le
+  verrou de l'examen, avec les gardes de `saveExam` (participation, visé) ;
+  l'aperçu n'écrit rien.
 - **Examen en préparation** (`exams.finalized_at IS NULL`, `CONTEXT.md`) :
   dates et durée nullables, exigées par la contrainte
   `exams_finalized_complete` dès la finalisation. Toute lecture étudiante
@@ -184,14 +193,15 @@ colonne)` dans le WHERE des canaux de
   (« Enregistrer » : titre et visé suffisent à le rendre valide, mais dates,
   pause et audience sont toujours envoyées, un champ omis est refusé, jamais
   lu comme « effacer » ; seul `questionIds` absent conserve le jeu) et
-  `finalizePreparedExam` partagent avec `createExam`/`updateExam` les étapes
-  de `features/exams/actions.ts`, sous le verrou `exams FOR UPDATE` ; changer
+  `finalizePreparedExam` partagent avec les écritures du compositeur les
+  étapes de `features/exams/actions.ts`, sous le verrou `exams FOR UPDATE` ; changer
   le jeu ou le visé d'un examen finalisé le remet en préparation (un visé
   ramené à la taille du jeu n'est pas un changement). Tout écrivain pose
   `finalized_at` explicitement ; les défauts de `finalized_at` et
   `target_question_count` sont provisoires (expand/contract : code antérieur
-  aux colonnes pendant le build et après un rollback), retrait suivi dans
-  #264. Le verrou
+  aux colonnes pendant le build et après un rollback) : leur retrait est la
+  migration « contract » de la première PR qui touche `exams` après la mise en
+  production de l'examen en préparation. Le verrou
   de clé anonyme couvre aussi un examen en préparation, dates ou non.
 - **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
   sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
