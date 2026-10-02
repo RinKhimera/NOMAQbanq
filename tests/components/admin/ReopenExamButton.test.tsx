@@ -15,7 +15,12 @@ describe("ReopenExamButton", () => {
   it("mène à la création pré-remplie depuis un examen clos", () => {
     render(
       <ReopenExamButton
-        exam={{ id: "e1", endDate: now - 1, finalizedAt: now - 9 }}
+        exam={{
+          id: "e1",
+          startDate: now - 99,
+          endDate: now - 1,
+          finalizedAt: now - 9,
+        }}
         now={now}
       />,
     )
@@ -28,7 +33,12 @@ describe("ReopenExamButton", () => {
   it("n'apparaît pas sur un examen ouvert", () => {
     render(
       <ReopenExamButton
-        exam={{ id: "e1", endDate: now + 1, finalizedAt: now - 9 }}
+        exam={{
+          id: "e1",
+          startDate: now - 99,
+          endDate: now + 1,
+          finalizedAt: now - 9,
+        }}
         now={now}
       />,
     )
@@ -39,7 +49,12 @@ describe("ReopenExamButton", () => {
   it("n'apparaît pas sur un examen en préparation, même daté dans le passé", () => {
     render(
       <ReopenExamButton
-        exam={{ id: "e1", endDate: now - 1, finalizedAt: null }}
+        exam={{
+          id: "e1",
+          startDate: now - 99,
+          endDate: now - 1,
+          finalizedAt: null,
+        }}
         now={now}
       />,
     )

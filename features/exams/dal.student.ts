@@ -561,6 +561,17 @@ export const getExamAnswersForParticipation = cache(
 // Résultats participant (étudiant après fin / admin)
 // ============================================
 
+/** Participation soumise : à la main, ou automatiquement (temps écoulé, fermeture). */
+export type SubmittedStatus = "completed" | "auto_submitted"
+
+/** Lecture filtrée sur les statuts soumis : un autre statut est un bug. */
+const submittedStatus = (
+  status: "in_progress" | "completed" | "auto_submitted",
+): SubmittedStatus => {
+  if (status === "in_progress") throw new Error("PARTICIPATION_NOT_SUBMITTED")
+  return status
+}
+
 export type ExamParticipantUser = {
   id: string
   name: string
@@ -599,6 +610,7 @@ export type ExamResultsView =
         score: number | null
         completedAt: number | null
         startedAt: number | null
+        status: SubmittedStatus
         answers: {
           questionId: string
           selectedAnswer: string | null
@@ -798,6 +810,7 @@ export const getParticipantExamResults = async (
         : p.score,
       completedAt: p.completedAt?.getTime() ?? null,
       startedAt: p.startedAt?.getTime() ?? null,
+      status: p.status,
       answers: answerRows.map((a) => ({
         questionId: a.questionId,
         selectedAnswer: a.selectedAnswer ?? null,
@@ -1012,6 +1025,8 @@ export type LeaderboardEntry = {
   /** `null` = score retenu pour le lecteur (sa propre ligne seulement). */
   score: number | null
   completedAt: number | null
+  /** Soumission manuelle (`completed`) ou automatique à la fin du temps ou à la fermeture. */
+  status: SubmittedStatus
 }
 
 const leaderboardFlag = (u: {
@@ -1089,6 +1104,7 @@ export const getExamLeaderboard = async (
       participationId: examParticipations.id,
       score: shownScore,
       completedAt: examParticipations.completedAt,
+      status: examParticipations.status,
       userId: user.id,
       name: user.name,
       username: user.username,
@@ -1128,6 +1144,7 @@ export const getExamLeaderboard = async (
     },
     score: r.score,
     completedAt: r.completedAt?.getTime() ?? null,
+    status: submittedStatus(r.status),
   }))
 }
 

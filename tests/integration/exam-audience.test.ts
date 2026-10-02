@@ -11,11 +11,9 @@ import {
   userAccess,
 } from "@/db/schema"
 import {
-  createExam,
   finalizeExam,
   saveExamAnswer,
   startExam,
-  updateExam,
 } from "@/features/exams/actions"
 import {
   getExamAudience,
@@ -26,6 +24,7 @@ import {
 import { searchSelectableUsers } from "@/features/users/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
 import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
@@ -170,7 +169,7 @@ const now = () => Date.now()
 const makeRestrictedExam = async (userIds: string[]): Promise<string> => {
   asAdmin()
   const t = now()
-  const res = await createExam({
+  const res = await createFinalizedExam({
     title: `Restreint ${suffix} ${createId().slice(0, 4)}`,
     startDate: t - 3600_000,
     endDate: t + 3600_000,
@@ -186,7 +185,7 @@ const makeRestrictedExam = async (userIds: string[]): Promise<string> => {
 const makeSubscribersExam = async (): Promise<string> => {
   asAdmin()
   const t = now()
-  const res = await createExam({
+  const res = await createFinalizedExam({
     title: `Abonnes ${suffix} ${createId().slice(0, 4)}`,
     startDate: t - 3600_000,
     endDate: t + 3600_000,
@@ -238,11 +237,11 @@ describe("searchSelectableUsers", () => {
   )
 })
 
-describe("createExam — audience restreinte", () => {
+describe("création d'un examen complet — audience restreinte", () => {
   it("insère examAudience dédupliqué (doublon volontaire → length 2)", async () => {
     asAdmin()
     const t = now()
-    const res = await createExam({
+    const res = await createFinalizedExam({
       title: `Dedup ${suffix}`,
       startDate: t,
       endDate: t + DAY,
@@ -260,7 +259,7 @@ describe("createExam — audience restreinte", () => {
   it("refuse une audience restreinte avec un userId inexistant (INVALID_USERS)", async () => {
     asAdmin()
     const t = now()
-    const res = await createExam({
+    const res = await createFinalizedExam({
       title: `BadUsers ${suffix}`,
       startDate: t,
       endDate: t + DAY,
@@ -275,7 +274,7 @@ describe("createExam — audience restreinte", () => {
   it("refuse une audience restreinte vide (validation zod)", async () => {
     asAdmin()
     const t = now()
-    const res = await createExam({
+    const res = await createFinalizedExam({
       title: `Empty ${suffix}`,
       startDate: t,
       endDate: t + DAY,
@@ -288,7 +287,7 @@ describe("createExam — audience restreinte", () => {
   })
 })
 
-describe("updateExam — édition de l'audience", () => {
+describe("modification d'un examen complet — édition de l'audience", () => {
   it("réécrit l'audience ([member]→[member2]) puis vide en bascule subscribers, participations conservées", async () => {
     const examId = await makeRestrictedExam([MEMBER_ID])
     expect((await getExamAudience(examId)).map((u) => u.id)).toEqual([
@@ -303,7 +302,7 @@ describe("updateExam — édition de l'audience", () => {
     // update → restreint [member2].
     asAdmin()
     const t = now()
-    const up1 = await updateExam({
+    const up1 = await saveAndFinalize({
       id: examId,
       title: `Restreint maj ${suffix}`,
       startDate: t - 1000,
@@ -332,7 +331,7 @@ describe("updateExam — édition de l'audience", () => {
     expect(part).toBeTruthy()
 
     // update → subscribers → audience vidée.
-    const up2 = await updateExam({
+    const up2 = await saveAndFinalize({
       id: examId,
       title: `Bascule ${suffix}`,
       startDate: t - 1000,
@@ -396,7 +395,7 @@ describe("finalizeExam — tolérant au retrait d'audience (#6)", () => {
     // Admin retire member de l'audience (réécrit vers member2).
     asAdmin()
     const t = now()
-    const up = await updateExam({
+    const up = await saveAndFinalize({
       id: examId,
       title: `Retrait ${suffix}`,
       startDate: t - 1000,
@@ -505,7 +504,7 @@ describe("getExamWithQuestions — anti-fuite du texte des questions restreintes
     // Admin retire member de l'audience.
     asAdmin()
     const t = now()
-    const up = await updateExam({
+    const up = await saveAndFinalize({
       id: examId,
       title: `RetraitQ ${suffix}`,
       startDate: t - 1000,
@@ -554,7 +553,7 @@ describe("saveExamAnswer — la sélection octroie l'accès (D1)", () => {
     // Admin retire member de l'audience pendant la passation.
     asAdmin()
     const t = now()
-    const up = await updateExam({
+    const up = await saveAndFinalize({
       id: examId,
       title: `RetraitSA ${suffix}`,
       startDate: t - 1000,

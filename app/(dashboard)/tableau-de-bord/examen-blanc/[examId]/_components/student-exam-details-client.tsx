@@ -72,7 +72,6 @@ export function StudentExamDetailsClient({
       <ExamDetails
         exam={exam}
         leaderboard={leaderboard}
-        candidates={[]}
         isAdmin={false}
         currentUserId={currentUserId}
         status={phaseOf(exam, now)}

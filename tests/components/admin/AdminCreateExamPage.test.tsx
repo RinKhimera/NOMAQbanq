@@ -1,20 +1,24 @@
 import type { ReactElement } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { ExamFormPrefill } from "@/app/(admin)/admin/examens/_components/exam-form"
+import type { ExamFormProps } from "@/app/(admin)/admin/examens/_components/exam-form"
 import AdminCreateExamPage from "@/app/(admin)/admin/examens/creer/page"
 import {
   type ExamReopeningSource,
   getExamReopeningSource,
 } from "@/features/exams/dal"
+import { type BankQuestion, getExamSelection } from "@/features/questions/dal"
 
 vi.mock("@/app/(admin)/admin/examens/_components/exam-form", () => ({
   ExamForm: () => null,
 }))
 
 vi.mock("@/features/exams/dal", () => ({
-  getEligibleExamCandidates: vi.fn(async () => []),
-  getExamsForPicker: vi.fn(async () => []),
+  getEligibleSubscriberCount: vi.fn(async () => 118),
   getExamReopeningSource: vi.fn(),
+}))
+
+vi.mock("@/features/questions/dal", () => ({
+  getExamSelection: vi.fn(),
 }))
 
 const NOW = Date.parse("2026-10-01T12:00:00Z")
@@ -30,29 +34,48 @@ const sourceWithEnd = (endDate: number): ExamReopeningSource => ({
     questionCount: 3,
     audienceType: "subscribers",
   },
-  questionIds: ["q1", "q2", "q3"],
+  questionIds: ["q1", "q2"],
   audience: [],
 })
+
+const bankQuestion = (id: string) =>
+  ({ id, domain: "Cardiologie" }) as BankQuestion
 
 const renderPage = async (source?: string | string[]) =>
   (await AdminCreateExamPage({
     searchParams: Promise.resolve({ source }),
-  })) as ReactElement<{ source?: ExamFormPrefill }>
+  })) as ReactElement<ExamFormProps>
 
 describe("page de création d'examen", () => {
   beforeEach(() => {
     vi.mocked(getExamReopeningSource).mockReset()
+    vi.mocked(getExamSelection).mockReset()
   })
 
-  it("pré-remplit depuis une source close", async () => {
-    const source = sourceWithEnd(NOW - 1)
-    vi.mocked(getExamReopeningSource).mockResolvedValue(source)
+  it("pré-remplit une réouverture depuis une source close : visé de la source, questions non supprimées", async () => {
+    vi.mocked(getExamReopeningSource).mockResolvedValue(sourceWithEnd(NOW - 1))
+    // q3 a été supprimée depuis : la source ne la reprend pas.
+    vi.mocked(getExamSelection).mockResolvedValue(
+      ["q1", "q2", "q3"].map(bankQuestion),
+    )
 
     const page = await renderPage("e1")
 
-    expect(getExamReopeningSource).toHaveBeenCalledWith("e1")
-    expect(page.props.source).toBe(source)
     expect(page.key).toBe("e1")
+    expect(page.props.saved).toBeNull()
+    expect(page.props.initialNow).toBe(NOW)
+    expect(page.props.subscriberCount).toBe(118)
+    expect(page.props.initialValues).toMatchObject({
+      title: "Révision 3 (réouverture)",
+      targetQuestionCount: 3,
+      startDate: null,
+      endDate: null,
+    })
+    expect(page.props.reopening).toEqual({
+      title: "Révision 3",
+      questionIds: ["q1", "q2"],
+    })
+    expect(page.props.selection.map((q) => q.id)).toEqual(["q1", "q2"])
   })
 
   it("formulaire vide pour une source encore ouverte", async () => {
@@ -60,7 +83,9 @@ describe("page de création d'examen", () => {
 
     const page = await renderPage("e1")
 
-    expect(page.props.source).toBeUndefined()
+    expect(page.props.reopening).toBeNull()
+    expect(page.props.initialValues.title).toBe("")
+    expect(getExamSelection).not.toHaveBeenCalled()
   })
 
   it("formulaire vide pour une source introuvable", async () => {
@@ -68,12 +93,13 @@ describe("page de création d'examen", () => {
 
     const page = await renderPage("inconnu")
 
-    expect(page.props.source).toBeUndefined()
+    expect(page.props.reopening).toBeNull()
+    expect(page.props.selection).toEqual([])
   })
 
   it("ignore un paramètre répété et une page sans source", async () => {
-    expect((await renderPage(["e1", "e2"])).props.source).toBeUndefined()
-    expect((await renderPage()).props.source).toBeUndefined()
+    expect((await renderPage(["e1", "e2"])).props.reopening).toBeNull()
+    expect((await renderPage()).props.reopening).toBeNull()
     expect(getExamReopeningSource).not.toHaveBeenCalled()
   })
 })

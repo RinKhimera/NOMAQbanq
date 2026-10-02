@@ -1,11 +1,16 @@
 import {
-  getEligibleExamCandidates,
+  type ExamReopeningSource,
+  getEligibleSubscriberCount,
   getExamReopeningSource,
-  getExamsForPicker,
 } from "@/features/exams/dal"
+import { getExamSelection } from "@/features/questions/dal"
 import { currentTimeMs } from "@/lib/clock"
 import { isOpen } from "@/lib/exam-phase"
-import { ExamForm, type ExamFormPrefill } from "../_components/exam-form"
+import { ExamForm } from "../_components/exam-form"
+import {
+  blankExamForm,
+  examFormFromSource,
+} from "../_components/exam-form-model"
 
 /**
  * Examen source d'une réouverture (`?source=<id>`). Une source introuvable ou
@@ -13,10 +18,11 @@ import { ExamForm, type ExamFormPrefill } from "../_components/exam-form"
  */
 const loadReopeningSource = async (
   sourceId: string | undefined,
-): Promise<ExamFormPrefill | undefined> => {
-  if (!sourceId) return undefined
+  now: number,
+): Promise<ExamReopeningSource | null> => {
+  if (!sourceId) return null
   const source = await getExamReopeningSource(sourceId)
-  if (!source || isOpen(source.exam, currentTimeMs())) return undefined
+  if (!source || isOpen(source.exam, now)) return null
   return source
 }
 
@@ -27,19 +33,31 @@ export default async function AdminCreateExamPage({
 }) {
   const { source: param } = await searchParams
   const sourceId = typeof param === "string" ? param : undefined
-  const [candidates, examOptions, source] = await Promise.all([
-    getEligibleExamCandidates(),
-    getExamsForPicker(),
-    loadReopeningSource(sourceId),
+  const now = currentTimeMs()
+  const [subscriberCount, source] = await Promise.all([
+    getEligibleSubscriberCount(),
+    loadReopeningSource(sourceId, now),
   ])
+  // Le résumé du jeu repris : les questions de la source, sauf les supprimées.
+  const kept = new Set(source?.questionIds)
+  const selection =
+    source && sourceId
+      ? (await getExamSelection(sourceId)).filter((q) => kept.has(q.id))
+      : []
 
   return (
     <ExamForm
       key={source ? sourceId : "vierge"}
-      mode="create"
-      candidates={candidates}
-      examOptions={examOptions}
-      source={source}
+      initialNow={now}
+      subscriberCount={subscriberCount}
+      initialValues={source ? examFormFromSource(source) : blankExamForm()}
+      saved={null}
+      selection={selection}
+      reopening={
+        source
+          ? { title: source.exam.title, questionIds: source.questionIds }
+          : null
+      }
     />
   )
 }

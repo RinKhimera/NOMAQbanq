@@ -1,138 +1,86 @@
-"use client"
-
-import { CircleCheckBig, Clock, Trophy, User } from "lucide-react"
-import { motion } from "motion/react"
-import { PageIntro } from "@/components/shared/page-intro"
-import { StatusPill } from "@/components/shared/status-pill"
+import { ArrowLeft, Clock, UserX } from "lucide-react"
+import Link from "next/link"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import type { ExamParticipantUser } from "@/features/exams/dal"
+import { examHref } from "../../../../_components/exam-routes"
+import { ExamBreadcrumb } from "../../../_components/exam-breadcrumb"
 
-interface ParticipantResultsErrorProps {
-  error: "NO_PARTICIPATION" | "NOT_COMPLETED"
-  message: string
-  status?: string
-  examTitle: string
-  examId: string
-  participantUser: ExamParticipantUser
+const STATUS_LABEL: Record<string, string> = {
+  in_progress: "en cours",
+  completed: "soumise",
+  auto_submitted: "soumise automatiquement",
 }
 
 /**
- * État admin-only quand le participant n'a pas (encore) de résultats consultables :
- * aucune participation, ou examen non terminé. Affiché par la page de résultats
- * admin lorsque `getParticipantExamResults` renvoie une union d'erreur.
+ * Copie introuvable : aucune participation, ou participation pas encore
+ * soumise. Rendu quand `getParticipantExamResults` renvoie une erreur.
  */
 export function ParticipantResultsError({
   error,
-  message,
   status,
-  examTitle,
-  examId,
+  exam,
   participantUser,
-}: ParticipantResultsErrorProps) {
+}: {
+  error: "NO_PARTICIPATION" | "NOT_COMPLETED"
+  status?: string
+  exam: { id: string; title: string }
+  participantUser: ExamParticipantUser
+}) {
+  const name = participantUser?.name ?? "Compte introuvable"
+  const Icon = error === "NO_PARTICIPATION" ? UserX : Clock
+
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
-      <div className="mx-auto max-w-4xl px-4 pt-8">
-        <PageIntro
-          backHref={`/admin/examens/${examId}`}
-          title="Résultats non disponibles"
-          description={examTitle}
+    <div className="flex flex-col gap-5 p-4 lg:p-6">
+      <ExamBreadcrumb
+        items={[
+          { label: exam.title, href: examHref(exam.id) },
+          { label: name },
+        ]}
+      />
+
+      <div className="flex min-w-0 items-center gap-4">
+        <UserAvatar
+          name={participantUser?.name}
+          image={participantUser?.image}
+          className="size-12 shrink-0"
         />
-      </div>
-
-      {/* Main content */}
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
-          {/* Participant Info Card */}
-          {participantUser && (
-            <div className="flex items-center gap-4 rounded-2xl border border-gray-200/80 bg-white p-6 shadow-lg dark:border-gray-700/50 dark:bg-gray-800">
-              <UserAvatar
-                name={participantUser.name}
-                image={participantUser.image}
-                className="h-16 w-16"
-                fallbackClassName="bg-blue-100 text-xl text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-              />
-              <div className="flex-1">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {participantUser.name}
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {participantUser.username
-                    ? `@${participantUser.username} · `
-                    : ""}
-                  {participantUser.email}
-                </p>
-              </div>
-              <Badge
-                variant="outline"
-                className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-              >
-                Participant
-              </Badge>
-            </div>
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="type-label">Copie · {exam.title}</p>
+          <h1 className="type-h2 text-ink wrap-anywhere">{name}</h1>
+          {participantUser?.email && (
+            <p className="text-ink-3 text-[0.8125rem] wrap-anywhere">
+              {participantUser.email}
+            </p>
           )}
-
-          {/* Error Message Card */}
-          <div className="rounded-2xl border border-amber-200/80 bg-linear-to-br from-amber-50 to-orange-50 p-8 shadow-lg dark:border-amber-700/50 dark:from-amber-900/20 dark:to-orange-900/20">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/50">
-                {error === "NO_PARTICIPATION" ? (
-                  <User className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                ) : (
-                  <Clock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                )}
-              </div>
-              <div className="flex-1">
-                <h3 className="mb-2 text-lg font-semibold text-amber-900 dark:text-amber-100">
-                  {error === "NO_PARTICIPATION"
-                    ? "Aucune participation"
-                    : "Examen en cours"}
-                </h3>
-                <p className="text-amber-800 dark:text-amber-200">{message}</p>
-                {error === "NOT_COMPLETED" && status && (
-                  <div className="mt-4">
-                    <StatusPill tone="warning">Statut : {status}</StatusPill>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Info Card */}
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-lg dark:border-gray-700/50 dark:bg-gray-800">
-            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
-              <Trophy className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              Que faire ?
-            </h3>
-            <ul className="space-y-3 text-gray-600 dark:text-gray-400">
-              <li className="flex items-start gap-3">
-                <CircleCheckBig className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
-                <span>
-                  Retournez au classement pour voir les autres participants
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <CircleCheckBig className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
-                <span>
-                  Les résultats seront disponibles une fois que le participant
-                  aura terminé l&apos;examen
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <CircleCheckBig className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
-                <span>
-                  Vérifiez la liste des participants pour voir qui a déjà
-                  complété l&apos;examen
-                </span>
-              </li>
-            </ul>
-          </div>
-        </motion.div>
+        </div>
       </div>
+
+      <section
+        data-testid="copy-unavailable"
+        data-error={error}
+        className="bg-surface border-line shadow-1 flex flex-col items-start gap-3 rounded-lg border p-5 md:p-6"
+      >
+        <Icon aria-hidden className="text-ink-3 size-6" />
+        <h2 className="type-h4 text-ink">
+          {error === "NO_PARTICIPATION"
+            ? "Aucune participation"
+            : "Copie pas encore soumise"}
+        </h2>
+        <p className="text-ink-2 text-sm leading-normal">
+          {error === "NO_PARTICIPATION"
+            ? participantUser
+              ? "Cet étudiant n'a pas commencé cet examen : il n'a pas de copie."
+              : "Ce compte n'existe pas ou a été supprimé."
+            : `La participation est ${STATUS_LABEL[status ?? ""] ?? "en cours"} : la copie se lit une fois soumise, par l'étudiant ou à la fermeture de l'examen.`}
+        </p>
+        <Button asChild variant="outline" size="sm">
+          <Link href={examHref(exam.id)}>
+            <ArrowLeft aria-hidden />
+            Retour à l&apos;examen
+          </Link>
+        </Button>
+      </section>
     </div>
   )
 }

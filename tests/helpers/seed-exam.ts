@@ -7,7 +7,7 @@ import {
 import { createId } from "@/lib/ids"
 
 /**
- * Examen blanc finalisé inséré sans passer par `createExam` : jeu de toute
+ * Examen blanc finalisé inséré sans passer par les actions : jeu de toute
  * taille (sous le minimum du visé compris), ordre des questions conservé, fin
  * passée permise. Pour les tests dont l'examen n'est qu'une fixture ; les
  * règles de création se testent par l'action.

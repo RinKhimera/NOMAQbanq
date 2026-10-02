@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type RefusalCode, refusalMessage } from "@/features/attempts/guard"
 import {
-  createExam,
   deactivateExam,
   deleteExam,
   deleteParticipation,
@@ -16,7 +15,6 @@ import {
   saveExamAnswer,
   saveExamFlag,
   startExam,
-  updateExam,
 } from "@/features/exams/actions"
 import {
   fakeTx,
@@ -82,6 +80,10 @@ vi.mock("@/features/exams/dal", () => ({
   getExamAudience: mocks.getExamAudience,
   getExamQuestionExplanations: mocks.getExamQuestionExplanations,
 }))
+vi.mock("@/features/questions/dal", () => ({
+  drawFromBank: vi.fn(),
+  getBankSupply: vi.fn(),
+}))
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(async () => mocks.session.current),
   requireRole: vi.fn(async () => mocks.session.current),
@@ -93,36 +95,6 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 
 const SERVER_ERROR = "Erreur serveur. Réessayez."
 const NOW = 1_500
-
-const QUESTION_IDS = Array.from({ length: 10 }, (_, i) => `q${i + 1}`)
-
-const examInput = {
-  title: "Examen blanc",
-  startDate: 1_000,
-  endDate: 2_000,
-  questionIds: QUESTION_IDS,
-}
-
-// Lignes lues par la finalisation : examen complet, jeu égal au visé.
-const finalizableRows = (exam: Record<string, unknown> = {}) => ({
-  exams: [
-    {
-      startDate: new Date(1_000),
-      endDate: new Date(2_000),
-      audienceType: "subscribers",
-      targetQuestionCount: QUESTION_IDS.length,
-      finalizedAt: null,
-      ...exam,
-    },
-  ],
-  examQuestions: QUESTION_IDS.map((questionId) => ({
-    questionId,
-    deletedAt: null,
-  })),
-  questions: [{ n: QUESTION_IDS.length }],
-  examAudience: [{ n: 0 }],
-  examParticipations: [],
-})
 
 const ALL_REFUSALS: RefusalCode[] = [
   "NOT_FOUND",
@@ -195,116 +167,6 @@ describe("lectures gardees", () => {
   it("readServerClock : l'heure du serveur, sans toucher la base", async () => {
     expect(await readServerClock()).toEqual({ success: true, serverNow: NOW })
     expect(state.transaction).not.toHaveBeenCalled()
-  })
-})
-
-describe("createExam", () => {
-  it.each([
-    [{ ...examInput, title: "  " }, "Le titre est requis"],
-    [{ ...examInput, questionIds: [] }, "Au moins 10 questions"],
-    [
-      { ...examInput, questionIds: [...QUESTION_IDS.slice(1), "q2"] },
-      "Des questions sont sélectionnées en double",
-    ],
-    [
-      { ...examInput, endDate: 500 },
-      "La date de fin doit être postérieure à la date de début",
-    ],
-    [
-      { ...examInput, audienceType: "restricted" as const },
-      "Sélectionnez au moins un utilisateur",
-    ],
-  ])("refuse une entree invalide : %#", async (input, error) => {
-    const res = await createExam(input)
-    expect(res).toEqual({ success: false, error })
-    expect(state.transaction).not.toHaveBeenCalled()
-  })
-
-  it("refuse plus de 230 questions", async () => {
-    const questionIds = Array.from({ length: 231 }, (_, i) => `q${i}`)
-    const res = await createExam({ ...examInput, questionIds })
-    expect(res).toEqual({ success: false, error: "Au plus 230 questions" })
-  })
-
-  it("succes : renvoie l'id et revalide la liste", async () => {
-    setRows(finalizableRows())
-    const res = await createExam(examInput)
-    expect(res).toMatchObject({ success: true })
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/examens")
-  })
-
-  it.each([
-    [
-      "INVALID_QUESTIONS",
-      "Certaines questions sélectionnées sont introuvables.",
-    ],
-    ["INVALID_USERS", "Certains utilisateurs sélectionnés sont introuvables."],
-  ])("%s → %s, sans capture", async (thrown, error) => {
-    rejectWith(thrown)
-    const res = await createExam(examInput)
-    expect(res).toEqual({ success: false, error })
-    expect(mocks.captureServerError).not.toHaveBeenCalled()
-  })
-
-  it("erreur inattendue → capture avec l'admin", async () => {
-    rejectWith("connection terminated")
-    const res = await createExam(examInput)
-    expect(res).toEqual({ success: false, error: SERVER_ERROR })
-    expect(mocks.captureServerError).toHaveBeenCalledWith(
-      "[createExam]",
-      expect.any(Error),
-      { userId: "u1" },
-    )
-  })
-})
-
-describe("updateExam", () => {
-  const input = { id: "e1", ...examInput }
-
-  it("refuse un id vide sans ouvrir la transaction", async () => {
-    const res = await updateExam({ ...input, id: "" })
-    expect(res.success).toBe(false)
-    expect(state.transaction).not.toHaveBeenCalled()
-  })
-
-  it("succes : revalide la liste et la fiche", async () => {
-    setRows(finalizableRows({ finalizedAt: new Date(0) }))
-    const res = await updateExam(input)
-    expect(res).toEqual({ success: true })
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/examens/e1")
-  })
-
-  it.each([
-    ["NOT_FOUND", "Examen introuvable."],
-    [
-      "HAS_PARTICIPATIONS",
-      "Cet examen a déjà des participations ; ses questions ne peuvent plus être modifiées.",
-    ],
-    [
-      "REOPEN_BY_DATES",
-      "Cet examen est clos et a déjà des participations : sa date de fin ne peut plus être repoussée dans le futur. Utilisez « Rouvrir » pour en créer une copie avec de nouvelles dates.",
-    ],
-    [
-      "INVALID_QUESTIONS",
-      "Certaines questions sélectionnées sont introuvables.",
-    ],
-    ["INVALID_USERS", "Certains utilisateurs sélectionnés sont introuvables."],
-  ])("%s → %s, sans capture", async (thrown, error) => {
-    rejectWith(thrown)
-    const res = await updateExam(input)
-    expect(res).toEqual({ success: false, error })
-    expect(mocks.captureServerError).not.toHaveBeenCalled()
-  })
-
-  it("erreur inattendue → capture avec l'admin", async () => {
-    rejectWith("deadlock detected")
-    const res = await updateExam(input)
-    expect(res).toEqual({ success: false, error: SERVER_ERROR })
-    expect(mocks.captureServerError).toHaveBeenCalledWith(
-      "[updateExam]",
-      expect.any(Error),
-      { userId: "u1" },
-    )
   })
 })
 

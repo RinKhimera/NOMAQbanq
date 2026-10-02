@@ -17,7 +17,6 @@ paths:
   L'historique d'un compte vit dans son dossier, jamais dans la fiche.
 - **Etat derive de l'URL** : la page serveur lit les paramètres, l'écran client
   les réécrit dans une transition (rechargement en place, contenu conservé).
-- Le panneau d'examen (`/admin/examens?exam=`) reste un Sheet jusqu'à #264.
 
 ## Questions : liste et page de détail
 
@@ -36,11 +35,35 @@ paths:
   (`components/admin/question-detail/`), rendu par la page et, sans actions,
   par un aperçu en Dialog (`examLinks={false}`). Un nouvel usage le réutilise,
   il ne recopie pas la répartition ni les alertes.
-- **Constitution d'examen** : jusqu'au compositeur de #264, elle garde
-  `QuestionDetailModal` + `QuestionSelectModal` (`components/admin/question-browser/`).
+- **Constitution d'examen** : le compositeur (voir « Examens blancs »)
+  reprend `QuestionDetailContent` en aperçu et le filtre « dernière
+  utilisation » de la liste.
+
+## Examens blancs
+
+- **Liste `/admin/examens` = vue de pilotage**, sans onglets, bande ni
+  recherche : « En cours » (une carte par examen, participations et
+  fermeture), « À préparer » (à venir et en préparation, vérifications de
+  `lib/exam-readiness.ts`, la même règle que le récapitulatif du formulaire),
+  « Terminés » (tableau, 5 derniers puis le reste). Lecture unique
+  `getExamsOverview`, phase par `adminPhaseOf`. Pas de panneau latéral : la
+  fiche `/admin/examens/[id]` est la seule vue détaillée.
+- **Chiffres d'un examen** (`ExamFigures`) : sur la population du classement
+  d'examen (ni admin ni compte supprimé), même si le classement admin montre
+  toutes les lignes avec leur badge. Absence de score = « — ».
+- **Formulaire** : « Enregistrer » (`saveExam`, titre et visé suffisent),
+  « Finaliser » (`saveExam` puis `finalizePreparedExam`, erreurs par étape),
+  « Enregistrer les modifications » pour un examen finalisé ; retour sur la
+  fiche. Le jeu de questions ne s'y choisit pas.
+- **Compositeur** `/admin/examens/[id]/questions` : plan par domaine, banque
+  (`getExamBank`, état dans l'URL), sélection, « Compléter les N restantes »
+  (`previewExamCompletion` puis `addExamQuestions`). `?retour=fiche|formulaire`
+  fixe où ramène « Terminé ». Modifier le jeu d'un examen finalisé sans
+  participation le remet en préparation : l'écran le confirme avant la
+  première écriture.
 
 ## Chiffres clés
 
 `StatBand` (catalogue de `design-system.md`), pas de cartes à icône et
 tendance. La liste des questions n'a pas de bande : ses compteurs sont ceux des
-onglets. La rangée `AnimatedStatCard` des examens part avec #264.
+onglets ; la liste des examens non plus : ses chiffres vivent dans ses cartes.

@@ -11,7 +11,6 @@ import {
 } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
-import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
   examAudience,
@@ -23,86 +22,279 @@ import {
   userAccess,
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
-import { AnswerKeyLock } from "../questions/answer-key-lock"
-import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
+import type { ExamSchedule } from "@/lib/exam-phase"
+import { PASS_THRESHOLD } from "@/lib/score"
 import { countQuestionsByExam, finalizedDate } from "./dal.shared"
 
 // ============================================
-// Admin : liste examens + comptes
+// Admin : vue de pilotage et chiffres d'un examen
 // ============================================
 
-export type AdminExamListItem = {
-  id: string
-  title: string
-  description: string | null
-  /** Dates et durée : `null` possible tant que l'examen est en préparation. */
-  startDate: number | null
-  endDate: number | null
-  questionCount: number
-  targetQuestionCount: number
-  completionTime: number | null
-  /** `null` = examen en préparation. */
-  finalizedAt: number | null
-  isActive: boolean
-  enablePause: boolean
-  pauseDurationMinutes: number | null
-  participantCount: number
-  createdAt: number
+/**
+ * Chiffres d'un examen, comptés sur la population du classement d'examen
+ * (`CONTEXT.md`) : participations d'étudiants, comptes admin et supprimés
+ * exclus. Un admin qui teste un examen n'en devient ni participant ni
+ * « Meilleur score ». Lecture admin : les scores sont bruts, jamais retenus.
+ */
+export type ExamFigures = {
+  /** Participations commencées, soumises ou non. */
+  started: number
+  submitted: number
+  /** Soumises automatiquement (temps écoulé, fermeture). */
+  autoSubmitted: number
+  inProgress: number
+  /** Moyenne des participations soumises, au plancher ; `null` sans participation soumise. */
+  average: number | null
+  best: number | null
+  /** Participations soumises au seuil de réussite ou au-dessus. */
+  passed: number
+  /**
+   * Étudiants qui peuvent passer l'examen : la liste d'un examen restreint
+   * (comptes supprimés exclus), sinon les étudiants avec un accès Examens
+   * actif, hors comptes supprimés ou suspendus.
+   */
+  eligible: number
+  /** Participations de tous les comptes, admin et supprimés compris. */
+  participations: number
+  /** Jeu de questions figé : au moins une participation (garde `HAS_PARTICIPATIONS`). */
+  locked: boolean
 }
 
-/** [Admin] Tous les examens + nombre de participants. Remplace `getAllExams`. */
-export const getAllExamsAdmin = cache(
-  async (): Promise<AdminExamListItem[]> => {
-    await requireRole(["admin"])
+const SUBMITTED = sql`${examParticipations.status} in ('completed', 'auto_submitted')`
 
+const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
+
+const emptyFigures = (eligible: number, participations = 0): ExamFigures => ({
+  started: 0,
+  submitted: 0,
+  autoSubmitted: 0,
+  inProgress: 0,
+  average: null,
+  best: null,
+  passed: 0,
+  eligible,
+  participations,
+  locked: participations > 0,
+})
+
+/** Participations par examen, sur la population du classement. */
+const participationFigures = async (
+  examIds: string[],
+): Promise<
+  Map<string, Omit<ExamFigures, "eligible" | "participations" | "locked">>
+> => {
+  if (examIds.length === 0) return new Map()
+  const rows = await db
+    .select({
+      examId: examParticipations.examId,
+      started: sql<number>`count(*)`.mapWith(Number),
+      submitted: sql<number>`count(*) filter (where ${SUBMITTED})`.mapWith(
+        Number,
+      ),
+      autoSubmitted:
+        sql<number>`count(*) filter (where ${examParticipations.status} = 'auto_submitted')`.mapWith(
+          Number,
+        ),
+      inProgress:
+        sql<number>`count(*) filter (where ${examParticipations.status} = 'in_progress')`.mapWith(
+          Number,
+        ),
+      average: sql<
+        number | null
+      >`floor(avg(${examParticipations.score}) filter (where ${SUBMITTED}))`.mapWith(
+        nullableNumber,
+      ),
+      best: sql<
+        number | null
+      >`max(${examParticipations.score}) filter (where ${SUBMITTED})`.mapWith(
+        nullableNumber,
+      ),
+      passed:
+        sql<number>`count(*) filter (where ${SUBMITTED} and ${examParticipations.score} >= ${PASS_THRESHOLD})`.mapWith(
+          Number,
+        ),
+    })
+    .from(examParticipations)
+    .innerJoin(user, eq(user.id, examParticipations.userId))
+    .where(
+      and(
+        inArray(examParticipations.examId, examIds),
+        eq(user.role, "user"),
+        isNull(user.deletedAt),
+      ),
+    )
+    .groupBy(examParticipations.examId)
+  return new Map(rows.map(({ examId, ...figures }) => [examId, figures]))
+}
+
+/** Participations par examen, de n'importe quel compte. */
+const allParticipations = async (
+  examIds: string[],
+): Promise<Map<string, number>> => {
+  if (examIds.length === 0) return new Map()
+  const rows = await db
+    .select({
+      examId: examParticipations.examId,
+      n: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(examParticipations)
+    .where(inArray(examParticipations.examId, examIds))
+    .groupBy(examParticipations.examId)
+  return new Map(rows.map((r) => [r.examId, r.n]))
+}
+
+/** Taille de la liste d'un examen restreint, comptes supprimés exclus. */
+const audienceSizes = async (
+  examIds: string[],
+): Promise<Map<string, number>> => {
+  if (examIds.length === 0) return new Map()
+  const rows = await db
+    .select({
+      examId: examAudience.examId,
+      n: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(examAudience)
+    .innerJoin(user, eq(user.id, examAudience.userId))
+    .where(and(inArray(examAudience.examId, examIds), isNull(user.deletedAt)))
+    .groupBy(examAudience.examId)
+  return new Map(rows.map((r) => [r.examId, r.n]))
+}
+
+/**
+ * Étudiants avec un accès Examens actif, hors comptes supprimés ou suspendus :
+ * les éligibles d'un examen ouvert aux abonnés.
+ */
+const countEligibleSubscribers = async (now: Date): Promise<number> => {
+  const [row] = await db
+    .select({
+      n: sql<number>`count(distinct ${userAccess.userId})`.mapWith(Number),
+    })
+    .from(userAccess)
+    .innerJoin(user, eq(user.id, userAccess.userId))
+    .where(
+      and(
+        eq(userAccess.accessType, "exam"),
+        gt(userAccess.expiresAt, now),
+        eq(user.role, "user"),
+        isNull(user.deletedAt),
+        eq(user.banned, false),
+      ),
+    )
+  return row?.n ?? 0
+}
+
+/** [Admin] Étudiants éligibles à un examen ouvert aux abonnés (formulaire, fiche). */
+export const getEligibleSubscriberCount = cache(async (): Promise<number> => {
+  await requireRole(["admin"])
+  return countEligibleSubscribers(new Date())
+})
+
+/** Chiffres de plusieurs examens d'un coup (liste) ou d'un seul (fiche). */
+const examFigures = async (
+  list: { id: string; audienceType: "subscribers" | "restricted" }[],
+): Promise<Map<string, ExamFigures>> => {
+  const restrictedIds = list
+    .filter((e) => e.audienceType === "restricted")
+    .map((e) => e.id)
+  const ids = list.map((e) => e.id)
+  const [participations, counts, audiences, subscribers] = await Promise.all([
+    participationFigures(ids),
+    allParticipations(ids),
+    audienceSizes(restrictedIds),
+    list.some((e) => e.audienceType === "subscribers")
+      ? countEligibleSubscribers(new Date())
+      : Promise.resolve(0),
+  ])
+  return new Map(
+    list.map((e) => {
+      const eligible =
+        e.audienceType === "restricted"
+          ? (audiences.get(e.id) ?? 0)
+          : subscribers
+      const p = participations.get(e.id)
+      const all = counts.get(e.id) ?? 0
+      return [
+        e.id,
+        p
+          ? { ...p, eligible, participations: all, locked: all > 0 }
+          : emptyFigures(eligible, all),
+      ]
+    }),
+  )
+}
+
+/** [Admin] Chiffres d'un examen (fiche), voir `ExamFigures`. */
+export const getExamFigures = cache(
+  async (examId: string): Promise<ExamFigures | null> => {
+    await requireRole(["admin"])
+    const [exam] = await db
+      .select({ id: exams.id, audienceType: exams.audienceType })
+      .from(exams)
+      .where(eq(exams.id, examId))
+      .limit(1)
+    if (!exam) return null
+    return (await examFigures([exam])).get(exam.id) ?? null
+  },
+)
+
+export type AdminExamOverviewItem = ExamSchedule & {
+  id: string
+  title: string
+  isActive: boolean
+  audienceType: "subscribers" | "restricted"
+  /** Taille du jeu actuel ; égale au visé une fois l'examen finalisé. */
+  questionCount: number
+  targetQuestionCount: number
+  figures: ExamFigures
+}
+
+/** Examens lus par la vue de pilotage : bien au-delà d'une année d'examens blancs. */
+const OVERVIEW_LIMIT = 200
+
+/**
+ * [Admin] Vue de pilotage des examens : tous les examens, du plus récent au
+ * plus ancien par date d'ouverture (en préparation sans dates en tête), avec
+ * leurs chiffres. La page les range par phase.
+ */
+export const getExamsOverview = cache(
+  async (): Promise<AdminExamOverviewItem[]> => {
+    await requireRole(["admin"])
     const rows = await db
       .select({
         id: exams.id,
         title: exams.title,
-        description: exams.description,
         startDate: exams.startDate,
         endDate: exams.endDate,
-        completionTime: exams.completionTime,
-        targetQuestionCount: exams.targetQuestionCount,
         finalizedAt: exams.finalizedAt,
         isActive: exams.isActive,
-        enablePause: exams.enablePause,
-        pauseDurationMinutes: exams.pauseDurationMinutes,
-        createdAt: exams.createdAt,
+        audienceType: exams.audienceType,
+        targetQuestionCount: exams.targetQuestionCount,
       })
       .from(exams)
-      .orderBy(desc(exams.createdAt))
-      .limit(100)
+      .orderBy(
+        sql`${exams.startDate} desc nulls first`,
+        desc(exams.createdAt),
+        desc(exams.id),
+      )
+      .limit(OVERVIEW_LIMIT)
     if (rows.length === 0) return []
 
-    const examIds = rows.map((e) => e.id)
-    const countMap = await countQuestionsByExam(examIds)
-
-    const partRows = await db
-      .select({
-        examId: examParticipations.examId,
-        n: sql<number>`count(*)`.mapWith(Number),
-      })
-      .from(examParticipations)
-      .where(inArray(examParticipations.examId, examIds))
-      .groupBy(examParticipations.examId)
-    const partMap = new Map(partRows.map((r) => [r.examId, r.n]))
-
+    const ids = rows.map((e) => e.id)
+    const [questionCounts, figures] = await Promise.all([
+      countQuestionsByExam(ids),
+      examFigures(rows),
+    ])
     return rows.map((e) => ({
       id: e.id,
       title: e.title,
-      description: e.description,
       startDate: e.startDate?.getTime() ?? null,
       endDate: e.endDate?.getTime() ?? null,
-      questionCount: countMap.get(e.id) ?? 0,
-      targetQuestionCount: e.targetQuestionCount,
-      completionTime: e.completionTime,
       finalizedAt: e.finalizedAt?.getTime() ?? null,
       isActive: e.isActive,
-      enablePause: e.enablePause,
-      pauseDurationMinutes: e.pauseDurationMinutes,
-      participantCount: partMap.get(e.id) ?? 0,
-      createdAt: e.createdAt.getTime(),
+      audienceType: e.audienceType,
+      questionCount: questionCounts.get(e.id) ?? 0,
+      targetQuestionCount: e.targetQuestionCount,
+      figures: figures.get(e.id) ?? emptyFigures(0),
     }))
   },
 )
@@ -164,14 +356,12 @@ export type AdminExam = {
     questionCount: number
     audienceType: "subscribers" | "restricted"
   }
-  /** Avec la clé de réponse : un admin n'est jamais sous le verrou. */
-  questions: QuizQuestion[]
 }
 
 /**
- * [Admin] Un examen dans toutes ses phases, préparation comprise, avec ses
- * questions dans leur ordre (fiche et formulaire admin). La lecture étudiante
- * `getExamWithQuestions` ignore les examens en préparation.
+ * [Admin] Un examen dans toutes ses phases, préparation comprise (fiche,
+ * formulaire, compositeur ; son jeu se lit par `getExamSelection`). La lecture
+ * étudiante `getExamWithQuestions` ignore les examens en préparation.
  */
 export const getAdminExam = cache(
   async (examId: string): Promise<AdminExam | null> => {
@@ -196,21 +386,7 @@ export const getAdminExam = cache(
       .limit(1)
     if (!exam) return null
 
-    const items = await db
-      .select({
-        questionId: examQuestions.questionId,
-        question: questions.question,
-        options: questions.options,
-        correctAnswer: questions.correctAnswer,
-        objectifCMC: questions.objectifCmc,
-        domain: questions.domain,
-      })
-      .from(examQuestions)
-      .innerJoin(questions, eq(questions.id, examQuestions.questionId))
-      .where(eq(examQuestions.examId, examId))
-      .orderBy(asc(examQuestions.position))
-      .limit(1000)
-    const imgMap = await fetchImages(items.map((i) => i.questionId))
+    const questionCount = (await countQuestionsByExam([examId])).get(examId)
 
     return {
       exam: {
@@ -218,140 +394,9 @@ export const getAdminExam = cache(
         startDate: exam.startDate?.getTime() ?? null,
         endDate: exam.endDate?.getTime() ?? null,
         finalizedAt: exam.finalizedAt?.getTime() ?? null,
-        questionCount: items.length,
+        questionCount: questionCount ?? 0,
       },
-      questions: items.map((i) =>
-        toQuizQuestion(
-          i,
-          imgMap.get(i.questionId) ?? [],
-          AnswerKeyLock.none(),
-          "key",
-        ),
-      ),
     }
-  },
-)
-
-// ============================================
-// Admin : statistiques examens
-// ============================================
-
-export type ExamsStats = {
-  total: number
-  preparation: number
-  active: number
-  upcoming: number
-  past: number
-  inactive: number
-  eligibleCandidates: number
-}
-
-/**
- * [Admin] Compteurs par phase + candidats éligibles. « Désactivé » prime, et un
- * examen en préparation ne compte dans aucune phase datée, même s'il garde des
- * dates.
- */
-export const getExamsStats = cache(async (): Promise<ExamsStats> => {
-  await requireRole(["admin"])
-  const now = new Date()
-
-  const finalized = sql`${exams.isActive} and ${exams.finalizedAt} is not null`
-  const [counts] = await db
-    .select({
-      total: sql<number>`count(*)`.mapWith(Number),
-      inactive:
-        sql<number>`count(*) filter (where not ${exams.isActive})`.mapWith(
-          Number,
-        ),
-      preparation:
-        sql<number>`count(*) filter (where ${exams.isActive} and ${exams.finalizedAt} is null)`.mapWith(
-          Number,
-        ),
-      active:
-        sql<number>`count(*) filter (where ${finalized} and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
-          Number,
-        ),
-      upcoming:
-        sql<number>`count(*) filter (where ${finalized} and ${exams.startDate} > ${now})`.mapWith(
-          Number,
-        ),
-      past: sql<number>`count(*) filter (where ${exams.finalizedAt} is not null and ${exams.endDate} < ${now})`.mapWith(
-        Number,
-      ),
-    })
-    .from(exams)
-
-  const [elig] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(userAccess)
-    .where(
-      and(eq(userAccess.accessType, "exam"), gt(userAccess.expiresAt, now)),
-    )
-
-  return {
-    total: counts?.total ?? 0,
-    preparation: counts?.preparation ?? 0,
-    active: counts?.active ?? 0,
-    upcoming: counts?.upcoming ?? 0,
-    past: counts?.past ?? 0,
-    inactive: counts?.inactive ?? 0,
-    eligibleCandidates: elig?.n ?? 0,
-  }
-})
-
-export type EligibleCandidate = {
-  user: {
-    id: string
-    name: string
-    email: string
-    image: string | null
-    username: string | null
-  }
-  expiresAt: number
-  daysRemaining: number
-}
-
-/**
- * [Admin] Utilisateurs avec un accès examen actif (candidats éligibles, page
- * détails). Remplace `users.getUsersWithActiveExamAccess`.
- */
-export const getEligibleExamCandidates = cache(
-  async (): Promise<EligibleCandidate[]> => {
-    await requireRole(["admin"])
-    const now = Date.now()
-    const rows = await db
-      .select({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        image: user.image,
-        expiresAt: userAccess.expiresAt,
-      })
-      .from(userAccess)
-      .innerJoin(user, eq(user.id, userAccess.userId))
-      .where(
-        and(
-          eq(userAccess.accessType, "exam"),
-          gt(userAccess.expiresAt, new Date(now)),
-        ),
-      )
-      .orderBy(asc(userAccess.expiresAt))
-      .limit(100)
-
-    return rows.map((r) => ({
-      user: {
-        id: r.id,
-        name: r.name,
-        email: r.email,
-        image: r.image ?? null,
-        username: null,
-      },
-      expiresAt: r.expiresAt.getTime(),
-      daysRemaining: Math.max(
-        0,
-        Math.ceil((r.expiresAt.getTime() - now) / (24 * 60 * 60 * 1000)),
-      ),
-    }))
   },
 )
 

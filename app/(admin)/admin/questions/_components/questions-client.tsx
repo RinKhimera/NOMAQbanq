@@ -5,7 +5,6 @@ import {
   ArrowUp,
   ArrowUpDown,
   Image as ImageIcon,
-  Minus,
   Plus,
   SearchX,
   TriangleAlert,
@@ -14,6 +13,10 @@ import {
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useRef, useState, useTransition } from "react"
+import {
+  NotUsedSinceField,
+  notUsedSinceLabel,
+} from "@/components/admin/not-used-since-field"
 import {
   answersLabel,
   countLabel,
@@ -52,14 +55,12 @@ import type {
   QuestionSortBy,
 } from "@/features/questions/dal"
 import { QUESTIONS_PAGE_SIZE } from "@/features/questions/page-size"
-import { RECENT_EXAMS_DEFAULT } from "@/features/questions/recent-exams"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { adminPhaseOf } from "@/lib/exam-phase"
 import { EXAM_STATUS_CONFIG } from "@/lib/exam-status"
 import { formatMediumDate } from "@/lib/format"
 import { scoreTone } from "@/lib/score"
 import { TONE_COLOR } from "@/lib/tone"
-import { TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import { ExportQuestionsButton } from "./export-questions-button"
 import {
@@ -82,9 +83,6 @@ const IMAGE_OPTIONS: { value: ImageFilter; label: string }[] = [
   { value: "with", label: "Avec" },
   { value: "without", label: "Sans" },
 ]
-
-const notUsedSinceLabel = (n: number) =>
-  `Pas utilisée depuis ${countLabel(n, "examen")}`
 
 const sameDay = (a: number, b: number) =>
   formatMediumDate(a) === formatMediumDate(b)
@@ -164,92 +162,6 @@ const SortButton = ({
       {label}
       <Icon aria-hidden className={cn("size-3", !on && "opacity-50")} />
     </button>
-  )
-}
-
-/** « Toutes » ou « Pas utilisée depuis [n] examens », n de 1 à 20. */
-const NotUsedSinceField = ({
-  value,
-  onChange,
-}: {
-  value: number | null
-  onChange: (value: number | null) => void
-}) => {
-  const [count, setCount] = useState(value ?? RECENT_EXAMS_DEFAULT)
-  // Le nombre ne recharge la liste qu'une fois la saisie posée : chaque
-  // rechargement recalcule l'agrégat de la banque.
-  useDebouncedValue(count, 400, (n) => {
-    if (value !== null && n !== value) onChange(n)
-  })
-  const setN = (n: number) =>
-    setCount(Math.max(1, Math.min(NOT_USED_SINCE_MAX, n)))
-  return (
-    <div className="flex flex-col gap-2 text-sm">
-      <label className="flex min-h-8 cursor-pointer items-center gap-2">
-        <input
-          type="radio"
-          name="not-used-since"
-          checked={value === null}
-          onChange={() => onChange(null)}
-          className="size-4 accent-(--accent)"
-        />
-        Toutes
-      </label>
-      <div className="flex min-h-8 flex-wrap items-center gap-2">
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="radio"
-            name="not-used-since"
-            checked={value !== null}
-            onChange={() => onChange(count)}
-            aria-label={notUsedSinceLabel(count)}
-            className="size-4 accent-(--accent)"
-          />
-          Pas utilisée depuis
-        </label>
-        <span
-          role="group"
-          aria-label="Nombre d'examens"
-          className="border-line-strong inline-flex h-8 items-center rounded-md border"
-        >
-          <button
-            type="button"
-            aria-label="Moins"
-            disabled={count <= 1}
-            onClick={() => setN(count - 1)}
-            className={cn(
-              TOUCH_TARGET,
-              "focus-ring text-ink-2 hover:bg-surface-2 flex size-8 cursor-pointer items-center justify-center rounded-l-md disabled:cursor-default disabled:opacity-40",
-            )}
-          >
-            <Minus aria-hidden className="size-3" />
-          </button>
-          <input
-            inputMode="numeric"
-            aria-label="Nombre d'examens"
-            value={count}
-            onFocus={() => value === null && onChange(count)}
-            onChange={(e) =>
-              setN(Number(e.target.value.replace(/\D/g, "")) || 1)
-            }
-            className="w-8 bg-transparent text-center font-mono text-sm outline-none"
-          />
-          <button
-            type="button"
-            aria-label="Plus"
-            disabled={count >= NOT_USED_SINCE_MAX}
-            onClick={() => setN(count + 1)}
-            className={cn(
-              TOUCH_TARGET,
-              "focus-ring text-ink-2 hover:bg-surface-2 flex size-8 cursor-pointer items-center justify-center rounded-r-md disabled:cursor-default disabled:opacity-40",
-            )}
-          >
-            <Plus aria-hidden className="size-3" />
-          </button>
-        </span>
-        <span aria-hidden>{count > 1 ? "examens" : "examen"}</span>
-      </div>
-    </div>
   )
 }
 
@@ -577,6 +489,7 @@ export const QuestionsClient = ({
             help="Examen blanc le plus récent, par date d'ouverture, qui contient la question."
           >
             <NotUsedSinceField
+              max={NOT_USED_SINCE_MAX}
               value={state.notUsedSince}
               onChange={(notUsedSince) => change({ notUsedSince })}
             />

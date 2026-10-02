@@ -14,18 +14,16 @@ import {
 } from "@/db/schema"
 import { getMyDashboard } from "@/features/analytics/dal.dashboard"
 import {
-  createExam,
   finalizePreparedExam,
   saveExam,
   startExam,
-  updateExam,
 } from "@/features/exams/actions"
 import { closeExpiredExamParticipations } from "@/features/exams/cron"
 import {
   getAdminExam,
   getExamLeaderboard,
   getExamWithQuestions,
-  getExamsStats,
+  getExamsOverview,
   getExamsWithParticipation,
   getParticipantExamResults,
 } from "@/features/exams/dal"
@@ -36,7 +34,9 @@ import { notUsedInLastExams } from "@/features/questions/last-use"
 import { getAdminStats } from "@/features/users/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { getPgErrorCode } from "@/lib/db-errors"
+import { adminPhaseOf } from "@/lib/exam-phase"
 import { createId } from "@/lib/ids"
+import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
 import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
@@ -251,7 +251,7 @@ describe("enregistrer un examen en préparation", () => {
       questionCount: 3,
       audienceType: "restricted",
     })
-    expect(read?.questions.map((q) => q._id)).toEqual(qIds.slice(0, 3))
+    expect(await orderOf(examId)).toEqual(qIds.slice(0, 3))
 
     // Réenregistré sans `questionIds` : jeu conservé, dates ajoutées.
     const again = await saveExam({
@@ -364,15 +364,15 @@ describe("un examen en préparation n'existe pas pour l'étudiant", () => {
     expect(participations).toHaveLength(0)
   })
 
-  it("compté en préparation dans les statistiques admin, dans aucune phase datée", async () => {
+  it("en préparation dans la vue de pilotage, dans aucune phase datée", async () => {
+    const examId = await saveNew({
+      ...base,
+      ...openWindow(),
+      audienceType: "subscribers",
+    })
     asAdmin()
-    const before = await getExamsStats()
-    await saveNew({ ...base, ...openWindow(), audienceType: "subscribers" })
-    const after = await getExamsStats()
-
-    expect(after.preparation).toBe(before.preparation + 1)
-    expect(after.active).toBe(before.active)
-    expect(after.upcoming).toBe(before.upcoming)
+    const item = (await getExamsOverview()).find((e) => e.id === examId)
+    expect(item && adminPhaseOf(item, Date.now())).toBe("preparation")
   })
 })
 
@@ -422,14 +422,16 @@ describe("contrainte et lectures filtrées", () => {
   it("compteurs : un examen en préparation qui garde ses dates n'est pas compté", async () => {
     const countersOf = async () => {
       asAdmin()
-      const [stats, admin] = await Promise.all([
-        getExamsStats(),
+      const [overview, admin] = await Promise.all([
+        getExamsOverview(),
         getAdminStats(),
       ])
       asUser(STUDENT_ID)
       const dashboard = await getMyDashboard("tout")
       return {
-        past: stats.past,
+        past: overview.filter(
+          (e) => adminPhaseOf(e, Date.now()) === "completed",
+        ).length,
         active: admin.activeExams,
         available: dashboard?.exams.availableCount ?? -1,
       }
@@ -562,9 +564,9 @@ describe("finaliser", () => {
     })
   })
 
-  it("l'ancien formulaire crée un examen finalisé, ordre mélangé", async () => {
+  it("le formulaire crée un examen finalisé : enregistrer puis finaliser", async () => {
     asAdmin()
-    const res = await createExam({
+    const res = await createFinalizedExam({
       title: `Formulaire ${suffix}`,
       ...openWindow(),
       questionIds: qIds.slice(0, 10),
@@ -664,7 +666,7 @@ describe("modifier un examen finalisé", () => {
     })
 
     asAdmin()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: examId,
       title: `Ancien déploiement ${suffix}`,
       ...openWindow(),

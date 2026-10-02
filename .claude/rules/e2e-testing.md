@@ -94,14 +94,19 @@ cliquable, rendu partagé `components/shared/correction.tsx`), `citation-popover
 `score-status` (`data-status="passing|failing|withheld"` sur l'en-tête),
 `btn-filter-errors`, `btn-expand-all`, `btn-collapse-all`, `results-nav-item-{i}`.
 Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-access-{titre}`
-(grille dashboard), `exam-side-panel` (panneau d'examen admin), `client-{userId}`,
+(grille dashboard), `client-{userId}`,
 `client-filter-{all|failed|dispute|manual}`, `client-verdict`,
 `timeline-{transactionId}` (dossier client des transactions),
 `transactions-summary`, `segment-{all|active|expiring|expired|never}`,
 `filter-suspended`, `access-{exam|training}`, `grant-access`,
 `participation-{id}` (liste et fiche utilisateurs),
-`question-detail-modal`/`question-detail-footer` (modale de question de la
-constitution d'examen), `tab-{all|toVerify|noReferences}`, `question-row-link`,
+`exams-section-{live|prepare|finished}`, `btn-create-exam`,
+`prep-exam-card-{id}`, `live-exam-card-{id}` (vue de pilotage des examens),
+`exam-title-input`, `exam-target-input`, `btn-save-exam`, `btn-finalize-exam`,
+`btn-compose-questions` (formulaire et fiche d'examen), `exam-badges`,
+`btn-delete-exam`/`-confirm` (fiche), `composer-count`,
+`btn-composer-complete`, `composer-completion-dialog`,
+`btn-composer-apply-completion`, `btn-composer-done` (compositeur), `tab-{all|toVerify|noReferences}`, `question-row-link`,
 `sort-{createdAt|updatedAt|successRate|answerCount}`, `btn-filter-panel`
 (liste des questions), `question-position`, `btn-edit-question`,
 `btn-delete-question`/`-confirm`, `btn-confirm-key`/`-submit`, `key-to-verify-alert`

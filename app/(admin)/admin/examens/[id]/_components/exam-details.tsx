@@ -7,17 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import type {
-  EligibleCandidate,
-  ExamAudienceUser,
-  LeaderboardEntry,
-} from "@/features/exams/dal"
+import type { LeaderboardEntry } from "@/features/exams/dal"
 import type { ExamStatus } from "@/lib/exam-status"
 import { formatDeadline } from "@/lib/format"
-import { EligibleCandidatesSection } from "./eligible-candidates-section"
 import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
-import { RestrictedAudienceSection } from "./restricted-audience-section"
 
 type ExamMeta = {
   startDate: number | null
@@ -32,8 +26,6 @@ type ExamMeta = {
 interface ExamDetailsProps {
   exam: ExamMeta
   leaderboard: LeaderboardEntry[]
-  candidates: EligibleCandidate[]
-  audience?: ExamAudienceUser[]
   isAdmin?: boolean
   currentUserId?: string
   /** Phase calculée par l'appelant : l'admin voit aussi la préparation. */
@@ -43,8 +35,6 @@ interface ExamDetailsProps {
 export function ExamDetails({
   exam,
   leaderboard,
-  candidates,
-  audience = [],
   isAdmin = false,
   currentUserId,
   status,
@@ -104,13 +94,6 @@ export function ExamDetails({
       </Card>
 
       <ExamSectionStats leaderboard={leaderboard} />
-
-      {isAdmin &&
-        (exam.audienceType === "restricted" ? (
-          <RestrictedAudienceSection audience={audience} />
-        ) : (
-          <EligibleCandidatesSection candidates={candidates} />
-        ))}
 
       <ExamLeaderboard
         examId={exam.id}

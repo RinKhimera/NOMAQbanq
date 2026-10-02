@@ -1,7 +1,7 @@
 import type { QuestionAnswerBreakdown } from "@/features/analytics/dal"
 import type { QuestionDetail, QuestionExamUse } from "@/features/questions/dal"
 import { keyReview } from "@/features/questions/key-review"
-import { isOpen } from "@/lib/exam-phase"
+import { isFinalizedOpen } from "@/lib/exam-phase"
 
 // Module pur, partagé par le détail et `/modifier` d'une question.
 
@@ -9,9 +9,7 @@ export type LockingExam = QuestionExamUse & { endDate: number }
 
 /** Les choix figés ne s'appliquent pas à un examen en préparation. */
 const locks = (e: QuestionExamUse, now: number): e is LockingExam =>
-  e.finalizedAt !== null &&
-  e.endDate !== null &&
-  isOpen({ endDate: e.endDate }, now)
+  isFinalizedOpen(e, now)
 
 /** Choix figés : l'examen ouvert qui ferme le plus tard les tient verrouillés. */
 export const lockingExamOf = (

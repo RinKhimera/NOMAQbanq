@@ -7,7 +7,10 @@ import {
   exists,
   ilike,
   inArray,
+  isNotNull,
   isNull,
+  ne,
+  not,
   notExists,
   or,
   sql,
@@ -25,6 +28,7 @@ import {
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
 import { questionSuccessStats } from "../analytics/answers-sql"
+import type { DomainDraw, DomainSupply } from "../exams/completion"
 import { AnswerKeyLock, excludeLocked } from "./answer-key-lock"
 import {
   KEY_CONFIRMATION_MIN_NEW_ANSWERS,
@@ -33,6 +37,7 @@ import {
 } from "./key-review"
 import { notUsedInLastExams } from "./last-use"
 import { fetchImages, toQuizQuestion } from "./quiz-bridge"
+import { RECENT_EXAMS_DEFAULT } from "./recent-exams"
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
@@ -67,7 +72,7 @@ const noImagesSubquery = notExists(
 )
 
 // EXISTS / NOT EXISTS corrélé sur `examQuestions` : filtre « déjà utilisée dans
-// un examen » du QuestionBrowser.
+// un examen ».
 const usedSubquery = exists(
   db
     .select({ x: sql`1` })
@@ -176,6 +181,14 @@ export type QuestionsPage = {
 export type QuestionSortBy =
   "createdAt" | "updatedAt" | "successRate" | "answerCount"
 
+/** Tris de la banque du compositeur d'examen, en plus de ceux de la liste. */
+export type BankSortBy =
+  | QuestionSortBy
+  /** Dernière utilisation, les plus anciennes (et jamais utilisées) d'abord. */
+  | "lastUse"
+  /** Domaine, puis dernière utilisation. */
+  | "domain"
+
 /** Les questions retenues par les filtres de la liste, que l'export reprend. */
 export type QuestionSelection = {
   /** Énoncé, objectif, choix de réponse ou identifiant exact. */
@@ -190,6 +203,8 @@ export type QuestionSelection = {
   usedInExamId?: string
   /** Absente des N derniers examens blancs (dernière utilisation). */
   notUsedInLast?: number
+  /** Hors du jeu de cet examen (banque du compositeur). */
+  notInExamId?: string
 }
 
 export type QuestionFiltersInput = QuestionSelection & {
@@ -198,7 +213,7 @@ export type QuestionFiltersInput = QuestionSelection & {
   limit?: number
   sortOrder?: "asc" | "desc"
   /** `successRate` : non significatives en fin, quel que soit le sens. */
-  sortBy?: QuestionSortBy
+  sortBy?: BankSortBy
 }
 
 /**
@@ -214,6 +229,7 @@ const selectionWhere = ({
   usageFilter = "all",
   usedInExamId,
   notUsedInLast,
+  notInExamId,
 }: QuestionSelection) => {
   const searchTerm = search?.trim()
   const pattern = searchTerm ? `%${escapeLike(searchTerm)}%` : ""
@@ -250,8 +266,13 @@ const selectionWhere = ({
     noReferences ? noReferencesSubquery : undefined,
     usagePredicate,
     notUsedInLast && notUsedInLast > 0
-      ? notUsedInLastExams(clamp(notUsedInLast, 1, 50), QUESTION_ID)
+      ? notUsedInLastExams(
+          clamp(notUsedInLast, 1, 50),
+          QUESTION_ID,
+          notInExamId,
+        )
       : undefined,
+    notInExamId ? not(usedInExamSubquery(notInExamId)) : undefined,
   )
 }
 
@@ -259,11 +280,23 @@ const needsBankStats = (f: QuestionFiltersInput) =>
   f.sortBy === "successRate" || f.sortBy === "answerCount" || !!f.toVerify
 
 /**
+ * Date d'ouverture de la dernière utilisation (examens en préparation exclus,
+ * voir `./last-use`), `null` pour une question jamais utilisée.
+ */
+const lastUseStart = sql`(
+  select max(lu_e.start_date)
+    from exam_questions lu_q
+    join exams lu_e on lu_e.id = lu_q.exam_id
+   where lu_q.question_id = ${QUESTION_ID}
+     and lu_e.finalized_at is not null
+)`
+
+/**
  * Ordre de la liste, repris tel quel par les voisins précédent / suivant.
  * Départage final par id : deux pages ne se chevauchent jamais.
  */
 const listOrder = (
-  sortBy: QuestionSortBy,
+  sortBy: BankSortBy,
   isDesc: boolean,
   stats: BankStats,
 ): SQL[] => {
@@ -275,6 +308,14 @@ const listOrder = (
       return [
         sql`coalesce(${stats.answerCount}, 0) ${dir}`,
         desc(questions.createdAt),
+        asc(questions.id),
+      ]
+    case "lastUse":
+      return [sql`${lastUseStart} ${dir} nulls first`, asc(questions.id)]
+    case "domain":
+      return [
+        isDesc ? desc(questions.domain) : asc(questions.domain),
+        sql`${lastUseStart} asc nulls first`,
         asc(questions.id),
       ]
     case "updatedAt":
@@ -336,7 +377,17 @@ const listPage = async (
         .limit(limit)
         .offset(offset)
 
-  const pageIds = rows.map((r) => r.id)
+  return questionListItems(rows.map((r) => r.id))
+}
+
+/**
+ * Lignes de liste de ces questions, dans l'ordre donné, enrichies des comptes
+ * d'images, d'examens et des statistiques. Les ids inconnus sont ignorés.
+ */
+export const questionListItems = async (
+  pageIds: string[],
+): Promise<QuestionListItem[]> => {
+  await requireRole(["admin"])
   if (pageIds.length === 0) return []
 
   const pageStats = questionSuccessStats(pageIds)
@@ -753,6 +804,289 @@ export const getQuestionExams = async (
 }
 
 // ============================================
+// [Admin] Banque du compositeur d'examen
+// ============================================
+
+/** Dernière utilisation d'une question (`CONTEXT.md`). */
+export type LastUse = {
+  examId: string
+  title: string
+  /** Epoch ms : un examen finalisé a toujours ses dates. */
+  startDate: number
+  /** Dans l'un des derniers examens blancs : question récente. */
+  recent: boolean
+}
+
+export type BankQuestion = QuestionListItem & {
+  lastUse: LastUse | null
+  /** Supprimée depuis son ajout au jeu : la finalisation la refuse. */
+  deleted: boolean
+}
+
+/** Question récente (`CONTEXT.md`), forme SQL corrélée sur `questions`. */
+const recentSql = (examId: string) =>
+  sql<boolean>`not ${notUsedInLastExams(RECENT_EXAMS_DEFAULT, QUESTION_ID, examId)}`
+
+/**
+ * [Admin] Dernière utilisation de chaque question : l'examen le plus récent
+ * par date d'ouverture qui la contient, désactivés compris, examens en
+ * préparation exclus (même ordre que `notUsedInLastExams`). Une question est
+ * récente quand cet examen est l'un des derniers examens blancs.
+ * `exceptExamId` : l'examen qu'on compose ne compte pas pour ses propres
+ * questions, même finalisé (sinon elles seraient toutes récentes).
+ */
+export const getLastUses = async (
+  questionIds: string[],
+  exceptExamId?: string,
+): Promise<Map<string, LastUse>> => {
+  await requireRole(["admin"])
+  if (questionIds.length === 0) return new Map()
+  const [rows, recentExams] = await Promise.all([
+    db
+      .selectDistinctOn([examQuestions.questionId], {
+        questionId: examQuestions.questionId,
+        examId: exams.id,
+        title: exams.title,
+        startDate: exams.startDate,
+      })
+      .from(examQuestions)
+      .innerJoin(exams, eq(exams.id, examQuestions.examId))
+      .where(
+        and(
+          inArray(examQuestions.questionId, questionIds),
+          isNotNull(exams.finalizedAt),
+          exceptExamId ? ne(exams.id, exceptExamId) : undefined,
+        ),
+      )
+      .orderBy(examQuestions.questionId, desc(exams.startDate), desc(exams.id)),
+    db
+      .select({ id: exams.id })
+      .from(exams)
+      .where(
+        and(
+          isNotNull(exams.finalizedAt),
+          exceptExamId ? ne(exams.id, exceptExamId) : undefined,
+        ),
+      )
+      .orderBy(desc(exams.startDate), desc(exams.id))
+      .limit(RECENT_EXAMS_DEFAULT),
+  ])
+  const recent = new Set(recentExams.map((e) => e.id))
+  return new Map(
+    rows.flatMap((r) =>
+      r.startDate
+        ? [
+            [
+              r.questionId,
+              {
+                examId: r.examId,
+                title: r.title,
+                startDate: r.startDate.getTime(),
+                recent: recent.has(r.examId),
+              },
+            ],
+          ]
+        : [],
+    ),
+  )
+}
+
+const withLastUses = async (
+  items: QuestionListItem[],
+  examId: string,
+  deleted: ReadonlySet<string> = new Set(),
+): Promise<BankQuestion[]> => {
+  const lastUses = await getLastUses(
+    items.map((i) => i.id),
+    examId,
+  )
+  return items.map((i) => ({
+    ...i,
+    lastUse: lastUses.get(i.id) ?? null,
+    deleted: deleted.has(i.id),
+  }))
+}
+
+/** Questions par page de la banque du compositeur. */
+export const BANK_PAGE_SIZE = 20
+
+export type BankFilters = Pick<
+  QuestionSelection,
+  "search" | "domain" | "notUsedInLast"
+> & {
+  sortBy: "lastUse" | "domain" | "successRate"
+  /** 1-based. */
+  page: number
+}
+
+/**
+ * [Admin] Une page de la banque du compositeur : les questions hors du jeu de
+ * l'examen, avec leur dernière utilisation. Plus anciennes d'abord, plus
+ * faible réussite d'abord.
+ */
+export const getExamBank = async (
+  examId: string,
+  filters: BankFilters,
+): Promise<{ items: BankQuestion[]; total: number }> => {
+  await requireRole(["admin"])
+  const page = await getQuestionsWithFilters({
+    ...filters,
+    notInExamId: examId,
+    sortOrder: "asc",
+    limit: BANK_PAGE_SIZE,
+  })
+  return { items: await withLastUses(page.items, examId), total: page.total }
+}
+
+/** [Admin] Le jeu de questions d'un examen, avec leur dernière utilisation. */
+export const getExamSelection = async (
+  examId: string,
+): Promise<BankQuestion[]> => {
+  await requireRole(["admin"])
+  const rows = await db
+    .select({ id: examQuestions.questionId, deletedAt: questions.deletedAt })
+    .from(examQuestions)
+    .innerJoin(questions, eq(questions.id, examQuestions.questionId))
+    .where(eq(examQuestions.examId, examId))
+    .orderBy(asc(examQuestions.position))
+    .limit(1000)
+  return withLastUses(
+    await questionListItems(rows.map((r) => r.id)),
+    examId,
+    new Set(rows.filter((r) => r.deletedAt).map((r) => r.id)),
+  )
+}
+
+export type DomainPlanRow = {
+  domain: string
+  /** Dans le jeu de l'examen. */
+  chosen: number
+  /** Dans la banque, hors du jeu. */
+  available: number
+  /** Disponibles et récentes. */
+  recent: number
+}
+
+/** [Admin] Plan par domaine du compositeur : choisies, disponibles, récentes. */
+export const getDomainPlan = async (
+  examId: string,
+): Promise<DomainPlanRow[]> => {
+  await requireRole(["admin"])
+  const inExam = usedInExamSubquery(examId)
+  const recent = recentSql(examId)
+  return (
+    db
+      .select({
+        domain: questions.domain,
+        chosen: sql<number>`count(*) filter (where ${inExam})`.mapWith(Number),
+        available: sql<number>`count(*) filter (where not ${inExam})`.mapWith(
+          Number,
+        ),
+        recent:
+          sql<number>`count(*) filter (where not ${inExam} and ${recent})`.mapWith(
+            Number,
+          ),
+      })
+      .from(questions)
+      // Une question supprimée reste comptée dans le jeu qui la contient.
+      .where(or(isNull(questions.deletedAt), inExam))
+      .groupBy(questions.domain)
+      .orderBy(asc(questions.domain))
+      .limit(100)
+  )
+}
+
+/** Questions tirables par la complétion : hors du jeu, non supprimées, clé sans doute. */
+const drawablePool = (examId: string, stats: BankStats) =>
+  and(
+    isNull(questions.deletedAt),
+    not(usedInExamSubquery(examId)),
+    not(keyToVerifySql(stats)),
+  )
+
+/**
+ * [Admin] Offre de la banque par domaine pour la complétion (voir
+ * `planCompletion`) : toutes les disponibles fixent la répartition, les clés à
+ * vérifier ne sont jamais tirées.
+ */
+export const getBankSupply = async (
+  examId: string,
+): Promise<DomainSupply[]> => {
+  await requireRole(["admin"])
+  const stats = questionSuccessStats()
+  const usable = sql`not ${keyToVerifySql(stats)}`
+  const recent = recentSql(examId)
+  return db
+    .with(stats)
+    .select({
+      domain: questions.domain,
+      available: sql<number>`count(*)`.mapWith(Number),
+      clean:
+        sql<number>`count(*) filter (where ${usable} and not ${recent})`.mapWith(
+          Number,
+        ),
+      recent:
+        sql<number>`count(*) filter (where ${usable} and ${recent})`.mapWith(
+          Number,
+        ),
+    })
+    .from(questions)
+    .leftJoin(stats, eq(stats.questionId, questions.id))
+    .where(and(isNull(questions.deletedAt), not(usedInExamSubquery(examId))))
+    .groupBy(questions.domain)
+    .limit(100)
+}
+
+/** Une complétion ne dépasse jamais le plus grand jeu possible. */
+const MAX_DRAW = 1000
+
+/**
+ * [Admin] Tire au hasard, dans chaque domaine, le nombre d'anciennes et de
+ * récentes demandé, parmi les questions tirables.
+ */
+export const drawFromBank = async (
+  examId: string,
+  draws: DomainDraw[],
+): Promise<{ id: string; domain: string; recent: boolean }[]> => {
+  await requireRole(["admin"])
+  if (draws.length === 0) return []
+  const stats = questionSuccessStats()
+  const recent = recentSql(examId)
+  const pool = db.$with("pool").as(
+    db
+      .with(stats)
+      .select({
+        id: sql<string>`${questions.id}`.as("p_id"),
+        domain: sql<string>`${questions.domain}`.as("p_domain"),
+        recent: sql<boolean>`${recent}`.as("p_recent"),
+        rank: sql<number>`row_number() over (partition by ${questions.domain}, ${recent} order by random())`.as(
+          "p_rank",
+        ),
+      })
+      .from(questions)
+      .leftJoin(stats, eq(stats.questionId, questions.id))
+      .where(drawablePool(examId, stats)),
+  )
+  const quotas = sql.join(
+    draws.map((d) => sql`(${d.domain}, ${d.clean}::int, ${d.fallback}::int)`),
+    sql`, `,
+  )
+  const rows = await db
+    .with(pool)
+    .select({ id: pool.id, domain: pool.domain, recent: pool.recent })
+    .from(pool)
+    .innerJoin(
+      sql`(values ${quotas}) as quota(domain, clean, fallback)`,
+      sql`quota.domain = ${pool.domain}`,
+    )
+    .where(
+      sql`${pool.rank} <= case when ${pool.recent} then quota.fallback else quota.clean end`,
+    )
+    .limit(MAX_DRAW)
+  return rows
+}
+
+// ============================================
 // [Admin] Objectifs CMC + ids (combobox, auto-complete)
 // ============================================
 
@@ -779,17 +1113,6 @@ export const getObjectivesByDomain = async (): Promise<
   for (const list of Object.values(byDomain))
     list.sort((a, b) => a.localeCompare(b, "fr"))
   return byDomain
-}
-
-/** [Admin] Tous les ids de questions (auto-complete sélection examen). Borné. */
-export const getAllQuestionIds = async (): Promise<string[]> => {
-  await requireRole(["admin"])
-  const rows = await db
-    .select({ id: questions.id })
-    .from(questions)
-    .where(isNull(questions.deletedAt))
-    .limit(5000)
-  return rows.map((r) => r.id)
 }
 
 // ============================================

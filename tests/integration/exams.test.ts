@@ -21,7 +21,6 @@ import {
   getMyRecentParticipations,
 } from "@/features/analytics/dal"
 import {
-  createExam,
   deactivateExam,
   deleteParticipation,
   finalizeExam,
@@ -30,21 +29,20 @@ import {
   resumeExam,
   saveExamAnswer,
   startExam,
-  updateExam,
 } from "@/features/exams/actions"
 import {
-  getAllExamsAdmin,
   getExamLeaderboard,
   getExamQuestionExplanations,
   getExamSession,
   getExamWithQuestions,
-  getExamsStats,
+  getExamsOverview,
   getExamsWithParticipation,
   getParticipantExamResults,
 } from "@/features/exams/dal"
 import { getTrainingHistory } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
 import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
@@ -66,7 +64,7 @@ const PID = createId()
 // q10 = examen clos SEUL (aucun chevauchement).
 const qIds = Array.from({ length: 11 }, () => createId())
 const examQIds = qIds.slice(0, 6)
-// Banque des tests de `createExam`/`updateExam`, qui exigent 10 questions.
+// Banque des tests de création et de modification, qui exigent 10 questions.
 const crudQIds = Array.from({ length: 12 }, () => createId())
 
 const setSession = (id: string, role: "user" | "admin") =>
@@ -217,10 +215,10 @@ afterAll(async () => {
 })
 
 describe("Admin CRUD", () => {
-  it("createExam refuse une question inexistante", async () => {
+  it("la création refuse une question inexistante", async () => {
     asAdmin()
     const now = Date.now()
-    const res = await createExam({
+    const res = await createFinalizedExam({
       title: `Bad ${suffix}`,
       startDate: now,
       endDate: now + DAY,
@@ -230,11 +228,11 @@ describe("Admin CRUD", () => {
     expect(res.success).toBe(false)
   })
 
-  it("updateExam sur un examen sans participation change le titre + questions", async () => {
+  it("la modification sur un examen sans participation change le titre + questions", async () => {
     const id = await makeExam({ questionIds: crudQIds.slice(0, 10) })
     asAdmin()
     const now = Date.now()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id,
       title: `Updated ${suffix}`,
       startDate: now - 1000,
@@ -250,7 +248,7 @@ describe("Admin CRUD", () => {
     expect(view?.exam.completionTime).toBe(11 * 83)
   })
 
-  it("updateExam et startExam concurrents : participation cohérente avec le set servi (verrou commun)", async () => {
+  it("modification et startExam concurrents : participation cohérente avec le set servi (verrou commun)", async () => {
     const id = await makeExam({ questionIds: crudQIds.slice(0, 10) })
     const newSet = crudQIds.slice(2, 12) // set différent
 
@@ -258,7 +256,7 @@ describe("Admin CRUD", () => {
     const [, start] = await Promise.all([
       (async () => {
         asAdmin()
-        return updateExam({
+        return saveAndFinalize({
           id,
           title: `Race ${suffix}`,
           startDate: now - 1000,
@@ -301,20 +299,12 @@ describe("Admin CRUD", () => {
     const id = await makeExam({ questionIds: examQIds.slice(0, 3) })
     asAdmin()
     await deactivateExam({ examId: id })
-    let all = await getAllExamsAdmin()
+    let all = await getExamsOverview()
     expect(all.find((e) => e.id === id)?.isActive).toBe(false)
 
     await reactivateExam({ examId: id })
-    all = await getAllExamsAdmin()
+    all = await getExamsOverview()
     expect(all.find((e) => e.id === id)?.isActive).toBe(true)
-  })
-
-  it("getExamsStats reflète l'état", async () => {
-    asAdmin()
-    const stats = await getExamsStats()
-    expect(stats.total).toBeGreaterThanOrEqual(2)
-    expect(stats.active).toBeGreaterThanOrEqual(2)
-    expect(stats.eligibleCandidates).toBeGreaterThanOrEqual(1)
   })
 })
 
@@ -572,11 +562,11 @@ describe("IDOR / accès", () => {
     return id
   }
 
-  it("updateExam autorise une édition de métadonnées même avec participations (set inchangé)", async () => {
+  it("la modification autorise une édition de métadonnées même avec participations (set inchangé)", async () => {
     const id = await takenExam()
     asAdmin()
     const now = Date.now()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id,
       title: `Titre maj ${suffix}`,
       startDate: now - 1000,
@@ -587,11 +577,11 @@ describe("IDOR / accès", () => {
     expect(res.success).toBe(true)
   })
 
-  it("updateExam refuse un changement du jeu de questions si participations", async () => {
+  it("la modification refuse un changement du jeu de questions si participations", async () => {
     const id = await takenExam()
     asAdmin()
     const now = Date.now()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id,
       title: `Nope ${suffix}`,
       startDate: now - 1000,
