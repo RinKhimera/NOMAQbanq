@@ -103,6 +103,7 @@ describe("QuestionDetailClient", () => {
         title: "Examen blanc 26",
         startDate: NOW,
         endDate: Date.UTC(2026, 9, 3, 12),
+        finalizedAt: NOW,
         isActive: true,
       },
     })

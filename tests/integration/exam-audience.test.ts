@@ -26,6 +26,7 @@ import {
 import { searchSelectableUsers } from "@/features/users/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -50,7 +51,7 @@ const NOSUB_ID = createId()
 const PID = createId()
 
 // q0..q3 : questions d'examen.
-const qIds = Array.from({ length: 4 }, () => createId())
+const qIds = Array.from({ length: 10 }, () => createId())
 
 const setSession = (id: string, role: "user" | "admin") =>
   vi
@@ -166,16 +167,13 @@ afterAll(async () => {
 
 const now = () => Date.now()
 
-const makeRestrictedExam = async (
-  userIds: string[],
-  opts?: { startDate?: number; endDate?: number },
-): Promise<string> => {
+const makeRestrictedExam = async (userIds: string[]): Promise<string> => {
   asAdmin()
   const t = now()
   const res = await createExam({
     title: `Restreint ${suffix} ${createId().slice(0, 4)}`,
-    startDate: opts?.startDate ?? t - 3600_000,
-    endDate: opts?.endDate ?? t + 3600_000,
+    startDate: t - 3600_000,
+    endDate: t + 3600_000,
     questionIds: qIds,
     enablePause: false,
     audienceType: "restricted",
@@ -441,10 +439,15 @@ describe("getExamsWithParticipation — visibilité restreinte", () => {
 describe("getExamLeaderboard — restreint clos masqué aux non-membres (#3)", () => {
   it("restreint clos : [] pour outsider (avec accès actif), non vide pour membre + admin", async () => {
     const t = now()
-    // Examen restreint CLOS (endDate passée) avec member dans l'audience.
-    const examId = await makeRestrictedExam([MEMBER_ID], {
+    // Examen restreint CLOS (endDate passée) avec member dans l'audience :
+    // inséré directement, la finalisation refuserait une fenêtre close.
+    const examId = await seedExam({
+      createdBy: ADMIN_ID,
+      title: `Restreint clos ${suffix}`,
       startDate: t - 3 * DAY,
       endDate: t - DAY,
+      questionIds: qIds,
+      audienceUserIds: [MEMBER_ID],
     })
     // Participation complétée seedée directement (startExam refuserait hors fenêtre).
     await db.insert(examParticipations).values({

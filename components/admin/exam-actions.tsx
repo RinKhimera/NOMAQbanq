@@ -19,8 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { AdminExamListItem } from "@/features/exams/dal"
-import { isOpen } from "@/lib/exam-phase"
-import { reopenExamHref } from "./reopen-exam-button"
+import { canReopen, reopenExamHref } from "./reopen-exam-button"
 
 interface ExamActionsProps {
   exam: AdminExamListItem
@@ -70,7 +69,7 @@ export function ExamActions({
           Modifier
         </DropdownMenuItem>
 
-        {!isOpen(exam, now) && (
+        {canReopen(exam, now) && (
           <DropdownMenuItem asChild>
             <Link
               href={reopenExamHref(exam.id)}

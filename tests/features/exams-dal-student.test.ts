@@ -84,7 +84,8 @@ vi.mock("@/lib/dal", () => ({
   getCurrentSession: vi.fn(async () => mocks.session.current),
 }))
 vi.mock("@/features/payments/dal", () => ({ hasAccess: mocks.hasAccess }))
-vi.mock("@/features/exams/dal.shared", () => ({
+vi.mock("@/features/exams/dal.shared", async (orig) => ({
+  ...(await orig<typeof import("@/features/exams/dal.shared")>()),
   countQuestionsByExam: mocks.countQuestionsByExam,
 }))
 // Seule la lecture des images est doublée : le mappeur testé est le vrai.
@@ -413,6 +414,7 @@ describe("getExamWithQuestions — clé de réponse", () => {
     startDate: new Date(Date.now() - HOUR),
     endDate: new Date(Date.now() + HOUR),
     completionTime: 60,
+    finalizedAt: new Date(Date.now() - 2 * HOUR),
     isActive: true,
     enablePause: false,
     pauseDurationMinutes: null,

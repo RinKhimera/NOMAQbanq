@@ -5,6 +5,7 @@ import {
   eq,
   exists,
   inArray,
+  isNotNull,
   isNull,
   lte,
   or,
@@ -39,7 +40,11 @@ import {
   viewerOf,
 } from "../questions/answer-key-lock"
 import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
-import { countQuestionsByExam } from "./dal.shared"
+import {
+  countQuestionsByExam,
+  finalizedDate,
+  finalizedDates,
+} from "./dal.shared"
 import { DEFAULT_PAUSE_MINUTES } from "./schemas"
 
 // Questions RÉPONDUES d'une participation, corrélées à la ligne
@@ -207,7 +212,10 @@ export const getExamsWithParticipation = cache(
         audienceType: exams.audienceType,
       })
       .from(exams)
-      .where(and(audienceWhere, activeOrTakenWhere))
+      // Un examen en préparation n'existe pas côté étudiant, admin compris.
+      .where(
+        and(isNotNull(exams.finalizedAt), audienceWhere, activeOrTakenWhere),
+      )
       .orderBy(desc(exams.startDate))
       .limit(100)
     if (rows.length === 0) return []
@@ -251,7 +259,8 @@ export const getExamsWithParticipation = cache(
       for (const p of parts) partMap.set(p.examId, p)
     }
 
-    return rows.map((e) => {
+    return rows.map((row) => {
+      const e = { ...row, ...finalizedDates(row) }
       const p = partMap.get(e.id)
       const taken = p?.status === "completed" || p?.status === "auto_submitted"
       const timing: AttemptTiming | null = p?.startedAt
@@ -271,8 +280,8 @@ export const getExamsWithParticipation = cache(
         id: e.id,
         title: e.title,
         description: e.description,
-        startDate: e.startDate.getTime(),
-        endDate: e.endDate.getTime(),
+        startDate: e.startDate,
+        endDate: e.endDate,
         questionCount: countMap.get(e.id) ?? 0,
         completionTime: e.completionTime,
         isActive: e.isActive,
@@ -362,7 +371,9 @@ export const getExamWithQuestions = async (
       audienceType: exams.audienceType,
     })
     .from(exams)
-    .where(eq(exams.id, examId))
+    // En préparation : introuvable ici pour tous. La fiche admin lit
+    // `getAdminExam`.
+    .where(and(eq(exams.id, examId), isNotNull(exams.finalizedAt)))
     .limit(1)
   if (!exam) return null
 
@@ -441,9 +452,7 @@ export const getExamWithQuestions = async (
       id: exam.id,
       title: exam.title,
       description: exam.description,
-      startDate: exam.startDate.getTime(),
-      endDate: exam.endDate.getTime(),
-      completionTime: exam.completionTime,
+      ...finalizedDates(exam),
       isActive: exam.isActive,
       enablePause: exam.enablePause,
       pauseDurationMinutes: exam.pauseDurationMinutes,
@@ -643,26 +652,19 @@ export const getParticipantExamResults = async (
       audienceType: exams.audienceType,
     })
     .from(exams)
-    .where(eq(exams.id, examId))
+    .where(and(eq(exams.id, examId), isNotNull(exams.finalizedAt)))
     .limit(1)
   if (!exam) return null
+  const dates = finalizedDates(exam)
 
-  if (
-    !canReadResults(
-      { endDate: exam.endDate.getTime() },
-      session.user,
-      Date.now(),
-    )
-  )
+  if (!canReadResults({ endDate: dates.endDate }, session.user, Date.now()))
     return null
 
   const examView: ExamResultsExam = {
     id: exam.id,
     title: exam.title,
     description: exam.description,
-    startDate: exam.startDate.getTime(),
-    endDate: exam.endDate.getTime(),
-    completionTime: exam.completionTime,
+    ...dates,
   }
 
   const [pUser] = await db
@@ -981,7 +983,7 @@ export const getExamSubmissionSummary = cache(
       examTitle: row.title,
       answeredCount: counts?.answeredCount ?? 0,
       flaggedCount: counts?.flaggedCount ?? 0,
-      endDate: row.endDate.getTime(),
+      endDate: finalizedDate(row.endDate),
       status: row.status as "completed" | "auto_submitted",
     }
   },
@@ -1040,7 +1042,7 @@ export const getExamLeaderboard = async (
       isActive: exams.isActive,
     })
     .from(exams)
-    .where(eq(exams.id, examId))
+    .where(and(eq(exams.id, examId), isNotNull(exams.finalizedAt)))
     .limit(1)
   if (!exam) return []
 
@@ -1049,7 +1051,7 @@ export const getExamLeaderboard = async (
     if (!session?.user) return []
     if (
       !canReadResults(
-        { endDate: exam.endDate.getTime() },
+        { endDate: finalizedDate(exam.endDate) },
         session.user,
         Date.now(),
       )

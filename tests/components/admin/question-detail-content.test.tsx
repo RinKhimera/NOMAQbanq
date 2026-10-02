@@ -151,6 +151,7 @@ describe("QuestionDetailContent", () => {
       title: `Examen blanc ${7 - i}`,
       startDate: NOW - (i * 14 + 2) * DAY,
       endDate: NOW - (i * 14 - 2) * DAY,
+      finalizedAt: NOW - (i * 14 + 9) * DAY,
       isActive: true,
     }))
     render(<QuestionDetailContent file={makeFile({ exams })} now={NOW} />)
@@ -177,6 +178,7 @@ describe("QuestionDetailContent", () => {
         title: "Examen blanc 1",
         startDate: 0,
         endDate: DAY,
+        finalizedAt: 0,
         isActive: false,
       },
     ]
@@ -189,6 +191,22 @@ describe("QuestionDetailContent", () => {
     )
     expect(screen.queryByRole("link", { name: /Examen blanc/ })).toBeNull()
     expect(screen.getByText("Désactivé")).toBeInTheDocument()
+  })
+
+  it("examen en préparation sans dates : phase et fenêtre à définir", () => {
+    const exams = [
+      {
+        id: "e1",
+        title: "Examen blanc 30",
+        startDate: null,
+        endDate: null,
+        finalizedAt: null,
+        isActive: true,
+      },
+    ]
+    render(<QuestionDetailContent file={makeFile({ exams })} now={NOW} />)
+    expect(screen.getByText("En préparation")).toBeInTheDocument()
+    expect(screen.getByText(/Dates à définir/)).toBeInTheDocument()
   })
 
   it("mise en forme à vérifier : motifs et lien vers l'édition", () => {

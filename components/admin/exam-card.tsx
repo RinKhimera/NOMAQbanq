@@ -3,7 +3,7 @@
 import { Calendar, Clock, FileText, Users } from "lucide-react"
 import { motion } from "motion/react"
 import type { AdminExamListItem } from "@/features/exams/dal"
-import { phaseOf } from "@/lib/exam-phase"
+import { adminPhaseOf } from "@/lib/exam-phase"
 import { formatMediumDate } from "@/lib/format"
 import { ExamActions } from "./exam-actions"
 import ExamStatusBadge from "./exam-status-badge"
@@ -27,7 +27,7 @@ export function ExamCard({
   onEdit,
   onDelete,
 }: ExamCardProps) {
-  const status = phaseOf(exam, now)
+  const status = adminPhaseOf(exam, now)
 
   const handleCardClick = () => {
     if (onView) {
@@ -85,12 +85,14 @@ export function ExamCard({
         <StatItem
           icon={<Calendar className="h-4 w-4" />}
           label="Début"
-          value={formatMediumDate(exam.startDate)}
+          value={
+            exam.startDate === null ? "—" : formatMediumDate(exam.startDate)
+          }
         />
         <StatItem
           icon={<Clock className="h-4 w-4" />}
           label="Fin"
-          value={formatMediumDate(exam.endDate)}
+          value={exam.endDate === null ? "—" : formatMediumDate(exam.endDate)}
         />
         <StatItem
           icon={<FileText className="h-4 w-4" />}

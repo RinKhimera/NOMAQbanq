@@ -2,7 +2,10 @@ import type { ReactElement } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ExamFormPrefill } from "@/app/(admin)/admin/examens/_components/exam-form"
 import AdminCreateExamPage from "@/app/(admin)/admin/examens/creer/page"
-import { getExamReopeningSource } from "@/features/exams/dal"
+import {
+  type ExamReopeningSource,
+  getExamReopeningSource,
+} from "@/features/exams/dal"
 
 vi.mock("@/app/(admin)/admin/examens/_components/exam-form", () => ({
   ExamForm: () => null,
@@ -17,7 +20,7 @@ vi.mock("@/features/exams/dal", () => ({
 const NOW = Date.parse("2026-10-01T12:00:00Z")
 vi.mock("@/lib/clock", () => ({ currentTimeMs: () => NOW }))
 
-const sourceWithEnd = (endDate: number): ExamFormPrefill => ({
+const sourceWithEnd = (endDate: number): ExamReopeningSource => ({
   exam: {
     title: "Révision 3",
     description: null,

@@ -1,6 +1,17 @@
-import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+} from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
   examAudience,
@@ -12,7 +23,9 @@ import {
   userAccess,
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
-import { countQuestionsByExam } from "./dal.shared"
+import { AnswerKeyLock } from "../questions/answer-key-lock"
+import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
+import { countQuestionsByExam, finalizedDate } from "./dal.shared"
 
 // ============================================
 // Admin : liste examens + comptes
@@ -22,10 +35,14 @@ export type AdminExamListItem = {
   id: string
   title: string
   description: string | null
-  startDate: number
-  endDate: number
+  /** Dates et durée : `null` possible tant que l'examen est en préparation. */
+  startDate: number | null
+  endDate: number | null
   questionCount: number
-  completionTime: number
+  targetQuestionCount: number
+  completionTime: number | null
+  /** `null` = examen en préparation. */
+  finalizedAt: number | null
   isActive: boolean
   enablePause: boolean
   pauseDurationMinutes: number | null
@@ -46,6 +63,8 @@ export const getAllExamsAdmin = cache(
         startDate: exams.startDate,
         endDate: exams.endDate,
         completionTime: exams.completionTime,
+        targetQuestionCount: exams.targetQuestionCount,
+        finalizedAt: exams.finalizedAt,
         isActive: exams.isActive,
         enablePause: exams.enablePause,
         pauseDurationMinutes: exams.pauseDurationMinutes,
@@ -73,10 +92,12 @@ export const getAllExamsAdmin = cache(
       id: e.id,
       title: e.title,
       description: e.description,
-      startDate: e.startDate.getTime(),
-      endDate: e.endDate.getTime(),
+      startDate: e.startDate?.getTime() ?? null,
+      endDate: e.endDate?.getTime() ?? null,
       questionCount: countMap.get(e.id) ?? 0,
+      targetQuestionCount: e.targetQuestionCount,
       completionTime: e.completionTime,
+      finalizedAt: e.finalizedAt?.getTime() ?? null,
       isActive: e.isActive,
       enablePause: e.enablePause,
       pauseDurationMinutes: e.pauseDurationMinutes,
@@ -89,10 +110,11 @@ export const getAllExamsAdmin = cache(
 export type ExamPickerOption = {
   id: string
   title: string
-  /** Epoch ms. */
-  startDate: number
-  /** Epoch ms. */
-  endDate: number
+  /** Epoch ms ; `null` pour un examen en préparation sans dates. */
+  startDate: number | null
+  endDate: number | null
+  /** Epoch ms ; `null` = examen en préparation. */
+  finalizedAt: number | null
   isActive: boolean
 }
 
@@ -108,6 +130,7 @@ export const getExamsForPicker = async (): Promise<ExamPickerOption[]> => {
       title: exams.title,
       startDate: exams.startDate,
       endDate: exams.endDate,
+      finalizedAt: exams.finalizedAt,
       isActive: exams.isActive,
     })
     .from(exams)
@@ -116,11 +139,98 @@ export const getExamsForPicker = async (): Promise<ExamPickerOption[]> => {
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
-    startDate: r.startDate.getTime(),
-    endDate: r.endDate.getTime(),
+    startDate: r.startDate?.getTime() ?? null,
+    endDate: r.endDate?.getTime() ?? null,
+    finalizedAt: r.finalizedAt?.getTime() ?? null,
     isActive: r.isActive,
   }))
 }
+
+export type AdminExam = {
+  exam: {
+    id: string
+    title: string
+    description: string | null
+    /** Dates et durée : `null` possible tant que l'examen est en préparation. */
+    startDate: number | null
+    endDate: number | null
+    completionTime: number | null
+    /** `null` = examen en préparation. */
+    finalizedAt: number | null
+    targetQuestionCount: number
+    isActive: boolean
+    enablePause: boolean
+    pauseDurationMinutes: number | null
+    questionCount: number
+    audienceType: "subscribers" | "restricted"
+  }
+  /** Avec la clé de réponse : un admin n'est jamais sous le verrou. */
+  questions: QuizQuestion[]
+}
+
+/**
+ * [Admin] Un examen dans toutes ses phases, préparation comprise, avec ses
+ * questions dans leur ordre (fiche et formulaire admin). La lecture étudiante
+ * `getExamWithQuestions` ignore les examens en préparation.
+ */
+export const getAdminExam = cache(
+  async (examId: string): Promise<AdminExam | null> => {
+    await requireRole(["admin"])
+    const [exam] = await db
+      .select({
+        id: exams.id,
+        title: exams.title,
+        description: exams.description,
+        startDate: exams.startDate,
+        endDate: exams.endDate,
+        completionTime: exams.completionTime,
+        finalizedAt: exams.finalizedAt,
+        targetQuestionCount: exams.targetQuestionCount,
+        isActive: exams.isActive,
+        enablePause: exams.enablePause,
+        pauseDurationMinutes: exams.pauseDurationMinutes,
+        audienceType: exams.audienceType,
+      })
+      .from(exams)
+      .where(eq(exams.id, examId))
+      .limit(1)
+    if (!exam) return null
+
+    const items = await db
+      .select({
+        questionId: examQuestions.questionId,
+        question: questions.question,
+        options: questions.options,
+        correctAnswer: questions.correctAnswer,
+        objectifCMC: questions.objectifCmc,
+        domain: questions.domain,
+      })
+      .from(examQuestions)
+      .innerJoin(questions, eq(questions.id, examQuestions.questionId))
+      .where(eq(examQuestions.examId, examId))
+      .orderBy(asc(examQuestions.position))
+      .limit(1000)
+    const imgMap = await fetchImages(items.map((i) => i.questionId))
+
+    return {
+      exam: {
+        ...exam,
+        startDate: exam.startDate?.getTime() ?? null,
+        endDate: exam.endDate?.getTime() ?? null,
+        finalizedAt: exam.finalizedAt?.getTime() ?? null,
+        questionCount: items.length,
+      },
+      questions: items.map((i) =>
+        toQuizQuestion(
+          i,
+          imgMap.get(i.questionId) ?? [],
+          AnswerKeyLock.none(),
+          "key",
+        ),
+      ),
+    }
+  },
+)
 
 // ============================================
 // Admin : statistiques examens
@@ -128,6 +238,7 @@ export const getExamsForPicker = async (): Promise<ExamPickerOption[]> => {
 
 export type ExamsStats = {
   total: number
+  preparation: number
   active: number
   upcoming: number
   past: number
@@ -135,11 +246,16 @@ export type ExamsStats = {
   eligibleCandidates: number
 }
 
-/** [Admin] Compteurs par statut + candidats éligibles. Remplace `getExamsStats`. */
+/**
+ * [Admin] Compteurs par phase + candidats éligibles. « Désactivé » prime, et un
+ * examen en préparation ne compte dans aucune phase datée, même s'il garde des
+ * dates.
+ */
 export const getExamsStats = cache(async (): Promise<ExamsStats> => {
   await requireRole(["admin"])
   const now = new Date()
 
+  const finalized = sql`${exams.isActive} and ${exams.finalizedAt} is not null`
   const [counts] = await db
     .select({
       total: sql<number>`count(*)`.mapWith(Number),
@@ -147,15 +263,19 @@ export const getExamsStats = cache(async (): Promise<ExamsStats> => {
         sql<number>`count(*) filter (where not ${exams.isActive})`.mapWith(
           Number,
         ),
+      preparation:
+        sql<number>`count(*) filter (where ${exams.isActive} and ${exams.finalizedAt} is null)`.mapWith(
+          Number,
+        ),
       active:
-        sql<number>`count(*) filter (where ${exams.isActive} and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
+        sql<number>`count(*) filter (where ${finalized} and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
           Number,
         ),
       upcoming:
-        sql<number>`count(*) filter (where ${exams.isActive} and ${exams.startDate} > ${now})`.mapWith(
+        sql<number>`count(*) filter (where ${finalized} and ${exams.startDate} > ${now})`.mapWith(
           Number,
         ),
-      past: sql<number>`count(*) filter (where ${exams.endDate} < ${now})`.mapWith(
+      past: sql<number>`count(*) filter (where ${exams.finalizedAt} is not null and ${exams.endDate} < ${now})`.mapWith(
         Number,
       ),
     })
@@ -170,6 +290,7 @@ export const getExamsStats = cache(async (): Promise<ExamsStats> => {
 
   return {
     total: counts?.total ?? 0,
+    preparation: counts?.preparation ?? 0,
     active: counts?.active ?? 0,
     upcoming: counts?.upcoming ?? 0,
     past: counts?.past ?? 0,
@@ -290,7 +411,8 @@ export const getExamReopeningSource = cache(
           audienceType: exams.audienceType,
         })
         .from(exams)
-        .where(eq(exams.id, examId))
+        // Une réouverture reprend un examen clos, donc finalisé.
+        .where(and(eq(exams.id, examId), isNotNull(exams.finalizedAt)))
         .limit(1),
       db
         .select({ id: questions.id, deletedAt: questions.deletedAt })
@@ -311,7 +433,7 @@ export const getExamReopeningSource = cache(
     return {
       exam: {
         ...exam,
-        endDate: exam.endDate.getTime(),
+        endDate: finalizedDate(exam.endDate),
         questionCount: questionRows.length,
       },
       questionIds: questionRows.filter((q) => !q.deletedAt).map((q) => q.id),

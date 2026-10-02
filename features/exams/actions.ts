@@ -2,6 +2,7 @@
 
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { randomInt } from "node:crypto"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -42,12 +43,15 @@ import {
   SECONDS_PER_QUESTION,
   type SaveExamAnswerInput,
   type SaveExamFlagInput,
+  type SaveExamInput,
   type UpdateExamInput,
   createExamSchema,
   finalizeExamSchema,
+  finalizePreparedExamSchema,
   loadExamQuestionExplanationsSchema,
   saveExamAnswerSchema,
   saveExamFlagSchema,
+  saveExamSchema,
   updateExamSchema,
 } from "./schemas"
 
@@ -93,12 +97,437 @@ export const loadExamAudience = async (
 // Admin : CRUD examens
 // ============================================
 
-export type CreateExamResult =
-  { success: true; examId: string } | { success: false; error: string }
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/** Champs du formulaire d'examen qu'un refus peut viser. */
+export type ExamField =
+  | "title"
+  | "targetQuestionCount"
+  | "questionIds"
+  | "startDate"
+  | "endDate"
+  | "audienceUserIds"
+
+export type ExamFieldErrors = Partial<Record<ExamField, string>>
+
+type ExamWriteFailure = {
+  success: false
+  error: string
+  /** Un message par champ fautif (finalisation, examen qui reste finalisé). */
+  fieldErrors?: ExamFieldErrors
+}
+
+/** Refus de validation par champ, levé dans la transaction pour l'annuler. */
+class ExamInvalid extends Error {
+  constructor(readonly fieldErrors: ExamFieldErrors) {
+    super("EXAM_INVALID")
+  }
+}
+
+const EXAM_ERRORS: Record<string, string> = {
+  NOT_FOUND: "Examen introuvable.",
+  ALREADY_FINALIZED: "Cet examen est déjà finalisé.",
+  HAS_PARTICIPATIONS:
+    "Cet examen a déjà des participations ; ses questions ne peuvent plus être modifiées.",
+  REOPEN_BY_DATES:
+    "Cet examen est clos et a déjà des participations : sa date de fin ne peut plus être repoussée dans le futur. Utilisez « Rouvrir » pour en créer une copie avec de nouvelles dates.",
+  INVALID_QUESTIONS: "Certaines questions sélectionnées sont introuvables.",
+  INVALID_USERS: "Certains utilisateurs sélectionnés sont introuvables.",
+}
+
+/** Erreur métier mappée en message, sinon capture et message générique. */
+const examWriteFailure = (
+  error: unknown,
+  tag: string,
+  userId: string,
+): ExamWriteFailure => {
+  if (error instanceof ExamInvalid) {
+    return {
+      success: false,
+      error: Object.values(error.fieldErrors)[0] ?? "Données invalides",
+      fieldErrors: error.fieldErrors,
+    }
+  }
+  if (error instanceof Error && error.message in EXAM_ERRORS) {
+    return fail(EXAM_ERRORS[error.message])
+  }
+  captureServerError(tag, error, { userId })
+  return fail("Erreur serveur. Réessayez.")
+}
+
+const lockExam = async (tx: Tx, examId: string) => {
+  // Verrou de ligne examen : commun avec startExam → sérialise l'écriture du
+  // jeu de questions, la finalisation et le démarrage d'une participation
+  // (sinon un count de participations peut lire 0 avant qu'un startExam
+  // concurrent ne commite la sienne).
+  const [exam] = await tx
+    .select({
+      finalizedAt: exams.finalizedAt,
+      endDate: exams.endDate,
+      targetQuestionCount: exams.targetQuestionCount,
+    })
+    .from(exams)
+    .where(eq(exams.id, examId))
+    .for("update")
+    .limit(1)
+  if (!exam) throw new Error("NOT_FOUND")
+  return exam
+}
+
+const hasParticipationsTx = async (tx: Tx, examId: string) => {
+  const [row] = await tx
+    .select({ id: examParticipations.id })
+    .from(examParticipations)
+    .where(eq(examParticipations.examId, examId))
+    .limit(1)
+  return Boolean(row)
+}
+
+const examQuestionIds = async (tx: Tx, examId: string) => {
+  const rows = await tx
+    .select({ questionId: examQuestions.questionId })
+    .from(examQuestions)
+    .where(eq(examQuestions.examId, examId))
+    .orderBy(asc(examQuestions.position))
+  return rows.map((r) => r.questionId)
+}
+
+/** Questions ajoutées au jeu : elles doivent exister, non supprimées. */
+const assertQuestionsExist = async (tx: Tx, ids: string[]) => {
+  if (ids.length === 0) return
+  const [valid] = await tx
+    .select({ n: sql<number>`count(*)`.mapWith(Number) })
+    .from(questions)
+    .where(and(inArray(questions.id, ids), isNull(questions.deletedAt)))
+  if ((valid?.n ?? 0) !== ids.length) throw new Error("INVALID_QUESTIONS")
+}
+
+/** Remplace le jeu, dans l'ordre donné. */
+const writeQuestions = async (tx: Tx, examId: string, ids: string[]) => {
+  await tx.delete(examQuestions).where(eq(examQuestions.examId, examId))
+  if (ids.length === 0) return
+  await tx
+    .insert(examQuestions)
+    .values(
+      ids.map((questionId, position) => ({ examId, questionId, position })),
+    )
+}
 
 /**
- * [Admin] Crée un examen + ses questions ordonnées (table de jonction).
- * `completionTime = n × 83 s`. Valide l'existence/non-suppression des questions.
+ * Audience éditable à tout moment, indépendamment des participations (jamais
+ * touchées) : vidée puis réinsérée dédupliquée si restreinte.
+ */
+const writeAudience = async (
+  tx: Tx,
+  examId: string,
+  audienceType: "subscribers" | "restricted",
+  userIds: string[],
+) => {
+  await tx.delete(examAudience).where(eq(examAudience.examId, examId))
+  if (audienceType !== "restricted") return
+  const uniqueIds = [...new Set(userIds)]
+  if (uniqueIds.length === 0) return
+  const validUsers = await tx
+    .select({ id: user.id })
+    .from(user)
+    .where(and(inArray(user.id, uniqueIds), isNull(user.deletedAt)))
+  if (validUsers.length !== uniqueIds.length) throw new Error("INVALID_USERS")
+  await tx
+    .insert(examAudience)
+    .values(uniqueIds.map((userId) => ({ examId, userId })))
+}
+
+const sameSet = (a: string[], b: string[]) => {
+  if (a.length !== b.length) return false
+  const set = new Set(a)
+  return b.every((id) => set.has(id))
+}
+
+const shuffled = <T>(items: T[]): T[] => {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1)
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+/** Ce qu'un examen finalisé exige de ses dates et de son audience. */
+const datesAndAudienceErrors = (d: {
+  startDate: number | null
+  endDate: number | null
+  audienceType: "subscribers" | "restricted"
+  audienceSize: number
+}): ExamFieldErrors => {
+  const errors: ExamFieldErrors = {}
+  if (d.startDate === null) errors.startDate = "Date d'ouverture requise"
+  if (d.endDate === null) errors.endDate = "Date de fermeture requise"
+  else if (d.startDate !== null && d.endDate <= d.startDate) {
+    errors.endDate = "La date de fin doit être postérieure à la date de début"
+  }
+  if (d.audienceType === "restricted" && d.audienceSize === 0) {
+    errors.audienceUserIds = "Sélectionnez au moins un utilisateur"
+  }
+  return errors
+}
+
+/**
+ * Finalisation (`CONTEXT.md`), sous le verrou de l'examen pris par
+ * l'appelant : validation complète avec un message par champ, durée fixée sur
+ * le jeu réel, ordre des questions mélangé puis figé. Une ouverture passée
+ * avec une fin à venir est acceptée : l'examen s'ouvre aussitôt.
+ */
+const finalizeInTx = async (tx: Tx, examId: string, now: number) => {
+  const [[exam], set, [audience]] = await Promise.all([
+    tx
+      .select({
+        startDate: exams.startDate,
+        endDate: exams.endDate,
+        audienceType: exams.audienceType,
+        targetQuestionCount: exams.targetQuestionCount,
+      })
+      .from(exams)
+      .where(eq(exams.id, examId))
+      .limit(1),
+    tx
+      .select({
+        questionId: examQuestions.questionId,
+        deletedAt: questions.deletedAt,
+      })
+      .from(examQuestions)
+      .innerJoin(questions, eq(questions.id, examQuestions.questionId))
+      .where(eq(examQuestions.examId, examId)),
+    tx
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(examAudience)
+      .innerJoin(user, eq(user.id, examAudience.userId))
+      .where(and(eq(examAudience.examId, examId), isNull(user.deletedAt))),
+  ])
+  if (!exam) throw new Error("NOT_FOUND")
+
+  const startDate = exam.startDate?.getTime() ?? null
+  const endDate = exam.endDate?.getTime() ?? null
+  const errors = datesAndAudienceErrors({
+    startDate,
+    endDate,
+    audienceType: exam.audienceType,
+    audienceSize: audience?.n ?? 0,
+  })
+  if (!errors.endDate && endDate !== null && !isOpen({ endDate }, now)) {
+    errors.endDate = "La fenêtre est déjà close : décalez les dates."
+  }
+  // Pas de doublon possible : la clé primaire (exam_id, question_id) l'exclut.
+  if (set.some((q) => q.deletedAt !== null)) {
+    errors.questionIds =
+      "Le jeu contient des questions supprimées : retirez-les avant de finaliser."
+  } else if (set.length !== exam.targetQuestionCount) {
+    errors.questionIds = `Le jeu compte ${set.length} questions sur ${exam.targetQuestionCount} visées.`
+  }
+  if (Object.keys(errors).length > 0) throw new ExamInvalid(errors)
+
+  await writeQuestions(tx, examId, shuffled(set.map((q) => q.questionId)))
+  await tx
+    .update(exams)
+    .set({
+      finalizedAt: new Date(now),
+      completionTime: set.length * SECONDS_PER_QUESTION,
+    })
+    .where(eq(exams.id, examId))
+}
+
+type ExamSettings = {
+  title: string
+  description?: string
+  targetQuestionCount: number
+  startDate: number | null
+  endDate: number | null
+  questionIds?: string[]
+  enablePause: boolean
+  pauseDurationMinutes?: number
+  audienceType: "subscribers" | "restricted"
+  audienceUserIds: string[]
+}
+
+const settingsColumns = (s: ExamSettings) => ({
+  title: s.title,
+  description: s.description ?? null,
+  targetQuestionCount: s.targetQuestionCount,
+  startDate: s.startDate === null ? null : new Date(s.startDate),
+  endDate: s.endDate === null ? null : new Date(s.endDate),
+  enablePause: s.enablePause,
+  pauseDurationMinutes: resolvePause(s.enablePause, s.pauseDurationMinutes),
+  audienceType: s.audienceType,
+})
+
+/** Crée un examen en préparation. */
+const insertExamTx = async (
+  tx: Tx,
+  s: ExamSettings,
+  createdBy: string,
+): Promise<string> => {
+  const examId = createId()
+  const ids = s.questionIds ?? []
+  await assertQuestionsExist(tx, ids)
+  await tx.insert(exams).values({
+    id: examId,
+    ...settingsColumns(s),
+    finalizedAt: null,
+    completionTime: null,
+    createdBy,
+  })
+  await writeQuestions(tx, examId, ids)
+  await writeAudience(tx, examId, s.audienceType, s.audienceUserIds)
+  return examId
+}
+
+/**
+ * Enregistre un examen existant et dit s'il reste finalisé. Changer son jeu ou
+ * son nombre visé le remet en préparation (il doit être refinalisé, ordre
+ * remélangé) ; c'est refusé dès la première participation. Ses autres réglages
+ * ne lui retirent pas sa finalisation, mais un examen qui la garde est validé
+ * en entier.
+ */
+const updateExamTx = async (
+  tx: Tx,
+  examId: string,
+  s: ExamSettings,
+  now: number,
+): Promise<{ finalized: boolean }> => {
+  const exam = await lockExam(tx, examId)
+  const [hasParticipations, current] = await Promise.all([
+    hasParticipationsTx(tx, examId),
+    examQuestionIds(tx, examId),
+  ])
+  const next = s.questionIds ?? current
+  const setChanged = !sameSet(current, next)
+  // Un visé ramené à la taille du jeu n'en change pas la définition : c'est
+  // le recalage d'un examen inséré sans visé (défaut 0, `db/schema/exams.ts`).
+  const targetChanged =
+    s.targetQuestionCount !== exam.targetQuestionCount &&
+    s.targetQuestionCount !== next.length
+
+  // Rouvrir par les dates rendrait l'examen de nouveau ouvert pour ses
+  // anciens participants : verrou de clé sur leurs autres examens, résultats
+  // masqués, reprise impossible (une participation par étudiant). Avant la
+  // garde des questions : c'est ce refus qui dit quoi faire (« Rouvrir »).
+  if (
+    hasParticipations &&
+    exam.endDate &&
+    !isOpen({ endDate: exam.endDate.getTime() }, now) &&
+    s.endDate !== null &&
+    isOpen({ endDate: s.endDate }, now)
+  ) {
+    throw new Error("REOPEN_BY_DATES")
+  }
+  // Le jeu se fige à la première participation : le changer fausserait les
+  // scores déjà calculés.
+  if (hasParticipations && (setChanged || targetChanged)) {
+    throw new Error("HAS_PARTICIPATIONS")
+  }
+  if (next.length > s.targetQuestionCount) {
+    throw new ExamInvalid({
+      targetQuestionCount: `Le nombre visé ne peut pas descendre sous les ${next.length} questions déjà choisies.`,
+    })
+  }
+
+  const finalized = exam.finalizedAt !== null && !setChanged && !targetChanged
+  if (finalized) {
+    const errors = datesAndAudienceErrors({
+      ...s,
+      audienceSize: new Set(s.audienceUserIds).size,
+    })
+    if (Object.keys(errors).length > 0) throw new ExamInvalid(errors)
+  }
+
+  if (setChanged) {
+    const known = new Set(current)
+    await assertQuestionsExist(
+      tx,
+      next.filter((id) => !known.has(id)),
+    )
+    await writeQuestions(tx, examId, next)
+  }
+  await tx
+    .update(exams)
+    .set({
+      ...settingsColumns(s),
+      ...(!finalized && { finalizedAt: null, completionTime: null }),
+    })
+    .where(eq(exams.id, examId))
+  await writeAudience(tx, examId, s.audienceType, s.audienceUserIds)
+  return { finalized }
+}
+
+const revalidateExam = (examId: string) => {
+  revalidatePath("/admin/examens")
+  revalidatePath(`/admin/examens/${examId}`)
+}
+
+export type SaveExamResult =
+  { success: true; examId: string; finalized: boolean } | ExamWriteFailure
+
+/**
+ * [Admin] « Enregistrer » : crée un examen en préparation, ou enregistre un
+ * examen existant (voir `updateExamTx`). Titre et nombre visé suffisent ; le
+ * jeu ne dépasse jamais le visé.
+ */
+export const saveExam = async (
+  input: SaveExamInput,
+): Promise<SaveExamResult> => {
+  const session = await requireRole(["admin"])
+  const parsed = saveExamSchema.safeParse(input)
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
+  }
+  const { id, ...settings } = parsed.data
+
+  try {
+    const now = Date.now()
+    const result = await db.transaction(async (tx) =>
+      id
+        ? { examId: id, ...(await updateExamTx(tx, id, settings, now)) }
+        : {
+            examId: await insertExamTx(tx, settings, session.user.id),
+            finalized: false,
+          },
+    )
+    revalidateExam(result.examId)
+    return { success: true, ...result }
+  } catch (error) {
+    return examWriteFailure(error, "[saveExam]", session.user.id)
+  }
+}
+
+export type FinalizePreparedExamResult = { success: true } | ExamWriteFailure
+
+/** [Admin] « Finaliser » un examen en préparation (voir `finalizeInTx`). */
+export const finalizePreparedExam = async (input: {
+  examId: string
+}): Promise<FinalizePreparedExamResult> => {
+  const session = await requireRole(["admin"])
+  const parsed = finalizePreparedExamSchema.safeParse(input)
+  if (!parsed.success) return fail("Examen requis")
+  const { examId } = parsed.data
+
+  try {
+    await db.transaction(async (tx) => {
+      const exam = await lockExam(tx, examId)
+      if (exam.finalizedAt) throw new Error("ALREADY_FINALIZED")
+      await finalizeInTx(tx, examId, Date.now())
+    })
+    revalidateExam(examId)
+    return { success: true }
+  } catch (error) {
+    return examWriteFailure(error, "[finalizePreparedExam]", session.user.id)
+  }
+}
+
+export type CreateExamResult =
+  { success: true; examId: string } | ExamWriteFailure
+
+/**
+ * [Admin] Crée un examen complet (`ExamForm`, jeu choisi d'un bloc) : l'enregistre en
+ * préparation puis le finalise, dans la même transaction.
  */
 export const createExam = async (
   input: CreateExamInput,
@@ -109,252 +538,61 @@ export const createExam = async (
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
-  const {
-    title,
-    description,
-    startDate,
-    endDate,
-    questionIds,
-    enablePause,
-    pauseDurationMinutes,
-    audienceType,
-    audienceUserIds,
-  } = parsed.data
+  const d = parsed.data
 
   try {
-    const examId = createId()
-    await db.transaction(async (tx) => {
-      const [valid] = await tx
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(questions)
-        .where(
-          and(
-            inArray(questions.id, questionIds),
-            sql`${questions.deletedAt} is null`,
-          ),
-        )
-      if ((valid?.n ?? 0) !== questionIds.length) {
-        throw new Error("INVALID_QUESTIONS")
-      }
-
-      await tx.insert(exams).values({
-        id: examId,
-        title,
-        description: description ?? null,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        completionTime: questionIds.length * SECONDS_PER_QUESTION,
-        enablePause,
-        pauseDurationMinutes: resolvePause(enablePause, pauseDurationMinutes),
-        audienceType,
-        createdBy: session.user.id,
-      })
-      await tx.insert(examQuestions).values(
-        questionIds.map((questionId, position) => ({
-          examId,
-          questionId,
-          position,
-        })),
+    const now = Date.now()
+    const examId = await db.transaction(async (tx) => {
+      const id = await insertExamTx(
+        tx,
+        { ...d, targetQuestionCount: d.questionIds.length },
+        session.user.id,
       )
-
-      if (audienceType === "restricted") {
-        const uniqueIds = [...new Set(audienceUserIds)]
-        const validUsers = await tx
-          .select({ id: user.id })
-          .from(user)
-          .where(and(inArray(user.id, uniqueIds), isNull(user.deletedAt)))
-        if (validUsers.length !== uniqueIds.length) {
-          throw new Error("INVALID_USERS")
-        }
-        await tx
-          .insert(examAudience)
-          .values(uniqueIds.map((userId) => ({ examId, userId })))
-      }
+      await finalizeInTx(tx, id, now)
+      return id
     })
-
     revalidatePath("/admin/examens")
     return { success: true, examId }
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === "INVALID_QUESTIONS") {
-        return fail("Certaines questions sélectionnées sont introuvables.")
-      }
-      if (error.message === "INVALID_USERS") {
-        return fail("Certains utilisateurs sélectionnés sont introuvables.")
-      }
-    }
-    captureServerError("[createExam]", error, { userId: session.user.id })
-    return fail("Erreur serveur. Réessayez.")
+    return examWriteFailure(error, "[createExam]", session.user.id)
   }
 }
 
 /**
- * [Admin] Met à jour un examen. Les **métadonnées** (titre, description, dates,
- * pause) restent modifiables en tout temps.
- * Le **jeu de questions** ne peut être remplacé qu'avant toute participation
- * (le changer ensuite fausserait les scores déjà enregistrés) : si l'examen a
- * des participations et que le set envoyé diffère du set courant, refus
- * (`HAS_PARTICIPATIONS`). Recalcule `completionTime`.
- * Repousser dans le futur la fin d'un examen **clos** qui a des participations
- * est refusé (`REOPEN_BY_DATES`) : une réouverture est une copie
- * (`docs/adr/0002-une-reouverture-est-une-copie.md`).
+ * [Admin] Met à jour un examen depuis `ExamForm`, qui envoie un
+ * examen complet : l'enregistre (voir `updateExamTx`), puis le refinalise
+ * dans la même transaction s'il est (re)passé en préparation.
  */
 export const updateExam = async (
   input: UpdateExamInput,
-): Promise<{ success: boolean; error?: string }> => {
-  await requireRole(["admin"])
+): Promise<{
+  success: boolean
+  error?: string
+  fieldErrors?: ExamFieldErrors
+}> => {
+  const session = await requireRole(["admin"])
 
   const parsed = updateExamSchema.safeParse(input)
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
-  const {
-    id,
-    title,
-    description,
-    startDate,
-    endDate,
-    questionIds,
-    enablePause,
-    pauseDurationMinutes,
-    audienceType,
-    audienceUserIds,
-  } = parsed.data
+  const { id, ...d } = parsed.data
 
   try {
+    const now = Date.now()
     await db.transaction(async (tx) => {
-      // Verrou de ligne examen : commun avec startExam → sérialise le
-      // remplacement du set de questions et le démarrage d'une participation
-      // (sinon le count ci-dessous peut lire 0 avant qu'un startExam concurrent
-      // ne commite sa participation).
-      const [exam] = await tx
-        .select({ id: exams.id, endDate: exams.endDate })
-        .from(exams)
-        .where(eq(exams.id, id))
-        .for("update")
-        .limit(1)
-      if (!exam) throw new Error("NOT_FOUND")
-      const now = Date.now()
-
-      const [valid] = await tx
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(questions)
-        .where(
-          and(
-            inArray(questions.id, questionIds),
-            sql`${questions.deletedAt} is null`,
-          ),
-        )
-      if ((valid?.n ?? 0) !== questionIds.length) {
-        throw new Error("INVALID_QUESTIONS")
-      }
-
-      const [parts] = await tx
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(examParticipations)
-        .where(eq(examParticipations.examId, id))
-      const hasParticipations = (parts?.n ?? 0) > 0
-
-      // Rouvrir par les dates rendrait l'examen de nouveau ouvert pour ses
-      // anciens participants : verrou de clé sur leurs autres examens, résultats
-      // masqués, reprise impossible (une participation par étudiant). Avant la
-      // garde des questions : c'est ce refus qui dit quoi faire (« Rouvrir »).
-      if (
-        hasParticipations &&
-        !isOpen({ endDate: exam.endDate.getTime() }, now) &&
-        isOpen({ endDate }, now)
-      ) {
-        throw new Error("REOPEN_BY_DATES")
-      }
-
-      // Une fois des participations enregistrées, le jeu de questions est figé
-      // (le changer fausserait les scores déjà calculés). Refus uniquement si le
-      // set envoyé diffère du set courant (ordre compris) ; les métadonnées,
-      // elles, restent modifiables.
-      if (hasParticipations) {
-        const current = await tx
-          .select({ questionId: examQuestions.questionId })
-          .from(examQuestions)
-          .where(eq(examQuestions.examId, id))
-          .orderBy(asc(examQuestions.position))
-        const currentIds = current.map((r) => r.questionId)
-        const unchanged =
-          currentIds.length === questionIds.length &&
-          currentIds.every((qid, i) => qid === questionIds[i])
-        if (!unchanged) throw new Error("HAS_PARTICIPATIONS")
-      }
-
-      await tx
-        .update(exams)
-        .set({
-          title,
-          description: description ?? null,
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
-          completionTime: questionIds.length * SECONDS_PER_QUESTION,
-          enablePause,
-          pauseDurationMinutes: resolvePause(enablePause, pauseDurationMinutes),
-          audienceType,
-        })
-        .where(eq(exams.id, id))
-
-      // Réécriture de la table de jonction uniquement sans participations
-      // (sinon le set est garanti inchangé ci-dessus → rien à faire).
-      if (!hasParticipations) {
-        await tx.delete(examQuestions).where(eq(examQuestions.examId, id))
-        await tx.insert(examQuestions).values(
-          questionIds.map((questionId, position) => ({
-            examId: id,
-            questionId,
-            position,
-          })),
-        )
-      }
-
-      // Audience éditable à tout moment (indépendamment des participations) :
-      // delete + réinsert dédupliqué si restreint, vidée si bascule subscribers.
-      // Ne JAMAIS toucher examParticipations (participations conservées).
-      await tx.delete(examAudience).where(eq(examAudience.examId, id))
-      if (audienceType === "restricted") {
-        const uniqueIds = [...new Set(audienceUserIds)]
-        const validUsers = await tx
-          .select({ id: user.id })
-          .from(user)
-          .where(and(inArray(user.id, uniqueIds), isNull(user.deletedAt)))
-        if (validUsers.length !== uniqueIds.length) {
-          throw new Error("INVALID_USERS")
-        }
-        await tx
-          .insert(examAudience)
-          .values(uniqueIds.map((userId) => ({ examId: id, userId })))
-      }
+      const { finalized } = await updateExamTx(
+        tx,
+        id,
+        { ...d, targetQuestionCount: d.questionIds.length },
+        now,
+      )
+      if (!finalized) await finalizeInTx(tx, id, now)
     })
-
-    revalidatePath("/admin/examens")
-    revalidatePath(`/admin/examens/${id}`)
+    revalidateExam(id)
     return { success: true }
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === "NOT_FOUND") return fail("Examen introuvable.")
-      if (error.message === "HAS_PARTICIPATIONS") {
-        return fail(
-          "Cet examen a déjà des participations ; ses questions ne peuvent plus être modifiées.",
-        )
-      }
-      if (error.message === "REOPEN_BY_DATES") {
-        return fail(
-          "Cet examen est clos et a déjà des participations : sa date de fin ne peut plus être repoussée dans le futur. Utilisez « Rouvrir » pour en créer une copie avec de nouvelles dates.",
-        )
-      }
-      if (error.message === "INVALID_QUESTIONS") {
-        return fail("Certaines questions sélectionnées sont introuvables.")
-      }
-      if (error.message === "INVALID_USERS") {
-        return fail("Certains utilisateurs sélectionnés sont introuvables.")
-      }
-    }
-    captureServerError("[updateExam]", error)
-    return fail("Erreur serveur. Réessayez.")
+    return examWriteFailure(error, "[updateExam]", session.user.id)
   }
 }
 
@@ -465,9 +703,9 @@ export type StartExamResult =
   | { success: false; error: string }
 
 /**
- * [Auth] Démarre (ou reprend) un examen. Garde accès payant (bypass admin),
- * fenêtre de dates, une seule participation (idempotent si en cours, refus si
- * déjà passé). Verrou de ligne user → sérialise les démarrages concurrents.
+ * [Auth] Démarre (ou reprend) un examen. Garde accès payant et audience
+ * (bypass admin) ; finalisation, examen actif et fenêtre de dates pour tous ;
+ * une seule participation (idempotent si en cours, refus si déjà passé). Verrou de ligne user → sérialise les démarrages concurrents.
  * Pré-crée les lignes examAnswers (une par question) avec selectedAnswer=null.
  */
 export const startExam = async ({
@@ -498,12 +736,20 @@ export const startExam = async ({
           endDate: exams.endDate,
           audienceType: exams.audienceType,
           isActive: exams.isActive,
+          finalizedAt: exams.finalizedAt,
         })
         .from(exams)
         .where(eq(exams.id, examId))
         .for("update")
         .limit(1)
       if (!exam) throw new Error("NOT_FOUND")
+      // Sans finalisation, pas de budget de temps : refusé à tous, admin
+      // compris, même une fois la date d'ouverture passée. Aucune participation
+      // ne peut exister (le jeu ne repasse en préparation qu'avant la
+      // première), donc ni reprise ni relecture à préserver.
+      if (!exam.finalizedAt || !exam.startDate || !exam.endDate) {
+        throw new Error("NOT_FINALIZED")
+      }
 
       const now = Date.now()
       const window = {
@@ -568,8 +814,9 @@ export const startExam = async ({
       }
 
       // Après la reprise ci-dessus : désactiver un examen ferme les nouvelles
-      // participations sans couper une épreuve en cours.
-      if (!exam.isActive && !isAdmin) throw new Error("EXAM_INACTIVE")
+      // participations sans couper une épreuve en cours. Admin compris : sa
+      // participation compterait dans le classement et les chiffres de la fiche.
+      if (!exam.isActive) throw new Error("EXAM_INACTIVE")
 
       const participationId = createId()
       await tx.insert(examParticipations).values({
@@ -618,6 +865,11 @@ export const startExam = async ({
       }
       if (error.message === "EXAM_INACTIVE") {
         return fail("Cet examen n'est plus disponible.")
+      }
+      if (error.message === "NOT_FINALIZED") {
+        return fail(
+          "Cet examen est en préparation : il n'est pas encore ouvert.",
+        )
       }
     }
     captureServerError("[startExam]", error, { userId })

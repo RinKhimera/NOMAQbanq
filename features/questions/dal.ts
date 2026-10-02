@@ -711,10 +711,11 @@ export const getQuestionById = async (
 export type QuestionExamUse = {
   id: string
   title: string
-  /** Epoch ms. */
-  startDate: number
-  /** Epoch ms. */
-  endDate: number
+  /** Epoch ms ; `null` pour un examen en préparation sans dates. */
+  startDate: number | null
+  endDate: number | null
+  /** Epoch ms ; `null` = examen en préparation. */
+  finalizedAt: number | null
   isActive: boolean
 }
 
@@ -735,6 +736,7 @@ export const getQuestionExams = async (
       title: exams.title,
       startDate: exams.startDate,
       endDate: exams.endDate,
+      finalizedAt: exams.finalizedAt,
       isActive: exams.isActive,
     })
     .from(examQuestions)
@@ -744,8 +746,9 @@ export const getQuestionExams = async (
     .limit(QUESTION_EXAMS_LIMIT)
   return rows.map((r) => ({
     ...r,
-    startDate: r.startDate.getTime(),
-    endDate: r.endDate.getTime(),
+    startDate: r.startDate?.getTime() ?? null,
+    endDate: r.endDate?.getTime() ?? null,
+    finalizedAt: r.finalizedAt?.getTime() ?? null,
   }))
 }
 

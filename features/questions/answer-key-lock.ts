@@ -1,4 +1,4 @@
-import { type SQL, and, eq, gt, inArray, sql } from "drizzle-orm"
+import { type SQL, and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
 import { examParticipations, examQuestions, exams } from "@/db/schema"
@@ -94,7 +94,8 @@ export class AnswerKeyLock {
  * Verrou d'un lecteur sur un ensemble de questions candidates. Un admin n'est
  * jamais verrouillé. Un utilisateur l'est sur les questions d'un examen ouvert
  * où il a une participation (tout statut) ; un anonyme sur toute question d'un
- * examen ouvert, quel qu'il soit. Borné par `candidates`.
+ * examen ouvert, quel qu'il soit, ou d'un examen en préparation, même sans
+ * dates : le contenu d'un futur examen ne fuit pas. Borné par `candidates`.
  */
 export const lockFor = async (
   viewer: LockViewer,
@@ -114,7 +115,9 @@ export const lockFor = async (
 
   const rows =
     viewer === "anonymous"
-      ? await openExamQuestions.where(and(isOpen, inCandidates))
+      ? await openExamQuestions.where(
+          and(or(isOpen, isNull(exams.finalizedAt)), inCandidates),
+        )
       : await openExamQuestions
           .innerJoin(
             examParticipations,
@@ -136,18 +139,24 @@ export const lockFor = async (
  */
 export const excludeLocked = (viewer: LockViewer, questionId: SQL): SQL => {
   if (viewer !== "anonymous" && viewer.role === "admin") return sql`true`
-  const participation =
-    viewer === "anonymous"
-      ? sql``
-      : sql`join exam_participations akl_p
+  const anonymous = viewer === "anonymous"
+  const participation = anonymous
+    ? sql``
+    : sql`join exam_participations akl_p
               on akl_p.exam_id = akl_q.exam_id and akl_p.user_id = ${viewer.id}`
+  // Même périmètre que `lockFor` : l'anonyme est aussi tenu à l'écart des
+  // examens en préparation. Un utilisateur n'est verrouillé que par une
+  // participation, impossible sur un examen en préparation.
+  const locking = anonymous
+    ? sql`(akl_e.end_date > now() or akl_e.finalized_at is null)`
+    : sql`akl_e.end_date > now()`
   return sql`not exists (
     select 1
       from exam_questions akl_q
       join exams akl_e on akl_e.id = akl_q.exam_id
       ${participation}
      where akl_q.question_id = ${questionId}
-       and akl_e.end_date > now()
+       and ${locking}
   )`
 }
 

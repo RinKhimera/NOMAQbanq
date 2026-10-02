@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation"
 import {
+  getAdminExam,
   getEligibleExamCandidates,
   getExamAudience,
   getExamLeaderboard,
-  getExamWithQuestions,
 } from "@/features/exams/dal"
 import { currentTimeMs } from "@/lib/clock"
 import { getCurrentSession } from "@/lib/dal"
@@ -15,7 +15,7 @@ export default async function AdminExamDetailsPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const data = await getExamWithQuestions(id, { revealKey: true })
+  const data = await getAdminExam(id)
   if (!data) notFound()
 
   const [leaderboard, candidates, audience, session] = await Promise.all([

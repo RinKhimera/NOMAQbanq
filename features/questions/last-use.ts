@@ -3,7 +3,8 @@ import "server-only"
 
 /**
  * Dernière utilisation (`CONTEXT.md`) : l'examen blanc le plus récent, par
- * date d'ouverture, dont le lot contient la question, désactivés compris.
+ * date d'ouverture, dont le lot contient la question, désactivés compris et
+ * examens en préparation exclus (leur jeu n'est pas fixé).
  * Prédicat corrélé sur `questionId` : la question ne figure dans aucun des
  * `count` derniers examens blancs. Le tri départage par id pour que deux
  * examens ouverts le même jour gardent un rang stable.
@@ -16,6 +17,7 @@ export const notUsedInLastExams = (count: number, questionId: SQL): SQL =>
        and lu_q.exam_id in (
          select lu_e.id
            from exams lu_e
+          where lu_e.finalized_at is not null
           order by lu_e.start_date desc, lu_e.id desc
           limit ${count}
        )

@@ -58,10 +58,10 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { createExam, updateExam } from "@/features/exams/actions"
 import type {
+  AdminExam,
   EligibleCandidate,
   ExamPickerOption,
   ExamReopeningSource,
-  ExamWithQuestions,
 } from "@/features/exams/dal"
 import { SECONDS_PER_QUESTION } from "@/features/exams/schemas"
 import type { SelectableUser } from "@/features/users/dal"
@@ -85,8 +85,15 @@ const reopeningTitle = (title: string) =>
     ? title.slice(0, -REOPENING_SUFFIX.length)
     : title) + REOPENING_SUFFIX
 
-/** Un examen existant dont le formulaire reprend le contenu. */
-export type ExamFormPrefill = ExamReopeningSource
+/**
+ * Un examen existant dont le formulaire reprend le contenu : une source de
+ * réouverture, ou l'examen modifié, dont la fin manque s'il est en préparation.
+ */
+export type ExamFormPrefill = Omit<ExamReopeningSource, "exam"> & {
+  exam: Omit<ExamReopeningSource["exam"], "endDate"> & {
+    endDate: number | null
+  }
+}
 
 /**
  * Formulaire d'examen unifié (création et édition). Le `mode` pilote les données
@@ -104,7 +111,7 @@ type ExamFormProps =
   | {
       mode: "edit"
       examId: string
-      exam: NonNullable<ExamWithQuestions>["exam"]
+      exam: AdminExam["exam"]
       /** IDs des questions de l'examen, ordonnés par position (forme « pont »). */
       questionIds: string[]
       candidates: EligibleCandidate[]
@@ -165,8 +172,14 @@ export function ExamForm(props: ExamFormProps) {
           description: prefill.exam.description ?? "",
           numberOfQuestions: prefill.exam.questionCount,
           ...(props.mode === "edit" && {
-            startDate: new Date(props.exam.startDate),
-            endDate: new Date(props.exam.endDate),
+            startDate:
+              props.exam.startDate === null
+                ? undefined
+                : new Date(props.exam.startDate),
+            endDate:
+              props.exam.endDate === null
+                ? undefined
+                : new Date(props.exam.endDate),
           }),
           questionIds: initialQuestionIds,
           enablePause: prefill.exam.enablePause,

@@ -1,6 +1,6 @@
 "use server"
 
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, gt, isNotNull, isNull, sql } from "drizzle-orm"
 import { revalidatePath, revalidateTag } from "next/cache"
 import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
@@ -308,7 +308,9 @@ export const updateQuestion = async (
         current.correctAnswer !== d.correctAnswer ||
         !sameOptions(current.options, d.options)
       if (choicesChanged) {
-        // Même borne que le verrou de clé de réponse : `end_date > now()`.
+        // Même borne que le verrou de clé de réponse : `end_date > now()`. Un
+        // examen en préparation ne fige rien : l'admin corrige pendant qu'il
+        // compose.
         const [open] = await tx
           .select({ title: exams.title })
           .from(examQuestions)
@@ -316,6 +318,7 @@ export const updateQuestion = async (
           .where(
             and(
               eq(examQuestions.questionId, d.id),
+              isNotNull(exams.finalizedAt),
               gt(exams.endDate, sql`now()`),
             ),
           )

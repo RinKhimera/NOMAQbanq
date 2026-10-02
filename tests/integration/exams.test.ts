@@ -45,6 +45,7 @@ import {
 import { getTrainingHistory } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -65,6 +66,8 @@ const PID = createId()
 // q10 = examen clos SEUL (aucun chevauchement).
 const qIds = Array.from({ length: 11 }, () => createId())
 const examQIds = qIds.slice(0, 6)
+// Banque des tests de `createExam`/`updateExam`, qui exigent 10 questions.
+const crudQIds = Array.from({ length: 12 }, () => createId())
 
 const setSession = (id: string, role: "user" | "admin") =>
   vi
@@ -118,9 +121,9 @@ const makeExam = async (opts: {
   endDate?: number
   pauseDurationMinutes?: number
 }): Promise<string> => {
-  asAdmin()
   const now = Date.now()
-  const res = await createExam({
+  return seedExam({
+    createdBy: ADMIN_ID,
     title: `Exam ${suffix} ${createId().slice(0, 4)}`,
     startDate: opts.startDate ?? now - 3600_000,
     endDate: opts.endDate ?? now + 3600_000,
@@ -128,8 +131,6 @@ const makeExam = async (opts: {
     enablePause: opts.enablePause ?? false,
     pauseDurationMinutes: opts.pauseDurationMinutes,
   })
-  if (!res.success) throw new Error(res.error)
-  return res.examId
 }
 
 let noPauseId: string
@@ -166,7 +167,7 @@ beforeAll(async () => {
   await grantExamAccess(INTRUDER_ID)
 
   await db.insert(questions).values(
-    qIds.map((id, i) => ({
+    [...qIds, ...crudQIds].map((id, i) => ({
       id,
       question: `Q ${i} ${suffix} ?`,
       correctAnswer: "A",
@@ -208,7 +209,9 @@ afterAll(async () => {
   await db
     .delete(questionExplanations)
     .where(inArray(questionExplanations.questionId, qIds))
-  await db.delete(questions).where(inArray(questions.id, qIds))
+  await db
+    .delete(questions)
+    .where(inArray(questions.id, [...qIds, ...crudQIds]))
   await db.delete(products).where(eq(products.id, PID))
   await db.delete(user).where(inArray(user.id, uids))
 })
@@ -221,14 +224,14 @@ describe("Admin CRUD", () => {
       title: `Bad ${suffix}`,
       startDate: now,
       endDate: now + DAY,
-      questionIds: [...examQIds.slice(0, 2), createId()],
+      questionIds: [...crudQIds.slice(0, 9), createId()],
       enablePause: false,
     })
     expect(res.success).toBe(false)
   })
 
   it("updateExam sur un examen sans participation change le titre + questions", async () => {
-    const id = await makeExam({ questionIds: examQIds.slice(0, 4) })
+    const id = await makeExam({ questionIds: crudQIds.slice(0, 10) })
     asAdmin()
     const now = Date.now()
     const res = await updateExam({
@@ -236,20 +239,20 @@ describe("Admin CRUD", () => {
       title: `Updated ${suffix}`,
       startDate: now - 1000,
       endDate: now + DAY,
-      questionIds: examQIds, // passe de 4 à 6 questions
+      questionIds: crudQIds.slice(0, 11), // passe de 10 à 11 questions
       enablePause: false,
     })
     expect(res.success).toBe(true)
 
     const view = await getExamWithQuestions(id)
     expect(view?.exam.title).toBe(`Updated ${suffix}`)
-    expect(view?.questions).toHaveLength(6)
-    expect(view?.exam.completionTime).toBe(6 * 83)
+    expect(view?.questions).toHaveLength(11)
+    expect(view?.exam.completionTime).toBe(11 * 83)
   })
 
   it("updateExam et startExam concurrents : participation cohérente avec le set servi (verrou commun)", async () => {
-    const id = await makeExam({ questionIds: examQIds.slice(0, 4) })
-    const newSet = examQIds // set différent (6 questions)
+    const id = await makeExam({ questionIds: crudQIds.slice(0, 10) })
+    const newSet = crudQIds.slice(2, 12) // set différent
 
     const now = Date.now()
     const [, start] = await Promise.all([
@@ -556,32 +559,51 @@ describe("IDOR / accès", () => {
     expect(await getParticipantExamResults(noPauseId, STUDENT_ID)).toBeNull()
   })
 
+  /** Examen de 10 questions dont l'étudiant a une participation. */
+  const takenExam = async () => {
+    const id = await makeExam({ questionIds: crudQIds.slice(0, 10) })
+    await db.insert(examParticipations).values({
+      id: createId(),
+      examId: id,
+      userId: STUDENT_ID,
+      status: "in_progress",
+      startedAt: new Date(),
+    })
+    return id
+  }
+
   it("updateExam autorise une édition de métadonnées même avec participations (set inchangé)", async () => {
+    const id = await takenExam()
     asAdmin()
     const now = Date.now()
     const res = await updateExam({
-      id: noPauseId,
+      id,
       title: `Titre maj ${suffix}`,
       startDate: now - 1000,
       endDate: now + DAY,
-      questionIds: examQIds, // jeu de questions inchangé
+      questionIds: crudQIds.slice(0, 10), // jeu de questions inchangé
       enablePause: false,
     })
     expect(res.success).toBe(true)
   })
 
   it("updateExam refuse un changement du jeu de questions si participations", async () => {
+    const id = await takenExam()
     asAdmin()
     const now = Date.now()
     const res = await updateExam({
-      id: noPauseId,
+      id,
       title: `Nope ${suffix}`,
       startDate: now - 1000,
       endDate: now + DAY,
-      questionIds: examQIds.slice(0, 5), // set modifié (5 ≠ 6)
+      questionIds: crudQIds.slice(1, 11), // set modifié
       enablePause: false,
     })
-    expect(res.success).toBe(false)
+    expect(res).toEqual({
+      success: false,
+      error:
+        "Cet examen a déjà des participations ; ses questions ne peuvent plus être modifiées.",
+    })
   })
 })
 
@@ -1021,6 +1043,7 @@ describe("score retenu — participation sans réponse", () => {
       startDate: new Date(Date.now() - DAY),
       endDate,
       createdBy: ADMIN_ID,
+      targetQuestionCount: 10,
       completionTime: 3600,
     },
     questionId,

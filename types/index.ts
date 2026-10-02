@@ -11,7 +11,8 @@ export interface Testimonial {
 }
 
 // ===== Exam Types =====
-export type ExamStatus = "active" | "upcoming" | "completed" | "inactive"
+export type ExamStatus =
+  "preparation" | "active" | "upcoming" | "completed" | "inactive"
 
 /**
  * Forme native d'un examen : convention `_id` / `_creationTime` de la « forme

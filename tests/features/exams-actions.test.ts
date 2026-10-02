@@ -94,12 +94,35 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 const SERVER_ERROR = "Erreur serveur. Réessayez."
 const NOW = 1_500
 
+const QUESTION_IDS = Array.from({ length: 10 }, (_, i) => `q${i + 1}`)
+
 const examInput = {
   title: "Examen blanc",
   startDate: 1_000,
   endDate: 2_000,
-  questionIds: ["q1", "q2"],
+  questionIds: QUESTION_IDS,
 }
+
+// Lignes lues par la finalisation : examen complet, jeu égal au visé.
+const finalizableRows = (exam: Record<string, unknown> = {}) => ({
+  exams: [
+    {
+      startDate: new Date(1_000),
+      endDate: new Date(2_000),
+      audienceType: "subscribers",
+      targetQuestionCount: QUESTION_IDS.length,
+      finalizedAt: null,
+      ...exam,
+    },
+  ],
+  examQuestions: QUESTION_IDS.map((questionId) => ({
+    questionId,
+    deletedAt: null,
+  })),
+  questions: [{ n: QUESTION_IDS.length }],
+  examAudience: [{ n: 0 }],
+  examParticipations: [],
+})
 
 const ALL_REFUSALS: RefusalCode[] = [
   "NOT_FOUND",
@@ -178,9 +201,9 @@ describe("lectures gardees", () => {
 describe("createExam", () => {
   it.each([
     [{ ...examInput, title: "  " }, "Le titre est requis"],
-    [{ ...examInput, questionIds: [] }, "Au moins une question"],
+    [{ ...examInput, questionIds: [] }, "Au moins 10 questions"],
     [
-      { ...examInput, questionIds: ["q1", "q1"] },
+      { ...examInput, questionIds: [...QUESTION_IDS.slice(1), "q2"] },
       "Des questions sont sélectionnées en double",
     ],
     [
@@ -197,8 +220,14 @@ describe("createExam", () => {
     expect(state.transaction).not.toHaveBeenCalled()
   })
 
+  it("refuse plus de 230 questions", async () => {
+    const questionIds = Array.from({ length: 231 }, (_, i) => `q${i}`)
+    const res = await createExam({ ...examInput, questionIds })
+    expect(res).toEqual({ success: false, error: "Au plus 230 questions" })
+  })
+
   it("succes : renvoie l'id et revalide la liste", async () => {
-    setRows({ questions: [{ n: 2 }] })
+    setRows(finalizableRows())
     const res = await createExam(examInput)
     expect(res).toMatchObject({ success: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/examens")
@@ -239,10 +268,7 @@ describe("updateExam", () => {
   })
 
   it("succes : revalide la liste et la fiche", async () => {
-    setRows({
-      exams: [{ id: "e1", endDate: new Date(Date.now() + 86_400_000) }],
-      questions: [{ n: 2 }],
-    })
+    setRows(finalizableRows({ finalizedAt: new Date(0) }))
     const res = await updateExam(input)
     expect(res).toEqual({ success: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/examens/e1")
@@ -270,13 +296,14 @@ describe("updateExam", () => {
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
-  it("erreur inattendue → capture sans userId", async () => {
+  it("erreur inattendue → capture avec l'admin", async () => {
     rejectWith("deadlock detected")
     const res = await updateExam(input)
     expect(res).toEqual({ success: false, error: SERVER_ERROR })
     expect(mocks.captureServerError).toHaveBeenCalledWith(
       "[updateExam]",
       expect.any(Error),
+      { userId: "u1" },
     )
   })
 })
@@ -327,6 +354,10 @@ describe("startExam", () => {
     ["ALREADY_TAKEN", "Vous avez déjà passé cet examen."],
     ["NOT_IN_AUDIENCE", "Cet examen ne vous est pas destiné."],
     ["ACCESS_EXPIRED", "Votre accès aux examens a expiré."],
+    [
+      "NOT_FINALIZED",
+      "Cet examen est en préparation : il n'est pas encore ouvert.",
+    ],
   ])("%s → %s, sans capture", async (thrown, error) => {
     rejectWith(thrown)
     const res = await startExam({ examId: "e1" })
@@ -343,6 +374,7 @@ describe("startExam", () => {
       exams: [
         {
           startDate: new Date(0),
+          finalizedAt: new Date(0),
           endDate: new Date(10_000),
           audienceType: "subscribers",
           isActive: true,
@@ -367,6 +399,7 @@ describe("startExam", () => {
       exams: [
         {
           startDate: new Date(0),
+          finalizedAt: new Date(0),
           endDate: new Date(10_000),
           audienceType: "restricted",
           isActive: true,
@@ -380,26 +413,34 @@ describe("startExam", () => {
     expect(res).toMatchObject({ success: true, startedAt: NOW })
   })
 
-  it("examen désactivé : refuse une nouvelle participation", async () => {
-    setRows({
-      user: [{ id: "u1" }],
-      exams: [
-        {
-          startDate: new Date(0),
-          endDate: new Date(10_000),
-          audienceType: "restricted",
-          isActive: false,
-        },
-      ],
-      examAudience: [{ userId: "u1" }],
-      examParticipations: [],
-      examQuestions: [{ questionId: "q1" }],
-    })
-    expect(await startExam({ examId: "e1" })).toEqual({
-      success: false,
-      error: "Cet examen n'est plus disponible.",
-    })
-  })
+  it.each([
+    ["étudiant", "user"],
+    ["admin", "admin"],
+  ])(
+    "examen désactivé : refuse une nouvelle participation (%s)",
+    async (_label, role) => {
+      mocks.session.current = { user: { id: "u1", role } }
+      setRows({
+        user: [{ id: "u1" }],
+        exams: [
+          {
+            startDate: new Date(0),
+            finalizedAt: new Date(0),
+            endDate: new Date(10_000),
+            audienceType: "restricted",
+            isActive: false,
+          },
+        ],
+        examAudience: [{ userId: "u1" }],
+        examParticipations: [],
+        examQuestions: [{ questionId: "q1" }],
+      })
+      expect(await startExam({ examId: "e1" })).toEqual({
+        success: false,
+        error: "Cet examen n'est plus disponible.",
+      })
+    },
+  )
 
   // Borne du glossaire (« examen ouvert » = date de fin non passée) : cas
   // jumeaux à 1 ms près, comme la garde answer/close.
@@ -418,6 +459,7 @@ describe("startExam", () => {
       exams: [
         {
           startDate: new Date(0),
+          finalizedAt: new Date(0),
           endDate: new Date(endDate),
           audienceType: "restricted",
           isActive: true,

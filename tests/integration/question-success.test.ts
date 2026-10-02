@@ -110,6 +110,7 @@ const answerInExam = async (
     endDate: at(59),
     completionTime: 3600,
     createdBy: userId,
+    targetQuestionCount: 10,
   })
   const participationId = createId()
   await db.insert(examParticipations).values({

@@ -10,17 +10,26 @@ import { cn } from "@/lib/utils"
 export const reopenExamHref = (examId: string) =>
   `/admin/examens/creer?source=${examId}`
 
+/** Un examen clos se rouvre ; un examen en préparation n'a jamais été ouvert. */
+export const canReopen = (
+  exam: { endDate: number | null; finalizedAt: number | null },
+  now: number,
+) =>
+  exam.finalizedAt !== null &&
+  exam.endDate !== null &&
+  !isOpen({ endDate: exam.endDate }, now)
+
 /** « Rouvrir », rendu seulement sur un examen clos. */
 export function ReopenExamButton({
   exam,
   now,
   className,
 }: {
-  exam: { id: string; endDate: number }
+  exam: { id: string; endDate: number | null; finalizedAt: number | null }
   now: number
   className?: string
 }) {
-  if (isOpen(exam, now)) return null
+  if (!canReopen(exam, now)) return null
   return (
     <Button
       asChild

@@ -31,6 +31,7 @@ import {
   userAccess,
   userBans,
 } from "@/db/schema"
+import { finalizedDate } from "@/features/exams/dal.shared"
 import type { AccessType } from "@/features/payments/access-ledger"
 import { describeUserAgent } from "@/features/users/lib/user-agent"
 import { USERS_PAGE_SIZE } from "@/features/users/page-size"
@@ -775,7 +776,7 @@ export const getUserFile = cache(
           examTitle: p.examTitle,
           status: p.status,
           score: p.score,
-          examEndsAt: p.examEndsAt.getTime(),
+          examEndsAt: finalizedDate(p.examEndsAt),
           at: ms(p.at)!,
         })),
         participationCount: participations[0]?.total ?? 0,
@@ -972,7 +973,7 @@ export const getAdminStats = async (): Promise<AdminStats> => {
       .select({
         total: sql<number>`count(*)`.mapWith(Number),
         active:
-          sql<number>`count(*) filter (where ${exams.isActive} and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
+          sql<number>`count(*) filter (where ${exams.isActive} and ${exams.finalizedAt} is not null and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
             Number,
           ),
       })

@@ -90,7 +90,7 @@ export const groupImages = (
  * Images d'un lot de questions, groupées par question, URL CDN dérivée. Le
  * canal `explanation` est un canal de révélation : jamais sur le pont
  * d'énoncé `images`. Pas de `.limit` : la lecture est bornée par le lot de
- * l'appelant (au plus `MAX_EXAM_QUESTIONS` ids) et tronquer ferait disparaître
+ * l'appelant (au plus `MAX_EXPLANATIONS_BATCH` ids) et tronquer ferait disparaître
  * en silence les images des dernières questions.
  */
 export const fetchImages = async (

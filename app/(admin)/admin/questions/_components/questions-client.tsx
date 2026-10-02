@@ -54,7 +54,7 @@ import type {
 import { QUESTIONS_PAGE_SIZE } from "@/features/questions/page-size"
 import { RECENT_EXAMS_DEFAULT } from "@/features/questions/recent-exams"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
-import { phaseOf } from "@/lib/exam-phase"
+import { adminPhaseOf } from "@/lib/exam-phase"
 import { EXAM_STATUS_CONFIG } from "@/lib/exam-status"
 import { formatMediumDate } from "@/lib/format"
 import { scoreTone } from "@/lib/score"
@@ -335,7 +335,7 @@ export const QuestionsClient = ({
   const examOptions = exams.map((e) => ({
     value: e.id,
     label: e.title,
-    hint: EXAM_STATUS_CONFIG[phaseOf(e, initialNow)].label,
+    hint: EXAM_STATUS_CONFIG[adminPhaseOf(e, initialNow)].label,
   }))
   const examTitle = exams.find((e) => e.id === state.exam)?.title
   const objectives = state.domain
