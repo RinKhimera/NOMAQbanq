@@ -16,13 +16,16 @@ import {
 } from "@/db/schema"
 import {
   addExamQuestions,
+  deleteExam,
   finalizePreparedExam,
   previewExamCompletion,
   removeExamQuestions,
   saveExam,
 } from "@/features/exams/actions"
 import {
+  getAdminExam,
   getEligibleSubscriberCount,
+  getExamAudience,
   getExamFigures,
   getExamLeaderboard,
   getExamsOverview,
@@ -284,6 +287,12 @@ describe("dernière utilisation", () => {
     expect(plan?.recent).toBe(3)
   })
 
+  it("le jeu d'une source de réouverture garde sa propre dernière utilisation", async () => {
+    asAdmin()
+    const [own] = await getExamSelection(ids.e1, { countSelf: true })
+    expect(own?.lastUse).toMatchObject({ examId: ids.e1, recent: true })
+  })
+
   it("filtre « pas utilisée depuis K examens » de la banque", async () => {
     const examId = await prepared()
     const bank = async (k: number) =>
@@ -353,6 +362,12 @@ describe("question supprimée dans le jeu", () => {
       expect(
         Object.fromEntries(selection.map((q) => [q.id, q.deleted])),
       ).toEqual({ [c[0]]: false, [gone]: true })
+      expect((await getAdminExam(examId))?.exam).toMatchObject({
+        questionCount: 2,
+        deletedQuestionCount: 1,
+      })
+      const item = (await getExamsOverview()).find((e) => e.id === examId)
+      expect(item?.deletedQuestionCount).toBe(1)
     } finally {
       await db.delete(exams).where(eq(exams.id, examId))
       await db.delete(questions).where(eq(questions.id, gone))
@@ -433,6 +448,21 @@ describe("ajout et retrait", () => {
     expect(await setOf(examId)).toHaveLength(10)
   })
 
+  it("un retrait reste permis sur un jeu plus grand que le visé (visé hérité à 0)", async () => {
+    const examId = await prepared([c[0], c[1]])
+    await db
+      .update(exams)
+      .set({ targetQuestionCount: 0 })
+      .where(eq(exams.id, examId))
+    asAdmin()
+    expect(
+      await removeExamQuestions({ examId, questionIds: [c[0]] }),
+    ).toMatchObject({ success: true, count: 1 })
+    expect(
+      await addExamQuestions({ examId, questionIds: [c[2]] }),
+    ).toMatchObject({ success: false })
+  })
+
   it("un examen finalisé sans participation repasse en préparation", async () => {
     asAdmin()
     const examId = await prepared(filler.slice(0, 10))
@@ -479,6 +509,35 @@ describe("ajout et retrait", () => {
   })
 })
 
+describe("suppression d'un examen", () => {
+  it("refuse si des participations sont apparues depuis l'affichage", async () => {
+    const examId = await prepared(filler.slice(0, 10))
+    await db.insert(examParticipations).values({
+      examId,
+      userId: STUDENTS[0],
+      status: "in_progress",
+      startedAt: new Date(),
+    })
+    asAdmin()
+    expect(
+      await deleteExam({ examId, expectedParticipations: 0 }),
+    ).toMatchObject({
+      success: false,
+      error: expect.stringContaining("rechargez"),
+    })
+    expect(
+      await db.select({ id: exams.id }).from(exams).where(eq(exams.id, examId)),
+    ).toHaveLength(1)
+
+    expect(await deleteExam({ examId, expectedParticipations: 1 })).toEqual({
+      success: true,
+    })
+    expect(
+      await db.select({ id: exams.id }).from(exams).where(eq(exams.id, examId)),
+    ).toHaveLength(0)
+  })
+})
+
 describe("chiffres d'un examen et classement", () => {
   beforeAll(async () => {
     const done = (userId: string, score: number, status = "completed") => ({
@@ -503,6 +562,12 @@ describe("chiffres d'un examen et classement", () => {
       { examId: ids.full, userId: STUDENTS[1] },
       { examId: ids.full, userId: DELETED_ID },
     ])
+  })
+
+  it("la liste d'un examen restreint se lit sans les comptes supprimés", async () => {
+    asAdmin()
+    const audience = (await getExamAudience(ids.full)).map((u) => u.id)
+    expect(audience.sort()).toEqual([STUDENTS[0], STUDENTS[1]].sort())
   })
 
   it("comptés sur la population du classement : ni admin ni compte supprimé", async () => {

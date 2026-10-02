@@ -511,9 +511,9 @@ describe("Leaderboard", () => {
     expect(lb[0].score).toBe(100)
   })
 
-  it("non-admin ne voit pas le classement pendant l'examen actif", async () => {
-    asIntruder()
-    expect(await getExamLeaderboard(pauseId)).toEqual([])
+  it("le classement complet est réservé à l'admin", async () => {
+    asStudent()
+    await expect(getExamLeaderboard(pauseId)).rejects.toThrow()
   })
 })
 
@@ -711,32 +711,6 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
     expect(r && "participant" in r).toBe(true)
     if (!r || "error" in r) return
     expect(r.participant.score).toBe(50)
-  })
-
-  it("leaderboard après endDate : un participant le voit", async () => {
-    asStudent()
-    const lb = await getExamLeaderboard(pastExamId)
-    expect(lb.some((e) => e.user?.id === STUDENT_ID)).toBe(true)
-  })
-
-  it("leaderboard étudiant : les @username des participants ne partent pas au navigateur", async () => {
-    asIntruder()
-    const lb = await getExamLeaderboard(pastExamId)
-    const student = lb.find((e) => e.user?.id === STUDENT_ID)
-    expect(student).toBeDefined()
-    expect(student?.user?.username).toBeNull()
-  })
-
-  it("leaderboard après endDate : non-participant avec accès le voit", async () => {
-    asIntruder() // accès exam, aucune participation
-    expect(
-      (await getExamLeaderboard(pastExamId)).length,
-    ).toBeGreaterThanOrEqual(1)
-  })
-
-  it("leaderboard après endDate : non-participant sans accès → []", async () => {
-    asNoAccess()
-    expect(await getExamLeaderboard(pastExamId)).toEqual([])
   })
 
   it("explications autorisées via une session de training complétée", async () => {
@@ -989,21 +963,6 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(recent.find((h) => h.examId === pastExamId)?.score).toBeNull()
       const curve = (await getMyDashboard("tout"))?.exams.history ?? []
       expect(curve.some((h) => h.examId === pastExamId)).toBe(false)
-    })
-
-    it("leaderboard : la ligne d'un propriétaire retenu est null pour LUI et pour les autres, et sort du rang", async () => {
-      asStudent()
-      const own = await getExamLeaderboard(pastExamId)
-      const mine = own.find((e) => e.user?.id === STUDENT_ID)
-      expect(mine).toBeDefined()
-      expect(mine?.score).toBeNull()
-      // Tri sur le score lisible, nulls last : la ligne retenue ferme la liste.
-      expect(own.at(-1)?.user?.id).toBe(STUDENT_ID)
-
-      // Un camarade (accès examen, autre compte) ne lit pas plus.
-      asIntruder()
-      const theirs = await getExamLeaderboard(pastExamId)
-      expect(theirs.find((e) => e.user?.id === STUDENT_ID)?.score).toBeNull()
     })
 
     it("admin : jamais verrouillé — mêmes lectures, scores lisibles", async () => {

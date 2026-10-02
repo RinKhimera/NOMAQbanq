@@ -176,7 +176,7 @@ describe("mutations admin simples", () => {
     ["deactivateExam", deactivateExam, "Examen requis"],
     ["reactivateExam", reactivateExam, "Examen requis"],
   ])("%s : id vide → refus", async (_name, action, error) => {
-    const res = await action({ examId: "" })
+    const res = await action({ examId: "", expectedParticipations: 0 })
     expect(res).toEqual({ success: false, error })
   })
 

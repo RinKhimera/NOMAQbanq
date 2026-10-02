@@ -42,7 +42,7 @@ export default async function AdminEditExamPage({
         isActive: exam.isActive,
         targetQuestionCount: exam.targetQuestionCount,
         questionCount: exam.questionCount,
-        started: figures?.started ?? 0,
+        participations: figures?.participations ?? 0,
         locked: figures?.locked ?? false,
       }}
       selection={selection}

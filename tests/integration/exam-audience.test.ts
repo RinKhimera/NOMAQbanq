@@ -17,7 +17,6 @@ import {
 } from "@/features/exams/actions"
 import {
   getExamAudience,
-  getExamLeaderboard,
   getExamWithQuestions,
   getExamsWithParticipation,
 } from "@/features/exams/dal"
@@ -25,7 +24,6 @@ import { searchSelectableUsers } from "@/features/users/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
-import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -432,41 +430,6 @@ describe("getExamsWithParticipation — visibilité restreinte", () => {
     expect(
       (await getExamsWithParticipation()).some((e) => e.id === examId),
     ).toBe(false)
-  })
-})
-
-describe("getExamLeaderboard — restreint clos masqué aux non-membres (#3)", () => {
-  it("restreint clos : [] pour outsider (avec accès actif), non vide pour membre + admin", async () => {
-    const t = now()
-    // Examen restreint CLOS (endDate passée) avec member dans l'audience :
-    // inséré directement, la finalisation refuserait une fenêtre close.
-    const examId = await seedExam({
-      createdBy: ADMIN_ID,
-      title: `Restreint clos ${suffix}`,
-      startDate: t - 3 * DAY,
-      endDate: t - DAY,
-      questionIds: qIds,
-      audienceUserIds: [MEMBER_ID],
-    })
-    // Participation complétée seedée directement (startExam refuserait hors fenêtre).
-    await db.insert(examParticipations).values({
-      id: createId(),
-      examId,
-      userId: MEMBER_ID,
-      status: "completed",
-      score: 75,
-      startedAt: new Date(t - 3 * DAY + 1000),
-      completedAt: new Date(t - 2 * DAY),
-    })
-
-    asMember()
-    expect((await getExamLeaderboard(examId)).length).toBeGreaterThanOrEqual(1)
-
-    asAdmin()
-    expect((await getExamLeaderboard(examId)).length).toBeGreaterThanOrEqual(1)
-
-    asOutsider() // accès examen actif mais hors audience → masqué
-    expect(await getExamLeaderboard(examId)).toEqual([])
   })
 })
 

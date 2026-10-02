@@ -154,6 +154,7 @@ export function ExamForm({
       endDate: values.endDate,
       finalizedAt: saved?.finalizedAt ?? null,
       questionCount,
+      deletedQuestionCount: selection.filter((q) => q.deleted).length,
       targetQuestionCount: values.targetQuestionCount,
       audienceType: values.audienceType,
       audienceSize: values.audience.length,
@@ -290,7 +291,7 @@ export function ExamForm({
     : !finalized
       ? "Vous pouvez enregistrer l'examen en préparation, même incomplet, et le finaliser plus tard."
       : undefined
-  const started = saved?.started ?? 0
+  const participations = saved?.participations ?? 0
 
   return (
     <div className="flex flex-col gap-4">
@@ -317,11 +318,9 @@ export function ExamForm({
           <Lock aria-hidden />
           <AlertTitle>Jeu de questions figé</AlertTitle>
           <AlertDescription className="text-ink-2">
-            {started > 1
-              ? `${started} participations existent.`
-              : started === 1
-                ? "Une participation existe."
-                : "Des participations existent."}{" "}
+            {participations > 1
+              ? `${participations} participations existent.`
+              : "Une participation existe."}{" "}
             Le nombre et le choix des questions sont verrouillés{NBSP}; le
             titre, la description, les dates, la pause et l&apos;audience
             restent modifiables, sauf repousser la fin d&apos;un examen terminé

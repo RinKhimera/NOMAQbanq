@@ -69,7 +69,9 @@ export const DeleteExamDialog = ({
   }
 
   const remove = async () => {
-    const res = await callAction(() => deleteExam({ examId: exam.id }))
+    const res = await callAction(() =>
+      deleteExam({ examId: exam.id, expectedParticipations: participations }),
+    )
     if (!res.success) {
       toast.error(res.error ?? "Suppression impossible")
       return false

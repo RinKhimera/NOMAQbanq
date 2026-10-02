@@ -56,6 +56,7 @@ export const QuestionPreviewDialog = ({
   now,
   inSelection,
   frozen,
+  full,
   writing,
   onClose,
   onRetry,
@@ -65,6 +66,8 @@ export const QuestionPreviewDialog = ({
   now: number
   inSelection: boolean
   frozen: boolean
+  /** Jeu au visé : plus d'ajout possible. */
+  full: boolean
   writing: boolean
   onClose: () => void
   onRetry: (item: BankQuestion) => void
@@ -144,7 +147,7 @@ export const QuestionPreviewDialog = ({
                 ) : (
                   <Button
                     type="button"
-                    disabled={writing}
+                    disabled={writing || full}
                     onClick={() => onToggle(item)}
                     data-testid="btn-composer-preview-add"
                   >

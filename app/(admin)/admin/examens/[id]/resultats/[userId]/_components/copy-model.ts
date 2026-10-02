@@ -53,8 +53,11 @@ const summaryOf = (
   const key = letterOf(question.options, question.correctAnswer)
   const keyText = key ? `bonne réponse ${key}` : "clé introuvable"
   if (outcome === "unanswered") return `Sans réponse · ${keyText}`
-  if (outcome === "correct" && key) return `Bonne réponse · ${key}`
   const chosen = letterOf(question.options, selected ?? undefined)
+  // Le verdict est enregistré : une clé corrigée depuis ne change pas la
+  // lettre que l'étudiant a choisie.
+  if (outcome === "correct" && (chosen ?? key))
+    return `Bonne réponse · ${chosen ?? key}`
   return `${chosen ? `A répondu ${chosen}` : "A répondu un choix modifié depuis"} · ${keyText}`
 }
 

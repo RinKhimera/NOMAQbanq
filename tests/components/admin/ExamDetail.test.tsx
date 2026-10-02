@@ -39,6 +39,7 @@ const exam = (over: Partial<DetailExam> = {}): DetailExam => ({
   enablePause: true,
   pauseDurationMinutes: 45,
   questionCount: 230,
+  deletedQuestionCount: 0,
   audienceType: "subscribers",
   ...over,
 })
@@ -214,7 +215,10 @@ describe("DeleteExamDialog", () => {
     ).toBeInTheDocument()
     await user.click(screen.getByTestId("btn-delete-exam-confirm"))
 
-    expect(deleteExam).toHaveBeenCalledWith({ examId: "exam-1" })
+    expect(deleteExam).toHaveBeenCalledWith({
+      examId: "exam-1",
+      expectedParticipations: 0,
+    })
     expect(push).toHaveBeenCalledWith("/admin/examens")
   })
 

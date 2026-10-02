@@ -554,7 +554,9 @@ const composeTx = async (
   if (sameSet(current, next)) {
     return { count: current.length, finalized: exam.finalizedAt !== null }
   }
-  if (next.length > exam.targetQuestionCount) {
+  // Seul un ajout peut dépasser le visé : un retrait reste permis même sur un
+  // jeu déjà plus grand (visé à 0 d'un examen inséré par l'ancien code).
+  if (next.length > exam.targetQuestionCount && next.length > current.length) {
     throw new ExamInvalid({
       questionIds: `Le jeu ne peut pas dépasser les ${exam.targetQuestionCount} questions visées.`,
     })
@@ -688,17 +690,40 @@ export const previewExamCompletion = async (input: {
 /** [Admin] Supprime un examen (participations + réponses + jonctions en cascade FK). */
 export const deleteExam = async ({
   examId,
+  expectedParticipations,
 }: {
   examId: string
+  /**
+   * Participations que l'admin a vues en confirmant : s'il y en a davantage
+   * (un étudiant a démarré entre-temps), la suppression est refusée.
+   */
+  expectedParticipations: number
 }): Promise<{ success: boolean; error?: string }> => {
   await requireRole(["admin"])
   if (!examId) return fail("Examen requis")
 
   try {
-    await db.delete(exams).where(eq(exams.id, examId))
+    const outcome = await db.transaction(async (tx) => {
+      await lockExam(tx, examId)
+      const [row] = await tx
+        .select({ n: sql<number>`count(*)`.mapWith(Number) })
+        .from(examParticipations)
+        .where(eq(examParticipations.examId, examId))
+      if ((row?.n ?? 0) > expectedParticipations) return "CHANGED" as const
+      await tx.delete(exams).where(eq(exams.id, examId))
+      return "DELETED" as const
+    })
+    if (outcome === "CHANGED") {
+      return fail(
+        "Des participations ont commencé depuis l'ouverture de la page : rechargez-la avant de supprimer.",
+      )
+    }
     revalidatePath("/admin/examens")
     return { success: true }
   } catch (error) {
+    if (error instanceof Error && error.message === "NOT_FOUND") {
+      return fail(EXAM_ERRORS.NOT_FOUND)
+    }
     captureServerError("[deleteExam]", error)
     return fail("Erreur serveur. Réessayez.")
   }
@@ -818,7 +843,7 @@ export const startExam = async ({
         .for("update")
 
       // Verrou de ligne examen (après le verrou user, ordre déterministe) :
-      // commun avec updateExam → un remplacement du set de questions ne peut pas
+      // commun avec les écritures du jeu → un remplacement du set de questions ne peut pas
       // s'intercaler entre la création de la participation et la pré-création des
       // examAnswers.
       const [exam] = await tx

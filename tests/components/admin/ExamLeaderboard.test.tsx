@@ -24,7 +24,7 @@ const entry = (
   participationId: string,
   name: string,
   username: string | null,
-  score: number | null,
+  score: number,
   {
     flag = null,
     status = "completed",

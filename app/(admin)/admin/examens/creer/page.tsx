@@ -42,7 +42,9 @@ export default async function AdminCreateExamPage({
   const kept = new Set(source?.questionIds)
   const selection =
     source && sourceId
-      ? (await getExamSelection(sourceId)).filter((q) => kept.has(q.id))
+      ? (await getExamSelection(sourceId, { countSelf: true })).filter((q) =>
+          kept.has(q.id),
+        )
       : []
 
   return (

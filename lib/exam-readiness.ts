@@ -10,6 +10,8 @@ import { formatClockTime, formatDayMonth } from "@/lib/format"
 
 export type ReadinessInput = ExamSchedule & {
   questionCount: number
+  /** Questions du jeu supprimées depuis leur ajout : bloquantes. */
+  deletedQuestionCount?: number
   targetQuestionCount: number
   audienceType: "subscribers" | "restricted"
   /** Étudiants de la liste restreinte (comptes supprimés exclus). */
@@ -74,9 +76,13 @@ export const examReadiness = (
     {
       key: "questions",
       label: "Questions",
-      ok: exam.questionCount === exam.targetQuestionCount,
+      ok:
+        exam.questionCount === exam.targetQuestionCount &&
+        !exam.deletedQuestionCount,
       tone: "danger",
-      value: `${exam.questionCount} / ${exam.targetQuestionCount}`,
+      value: exam.deletedQuestionCount
+        ? `${plural(exam.deletedQuestionCount, "supprimée", "supprimées")} à retirer`
+        : `${exam.questionCount} / ${exam.targetQuestionCount}`,
     },
     {
       key: "dates",

@@ -39,6 +39,7 @@ const exam = (
   isActive: true,
   audienceType: "subscribers",
   questionCount: 230,
+  deletedQuestionCount: 0,
   targetQuestionCount: 230,
   figures: figures(),
   ...over,
@@ -127,6 +128,8 @@ describe("chiffres des terminés", () => {
     expect(passRateLabel({ passed: 46, submitted: 71 })).toBe("64 %")
     expect(submittedPercent({ started: 0, submitted: 0 })).toBe(0)
     expect(submittedPercent({ started: 64, submitted: 41 })).toBe(64)
+    // Au plancher : jamais « 100 % » avec une participation encore ouverte.
+    expect(submittedPercent({ started: 200, submitted: 199 })).toBe(99)
   })
 })
 

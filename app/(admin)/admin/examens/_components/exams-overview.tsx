@@ -75,7 +75,10 @@ export const ExamsOverview = ({
               className="text-ink-3 font-mono text-xs"
               data-testid="finished-recent-average"
             >
-              moyenne des {average.count} derniers{NBSP}: {average.value}
+              {average.count > 1
+                ? `moyenne des ${average.count} derniers`
+                : "moyenne du dernier"}
+              {NBSP}: {average.value}
               {NBSP}%
             </span>
           )

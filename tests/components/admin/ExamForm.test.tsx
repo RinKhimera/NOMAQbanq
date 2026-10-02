@@ -69,7 +69,7 @@ const finalizedExam = (over = {}) => ({
   isActive: true,
   targetQuestionCount: 10,
   questionCount: 10,
-  started: 0,
+  participations: 0,
   locked: false,
   ...over,
 })
@@ -342,7 +342,7 @@ describe("ExamForm — examen finalisé", () => {
       <ExamForm
         {...props({
           initialValues: values,
-          saved: finalizedExam({ started: 3, locked: true }),
+          saved: finalizedExam({ participations: 3, locked: true }),
           selection: Array.from({ length: 10 }, (_, i) =>
             question(`q${i}`, "Cardiologie"),
           ),

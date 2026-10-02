@@ -260,6 +260,7 @@ export const ComposerClient = ({
             }}
             onPreview={(q) => void preview.open(q)}
             onAdd={write("add")}
+            room={counter.need}
             writing={isWriting}
             busyKey={busyKey}
             className={cn(tab !== "bank" && "max-lg:hidden")}
@@ -284,6 +285,7 @@ export const ComposerClient = ({
           preview.preview ? selectedIds.has(preview.preview.item.id) : false
         }
         frozen={frozen}
+        full={counter.need === 0}
         writing={isWriting}
         onClose={preview.close}
         onRetry={(item) => void preview.open(item)}

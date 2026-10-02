@@ -396,8 +396,9 @@ describe("contrainte et lectures filtrées", () => {
   it("classement et résultats : introuvables pour un examen en préparation sans dates", async () => {
     const examId = await saveNew({ ...base, questionIds: qIds.slice(0, 3) })
 
-    asUser(STUDENT_ID)
+    asAdmin()
     expect(await getExamLeaderboard(examId)).toEqual([])
+    asUser(STUDENT_ID)
     expect(await getParticipantExamResults(examId, STUDENT_ID)).toBeNull()
 
     asAdmin()

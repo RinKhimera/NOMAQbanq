@@ -65,11 +65,13 @@ export const LastUseTag = ({
 }) => (
   <span
     className={cn(
-      "inline-flex h-5 items-center rounded-xs border px-1.5 font-mono text-[11px] whitespace-nowrap",
+      // Un titre d'examen long se coupe : la ligne ne doit jamais élargir la page.
+      "inline-block h-5 max-w-full truncate rounded-xs border px-1.5 font-mono text-[11px] leading-4.5",
       recent
         ? "border-warning-line text-warning-ink"
         : "border-line text-ink-2",
     )}
+    title={label ?? undefined}
   >
     {label ?? "—"}
   </span>

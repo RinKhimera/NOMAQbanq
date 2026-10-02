@@ -40,8 +40,8 @@ export type SavedExam = {
   targetQuestionCount: number
   /** Taille du jeu enregistré. */
   questionCount: number
-  /** Participations d'étudiants commencées (population du classement). */
-  started: number
+  /** Participations de tous les comptes, admin compris. */
+  participations: number
   /** Jeu figé : au moins une participation, de n'importe quel compte. */
   locked: boolean
 }

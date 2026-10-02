@@ -52,7 +52,7 @@ export const CompletionDialog = ({
           <DialogTitle>Compléter les {need} restantes</DialogTitle>
           <DialogDescription>
             {n > 0
-              ? `${countLabel(n, "question tirée", "questions tirées")} au hasard, réparties comme la banque, sans questions récentes ni clés à vérifier.`
+              ? `${countLabel(n, "question tirée", "questions tirées")} au hasard, réparties comme la banque, sans questions récentes ni clés à vérifier.${n < need ? ` La banque n'en a pas davantage : il en manquera ${need - n}.` : ""}`
               : "Aucune question à tirer : hors du jeu, la banque ne contient plus que des clés à vérifier, ou rien. Confirmez ces clés ou choisissez les questions à la main."}
           </DialogDescription>
         </DialogHeader>

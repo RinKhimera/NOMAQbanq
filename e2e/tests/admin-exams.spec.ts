@@ -70,12 +70,15 @@ test.describe("Admin — examens blancs", () => {
     // sur la fiche.
     await page.getByTestId("btn-compose-questions").click()
     await page.waitForURL(/\/questions\?retour=fiche/)
-    await expect(page.getByTestId("composer-count")).toContainText("0 / 10")
+    // Le compteur figure dans la barre du haut et dans la barre basse du
+    // téléphone, masquée en CSS : viser celui qui est visible.
+    const count = page.locator('[data-testid="composer-count"]:visible')
+    await expect(count).toContainText("0 / 10")
     await page.getByTestId("btn-composer-complete").click()
     const dialog = page.getByTestId("composer-completion-dialog")
     await expect(dialog).toBeVisible({ timeout: 15_000 })
     await dialog.getByTestId("btn-composer-apply-completion").click()
-    await expect(page.getByTestId("composer-count")).toContainText("10 / 10", {
+    await expect(count).toContainText("10 / 10", {
       timeout: 15_000,
     })
     await page.getByTestId("btn-composer-done").click()

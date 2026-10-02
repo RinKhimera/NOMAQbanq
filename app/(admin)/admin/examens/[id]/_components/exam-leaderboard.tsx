@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import {
   DataTable,
   type DataTableColumn,
@@ -77,10 +76,8 @@ export function ExamLeaderboard({
       label: "Rang",
       className: "w-16",
       cellClassName: "font-mono text-ink-2 tabular-nums",
-      cell: ({ entry, rank }) =>
-        entry.score === null ? (
-          <span title={SCORE_WITHHELD_MESSAGE}>—</span>
-        ) : rank === null ? (
+      cell: ({ rank }) =>
+        rank === null ? (
           <span title="Hors classement : compte admin ou supprimé">—</span>
         ) : (
           rank

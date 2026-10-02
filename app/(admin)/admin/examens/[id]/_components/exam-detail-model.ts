@@ -140,7 +140,6 @@ export const tracking = (
   return null
 }
 
-/** Rang de la copie dans le classement complet, `null` hors classement. */
 /**
  * Rangs du classement sur sa population (`CONTEXT.md`) : une copie d'un compte
  * admin ou supprimé reste listée, sans rang, comme dans les chiffres de la

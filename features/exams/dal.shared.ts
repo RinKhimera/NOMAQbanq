@@ -1,22 +1,41 @@
-import { inArray, sql } from "drizzle-orm"
+import { eq, inArray, sql } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
-import { examQuestions } from "@/db/schema"
+import { examQuestions, questions } from "@/db/schema"
 
 export const countQuestionsByExam = async (
   examIds: string[],
 ): Promise<Map<string, number>> => {
   const map = new Map<string, number>()
+  for (const [id, c] of await questionCountsByExam(examIds))
+    map.set(id, c.total)
+  return map
+}
+
+/**
+ * Taille du jeu de chaque examen et, parmi elles, les questions supprimées
+ * depuis leur ajout : la finalisation refuse un jeu qui en contient.
+ */
+export const questionCountsByExam = async (
+  examIds: string[],
+): Promise<Map<string, { total: number; deleted: number }>> => {
+  const map = new Map<string, { total: number; deleted: number }>()
   if (examIds.length === 0) return map
   const rows = await db
     .select({
       examId: examQuestions.examId,
-      n: sql<number>`count(*)`.mapWith(Number),
+      total: sql<number>`count(*)`.mapWith(Number),
+      deleted:
+        sql<number>`count(*) filter (where ${questions.deletedAt} is not null)`.mapWith(
+          Number,
+        ),
     })
     .from(examQuestions)
+    .innerJoin(questions, eq(questions.id, examQuestions.questionId))
     .where(inArray(examQuestions.examId, examIds))
     .groupBy(examQuestions.examId)
-  for (const r of rows) map.set(r.examId, r.n)
+  for (const r of rows)
+    map.set(r.examId, { total: r.total, deleted: r.deleted })
   return map
 }
 
@@ -49,3 +68,14 @@ export const finalizedDates = (exam: {
   endDate: finalizedDate(exam.endDate),
   completionTime: finalizedDuration(exam.completionTime),
 })
+
+/** Participation soumise : à la main, ou automatiquement (temps écoulé, fermeture). */
+export type SubmittedStatus = "completed" | "auto_submitted"
+
+/** Lecture filtrée sur les statuts soumis : un autre statut est un bug. */
+export const submittedStatus = (
+  status: "in_progress" | "completed" | "auto_submitted",
+): SubmittedStatus => {
+  if (status === "in_progress") throw new Error("PARTICIPATION_NOT_SUBMITTED")
+  return status
+}

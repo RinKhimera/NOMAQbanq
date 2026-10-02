@@ -893,7 +893,7 @@ export const getLastUses = async (
 
 const withLastUses = async (
   items: QuestionListItem[],
-  examId: string,
+  examId: string | undefined,
   deleted: ReadonlySet<string> = new Set(),
 ): Promise<BankQuestion[]> => {
   const lastUses = await getLastUses(
@@ -938,9 +938,15 @@ export const getExamBank = async (
   return { items: await withLastUses(page.items, examId), total: page.total }
 }
 
-/** [Admin] Le jeu de questions d'un examen, avec leur dernière utilisation. */
+/**
+ * [Admin] Le jeu de questions d'un examen, avec leur dernière utilisation.
+ * `countSelf` : l'examen lu compte dans la dernière utilisation (jeu d'une
+ * source de réouverture) ; par défaut il est exclu, comme pour l'examen qu'on
+ * compose.
+ */
 export const getExamSelection = async (
   examId: string,
+  { countSelf = false }: { countSelf?: boolean } = {},
 ): Promise<BankQuestion[]> => {
   await requireRole(["admin"])
   const rows = await db
@@ -952,7 +958,7 @@ export const getExamSelection = async (
     .limit(1000)
   return withLastUses(
     await questionListItems(rows.map((r) => r.id)),
-    examId,
+    countSelf ? undefined : examId,
     new Set(rows.filter((r) => r.deletedAt).map((r) => r.id)),
   )
 }

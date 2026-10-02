@@ -24,7 +24,12 @@ import {
 import { requireRole } from "@/lib/auth-guards"
 import type { ExamSchedule } from "@/lib/exam-phase"
 import { PASS_THRESHOLD } from "@/lib/score"
-import { countQuestionsByExam, finalizedDate } from "./dal.shared"
+import {
+  type SubmittedStatus,
+  finalizedDate,
+  questionCountsByExam,
+  submittedStatus,
+} from "./dal.shared"
 
 // ============================================
 // Admin : vue de pilotage et chiffres d'un examen
@@ -244,6 +249,8 @@ export type AdminExamOverviewItem = ExamSchedule & {
   audienceType: "subscribers" | "restricted"
   /** Taille du jeu actuel ; égale au visé une fois l'examen finalisé. */
   questionCount: number
+  /** Questions du jeu supprimées depuis leur ajout : la finalisation les refuse. */
+  deletedQuestionCount: number
   targetQuestionCount: number
   figures: ExamFigures
 }
@@ -281,7 +288,7 @@ export const getExamsOverview = cache(
 
     const ids = rows.map((e) => e.id)
     const [questionCounts, figures] = await Promise.all([
-      countQuestionsByExam(ids),
+      questionCountsByExam(ids),
       examFigures(rows),
     ])
     return rows.map((e) => ({
@@ -292,7 +299,8 @@ export const getExamsOverview = cache(
       finalizedAt: e.finalizedAt?.getTime() ?? null,
       isActive: e.isActive,
       audienceType: e.audienceType,
-      questionCount: questionCounts.get(e.id) ?? 0,
+      questionCount: questionCounts.get(e.id)?.total ?? 0,
+      deletedQuestionCount: questionCounts.get(e.id)?.deleted ?? 0,
       targetQuestionCount: e.targetQuestionCount,
       figures: figures.get(e.id) ?? emptyFigures(0),
     }))
@@ -354,6 +362,8 @@ export type AdminExam = {
     enablePause: boolean
     pauseDurationMinutes: number | null
     questionCount: number
+    /** Questions du jeu supprimées depuis leur ajout. */
+    deletedQuestionCount: number
     audienceType: "subscribers" | "restricted"
   }
 }
@@ -386,7 +396,7 @@ export const getAdminExam = cache(
       .limit(1)
     if (!exam) return null
 
-    const questionCount = (await countQuestionsByExam([examId])).get(examId)
+    const counts = (await questionCountsByExam([examId])).get(examId)
 
     return {
       exam: {
@@ -394,11 +404,102 @@ export const getAdminExam = cache(
         startDate: exam.startDate?.getTime() ?? null,
         endDate: exam.endDate?.getTime() ?? null,
         finalizedAt: exam.finalizedAt?.getTime() ?? null,
-        questionCount: questionCount ?? 0,
+        questionCount: counts?.total ?? 0,
+        deletedQuestionCount: counts?.deleted ?? 0,
       },
     }
   },
 )
+
+// ============================================
+// Admin : classement d'un examen
+// ============================================
+
+/** Compte hors de la population du classement d'examen. */
+export type LeaderboardFlag = "admin" | "deleted"
+
+export type LeaderboardEntry = {
+  participationId: string
+  user: {
+    id: string
+    name: string
+    username: string | null
+    image: string | null
+    /** Compte hors population, listé avec son badge et sans rang. Un admin supprimé est `deleted`. */
+    flag: LeaderboardFlag | null
+  } | null
+  score: number
+  completedAt: number | null
+  /** Soumission manuelle (`completed`) ou automatique à la fin du temps ou à la fermeture. */
+  status: SubmittedStatus
+}
+
+const leaderboardFlag = (u: {
+  role: string
+  deletedAt: Date | null
+}): LeaderboardFlag | null => {
+  if (u.deletedAt) return "deleted"
+  if (u.role === "admin") return "admin"
+  return null
+}
+
+/**
+ * [Admin] Classement d'un examen finalisé : toutes les participations soumises,
+ * score décroissant, comptes admin et supprimés signalés par `flag` (le rang se
+ * compte sur la population, côté écran). Lecture admin : scores bruts, jamais
+ * retenus. Un étudiant ne lit pas le classement complet : seulement son
+ * percentile, dans ses résultats.
+ */
+export const getExamLeaderboard = async (
+  examId: string,
+): Promise<LeaderboardEntry[]> => {
+  await requireRole(["admin"])
+  const rows = await db
+    .select({
+      participationId: examParticipations.id,
+      score: examParticipations.score,
+      completedAt: examParticipations.completedAt,
+      status: examParticipations.status,
+      userId: user.id,
+      name: user.name,
+      username: user.username,
+      image: user.image,
+      role: user.role,
+      deletedAt: user.deletedAt,
+    })
+    .from(examParticipations)
+    .innerJoin(user, eq(user.id, examParticipations.userId))
+    .innerJoin(exams, eq(exams.id, examParticipations.examId))
+    .where(
+      and(
+        eq(examParticipations.examId, examId),
+        isNotNull(exams.finalizedAt),
+        inArray(examParticipations.status, ["completed", "auto_submitted"]),
+      ),
+    )
+    .orderBy(
+      desc(examParticipations.score),
+      asc(examParticipations.completedAt),
+      // Un lot auto-soumis partage le même `completedAt` : sans clé unique,
+      // l'ordre des ex æquo changerait d'un rendu à l'autre.
+      asc(examParticipations.id),
+    )
+    .limit(500)
+
+  return rows.map((r) => ({
+    participationId: r.participationId,
+    user: {
+      id: r.userId,
+      name: r.name,
+      username: r.username,
+      image: r.image ?? null,
+      flag: leaderboardFlag(r),
+    },
+    score: r.score,
+    completedAt: r.completedAt?.getTime() ?? null,
+    status: submittedStatus(r.status),
+  }))
+}
 
 export type ExamAudienceUser = { id: string; name: string; email: string }
 
@@ -409,13 +510,17 @@ export type ExamAudienceUser = { id: string; name: string; email: string }
 export const getExamAudience = cache(
   async (examId: string): Promise<ExamAudienceUser[]> => {
     await requireRole(["admin"])
-    return db
-      .select({ id: user.id, name: user.name, email: user.email })
-      .from(examAudience)
-      .innerJoin(user, eq(user.id, examAudience.userId))
-      .where(eq(examAudience.examId, examId))
-      .orderBy(asc(user.name))
-      .limit(1000)
+    return (
+      db
+        .select({ id: user.id, name: user.name, email: user.email })
+        .from(examAudience)
+        .innerJoin(user, eq(user.id, examAudience.userId))
+        // Un compte supprimé ne compte plus dans la liste : l'enregistrement le
+        // refuserait (`writeAudience`), et les chiffres l'excluent déjà.
+        .where(and(eq(examAudience.examId, examId), isNull(user.deletedAt)))
+        .orderBy(asc(user.name))
+        .limit(1000)
+    )
   },
 )
 

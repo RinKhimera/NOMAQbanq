@@ -47,6 +47,7 @@ export const BankColumn = ({
   onClear,
   onPreview,
   onAdd,
+  room,
   writing,
   busyKey,
   className,
@@ -66,6 +67,8 @@ export const BankColumn = ({
   onClear: () => void
   onPreview: (q: BankQuestion) => void
   onAdd: (key: string, ids: string[]) => void
+  /** Places restantes avant le visé : le serveur refuse un ajout au-delà. */
+  room: number
   writing: boolean
   busyKey: string | null
   className?: string
@@ -158,11 +161,11 @@ export const BankColumn = ({
                 type="button"
                 size="sm"
                 variant="ghost"
-                disabled={writing}
+                disabled={writing || room === 0}
                 onClick={() =>
                   onAdd(
                     "add-page",
-                    items.map((q) => q.id),
+                    items.slice(0, room).map((q) => q.id),
                   )
                 }
                 className={TOUCH_HEIGHT}
@@ -173,7 +176,9 @@ export const BankColumn = ({
                 ) : (
                   <ListPlus aria-hidden />
                 )}
-                Ajouter les {items.length} affichées
+                {room >= items.length
+                  ? `Ajouter les ${items.length} affichées`
+                  : `Ajouter les ${room} premières`}
               </Button>
             </div>
             <ul>
@@ -203,7 +208,7 @@ export const BankColumn = ({
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={writing}
+                      disabled={writing || room === 0}
                       onClick={() => onAdd(`add:${q.id}`, [q.id])}
                       aria-label={`Ajouter : ${q.question.slice(0, 80)}`}
                       className={TOUCH_HEIGHT}

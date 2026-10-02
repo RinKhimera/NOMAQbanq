@@ -81,7 +81,7 @@ export const submittedPercent = ({
 }: {
   started: number
   submitted: number
-}) => (started === 0 ? 0 : Math.round((submitted / started) * 100))
+}) => (started === 0 ? 0 : Math.floor((submitted / started) * 100))
 
 /** « dans 3 j », « aujourd'hui ». */
 export const inDaysLabel = (days: number) =>
