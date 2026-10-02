@@ -48,6 +48,7 @@ import {
   notEnoughQuestions,
 } from "@/features/training/schemas"
 import { callAction } from "@/lib/safe-action"
+import { foldForSearch } from "@/lib/search"
 import { TONE_SOFT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
@@ -69,8 +70,6 @@ const QUESTION_MARKS = [5, 10, 15, 20]
 const DEFAULT_COUNT = 10
 
 const fmt = (n: number) => n.toLocaleString("fr-CA")
-const normalize = (s: string) =>
-  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
 
 const Field = ({
   label,
@@ -287,7 +286,7 @@ export const TrainingConfigForm = ({
 
   const objectifOptions = objectifSearch
     ? objectifList.filter((o) =>
-        normalize(o.objectif).includes(normalize(objectifSearch)),
+        foldForSearch(o.objectif).includes(foldForSearch(objectifSearch)),
       )
     : objectifList
 

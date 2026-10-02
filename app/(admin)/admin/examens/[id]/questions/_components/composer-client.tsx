@@ -2,8 +2,8 @@
 
 import { Lock } from "lucide-react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { PageIntro } from "@/components/shared/page-intro"
@@ -15,7 +15,7 @@ import {
   removeExamQuestions,
 } from "@/features/exams/actions"
 import type { BankQuestion, DomainPlanRow } from "@/features/questions/dal"
-import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { useUrlListState } from "@/hooks/use-url-list-state"
 import type { ExamStatus } from "@/lib/exam-status"
 import { NBSP } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
@@ -83,8 +83,6 @@ export const ComposerClient = ({
   initialNow: number
 }) => {
   const router = useRouter()
-  const pathname = usePathname()
-  const [isNavigating, startNavigation] = useTransition()
   const [isWriting, startWrite] = useTransition()
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("bank")
@@ -93,38 +91,19 @@ export const ComposerClient = ({
   const { guard, dialog } = useFirstChangeGuard(exam.finalized && !frozen)
   const preview = useQuestionPreview()
 
-  const [search, setSearch] = useState(state.q)
-  // Recherche envoyée par la frappe : un `q` d'URL qui en diffère vient
-  // d'ailleurs (retour arrière, « Effacer les filtres ») et réaligne le champ.
-  const [sentQ, setSentQ] = useState(state.q)
-  if (state.q !== sentQ) {
-    setSentQ(state.q)
-    setSearch(state.q)
-  }
-
-  // Dernier état demandé : pendant un rechargement, `state` (les props) est
-  // encore l'ancien, et un second changement effacerait le premier.
-  const requested = useRef(state)
-  useEffect(() => {
-    requested.current = state
-  }, [state])
-  const latest = () => requested.current
-
-  const go = (next: ComposerState) =>
-    startNavigation(() => {
-      requested.current = next
-      router.replace(`${pathname}?${serializeComposer(next)}`, {
-        scroll: false,
-      })
-    })
+  const {
+    search,
+    setSearch,
+    isPending: isNavigating,
+    latest,
+    go,
+  } = useUrlListState({
+    state,
+    serialize: serializeComposer,
+    withSearch: (current, q) => withChange(current, { q }),
+  })
   const change = (c: Partial<Omit<ComposerState, "page" | "back">>) =>
     go(withChange(latest(), c))
-
-  useDebouncedValue(search, 300, (value) => {
-    if (value.trim() === latest().q) return
-    setSentQ(value.trim())
-    change({ q: value.trim() })
-  })
 
   const pickDomain = (domain: string) => {
     change({ domain: latest().domain === domain ? "" : domain })

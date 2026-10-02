@@ -170,7 +170,6 @@ export function ExamDetailClient({
       <ExamLeaderboard
         examId={exam.id}
         leaderboard={leaderboard}
-        isAdmin
         provisional={phase === "active"}
       />
 

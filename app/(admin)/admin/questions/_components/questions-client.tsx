@@ -11,8 +11,7 @@ import {
   X,
 } from "lucide-react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import {
   NotUsedSinceField,
   notUsedSinceLabel,
@@ -55,7 +54,7 @@ import type {
   QuestionSortBy,
 } from "@/features/questions/dal"
 import { QUESTIONS_PAGE_SIZE } from "@/features/questions/page-size"
-import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { useUrlListState } from "@/hooks/use-url-list-state"
 import { adminPhaseOf } from "@/lib/exam-phase"
 import { EXAM_STATUS_CONFIG } from "@/lib/exam-status"
 import { formatMediumDate } from "@/lib/format"
@@ -184,41 +183,14 @@ export const QuestionsClient = ({
   initialNow: number
 }) => {
   const router = useRouter()
-  const pathname = usePathname()
-  const [isPending, startTransition] = useTransition()
-  const [search, setSearch] = useState(state.q)
-  // Recherche envoyée par la frappe : un `q` d'URL qui en diffère vient
-  // d'ailleurs (retour arrière, lien) et réaligne le champ.
-  const [sentQ, setSentQ] = useState(state.q)
-  if (state.q !== sentQ) {
-    setSentQ(state.q)
-    setSearch(state.q)
-  }
-
-  // Dernier état demandé : pendant un rechargement, `state` (les props) est
-  // encore l'ancien, et un second changement effacerait le premier.
-  const requested = useRef(state)
-  useEffect(() => {
-    requested.current = state
-  }, [state])
-  const latest = () => requested.current
-
-  const go = (next: QuestionListState) =>
-    startTransition(() => {
-      requested.current = next
-      const params = serializeQuestionList(next)
-      router.replace(params.size ? `${pathname}?${params}` : pathname, {
-        scroll: false,
-      })
+  const { search, setSearch, isPending, startTransition, latest, go } =
+    useUrlListState({
+      state,
+      serialize: serializeQuestionList,
+      withSearch: (current, q) => withChange(current, { q }),
     })
   const change = (c: Partial<Omit<QuestionListState, "page">>) =>
     go(withChange(latest(), c))
-
-  useDebouncedValue(search, 300, (value) => {
-    if (value.trim() === latest().q) return
-    setSentQ(value.trim())
-    change({ q: value.trim() })
-  })
 
   const onSort = (field: QuestionSortBy) => {
     const current = latest()

@@ -47,7 +47,7 @@ const leaderboard = [
 ]
 
 const renderLeaderboard = (rows = leaderboard) => {
-  render(<ExamLeaderboard examId="exam-1" leaderboard={rows} isAdmin />)
+  render(<ExamLeaderboard examId="exam-1" leaderboard={rows} />)
   return userEvent.setup()
 }
 
@@ -89,12 +89,7 @@ describe("ExamLeaderboard — lignes", () => {
 
   it("annonce un classement provisoire", () => {
     render(
-      <ExamLeaderboard
-        examId="exam-1"
-        leaderboard={leaderboard}
-        isAdmin
-        provisional
-      />,
+      <ExamLeaderboard examId="exam-1" leaderboard={leaderboard} provisional />,
     )
 
     expect(screen.getByTestId("leaderboard-provisional")).toBeInTheDocument()
@@ -166,31 +161,5 @@ describe("ExamLeaderboard — recherche", () => {
     expect(
       screen.getByText("Aucun participant ne correspond à « inconnu »."),
     ).toBeInTheDocument()
-  })
-})
-
-describe("ExamLeaderboard — étudiant", () => {
-  it("n'ouvre que sa propre copie et masque la colonne Soumission", () => {
-    render(
-      <ExamLeaderboard
-        examId="exam-1"
-        leaderboard={leaderboard}
-        currentUserId="user-p2"
-      />,
-    )
-
-    expect(screen.getByTestId("btn-view-copy-p2").getAttribute("href")).toBe(
-      "/tableau-de-bord/examen-blanc/exam-1/resultats",
-    )
-    expect(screen.queryByTestId("btn-view-copy-p1")).toBeNull()
-    expect(screen.queryByText("Automatique")).toBeNull()
-  })
-
-  it("ne rend rien sans participation", () => {
-    const { container } = render(
-      <ExamLeaderboard examId="exam-1" leaderboard={[]} />,
-    )
-
-    expect(container).toBeEmptyDOMElement()
   })
 })

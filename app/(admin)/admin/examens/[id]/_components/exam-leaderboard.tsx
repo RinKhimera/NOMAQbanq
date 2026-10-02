@@ -13,18 +13,13 @@ import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
 import type { LeaderboardEntry, LeaderboardFlag } from "@/features/exams/dal"
 import { formatScore, scoreTextClass } from "@/lib/score"
+import { foldForSearch } from "@/lib/search"
 import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import { populationRanks } from "./exam-detail-model"
 
 /** Lignes montrées avant « Afficher tout ». */
 export const LEADERBOARD_PREVIEW = 10
-
-const foldForSearch = (text: string) =>
-  text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
 
 const matchesSearch = (entry: LeaderboardEntry, query: string) =>
   [entry.user?.name, entry.user?.username].some(
@@ -42,29 +37,22 @@ type RankedEntry = { entry: LeaderboardEntry; rank: number | null }
 interface ExamLeaderboardProps {
   examId: string
   leaderboard: LeaderboardEntry[]
-  /** Admin : toutes les copies, colonne « Soumission » et « Voir la copie ». */
-  isAdmin?: boolean
-  currentUserId?: string
   /** Examen encore ouvert : le classement peut encore bouger. */
   provisional?: boolean
 }
 
 /**
- * Classement d'un examen : rang sur le classement complet (une recherche ne le
- * change pas), « 10 premiers » puis « Afficher tout ». L'admin ouvre chaque
- * copie ; un étudiant n'ouvre que la sienne.
+ * Classement admin d'un examen : toutes les copies soumises, rang sur la
+ * population du classement (une recherche ne le change pas), « 10 premiers »
+ * puis « Afficher tout », et la copie de chacun.
  */
 export function ExamLeaderboard({
   examId,
   leaderboard,
-  isAdmin = false,
-  currentUserId,
   provisional = false,
 }: ExamLeaderboardProps) {
   const [search, setSearch] = useState("")
   const [showAll, setShowAll] = useState(false)
-
-  if (leaderboard.length === 0 && !isAdmin) return null
 
   const query = foldForSearch(search.trim())
   const ranks = populationRanks(leaderboard)
@@ -80,13 +68,8 @@ export function ExamLeaderboard({
     query === "" && !showAll && matches.length > LEADERBOARD_PREVIEW
   const rows = truncated ? matches.slice(0, LEADERBOARD_PREVIEW) : matches
 
-  const copyHref = (entry: LeaderboardEntry) => {
-    if (!entry.user) return null
-    if (isAdmin) return `/admin/examens/${examId}/resultats/${entry.user.id}`
-    return entry.user.id === currentUserId
-      ? `/tableau-de-bord/examen-blanc/${examId}/resultats`
-      : null
-  }
+  const copyHref = (entry: LeaderboardEntry) =>
+    entry.user ? `/admin/examens/${examId}/resultats/${entry.user.id}` : null
 
   const columns: DataTableColumn<RankedEntry>[] = [
     {
@@ -147,21 +130,17 @@ export function ExamLeaderboard({
         </span>
       ),
     },
-    ...(isAdmin
-      ? [
-          {
-            id: "submission",
-            label: "Soumission",
-            visibleFrom: "medium",
-            cell: ({ entry }: RankedEntry) =>
-              entry.status === "auto_submitted" ? (
-                <StatusPill tone="warning">Automatique</StatusPill>
-              ) : (
-                <span className="text-ink-3">Manuelle</span>
-              ),
-          } satisfies DataTableColumn<RankedEntry>,
-        ]
-      : []),
+    {
+      id: "submission",
+      label: "Soumission",
+      visibleFrom: "medium",
+      cell: ({ entry }) =>
+        entry.status === "auto_submitted" ? (
+          <StatusPill tone="warning">Automatique</StatusPill>
+        ) : (
+          <span className="text-ink-3">Manuelle</span>
+        ),
+    },
   ]
 
   return (
@@ -206,7 +185,7 @@ export function ExamLeaderboard({
           rows={rows}
           getRowId={({ entry }) => entry.participationId}
           action={{
-            label: isAdmin ? "Voir la copie" : "Voir mes résultats",
+            label: "Voir la copie",
             cell: ({ entry }) => {
               const href = copyHref(entry)
               if (!href) return null
@@ -221,7 +200,7 @@ export function ExamLeaderboard({
                     href={href}
                     data-testid={`btn-view-copy-${entry.participationId}`}
                   >
-                    {isAdmin ? "Voir la copie" : "Voir mes résultats"}
+                    Voir la copie
                   </Link>
                 </Button>
               )
@@ -241,8 +220,9 @@ export function ExamLeaderboard({
             {truncated
               ? `${LEADERBOARD_PREVIEW} premiers sur ${leaderboard.length.toLocaleString("fr-CA")}.`
               : `${leaderboard.length.toLocaleString("fr-CA")} ${leaderboard.length > 1 ? "copies soumises" : "copie soumise"}.`}
-            {isAdmin &&
-              " Supprimer une participation, depuis sa copie, permet à l'étudiant de repasser l'examen."}
+            {
+              " Supprimer une participation, depuis sa copie, permet à l'étudiant de repasser l'examen."
+            }
           </span>
           {truncated && (
             <Button

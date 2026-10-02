@@ -7,6 +7,7 @@ import type {
 } from "@/features/questions/dal"
 import { calendarDaysUntil } from "@/lib/exam-readiness"
 import { EXAM_STATUS_CONFIG, type ExamStatus } from "@/lib/exam-status"
+import { foldForSearch } from "@/lib/search"
 
 // Module pur : libellés et regroupements du compositeur, `now` en paramètre.
 
@@ -74,23 +75,17 @@ export const composerLead = (
   return `${title} · ${EXAM_STATUS_CONFIG[phase].label.toLocaleLowerCase("fr-CA")}`
 }
 
-const fold = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-
 /** Recherche locale de la sélection : énoncé, choix, objectif, identifiant. */
 export const matchesQuery = (
   q: Pick<BankQuestion, "id" | "question" | "options" | "objectifCMC">,
   query: string,
 ) => {
-  const needle = fold(query.trim())
+  const needle = foldForSearch(query.trim())
   if (!needle) return true
   return (
     q.id === query.trim() ||
     [q.question, q.objectifCMC, ...q.options].some((t) =>
-      fold(t).includes(needle),
+      foldForSearch(t).includes(needle),
     )
   )
 }

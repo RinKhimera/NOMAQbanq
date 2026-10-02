@@ -7,14 +7,9 @@ import { SearchInput } from "@/components/shared/search-input"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
 import type { ExamAudienceUser } from "@/features/exams/dal"
+import { foldForSearch } from "@/lib/search"
 import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import { DetailCard } from "./detail-card"
-
-const fold = (text: string) =>
-  text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
 
 const EditAudience = ({ href }: { href: string }) => (
   <Button
@@ -39,11 +34,13 @@ export const RestrictedAudienceCard = ({
   editHref: string
 }) => {
   const [search, setSearch] = useState("")
-  const query = fold(search.trim())
+  const query = foldForSearch(search.trim())
   const shown =
     query === ""
       ? audience
-      : audience.filter((u) => fold(`${u.name} ${u.email}`).includes(query))
+      : audience.filter((u) =>
+          foldForSearch(`${u.name} ${u.email}`).includes(query),
+        )
   const n = audience.length
 
   return (

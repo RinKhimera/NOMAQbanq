@@ -33,7 +33,6 @@ import { getQuestionAnswerBreakdown } from "../analytics/dal"
 import { MARKETING_STATS_TAG } from "../marketing/cache-tags"
 import { lockFor } from "./answer-key-lock"
 import {
-  type QuestionDetail,
   type QuestionExportRow,
   type QuestionSelection,
   getQuestionById,
@@ -61,14 +60,6 @@ import {
 } from "./schemas"
 
 const fail = (error: string) => ({ success: false as const, error })
-
-/** [Admin] Détail complet d'une question (aperçu d'un examen). `null` si introuvable. */
-export const loadQuestionById = async (
-  id: string,
-): Promise<QuestionDetail | null> => {
-  await requireRole(["admin"])
-  return getQuestionById(id)
-}
 
 /**
  * [Admin] Fiche d'une question pour un aperçu (compositeur d'examen) : le même

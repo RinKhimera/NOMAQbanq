@@ -6,25 +6,23 @@ import { useState } from "react"
 import { chipClass } from "@/components/marketing/chip"
 import { SearchInput } from "@/components/shared/search-input"
 import { DOMAINS, DOMAIN_GROUPS, type DomainGroupId } from "@/constants/domains"
+import { foldForSearch } from "@/lib/search"
 
 const ALL = "all"
-
-const normalize = (s: string) =>
-  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
 
 /** Grille des 22 domaines, filtrable par nom et par groupe. */
 export const DomainsBrowser = () => {
   const [query, setQuery] = useState("")
   const [group, setGroup] = useState<DomainGroupId | typeof ALL>(ALL)
 
-  const needle = normalize(query.trim())
+  const needle = foldForSearch(query.trim())
   const groups = DOMAIN_GROUPS.filter((g) => group === ALL || g.id === group)
     .map((g) => ({
       ...g,
       domains: DOMAINS.filter(
         (d) =>
           d.group.id === g.id &&
-          normalize(`${d.name} ${d.description}`).includes(needle),
+          foldForSearch(`${d.name} ${d.description}`).includes(needle),
       ),
     }))
     .filter((g) => g.domains.length > 0)

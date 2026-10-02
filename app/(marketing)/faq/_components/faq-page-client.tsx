@@ -11,13 +11,11 @@ import {
 } from "@/components/marketing/marketing-hero"
 import { SearchInput } from "@/components/shared/search-input"
 import { Button } from "@/components/ui/button"
+import { foldForSearch } from "@/lib/search"
 import { cn } from "@/lib/utils"
 import { faqCategories } from "../_data/faq-data"
 
 const ALL = "all"
-
-const normalize = (s: string) =>
-  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
 
 const TOTAL = faqCategories.reduce((n, c) => n + c.questions.length, 0)
 
@@ -25,13 +23,14 @@ export default function FaqPageClient() {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState(ALL)
 
-  const needle = normalize(query.trim())
+  const needle = foldForSearch(query.trim())
   const shown = faqCategories
     .filter((c) => category === ALL || c.id === category)
     .map((c) => ({
       ...c,
       questions: c.questions.filter(
-        (item) => !needle || normalize(`${item.q} ${item.a}`).includes(needle),
+        (item) =>
+          !needle || foldForSearch(`${item.q} ${item.a}`).includes(needle),
       ),
     }))
     .filter((c) => c.questions.length > 0)

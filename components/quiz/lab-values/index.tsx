@@ -11,14 +11,9 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { foldForSearch } from "@/lib/search"
 import { LAB_VALUES_DATA } from "./lab-values-data"
 import type { UnitSystem } from "./types"
-
-const normalize = (text: string) =>
-  text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
 
 type LabValuesProps = {
   /** Bouton d'ouverture : il reçoit le focus à la fermeture. */
@@ -30,11 +25,11 @@ export const LabValues = ({ trigger }: LabValuesProps) => {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("si")
   const [query, setQuery] = useState("")
 
-  const needle = normalize(query.trim())
+  const needle = foldForSearch(query.trim())
   const categories = LAB_VALUES_DATA.map((category) => ({
     ...category,
     values: needle
-      ? category.values.filter((v) => normalize(v.name).includes(needle))
+      ? category.values.filter((v) => foldForSearch(v.name).includes(needle))
       : category.values,
   })).filter((category) => category.values.length > 0)
 

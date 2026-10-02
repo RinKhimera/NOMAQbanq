@@ -16,6 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { foldForSearch } from "@/lib/search"
 import { cn } from "@/lib/utils"
 
 export type SearchableOption = {
@@ -43,15 +44,6 @@ type SearchableSelectProps = {
   className?: string
 }
 
-/** Casse, accents et espaces ignorés : « aigue » trouve « Aiguë ». */
-const fold = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase()
-
 /** Choix unique dans une longue liste, avec recherche et, au besoin, création libre. */
 export function SearchableSelect({
   id,
@@ -70,12 +62,14 @@ export function SearchableSelect({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
 
-  const term = fold(search)
+  const term = foldForSearch(search)
   const shown = term
-    ? options.filter((o) => fold(o.label).includes(term))
+    ? options.filter((o) => foldForSearch(o.label).includes(term))
     : options
   const canCreate =
-    creatable && term !== "" && !options.some((o) => fold(o.label) === term)
+    creatable &&
+    term !== "" &&
+    !options.some((o) => foldForSearch(o.label) === term)
   const current = options.find((o) => o.value === value)
 
   const pick = (next: string) => {
