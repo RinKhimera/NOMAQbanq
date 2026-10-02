@@ -10,6 +10,7 @@ import { PageIntro } from "@/components/shared/page-intro"
 import { Button } from "@/components/ui/button"
 import type { ExamWithQuestions, LeaderboardEntry } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
+import { phaseOf } from "@/lib/exam-phase"
 
 interface StudentExamDetailsClientProps {
   examId: string
@@ -74,7 +75,7 @@ export function StudentExamDetailsClient({
         candidates={[]}
         isAdmin={false}
         currentUserId={currentUserId}
-        now={now}
+        status={phaseOf(exam, now)}
       />
 
       <ExamQuestionsModal

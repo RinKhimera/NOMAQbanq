@@ -1,6 +1,9 @@
 import { db } from "@/db"
 import { examAudience, examQuestions, exams } from "@/db/schema"
-import { SECONDS_PER_QUESTION } from "@/features/exams/schemas"
+import {
+  DEFAULT_PAUSE_MINUTES,
+  SECONDS_PER_QUESTION,
+} from "@/features/exams/schemas"
 import { createId } from "@/lib/ids"
 
 /**
@@ -29,11 +32,13 @@ export const seedExam = async (opts: {
     completionTime: opts.questionIds.length * SECONDS_PER_QUESTION,
     targetQuestionCount: opts.questionIds.length,
     enablePause: opts.enablePause ?? false,
+    // Même repli que l'action : une pause activée a toujours une durée.
     pauseDurationMinutes: opts.enablePause
-      ? (opts.pauseDurationMinutes ?? null)
+      ? (opts.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES)
       : null,
     audienceType: restricted ? "restricted" : "subscribers",
     createdBy: opts.createdBy,
+    finalizedAt: new Date(),
   })
   await db.insert(examQuestions).values(
     opts.questionIds.map((questionId, position) => ({

@@ -95,7 +95,7 @@ _Avoid_ : verrou anti-triche, masquage, lock d'examen
 **Lecteur** :
 Celui pour qui le verrou est évalué : un utilisateur identifié par son rôle, ou
 un anonyme (quiz public). Un participant est verrouillé sur ses examens ouverts,
-un anonyme sur tout examen ouvert, un admin jamais.
+un anonyme sur tout examen ouvert ou en préparation, un admin jamais.
 _Avoid_ : viewer, utilisateur courant
 
 **Clé retenue** :
@@ -171,8 +171,9 @@ _Avoid_ : brouillon, examen non publié
 L'action d'un admin qui fait passer un examen en préparation à examen prêt à
 s'ouvrir : elle vérifie tout (lot complet égal au nombre visé, dates dont la
 fin n'est pas passée, audience restreinte non vide), fixe la durée sur le lot
-réel et mélange l'ordre des questions. Modifier le lot d'un examen finalisé
-sans participation le remet en préparation ; modifier ses autres réglages, non.
+réel et mélange l'ordre des questions. Modifier le lot ou le nombre visé d'un
+examen finalisé sans participation le remet en préparation ; modifier ses
+autres réglages, non.
 _Avoid_ : publication, validation, clôture (qui ferme une tentative)
 
 **Participation** :

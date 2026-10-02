@@ -12,14 +12,16 @@ import type {
   ExamAudienceUser,
   LeaderboardEntry,
 } from "@/features/exams/dal"
-import { type AdminExamWindow, adminPhaseOf } from "@/lib/exam-phase"
+import type { ExamStatus } from "@/lib/exam-status"
 import { formatDeadline } from "@/lib/format"
 import { EligibleCandidatesSection } from "./eligible-candidates-section"
 import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
 import { RestrictedAudienceSection } from "./restricted-audience-section"
 
-type ExamMeta = AdminExamWindow & {
+type ExamMeta = {
+  startDate: number | null
+  endDate: number | null
   id: string
   title: string
   description: string | null
@@ -34,7 +36,8 @@ interface ExamDetailsProps {
   audience?: ExamAudienceUser[]
   isAdmin?: boolean
   currentUserId?: string
-  now: number
+  /** Phase calculée par l'appelant : l'admin voit aussi la préparation. */
+  status: ExamStatus
 }
 
 export function ExamDetails({
@@ -44,10 +47,8 @@ export function ExamDetails({
   audience = [],
   isAdmin = false,
   currentUserId,
-  now,
+  status,
 }: ExamDetailsProps) {
-  const status = adminPhaseOf(exam, now)
-
   return (
     <div className="space-y-6">
       {/* En-tête de l'examen */}

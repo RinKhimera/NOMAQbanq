@@ -30,11 +30,14 @@ export const exams = pgTable(
     startDate: timestamp("start_date", { withTimezone: true }),
     endDate: timestamp("end_date", { withTimezone: true }),
     completionTime: integer("completion_time"), // SECONDS
-    // `null` = examen en préparation (`CONTEXT.md`). Le défaut garde finalisé un
-    // examen inséré sans état explicite ; seul l'enregistrement d'un examen en
-    // préparation écrit `null`.
+    // `null` = examen en préparation (`CONTEXT.md`). Tout écrivain pose l'état
+    // explicitement.
+    // Les deux défauts ci-dessous ne servent que le déploiement précédent, qui
+    // insère sans ces colonnes pendant le build et après un rollback : ses
+    // examens restent finalisés, son visé à 0 se recale sur son jeu au
+    // premier enregistrement. À retirer par une migration au déploiement suivant.
     finalizedAt: timestamp("finalized_at", { withTimezone: true }).defaultNow(),
-    targetQuestionCount: integer("target_question_count").notNull(),
+    targetQuestionCount: integer("target_question_count").default(0).notNull(),
     enablePause: boolean("enable_pause").default(false).notNull(),
     pauseDurationMinutes: integer("pause_duration_minutes"),
     isActive: boolean("is_active").default(true).notNull(),

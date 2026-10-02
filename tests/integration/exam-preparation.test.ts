@@ -2,29 +2,40 @@ import { asc, eq, inArray, sql } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
+  examAnswers,
   examParticipations,
   examQuestions,
   exams,
+  products,
   questions,
+  transactions,
   user,
+  userAccess,
 } from "@/db/schema"
+import { getMyDashboard } from "@/features/analytics/dal.dashboard"
 import {
   createExam,
   finalizePreparedExam,
   saveExam,
   startExam,
+  updateExam,
 } from "@/features/exams/actions"
 import {
   getAdminExam,
+  getExamLeaderboard,
   getExamWithQuestions,
   getExamsStats,
   getExamsWithParticipation,
+  getParticipantExamResults,
 } from "@/features/exams/dal"
 import { updateQuestion } from "@/features/questions/actions"
-import { lockFor } from "@/features/questions/answer-key-lock"
+import { excludeLocked, lockFor } from "@/features/questions/answer-key-lock"
 import { notUsedInLastExams } from "@/features/questions/last-use"
+import { getAdminStats } from "@/features/users/dal"
 import { getCurrentSession } from "@/lib/dal"
+import { getPgErrorCode } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
+import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -51,6 +62,9 @@ const qIds = Array.from({ length: 12 }, () => createId())
 const deletedQId = createId()
 // Dans aucun autre examen du fichier : les choix figés s'y lisent seuls.
 const freeQId = createId()
+// Seule dans un examen en préparation sans dates : le verrou anonyme s'y lit seul.
+const undatedQId = createId()
+const PID = createId()
 const createdExams: string[] = []
 
 const asUser = (id: string, role: "user" | "admin" = "user") =>
@@ -59,9 +73,15 @@ const asUser = (id: string, role: "user" | "admin" = "user") =>
     .mockResolvedValue({ user: { id, role } } as never)
 const asAdmin = () => asUser(ADMIN_ID, "admin")
 
+// « Enregistrer » reçoit toujours l'état entier du formulaire.
 const base = {
   title: `Préparation ${suffix}`,
   targetQuestionCount: 10,
+  startDate: null,
+  endDate: null,
+  enablePause: false,
+  audienceType: "subscribers" as const,
+  audienceUserIds: [] as string[],
 }
 
 /** Fenêtre ouverte : ouverture hier, fermeture dans une semaine. */
@@ -135,6 +155,14 @@ beforeAll(async () => {
       domain: "Cardiologie",
     })),
     {
+      id: undatedQId,
+      question: `Q sans dates ${suffix}`,
+      correctAnswer: "A",
+      options: ["A", "B", "C", "D"],
+      objectifCmc: "Objectif",
+      domain: "Cardiologie",
+    },
+    {
       id: freeQId,
       question: `Q libre ${suffix}`,
       correctAnswer: "A",
@@ -151,13 +179,51 @@ beforeAll(async () => {
       domain: "Cardiologie",
     },
   ])
+
+  // Accès Examens de l'étudiant : le tableau de bord ne compte les examens
+  // disponibles qu'avec lui.
+  await db.insert(products).values({
+    id: PID,
+    code: "exam_access",
+    name: "Exam",
+    description: "desc",
+    priceCad: 5000,
+    durationDays: 30,
+    accessType: "exam",
+    stripeProductId: `prod_${suffix}`,
+    stripePriceId: `price_${suffix}`,
+    stripePriceLookupKey: `price_${suffix}`,
+  })
+  const txId = createId()
+  await db.insert(transactions).values({
+    id: txId,
+    userId: STUDENT_ID,
+    productId: PID,
+    type: "manual",
+    status: "completed",
+    amountPaid: 5000,
+    currency: "CAD",
+    accessType: "exam",
+    durationDays: 30,
+    accessExpiresAt: new Date(Date.now() + 20 * DAY),
+  })
+  await db.insert(userAccess).values({
+    userId: STUDENT_ID,
+    accessType: "exam",
+    expiresAt: new Date(Date.now() + 20 * DAY),
+    lastTransactionId: txId,
+  })
 })
 
 afterAll(async () => {
-  await db.delete(exams).where(inArray(exams.id, createdExams))
+  // Examens créés par l'action ou par `seedExam` : tous portent cet admin.
+  await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
+  await db.delete(userAccess).where(eq(userAccess.userId, STUDENT_ID))
+  await db.delete(transactions).where(eq(transactions.userId, STUDENT_ID))
+  await db.delete(products).where(eq(products.id, PID))
   await db
     .delete(questions)
-    .where(inArray(questions.id, [...qIds, freeQId, deletedQId]))
+    .where(inArray(questions.id, [...qIds, freeQId, undatedQId, deletedQId]))
   await db.delete(user).where(inArray(user.id, [ADMIN_ID, STUDENT_ID]))
 })
 
@@ -192,6 +258,13 @@ describe("enregistrer un examen en préparation", () => {
     })
     expect(again).toEqual({ success: true, examId, finalized: false })
     expect(await orderOf(examId)).toEqual(qIds.slice(0, 3))
+  })
+
+  it("un champ omis n'est jamais lu comme « effacer » : il est refusé", async () => {
+    const withoutAudience = { ...base, audienceType: undefined }
+    asAdmin()
+    const res = await saveExam(withoutAudience as never)
+    expect(res.success).toBe(false)
   })
 
   it.each([9, 231])("refuse un visé de %i", async (targetQuestionCount) => {
@@ -275,6 +348,96 @@ describe("un examen en préparation n'existe pas pour l'étudiant", () => {
     expect(after.preparation).toBe(before.preparation + 1)
     expect(after.active).toBe(before.active)
     expect(after.upcoming).toBe(before.upcoming)
+  })
+})
+
+describe("contrainte et lectures filtrées", () => {
+  it("la base refuse un examen finalisé sans dates (exams_finalized_complete)", async () => {
+    const examId = await saveComplete()
+    await finalizePreparedExam({ examId })
+
+    const error = await db
+      .update(exams)
+      .set({ startDate: null })
+      .where(eq(exams.id, examId))
+      .then(
+        () => null,
+        (e: unknown) => e,
+      )
+
+    expect(getPgErrorCode(error)).toBe("23514")
+  })
+
+  it("classement et résultats : introuvables pour un examen en préparation sans dates", async () => {
+    const examId = await saveNew({ ...base, questionIds: qIds.slice(0, 3) })
+
+    asUser(STUDENT_ID)
+    expect(await getExamLeaderboard(examId)).toEqual([])
+    expect(await getParticipantExamResults(examId, STUDENT_ID)).toBeNull()
+
+    asAdmin()
+    expect(await getParticipantExamResults(examId, STUDENT_ID)).toBeNull()
+  })
+
+  it("jumeau : les mêmes lectures répondent sur un examen finalisé", async () => {
+    const examId = await seedExam({
+      createdBy: ADMIN_ID,
+      title: `Jumeau ${suffix}`,
+      startDate: Date.now() - 7 * DAY,
+      endDate: Date.now() - DAY,
+      questionIds: qIds.slice(0, 3),
+    })
+
+    asAdmin()
+    expect(await getParticipantExamResults(examId, STUDENT_ID)).toMatchObject({
+      error: "NO_PARTICIPATION",
+    })
+  })
+
+  it("compteurs : un examen en préparation qui garde ses dates n'est pas compté", async () => {
+    const countersOf = async () => {
+      asAdmin()
+      const [stats, admin] = await Promise.all([
+        getExamsStats(),
+        getAdminStats(),
+      ])
+      asUser(STUDENT_ID)
+      const dashboard = await getMyDashboard("tout")
+      return {
+        past: stats.past,
+        active: admin.activeExams,
+        available: dashboard?.exams.availableCount ?? -1,
+      }
+    }
+    const before = await countersOf()
+
+    await saveNew({ ...base, ...openWindow(), questionIds: qIds.slice(0, 3) })
+    await saveNew({
+      ...base,
+      startDate: Date.now() - 7 * DAY,
+      endDate: Date.now() - DAY,
+    })
+    expect(await countersOf()).toEqual(before)
+
+    // Jumeaux finalisés, mêmes fenêtres : chaque compteur bouge.
+    await seedExam({
+      createdBy: ADMIN_ID,
+      title: `Jumeau ouvert ${suffix}`,
+      ...openWindow(),
+      questionIds: qIds.slice(0, 3),
+    })
+    await seedExam({
+      createdBy: ADMIN_ID,
+      title: `Jumeau clos ${suffix}`,
+      startDate: Date.now() - 7 * DAY,
+      endDate: Date.now() - DAY,
+      questionIds: qIds.slice(0, 3),
+    })
+    expect(await countersOf()).toEqual({
+      past: before.past + 1,
+      active: before.active + 1,
+      available: before.available + 2,
+    })
   })
 })
 
@@ -444,6 +607,38 @@ describe("modifier un examen finalisé", () => {
     expect((await examRow(examId))?.finalizedAt).toBeInstanceOf(Date)
   })
 
+  it("un visé à 0 inséré par l'ancien déploiement se recale sur le jeu, participations comprises", async () => {
+    const examId = await seedExam({
+      createdBy: ADMIN_ID,
+      title: `Ancien déploiement ${suffix}`,
+      ...openWindow(),
+      questionIds: qIds.slice(0, 10),
+    })
+    await db
+      .update(exams)
+      .set({ targetQuestionCount: 0 })
+      .where(eq(exams.id, examId))
+    await db.insert(examParticipations).values({
+      examId,
+      userId: STUDENT_ID,
+      status: "in_progress",
+      startedAt: new Date(),
+    })
+
+    asAdmin()
+    const res = await updateExam({
+      id: examId,
+      title: `Ancien déploiement ${suffix}`,
+      ...openWindow(),
+      questionIds: qIds.slice(0, 10),
+    })
+
+    expect(res).toEqual({ success: true })
+    const row = await examRow(examId)
+    expect(row?.targetQuestionCount).toBe(10)
+    expect(row?.finalizedAt).toBeInstanceOf(Date)
+  })
+
   it("un examen finalisé qui reste finalisé est validé en entier", async () => {
     const examId = await saveComplete()
     await finalizePreparedExam({ examId })
@@ -504,6 +699,23 @@ describe("verrou de clé et choix figés", () => {
   })
 })
 
+describe("verrou anonyme d'un examen en préparation sans dates", () => {
+  it("ses questions sont retenues et exclues du tirage public", async () => {
+    await saveNew({ ...base, questionIds: [undatedQId] })
+
+    expect((await lockFor("anonymous", [undatedQId])).has(undatedQId)).toBe(
+      true,
+    )
+    const drawable = await db
+      .select({ id: questions.id })
+      .from(questions)
+      .where(
+        sql`${eq(questions.id, undatedQId)} and ${excludeLocked("anonymous", sql`"questions"."id"`)}`,
+      )
+    expect(drawable).toEqual([])
+  })
+})
+
 describe("dernière utilisation", () => {
   it("un examen en préparation ne compte pas ; un examen finalisé, si", async () => {
     // Fenêtres lointaines : ces deux examens sont les plus récents de la base.
@@ -548,6 +760,23 @@ describe("concurrence", () => {
     })
   })
 
+  it("deux enregistrements simultanés : le jeu est celui de l'un des deux, entier", async () => {
+    const examId = await saveNew({ ...base, ...openWindow() })
+    const setA = qIds.slice(0, 10)
+    const setB = qIds.slice(2, 12)
+
+    asAdmin()
+    const results = await Promise.all(
+      [setA, setB].map((questionIds) =>
+        saveExam({ id: examId, ...base, ...openWindow(), questionIds }),
+      ),
+    )
+
+    expect(results.every((r) => r.success)).toBe(true)
+    const stored = [...(await orderOf(examId))].sort()
+    expect([[...setA].sort(), [...setB].sort()]).toContainEqual(stored)
+  })
+
   it("finalisation et démarrage simultanés : pas de participation sans finalisation", async () => {
     const examId = await saveComplete()
 
@@ -560,13 +789,29 @@ describe("concurrence", () => {
     ])
 
     // Sérialisés par le verrou de l'examen : le démarrage passe après la
-    // finalisation, ou il est refusé et ne laisse aucune participation.
+    // finalisation, sur le jeu qu'elle a fixé, ou il est refusé et ne laisse
+    // aucune participation. Sans la garde, un démarrage passé avant la
+    // finalisation laisserait une participation antérieure à elle.
     const row = await examRow(examId)
     expect(row?.finalizedAt).toBeInstanceOf(Date)
-    const [participations] = await db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+    const participations = await db
+      .select({
+        id: examParticipations.id,
+        startedAt: examParticipations.startedAt,
+      })
       .from(examParticipations)
       .where(eq(examParticipations.examId, examId))
-    expect(participations?.n).toBe(started.success ? 1 : 0)
+    expect(participations).toHaveLength(started.success ? 1 : 0)
+    const finalSet = [...(await orderOf(examId))].sort()
+    for (const p of participations) {
+      expect(p.startedAt?.getTime()).toBeGreaterThanOrEqual(
+        row?.finalizedAt?.getTime() ?? Infinity,
+      )
+      const answered = await db
+        .select({ questionId: examAnswers.questionId })
+        .from(examAnswers)
+        .where(eq(examAnswers.participationId, p.id))
+      expect(answered.map((a) => a.questionId).sort()).toEqual(finalSet)
+    }
   })
 })

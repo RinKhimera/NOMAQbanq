@@ -181,11 +181,17 @@ colonne)` dans le WHERE des canaux de
   la première participation). Côté admin, `getAdminExam` et `adminPhaseOf`.
   Un compteur par phase filtre `finalized_at` en plus des dates : un examen
   remis en préparation garde les siennes. Écritures : `saveExam`
-  (« Enregistrer », permissif) et `finalizePreparedExam` partagent avec
-  `createExam`/`updateExam` les étapes de `features/exams/actions.ts`, sous le
-  verrou `exams FOR UPDATE` ; changer le jeu ou le visé d'un examen finalisé
-  le remet en préparation. Un insert brut (fixture, route e2e) est finalisé
-  par le défaut de colonne.
+  (« Enregistrer » : titre et visé suffisent à le rendre valide, mais dates,
+  pause et audience sont toujours envoyées, un champ omis est refusé, jamais
+  lu comme « effacer » ; seul `questionIds` absent conserve le jeu) et
+  `finalizePreparedExam` partagent avec `createExam`/`updateExam` les étapes
+  de `features/exams/actions.ts`, sous le verrou `exams FOR UPDATE` ; changer
+  le jeu ou le visé d'un examen finalisé le remet en préparation (un visé
+  ramené à la taille du jeu n'est pas un changement). Tout écrivain pose
+  `finalized_at` explicitement ; les défauts de `finalized_at` et
+  `target_question_count` ne servent que le déploiement précédent (build,
+  rollback) et partent par une migration au déploiement suivant. Le verrou
+  de clé anonyme couvre aussi un examen en préparation, dates ou non.
 - **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
   sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
   renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou

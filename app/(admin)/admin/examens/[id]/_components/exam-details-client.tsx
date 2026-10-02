@@ -22,6 +22,7 @@ import type {
   LeaderboardEntry,
 } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
+import { adminPhaseOf } from "@/lib/exam-phase"
 import { cn } from "@/lib/utils"
 import { ExamDetails } from "./exam-details"
 import { ExamQuestionsModal } from "./exam-questions-modal"
@@ -131,7 +132,7 @@ export function ExamDetailsClient({
         audience={audience}
         isAdmin={true}
         currentUserId={currentUserId}
-        now={now}
+        status={adminPhaseOf(exam, now)}
       />
 
       <ExamQuestionsModal

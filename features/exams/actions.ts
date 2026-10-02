@@ -400,7 +400,11 @@ const updateExamTx = async (
   ])
   const next = s.questionIds ?? current
   const setChanged = !sameSet(current, next)
-  const targetChanged = s.targetQuestionCount !== exam.targetQuestionCount
+  // Un visé ramené à la taille du jeu n'en change pas la définition : c'est
+  // le recalage d'un examen inséré par l'ancien déploiement (visé à 0).
+  const targetChanged =
+    s.targetQuestionCount !== exam.targetQuestionCount &&
+    s.targetQuestionCount !== next.length
 
   // Rouvrir par les dates rendrait l'examen de nouveau ouvert pour ses
   // anciens participants : verrou de clé sur leurs autres examens, résultats

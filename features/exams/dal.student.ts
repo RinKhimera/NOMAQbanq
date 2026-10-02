@@ -40,11 +40,7 @@ import {
   viewerOf,
 } from "../questions/answer-key-lock"
 import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
-import {
-  countQuestionsByExam,
-  finalizedDate,
-  finalizedDates,
-} from "./dal.shared"
+import { countQuestionsByExam, finalizedDates } from "./dal.shared"
 import { DEFAULT_PAUSE_MINUTES } from "./schemas"
 
 // Questions RÉPONDUES d'une participation, corrélées à la ligne
@@ -321,8 +317,6 @@ export type ExamWithQuestions = {
     pauseDurationMinutes: number | null
     questionCount: number
     audienceType: "subscribers" | "restricted"
-    /** Toujours renseignée : un examen en préparation n'est pas lu ici. */
-    finalizedAt: number
   }
   questions: QuizQuestion[]
 } | null
@@ -367,7 +361,6 @@ export const getExamWithQuestions = async (
       startDate: exams.startDate,
       endDate: exams.endDate,
       completionTime: exams.completionTime,
-      finalizedAt: exams.finalizedAt,
       isActive: exams.isActive,
       enablePause: exams.enablePause,
       pauseDurationMinutes: exams.pauseDurationMinutes,
@@ -461,7 +454,6 @@ export const getExamWithQuestions = async (
       pauseDurationMinutes: exam.pauseDurationMinutes,
       questionCount: items.length,
       audienceType: exam.audienceType,
-      finalizedAt: finalizedDate(exam.finalizedAt),
     },
     questions: questionsView,
   }

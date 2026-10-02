@@ -81,9 +81,11 @@ export type UpdateExamInput = z.input<typeof updateExamSchema>
 const targetIssue = `Entre ${MIN_EXAM_QUESTIONS} et ${MAX_EXAM_QUESTIONS} questions`
 
 /**
- * « Enregistrer » un examen : le titre et le nombre visé suffisent. Dates,
- * audience et jeu de questions sont conservés tels quels, même incomplets ;
- * `questionIds` absent laisse le jeu inchangé. La validation complète est celle
+ * « Enregistrer » un examen : le titre et le nombre visé suffisent à le rendre
+ * valide. Dates, pause et audience sont toujours envoyées (le formulaire porte
+ * l'état entier) et écrites telles quelles, même vides : un champ omis ne
+ * vaut jamais « effacer ». Seul `questionIds` est facultatif, car le jeu se
+ * compose ailleurs : absent, il est conservé. La validation complète est celle
  * de la finalisation, ou de l'enregistrement d'un examen qui reste finalisé.
  */
 export const saveExamSchema = z
@@ -96,20 +98,16 @@ export const saveExamSchema = z
       .int(targetIssue)
       .min(MIN_EXAM_QUESTIONS, targetIssue)
       .max(MAX_EXAM_QUESTIONS, targetIssue),
-    startDate: z
-      .number()
-      .int("Date de début invalide")
-      .nullable()
-      .default(null),
-    endDate: z.number().int("Date de fin invalide").nullable().default(null),
+    startDate: z.number().int("Date de début invalide").nullable(),
+    endDate: z.number().int("Date de fin invalide").nullable(),
     questionIds: z
       .array(z.string().min(1))
       .max(MAX_EXAM_QUESTIONS, `Au plus ${MAX_EXAM_QUESTIONS} questions`)
       .optional(),
-    enablePause: examFields.enablePause,
+    enablePause: z.boolean(),
     pauseDurationMinutes: examFields.pauseDurationMinutes,
-    audienceType: examFields.audienceType,
-    audienceUserIds: examFields.audienceUserIds,
+    audienceType: z.enum(["subscribers", "restricted"]),
+    audienceUserIds: z.array(z.string().min(1)).max(5000),
   })
   .refine(
     (d) =>

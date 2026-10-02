@@ -135,8 +135,7 @@ function PanelContent({
       <div
         className={cn(
           "relative overflow-hidden px-6 pt-5 pb-6",
-          status === "preparation" &&
-            "bg-linear-to-br from-yellow-500/10 via-amber-500/5 to-transparent",
+          status === "preparation" && "bg-warning-soft",
           status === "active" &&
             "bg-linear-to-br from-emerald-500/10 via-teal-500/5 to-transparent",
           status === "upcoming" &&
@@ -161,8 +160,7 @@ function PanelContent({
               <div
                 className={cn(
                   "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg",
-                  "bg-linear-to-br",
-                  status === "preparation" && "from-yellow-500 to-amber-600",
+                  status === "preparation" ? "bg-warning" : "bg-linear-to-br",
                   status === "active" && "from-emerald-500 to-teal-600",
                   status === "upcoming" && "from-blue-500 to-indigo-600",
                   status === "completed" && "from-gray-400 to-slate-500",

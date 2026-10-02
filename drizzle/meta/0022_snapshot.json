@@ -1228,7 +1228,8 @@
           "name": "target_question_count",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": 0
         },
         "enable_pause": {
           "name": "enable_pause",
