@@ -32,10 +32,10 @@ export const exams = pgTable(
     completionTime: integer("completion_time"), // SECONDS
     // `null` = examen en préparation (`CONTEXT.md`). Tout écrivain pose l'état
     // explicitement.
-    // Les deux défauts ci-dessous ne servent que le déploiement précédent, qui
-    // insère sans ces colonnes pendant le build et après un rollback : ses
-    // examens restent finalisés, son visé à 0 se recale sur son jeu au
-    // premier enregistrement. À retirer par une migration au déploiement suivant.
+    // Défauts provisoires (expand/contract) : le code antérieur à ces colonnes
+    // insère sans elles, pendant le build Vercel qui migre avant la bascule et
+    // après un rollback. Ses examens restent finalisés, et un visé à 0 se recale
+    // sur le jeu au premier enregistrement. Retrait suivi dans l'issue #264.
     finalizedAt: timestamp("finalized_at", { withTimezone: true }).defaultNow(),
     targetQuestionCount: integer("target_question_count").default(0).notNull(),
     enablePause: boolean("enable_pause").default(false).notNull(),

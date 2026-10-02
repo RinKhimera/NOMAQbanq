@@ -20,6 +20,7 @@ import {
   startExam,
   updateExam,
 } from "@/features/exams/actions"
+import { closeExpiredExamParticipations } from "@/features/exams/cron"
 import {
   getAdminExam,
   getExamLeaderboard,
@@ -28,6 +29,7 @@ import {
   getExamsWithParticipation,
   getParticipantExamResults,
 } from "@/features/exams/dal"
+import { sendExamResultsNotifications } from "@/features/notifications/cron"
 import { updateQuestion } from "@/features/questions/actions"
 import { excludeLocked, lockFor } from "@/features/questions/answer-key-lock"
 import { notUsedInLastExams } from "@/features/questions/last-use"
@@ -46,6 +48,9 @@ vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
 }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
+vi.mock("@/email", () =>
+  import("../helpers/fake-mailer").then((m) => m.fakeMailer),
+)
 vi.mock("@/lib/aws", () => ({
   createPresignedUpload: vi.fn(),
   deleteFromS3: vi.fn(),
@@ -260,6 +265,26 @@ describe("enregistrer un examen en préparation", () => {
     expect(await orderOf(examId)).toEqual(qIds.slice(0, 3))
   })
 
+  it("sans aucune question ni date, se relit puis se réenregistre tel quel", async () => {
+    const input = { ...base, questionIds: [] }
+    const examId = await saveNew(input)
+    const first = await getAdminExam(examId)
+    expect(first?.exam).toMatchObject({
+      finalizedAt: null,
+      startDate: null,
+      endDate: null,
+      questionCount: 0,
+      targetQuestionCount: 10,
+    })
+
+    expect(await saveExam({ id: examId, ...input })).toEqual({
+      success: true,
+      examId,
+      finalized: false,
+    })
+    expect(await getAdminExam(examId)).toEqual(first)
+  })
+
   it("un champ omis n'est jamais lu comme « effacer » : il est refusé", async () => {
     const withoutAudience = { ...base, audienceType: undefined }
     asAdmin()
@@ -438,6 +463,19 @@ describe("contrainte et lectures filtrées", () => {
       active: before.active + 1,
       available: before.available + 2,
     })
+  })
+})
+
+describe("crons et dates nulles", () => {
+  it("la clôture et les courriels de résultats balaient sans erreur un examen sans dates", async () => {
+    await saveNew({ ...base, questionIds: qIds.slice(0, 3) })
+
+    await expect(closeExpiredExamParticipations()).resolves.toMatchObject({
+      closedCount: expect.any(Number),
+    })
+    await expect(sendExamResultsNotifications()).resolves.toEqual(
+      expect.any(Number),
+    )
   })
 })
 

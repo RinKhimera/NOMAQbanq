@@ -401,7 +401,7 @@ const updateExamTx = async (
   const next = s.questionIds ?? current
   const setChanged = !sameSet(current, next)
   // Un visé ramené à la taille du jeu n'en change pas la définition : c'est
-  // le recalage d'un examen inséré par l'ancien déploiement (visé à 0).
+  // le recalage d'un examen inséré sans visé (défaut 0, `db/schema/exams.ts`).
   const targetChanged =
     s.targetQuestionCount !== exam.targetQuestionCount &&
     s.targetQuestionCount !== next.length
@@ -526,7 +526,7 @@ export type CreateExamResult =
   { success: true; examId: string } | ExamWriteFailure
 
 /**
- * [Admin] Crée un examen complet (formulaire actuel) : l'enregistre en
+ * [Admin] Crée un examen complet (`ExamForm`, jeu choisi d'un bloc) : l'enregistre en
  * préparation puis le finalise, dans la même transaction.
  */
 export const createExam = async (
@@ -559,7 +559,7 @@ export const createExam = async (
 }
 
 /**
- * [Admin] Met à jour un examen depuis le formulaire actuel, qui envoie un
+ * [Admin] Met à jour un examen depuis `ExamForm`, qui envoie un
  * examen complet : l'enregistre (voir `updateExamTx`), puis le refinalise
  * dans la même transaction s'il est (re)passé en préparation.
  */

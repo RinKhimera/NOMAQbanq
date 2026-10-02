@@ -40,7 +40,11 @@ import {
   viewerOf,
 } from "../questions/answer-key-lock"
 import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
-import { countQuestionsByExam, finalizedDates } from "./dal.shared"
+import {
+  countQuestionsByExam,
+  finalizedDate,
+  finalizedDates,
+} from "./dal.shared"
 import { DEFAULT_PAUSE_MINUTES } from "./schemas"
 
 // Questions RÉPONDUES d'une participation, corrélées à la ligne
@@ -943,9 +947,7 @@ export const getExamSubmissionSummary = cache(
     const [row] = await db
       .select({
         title: exams.title,
-        startDate: exams.startDate,
         endDate: exams.endDate,
-        completionTime: exams.completionTime,
         participationId: examParticipations.id,
         status: examParticipations.status,
       })
@@ -981,7 +983,7 @@ export const getExamSubmissionSummary = cache(
       examTitle: row.title,
       answeredCount: counts?.answeredCount ?? 0,
       flaggedCount: counts?.flaggedCount ?? 0,
-      endDate: finalizedDates(row).endDate,
+      endDate: finalizedDate(row.endDate),
       status: row.status as "completed" | "auto_submitted",
     }
   },
@@ -1035,9 +1037,7 @@ export const getExamLeaderboard = async (
 
   const [exam] = await db
     .select({
-      startDate: exams.startDate,
       endDate: exams.endDate,
-      completionTime: exams.completionTime,
       audienceType: exams.audienceType,
       isActive: exams.isActive,
     })
@@ -1051,7 +1051,7 @@ export const getExamLeaderboard = async (
     if (!session?.user) return []
     if (
       !canReadResults(
-        { endDate: finalizedDates(exam).endDate },
+        { endDate: finalizedDate(exam.endDate) },
         session.user,
         Date.now(),
       )

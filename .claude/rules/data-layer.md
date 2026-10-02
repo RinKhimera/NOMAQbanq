@@ -189,8 +189,9 @@ colonne)` dans le WHERE des canaux de
   le jeu ou le visé d'un examen finalisé le remet en préparation (un visé
   ramené à la taille du jeu n'est pas un changement). Tout écrivain pose
   `finalized_at` explicitement ; les défauts de `finalized_at` et
-  `target_question_count` ne servent que le déploiement précédent (build,
-  rollback) et partent par une migration au déploiement suivant. Le verrou
+  `target_question_count` sont provisoires (expand/contract : code antérieur
+  aux colonnes pendant le build et après un rollback), retrait suivi dans
+  #264. Le verrou
   de clé anonyme couvre aussi un examen en préparation, dates ou non.
 - **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
   sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et

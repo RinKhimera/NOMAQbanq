@@ -253,7 +253,7 @@ function PanelContent({
                     : formatMediumDate(exam.startDate)}
                 </p>
                 {exam.startDate !== null && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-ink-3 text-xs">
                     {formatTimeOnly(exam.startDate)}
                   </p>
                 )}
@@ -267,7 +267,7 @@ function PanelContent({
                   {exam.endDate === null ? "—" : formatMediumDate(exam.endDate)}
                 </p>
                 {exam.endDate !== null && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-ink-3 text-xs">
                     {formatTimeOnly(exam.endDate)}
                   </p>
                 )}
