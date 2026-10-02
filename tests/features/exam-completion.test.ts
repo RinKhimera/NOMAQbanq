@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { planCompletion } from "@/features/exams/completion"
+import { completionLines, planCompletion } from "@/features/exams/completion"
 
 const supply = (
   domain: string,
@@ -70,5 +70,20 @@ describe("planCompletion — répartition comme la banque", () => {
   it("ne propose rien sans place à remplir ou sans banque", () => {
     expect(planCompletion([supply("A", 10)], 0)).toEqual([])
     expect(planCompletion([], 5)).toEqual([])
+  })
+})
+
+describe("completionLines — aperçu du tirage", () => {
+  it("compte par domaine, récentes à part, du plus fourni au moins fourni", () => {
+    expect(
+      completionLines([
+        { domain: "Pédiatrie", recent: false },
+        { domain: "Cardiologie", recent: false },
+        { domain: "Pédiatrie", recent: true },
+      ]),
+    ).toEqual([
+      { domain: "Pédiatrie", count: 2, fallback: 1 },
+      { domain: "Cardiologie", count: 1, fallback: 0 },
+    ])
   })
 })

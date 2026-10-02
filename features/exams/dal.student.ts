@@ -46,6 +46,7 @@ import {
   finalizedDates,
 } from "./dal.shared"
 import { DEFAULT_PAUSE_MINUTES } from "./schemas"
+import type { ExamAudienceType } from "./schemas"
 
 // Questions RÉPONDUES d'une participation, corrélées à la ligne
 // `exam_participations` lue — la forme attendue par `scoreWithheldFor`. Avec
@@ -127,7 +128,7 @@ export type ExamListItem = {
   // Type d'audience : un examen `restricted` présent dans cette liste implique que
   // l'utilisateur en est membre (filtre `audienceWhere`) → éligible à le démarrer
   // même sans abonnement (calcul d'éligibilité par-examen côté client).
-  audienceType: "subscribers" | "restricted"
+  audienceType: ExamAudienceType
   userHasTaken: boolean
   userParticipation: ExamListParticipation | null
 }
@@ -320,7 +321,7 @@ export type ExamWithQuestions = {
     enablePause: boolean
     pauseDurationMinutes: number | null
     questionCount: number
-    audienceType: "subscribers" | "restricted"
+    audienceType: ExamAudienceType
   }
   questions: QuizQuestion[]
 } | null

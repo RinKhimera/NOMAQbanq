@@ -75,7 +75,7 @@ describe("compteur du jeu", () => {
       {
         need: 0,
         tone: "success",
-        message: "Le jeu est complet : finalisez l'examen.",
+        message: "Le jeu est complet : finalisez l'examen.",
       },
     )
     expect(counterOf({ count: 233, target: 230, frozen: false })).toMatchObject(

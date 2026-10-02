@@ -4,20 +4,21 @@ import { RotateCcw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
+import { formatCount } from "@/components/admin/question-detail/labels"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { ScoreRing } from "@/components/shared/score-ring"
 import { StatusPill } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
+import { examHref } from "@/constants/exam-routes"
 import { deleteParticipation } from "@/features/exams/actions"
 import { NBSP, formatClockTime, formatDayMonth } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { summarize } from "@/lib/score"
 import { TOUCH_HEIGHT } from "@/lib/touch-target"
-import { examHref } from "../../../../_components/exam-routes"
+import { ExamBreadcrumb } from "../../../../_components/exam-breadcrumb"
 import { DetailCard } from "../../../_components/detail-card"
-import { ExamBreadcrumb } from "../../../_components/exam-breadcrumb"
 import { CopyAnswers } from "./copy-answers"
 import { type CopyAnswer, copyRows, toAnswersMap } from "./copy-model"
 
@@ -142,7 +143,7 @@ export function ExamCopyClient({
                 data-testid={cell.testId}
                 className="text-ink font-mono text-[1.375rem] tabular-nums"
               >
-                {cell.value.toLocaleString("fr-CA")}
+                {formatCount(cell.value)}
               </span>
               <span className="text-ink-3 text-xs">{cell.label}</span>
             </div>

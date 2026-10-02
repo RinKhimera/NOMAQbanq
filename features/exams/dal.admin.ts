@@ -30,6 +30,7 @@ import {
   questionCountsByExam,
   submittedStatus,
 } from "./dal.shared"
+import type { ExamAudienceType } from "./schemas"
 
 // ============================================
 // Admin : vue de pilotage et chiffres d'un examen
@@ -196,7 +197,7 @@ export const getEligibleSubscriberCount = cache(async (): Promise<number> => {
 
 /** Chiffres de plusieurs examens d'un coup (liste) ou d'un seul (fiche). */
 const examFigures = async (
-  list: { id: string; audienceType: "subscribers" | "restricted" }[],
+  list: { id: string; audienceType: ExamAudienceType }[],
 ): Promise<Map<string, ExamFigures>> => {
   const restrictedIds = list
     .filter((e) => e.audienceType === "restricted")
@@ -246,7 +247,7 @@ export type AdminExamOverviewItem = ExamSchedule & {
   id: string
   title: string
   isActive: boolean
-  audienceType: "subscribers" | "restricted"
+  audienceType: ExamAudienceType
   /** Taille du jeu actuel ; égale au visé une fois l'examen finalisé. */
   questionCount: number
   /** Questions du jeu supprimées depuis leur ajout : la finalisation les refuse. */
@@ -364,7 +365,7 @@ export type AdminExam = {
     questionCount: number
     /** Questions du jeu supprimées depuis leur ajout. */
     deletedQuestionCount: number
-    audienceType: "subscribers" | "restricted"
+    audienceType: ExamAudienceType
   }
 }
 
@@ -501,6 +502,24 @@ export const getExamLeaderboard = async (
   }))
 }
 
+/**
+ * [Admin] Places restantes avant le visé du jeu d'un examen, `null` s'il est
+ * introuvable (aperçu de complétion).
+ */
+export const getRemainingSeats = async (
+  examId: string,
+): Promise<number | null> => {
+  await requireRole(["admin"])
+  const [exam] = await db
+    .select({ target: exams.targetQuestionCount })
+    .from(exams)
+    .where(eq(exams.id, examId))
+    .limit(1)
+  if (!exam) return null
+  const count = (await questionCountsByExam([examId])).get(examId)?.total ?? 0
+  return Math.max(0, exam.target - count)
+}
+
 export type ExamAudienceUser = { id: string; name: string; email: string }
 
 /**
@@ -533,7 +552,7 @@ export type ExamReopeningSource = {
     pauseDurationMinutes: number | null
     /** Questions de la source, supprimées comprises : le formulaire signale l'écart. */
     questionCount: number
-    audienceType: "subscribers" | "restricted"
+    audienceType: ExamAudienceType
   }
   /** Questions non supprimées, dans leur ordre. */
   questionIds: string[]

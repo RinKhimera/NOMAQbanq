@@ -3,11 +3,11 @@ import {
   DEFAULT_COMPOSER,
   cleared,
   parseComposer,
-  returnHref,
   serializeComposer,
   toBankFilters,
   withChange,
 } from "@/app/(admin)/admin/examens/[id]/questions/_components/composer-params"
+import { composerReturnHref } from "@/constants/exam-routes"
 
 const parse = (query: string) => parseComposer(new URLSearchParams(query))
 
@@ -26,7 +26,7 @@ describe("état d'URL du compositeur", () => {
     expect(state).toEqual({
       q: "asthme",
       domain: "Cardiologie",
-      since: 5,
+      notUsedSince: 5,
       sort: "successRate",
       page: 3,
       back: "fiche",
@@ -38,7 +38,7 @@ describe("état d'URL du compositeur", () => {
     expect(parse("depuis=0&page=-2&tri=inconnu&retour=ailleurs")).toEqual(
       DEFAULT_COMPOSER,
     )
-    expect(parse("depuis=99").since).toBe(20)
+    expect(parse("depuis=99").notUsedSince).toBe(20)
   })
 
   it("un changement de filtre ramène en page 1 ; effacer garde le tri et le retour", () => {
@@ -73,7 +73,9 @@ describe("état d'URL du compositeur", () => {
   })
 
   it("« Terminé » ramène à la fiche ou au formulaire", () => {
-    expect(returnHref("e1", "fiche")).toBe("/admin/examens/e1")
-    expect(returnHref("e1", "formulaire")).toBe("/admin/examens/modifier/e1")
+    expect(composerReturnHref("e1", "fiche")).toBe("/admin/examens/e1")
+    expect(composerReturnHref("e1", "formulaire")).toBe(
+      "/admin/examens/modifier/e1",
+    )
   })
 })

@@ -5,9 +5,9 @@ import { StepCard } from "@/components/shared/form-steps"
 import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { examComposerHref } from "@/constants/exam-routes"
 import { TONE_COLOR } from "@/lib/tone"
 import { STEP_ID, type SelectionSummary } from "./exam-form-model"
-import { examComposerHref } from "./exam-routes"
 
 /** Étape « Questions » : résumé du jeu enregistré, le jeu se compose ailleurs. */
 export const QuestionsStep = ({

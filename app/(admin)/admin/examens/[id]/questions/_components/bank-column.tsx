@@ -20,9 +20,9 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { MEDICAL_DOMAINS } from "@/constants"
 import type { BankQuestion } from "@/features/questions/dal"
+import { NOT_USED_SINCE_MAX } from "@/features/questions/recent-exams"
 import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
-import { NOT_USED_SINCE_MAX } from "../../../../questions/_components/question-params"
 import { lastUseLabel, rangeLabel } from "./composer-model"
 import {
   type BankSort,
@@ -144,8 +144,8 @@ export const BankColumn = ({
             name="composer-not-used-since"
             layout="row"
             max={NOT_USED_SINCE_MAX}
-            value={state.since}
-            onChange={(since) => onChange({ since })}
+            value={state.notUsedSince}
+            onChange={(notUsedSince) => onChange({ notUsedSince })}
           />
         </div>
       </div>
@@ -210,7 +210,7 @@ export const BankColumn = ({
                       variant="outline"
                       disabled={writing || room === 0}
                       onClick={() => onAdd(`add:${q.id}`, [q.id])}
-                      aria-label={`Ajouter : ${q.question.slice(0, 80)}`}
+                      aria-label={`Ajouter : ${q.question.slice(0, 80)}`}
                       className={TOUCH_HEIGHT}
                       data-testid="btn-composer-add"
                     >

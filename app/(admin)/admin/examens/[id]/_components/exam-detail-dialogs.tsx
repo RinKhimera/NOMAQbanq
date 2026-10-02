@@ -4,10 +4,12 @@ import { EyeOff, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
+import { formatCount } from "@/components/admin/question-detail/labels"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { EXAMS_HREF } from "@/constants/exam-routes"
 import { deleteExam } from "@/features/exams/actions"
 import { NBSP } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
@@ -77,7 +79,7 @@ export const DeleteExamDialog = ({
       return false
     }
     toast.success("Examen supprimé")
-    router.push("/admin/examens")
+    router.push(EXAMS_HREF)
   }
 
   return (
@@ -89,7 +91,7 @@ export const DeleteExamDialog = ({
       description={
         guarded
           ? "Cette action est définitive et ne peut pas être annulée."
-          : "Aucune participation : l'examen et son jeu de questions seront retirés."
+          : "Aucune participation : l'examen et son jeu de questions seront retirés."
       }
       confirmLabel={
         <>
@@ -107,7 +109,7 @@ export const DeleteExamDialog = ({
           <Alert variant="destructive">
             <AlertTitle>
               {participations > 1
-                ? `${participations.toLocaleString("fr-CA")} participations seront effacées`
+                ? `${formatCount(participations)} participations seront effacées`
                 : "1 participation sera effacée"}
             </AlertTitle>
             <AlertDescription>

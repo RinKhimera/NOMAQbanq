@@ -2,7 +2,10 @@
 
 import { CalendarRange } from "lucide-react"
 import type { ReactNode } from "react"
-import { countLabel } from "@/components/admin/question-detail/labels"
+import {
+  countLabel,
+  formatCount,
+} from "@/components/admin/question-detail/labels"
 import { UserMultiSelect } from "@/components/admin/user-multi-select"
 import { StepCard } from "@/components/shared/form-steps"
 import { Input } from "@/components/ui/input"
@@ -272,7 +275,7 @@ export const AudienceStep = ({
       {values.audienceType === "subscribers" ? (
         <p className="text-ink-3 text-[0.8125rem]">
           Tous les étudiants avec un accès Examens actif{NBSP}:{" "}
-          {subscriberCount.toLocaleString("fr-CA")} aujourd&apos;hui.
+          {formatCount(subscriberCount)} aujourd&apos;hui.
         </p>
       ) : (
         <div className="flex flex-col gap-2">

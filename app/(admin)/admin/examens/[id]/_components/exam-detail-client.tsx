@@ -3,12 +3,14 @@
 import { Lock } from "lucide-react"
 import Link from "next/link"
 import ExamStatusBadge from "@/components/admin/exam-status-badge"
+import { formatCount } from "@/components/admin/question-detail/labels"
 import { PageIntro } from "@/components/shared/page-intro"
 import { StatBand } from "@/components/shared/stat-band"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { examAudienceEditHref, examEditHref } from "@/constants/exam-routes"
 import type {
   ExamAudienceUser,
   ExamFigures,
@@ -20,16 +22,12 @@ import { isLateToOpen, preciseWindow } from "@/lib/exam-readiness"
 import { formatMediumDate } from "@/lib/format"
 import { TONE_COLOR } from "@/lib/tone"
 import { TOUCH_HEIGHT } from "@/lib/touch-target"
-import {
-  examAudienceEditHref,
-  examEditHref,
-} from "../../_components/exam-routes"
+import { ExamBreadcrumb } from "../../_components/exam-breadcrumb"
 import { DetailCard } from "./detail-card"
 import {
   RestrictedAudienceCard,
   SubscribersAudienceCard,
 } from "./exam-audience-card"
-import { ExamBreadcrumb } from "./exam-breadcrumb"
 import { ExamDetailActions } from "./exam-detail-actions"
 import {
   type DetailExam,
@@ -110,7 +108,7 @@ export function ExamDetailClient({
               Devait ouvrir le {formatMediumDate(exam.startDate)}
             </AlertTitle>
             <AlertDescription className="text-ink-2">
-              L&apos;examen est encore en préparation : il ne s&apos;ouvre pas,
+              L&apos;examen est encore en préparation : il ne s&apos;ouvre pas,
               même à sa date d&apos;ouverture. Finalisez-le pour l&apos;ouvrir
               aux étudiants.
             </AlertDescription>
@@ -124,9 +122,9 @@ export function ExamDetailClient({
           <Lock aria-hidden />
           <AlertTitle>Jeu de questions figé</AlertTitle>
           <AlertDescription className="text-ink-2">
-            Des participations existent : les questions ne peuvent plus être
+            Des participations existent : les questions ne peuvent plus être
             modifiées. Le titre, les dates, la pause et l&apos;audience restent
-            modifiables, sauf repousser la fin d&apos;un examen terminé :
+            modifiables, sauf repousser la fin d&apos;un examen terminé :
             utilisez « Rouvrir ».
           </AlertDescription>
         </Alert>
@@ -159,8 +157,8 @@ export function ExamDetailClient({
                 aria-label="Participations soumises"
               />
               <span className="text-ink-3 font-mono text-xs">
-                {follow.progress.submitted.toLocaleString("fr-CA")} soumis sur{" "}
-                {follow.progress.started.toLocaleString("fr-CA")} commencés
+                {formatCount(follow.progress.submitted)} soumis sur{" "}
+                {formatCount(follow.progress.started)} commencés
               </span>
             </div>
           )}

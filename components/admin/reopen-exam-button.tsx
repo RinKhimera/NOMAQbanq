@@ -3,11 +3,8 @@
 import { RotateCcw } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { examCreateHref } from "@/constants/exam-routes"
 import { type ExamSchedule, isFinalizedClosed } from "@/lib/exam-phase"
-
-/** Création pré-remplie depuis un examen clos (`CONTEXT.md`, « Réouverture »). */
-export const reopenExamHref = (examId: string) =>
-  `/admin/examens/creer?source=${examId}`
 
 /** Un examen clos se rouvre ; un examen en préparation n'a jamais été ouvert. */
 export const canReopen = isFinalizedClosed
@@ -25,7 +22,7 @@ export function ReopenExamButton({
   if (!canReopen(exam, now)) return null
   return (
     <Button asChild variant="ghost" className={className}>
-      <Link href={reopenExamHref(exam.id)} data-testid="btn-reopen-exam">
+      <Link href={examCreateHref(exam.id)} data-testid="btn-reopen-exam">
         <RotateCcw aria-hidden />
         Rouvrir
       </Link>

@@ -3,9 +3,12 @@ import { formatMediumDate } from "@/lib/format"
 
 // Module pur (pas de "use client") : appelé aussi par des Server Components.
 
+/** « 2 880 » : un effectif, séparateur de milliers fr-CA. */
+export const formatCount = (n: number) => n.toLocaleString("fr-CA")
+
 /** « 1 réponse », « 12 réponses » (séparateur de milliers fr-CA). */
 export const countLabel = (n: number, one: string, many = `${one}s`) =>
-  `${n.toLocaleString("fr-CA")} ${n > 1 ? many : one}`
+  `${formatCount(n)} ${n > 1 ? many : one}`
 
 export const answersLabel = (n: number) => countLabel(n, "réponse")
 

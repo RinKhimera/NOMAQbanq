@@ -40,7 +40,7 @@ const Fact = ({ label, value }: { label: string; value: string }) => (
 export const ExamFormSummary = ({
   status,
   checks,
-  blink,
+  refusals,
   duration,
   pause,
   finalized,
@@ -50,7 +50,8 @@ export const ExamFormSummary = ({
 }: {
   status: ExamStatus
   checks: SummaryCheck[]
-  blink: number
+  /** Tentatives refusées : chaque nouvelle relance l'annonce des vérifications. */
+  refusals: number
   duration: string
   pause: string
   /** Examen finalisé : une seule écriture, « Enregistrer les modifications ». */
@@ -74,7 +75,7 @@ export const ExamFormSummary = ({
         <span className="type-label">Récapitulatif</span>
         <ExamStatusBadge status={status} />
       </div>
-      <SummaryPanel checks={checks} blink={blink}>
+      <SummaryPanel checks={checks} blink={refusals}>
         <Fact label="Durée" value={duration} />
         <Fact label="Pause" value={pause} />
         <Fact label="Tentatives" value="1 par étudiant" />

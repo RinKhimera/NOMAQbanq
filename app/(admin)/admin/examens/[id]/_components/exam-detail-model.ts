@@ -1,5 +1,9 @@
-import { countLabel } from "@/components/admin/question-detail/labels"
+import {
+  countLabel,
+  formatCount,
+} from "@/components/admin/question-detail/labels"
 import type { StatBandItem } from "@/components/shared/stat-band"
+import { examCopyHref } from "@/constants/exam-routes"
 import type {
   AdminExam,
   ExamFigures,
@@ -26,9 +30,7 @@ export type DetailExam = AdminExam["exam"]
 export const examQuestionsHref = (examId: string) =>
   `/admin/questions?examen=${examId}`
 export const participantCopyHref = (examId: string, userId: string) =>
-  `/admin/examens/${examId}/resultats/${userId}`
-
-const count = (n: number) => n.toLocaleString("fr-CA")
+  examCopyHref(examId, userId)
 
 /** « Terminé » ou « Désactivé » : la bande montre le bilan, pas le suivi. */
 export const isSettled = (phase: ExamStatus) =>
@@ -57,7 +59,7 @@ export const audienceBadge = (exam: DetailExam): string =>
 const passRate = (figures: ExamFigures): string => {
   if (figures.submitted === 0) return "—"
   const percent = Math.floor((figures.passed / figures.submitted) * 100)
-  return `${count(figures.passed)} / ${count(figures.submitted)} · ${percent}${NBSP}%`
+  return `${formatCount(figures.passed)} / ${formatCount(figures.submitted)} · ${percent}${NBSP}%`
 }
 
 /** Bande de chiffres : bilan d'un examen clos, suivi d'un examen ouvert. */
@@ -68,7 +70,7 @@ export const statItems = (
 ): StatBandItem[] =>
   isSettled(phase)
     ? [
-        { label: "Participants", value: count(figures.submitted) },
+        { label: "Participants", value: formatCount(figures.submitted) },
         { label: "Score moyen", value: formatScore(figures.average) },
         { label: "Meilleur score", value: formatScore(figures.best) },
         {
@@ -77,15 +79,15 @@ export const statItems = (
         },
       ]
     : [
-        { label: "Ont commencé", value: count(figures.started) },
-        { label: "Soumis", value: count(figures.submitted) },
-        { label: "En cours", value: count(figures.inProgress) },
+        { label: "Ont commencé", value: formatCount(figures.started) },
+        { label: "Soumis", value: formatCount(figures.submitted) },
+        { label: "En cours", value: formatCount(figures.inProgress) },
         {
           label: "Éligibles",
           value:
             audienceType === "restricted"
               ? countLabel(figures.eligible, "invité", "invités")
-              : count(figures.eligible),
+              : formatCount(figures.eligible),
         },
       ]
 
@@ -115,7 +117,7 @@ export const tracking = (
       description: `Un examen en préparation ne s'ouvre pas, même à sa date d'ouverture.${
         missing > 0
           ? ` Il reste ${countLabel(missing, "question", "questions")} à choisir.`
-          : " Le jeu de questions est complet : il reste à le finaliser."
+          : " Le jeu de questions est complet : il reste à le finaliser."
       }`,
       finalize: !isLateToOpen(exam, now),
       progress: null,

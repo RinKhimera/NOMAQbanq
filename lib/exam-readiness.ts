@@ -1,3 +1,4 @@
+import type { ExamAudienceType } from "@/features/exams/schemas"
 import { toAppZoneCalendarDay } from "@/lib/app-zone"
 import type { ExamSchedule } from "@/lib/exam-phase"
 import { formatClockTime, formatDayMonth } from "@/lib/format"
@@ -13,7 +14,7 @@ export type ReadinessInput = ExamSchedule & {
   /** Questions du jeu supprimées depuis leur ajout : bloquantes. */
   deletedQuestionCount?: number
   targetQuestionCount: number
-  audienceType: "subscribers" | "restricted"
+  audienceType: ExamAudienceType
   /** Étudiants de la liste restreinte (comptes supprimés exclus). */
   audienceSize: number
 }
@@ -29,6 +30,15 @@ export type ReadinessCheck = {
 
 /** Texte d'une date absente d'un examen en préparation. */
 export const NO_DATE = "à choisir"
+
+/** Fermeture au plus tard à l'ouverture : la fenêtre est à corriger. */
+export const datesOutOfOrder = (exam: {
+  startDate: number | null
+  endDate: number | null
+}): boolean =>
+  exam.startDate !== null &&
+  exam.endDate !== null &&
+  exam.endDate <= exam.startDate
 
 /** Examen en préparation dont la date d'ouverture est passée : il ne s'ouvrira pas seul. */
 export const isLateToOpen = (exam: ExamSchedule, now: number): boolean =>
@@ -71,6 +81,7 @@ export const examReadiness = (
   const late = !finalizing && isLateToOpen(exam, now)
   const hasDates = exam.startDate !== null && exam.endDate !== null
   const closed = finalizing && exam.endDate !== null && exam.endDate <= now
+  const outOfOrder = datesOutOfOrder(exam)
   const restricted = exam.audienceType === "restricted"
   return [
     {
@@ -87,10 +98,11 @@ export const examReadiness = (
     {
       key: "dates",
       label: "Dates",
-      ok: hasDates && !late && !closed,
+      ok: hasDates && !late && !closed && !outOfOrder,
       tone: "danger",
-      value:
-        late && exam.startDate !== null
+      value: outOfOrder
+        ? "à corriger"
+        : late && exam.startDate !== null
           ? `devait ouvrir le ${formatDayMonth(exam.startDate)}`
           : closed
             ? "fenêtre déjà close"

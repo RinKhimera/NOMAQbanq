@@ -1,4 +1,7 @@
-import { countLabel } from "@/components/admin/question-detail/labels"
+import {
+  countLabel,
+  formatCount,
+} from "@/components/admin/question-detail/labels"
 import { MEDICAL_DOMAINS } from "@/constants"
 import type {
   BankQuestion,
@@ -21,7 +24,7 @@ export const lastUseAgo = (startDate: number, now: number): string => {
   if (past < 30) return `il y a ${Math.floor(past / 7)} sem.`
   if (past < 365) return `il y a ${Math.floor(past / 30)} mois`
   const years = Math.floor(past / 365)
-  return `il y a ${years} an${years > 1 ? "s" : ""}`
+  return `il y a ${countLabel(years, "an")}`
 }
 
 /** « EB-25 · il y a 2 sem. » */
@@ -60,7 +63,7 @@ export const counterOf = ({
     : over > 0
       ? `Retirez ${countLabel(over, "question")}.`
       : need === 0
-        ? "Le jeu est complet : finalisez l'examen."
+        ? "Le jeu est complet : finalisez l'examen."
         : `Il reste ${countLabel(need, "question")} à choisir.`
   return { need, over, tone, message }
 }
@@ -146,10 +149,9 @@ export const fullDomainPlan = (rows: DomainPlanRow[]): DomainPlanRow[] => {
 export const rangeLabel = (page: number, pageSize: number, total: number) => {
   const from = (page - 1) * pageSize + 1
   const to = Math.min(page * pageSize, total)
-  const n = (v: number) => v.toLocaleString("fr-CA")
-  return `${n(from)}–${n(to)} sur ${n(total)}`
+  return `${formatCount(from)}–${formatCount(to)} sur ${formatCount(total)}`
 }
 
 /** « 12 questions ajoutées », « 1 question retirée ». */
 export const changedLabel = (n: number, verb: "ajoutée" | "retirée") =>
-  `${countLabel(n, "question")} ${verb}${n > 1 ? "s" : ""}`
+  countLabel(n, `question ${verb}`, `questions ${verb}s`)

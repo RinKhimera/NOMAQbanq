@@ -2,9 +2,9 @@ import { ArrowLeft, Clock, UserX } from "lucide-react"
 import Link from "next/link"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
+import { examHref } from "@/constants/exam-routes"
 import type { ExamParticipantUser } from "@/features/exams/dal"
-import { examHref } from "../../../../_components/exam-routes"
-import { ExamBreadcrumb } from "../../../_components/exam-breadcrumb"
+import { ExamBreadcrumb } from "../../../../_components/exam-breadcrumb"
 
 const STATUS_LABEL: Record<string, string> = {
   in_progress: "en cours",
@@ -70,7 +70,7 @@ export function ParticipantResultsError({
         <p className="text-ink-2 text-sm leading-normal">
           {error === "NO_PARTICIPATION"
             ? participantUser
-              ? "Cet étudiant n'a pas commencé cet examen : il n'a pas de copie."
+              ? "Cet étudiant n'a pas commencé cet examen : il n'a pas de copie."
               : "Ce compte n'existe pas ou a été supprimé."
             : `La participation est ${STATUS_LABEL[status ?? ""] ?? "en cours"} : la copie se lit une fois soumise, par l'étudiant ou à la fermeture de l'examen.`}
         </p>

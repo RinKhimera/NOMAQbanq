@@ -54,6 +54,7 @@ import type {
   QuestionSortBy,
 } from "@/features/questions/dal"
 import { QUESTIONS_PAGE_SIZE } from "@/features/questions/page-size"
+import { NOT_USED_SINCE_MAX } from "@/features/questions/recent-exams"
 import { useUrlListState } from "@/hooks/use-url-list-state"
 import { adminPhaseOf } from "@/lib/exam-phase"
 import { EXAM_STATUS_CONFIG } from "@/lib/exam-status"
@@ -66,7 +67,6 @@ import {
   DEFAULT_QUESTION_LIST,
   FIRST_ORDER,
   type ImageFilter,
-  NOT_USED_SINCE_MAX,
   type QuestionListState,
   type QuestionTab,
   panelFilterCount,

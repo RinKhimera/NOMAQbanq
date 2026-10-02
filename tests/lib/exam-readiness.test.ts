@@ -76,6 +76,12 @@ describe("examReadiness", () => {
     ).toMatchObject({ ok: false, value: "fenêtre déjà close" })
   })
 
+  it("une fermeture au plus tard à l'ouverture est à corriger", () => {
+    expect(failing({ ...ready, endDate: ready.startDate })).toEqual([
+      ["dates", "à corriger"],
+    ])
+  })
+
   it("compte les invités d'une liste restreinte", () => {
     const check = examReadiness(
       { ...ready, audienceType: "restricted", audienceSize: 1 },

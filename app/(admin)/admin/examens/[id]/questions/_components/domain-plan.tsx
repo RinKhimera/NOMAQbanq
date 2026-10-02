@@ -2,12 +2,11 @@
 
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { useState } from "react"
+import { formatCount } from "@/components/admin/question-detail/labels"
 import type { DomainPlanRow } from "@/features/questions/dal"
 import { RECENT_EXAMS_DEFAULT } from "@/features/questions/recent-exams"
 import { TOUCH_MIN_HEIGHT } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
-
-const num = (n: number) => n.toLocaleString("fr-CA")
 
 const th =
   "bg-surface-2 text-ink-3 sticky top-0 px-4 py-2 text-right font-mono text-[11px] font-medium tracking-[0.06em] uppercase first:text-left"
@@ -114,10 +113,10 @@ export const DomainPlan = ({
                       r.chosen ? "text-ink" : "text-ink-3",
                     )}
                   >
-                    {num(r.chosen)}
+                    {formatCount(r.chosen)}
                   </td>
                   <td className="border-line text-ink-2 border-t px-4 text-right font-mono">
-                    {num(r.available)}
+                    {formatCount(r.available)}
                   </td>
                   <td
                     className={cn(
@@ -125,7 +124,7 @@ export const DomainPlan = ({
                       r.recent ? "text-warning-ink" : "text-ink-3",
                     )}
                   >
-                    {num(r.recent)}
+                    {formatCount(r.recent)}
                   </td>
                 </tr>
               )

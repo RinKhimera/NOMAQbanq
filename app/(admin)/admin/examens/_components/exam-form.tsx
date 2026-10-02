@@ -1,13 +1,13 @@
 "use client"
 
 import { Lock } from "lucide-react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { PageIntro } from "@/components/shared/page-intro"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { EXAMS_HREF, examEditHref, examHref } from "@/constants/exam-routes"
 import {
   type ExamFieldErrors,
   finalizePreparedExam,
@@ -17,14 +17,18 @@ import type { BankQuestion } from "@/features/questions/dal"
 import { useClock } from "@/hooks/use-clock"
 import { useLeaveGuard } from "@/hooks/use-leave-guard"
 import { adminPhaseOf, isFinalizedOpen } from "@/lib/exam-phase"
-import { examReadiness, isLateToOpen } from "@/lib/exam-readiness"
+import {
+  datesOutOfOrder,
+  examReadiness,
+  isLateToOpen,
+} from "@/lib/exam-readiness"
 import { NBSP, formatMediumDate } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
+import { ExamBreadcrumb } from "./exam-breadcrumb"
 import {
   type ExamFormValues,
   STEP_ID,
   type SavedExam,
-  datesOutOfOrder,
   examDuration,
   firstFailingStep,
   isTargetValid,
@@ -45,7 +49,6 @@ import {
   ExamFormSummary,
   summaryChecks,
 } from "./exam-form-summary"
-import { examHref as ficheHref } from "./exam-routes"
 
 export type ExamFormProps = {
   initialNow: number
@@ -103,7 +106,8 @@ export function ExamForm({
   const [attempted, setAttempted] = useState(false)
   const [serverErrors, setServerErrors] = useState<ExamFieldErrors>({})
   const [failure, setFailure] = useState<Failure | null>(null)
-  const [blink, setBlink] = useState(0)
+  // Une tentative refusée de plus : les vérifications en échec sont relues.
+  const [refusals, setRefusals] = useState(0)
   const [pending, setPending] = useState<ExamFormAction | null>(null)
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null)
 
@@ -113,7 +117,7 @@ export function ExamForm({
   const summary = selectionSummary(selection)
   const questionCount = reopening ? summary.count : (saved?.questionCount ?? 0)
   const status = saved ? adminPhaseOf(saved, now) : "preparation"
-  const exitHref = savedId ? ficheHref(savedId) : "/admin/examens"
+  const exitHref = savedId ? examHref(savedId) : EXAMS_HREF
 
   useLeaveGuard(
     dirty && pending === null,
@@ -161,10 +165,6 @@ export function ExamForm({
     },
     now,
     { finalizing: true },
-  ).map((c) =>
-    c.key === "dates" && datesOutOfOrder(values)
-      ? { ...c, ok: false, value: "à corriger" }
-      : c,
   )
   const checks = summaryChecks(readiness, {
     frozen,
@@ -186,7 +186,7 @@ export function ExamForm({
     res: { error: string; fieldErrors?: ExamFieldErrors },
     title: string,
   ) => {
-    setBlink((b) => b + 1)
+    setRefusals((n) => n + 1)
     if (res.fieldErrors && Object.keys(res.fieldErrors).length > 0) {
       setServerErrors(res.fieldErrors)
       setFailure({ kind: "fields", title })
@@ -208,7 +208,7 @@ export function ExamForm({
     setFailure(null)
     if (Object.keys(localErrors).length > 0) {
       setServerErrors({})
-      setBlink((b) => b + 1)
+      setRefusals((n) => n + 1)
       scrollToStep(localErrors)
       return
     }
@@ -237,16 +237,16 @@ export function ExamForm({
 
     if (action === "save") {
       toast.success("Examen enregistré en préparation")
-      leaveTo(ficheHref(examId))
+      leaveTo(examHref(examId))
       return
     }
     if (action === "update") {
       if (finalized && !res.finalized) {
         toast.success("Modifications enregistrées", {
-          description: "L'examen est repassé en préparation : finalisez-le.",
+          description: "L'examen est repassé en préparation : finalisez-le.",
         })
       } else toast.success("Modifications enregistrées")
-      leaveTo(ficheHref(examId))
+      leaveTo(examHref(examId))
       return
     }
 
@@ -257,7 +257,7 @@ export function ExamForm({
       setSavedId(examId)
       // Sans navigation : l'écran garde les erreurs, et un rechargement
       // rouvre l'examen créé au lieu d'en créer un autre.
-      window.history.replaceState(null, "", `/admin/examens/modifier/${examId}`)
+      window.history.replaceState(null, "", examEditHref(examId))
     }
     const fin = await callAction(() => finalizePreparedExam({ examId }))
     if (!fin.success) {
@@ -268,7 +268,7 @@ export function ExamForm({
     toast.success(
       `Examen finalisé · durée ${examDuration(values.targetQuestionCount)}`,
     )
-    leaveTo(ficheHref(examId))
+    leaveTo(examHref(examId))
   }
 
   const cancel = () => {
@@ -295,21 +295,16 @@ export function ExamForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <nav aria-label="Fil d'Ariane" className="text-ink-3 text-sm">
-        <Link href="/admin/examens" className="hover:text-ink">
-          Examens blancs
-        </Link>
-        {saved && (
-          <>
-            {" › "}
-            <Link href={ficheHref(saved.id)} className="hover:text-ink">
-              {saved.title}
-            </Link>
-          </>
-        )}
-        {" › "}
-        <span className="text-ink">{saved ? "Modifier" : crumb}</span>
-      </nav>
+      <ExamBreadcrumb
+        items={
+          saved
+            ? [
+                { label: saved.title, href: examHref(saved.id) },
+                { label: "Modifier" },
+              ]
+            : [{ label: crumb }]
+        }
+      />
 
       <PageIntro title={title} description={lead} />
 
@@ -384,7 +379,7 @@ export function ExamForm({
         <ExamFormSummary
           status={status}
           checks={checks}
-          blink={blink}
+          refusals={refusals}
           duration={
             isTargetValid(values.targetQuestionCount)
               ? examDuration(values.targetQuestionCount) +

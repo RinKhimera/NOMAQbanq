@@ -61,6 +61,9 @@ paths:
   fixe où ramène « Terminé ». Modifier le jeu d'un examen finalisé sans
   participation le remet en préparation : l'écran le confirme avant la
   première écriture.
+- **Liens** : `constants/exam-routes.ts` (liste, fiche, formulaire,
+  compositeur et son retour, copie, création ou réouverture) ; fil d'Ariane
+  `ExamBreadcrumb` (`examens/_components/`), commun aux écrans d'examen.
 
 ## Chiffres clés
 

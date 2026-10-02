@@ -106,7 +106,11 @@ Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-acces
 `btn-compose-questions` (formulaire et fiche d'examen), `exam-badges`,
 `btn-delete-exam`/`-confirm` (fiche), `composer-count`,
 `btn-composer-complete`, `composer-completion-dialog`,
-`btn-composer-apply-completion`, `btn-composer-done` (compositeur), `tab-{all|toVerify|noReferences}`, `question-row-link`,
+`btn-composer-apply-completion`, `btn-composer-done` (compositeur),
+`btn-view-copy-{participationId}`, `leaderboard-empty`, `copy-rank`,
+`copy-filter-{all|wrong|flagged}`, `copy-row-{n}`,
+`btn-delete-participation`/`-confirm` (copie), `btn-deactivate-exam`/`-confirm`,
+`btn-reactivate-exam` (fiche), `tab-{all|toVerify|noReferences}`, `question-row-link`,
 `sort-{createdAt|updatedAt|successRate|answerCount}`, `btn-filter-panel`
 (liste des questions), `question-position`, `btn-edit-question`,
 `btn-delete-question`/`-confirm`, `btn-confirm-key`/`-submit`, `key-to-verify-alert`

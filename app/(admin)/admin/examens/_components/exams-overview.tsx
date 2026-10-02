@@ -4,6 +4,7 @@ import { Plus } from "lucide-react"
 import Link from "next/link"
 import { PageIntro } from "@/components/shared/page-intro"
 import { Button } from "@/components/ui/button"
+import { examCreateHref } from "@/constants/exam-routes"
 import type { AdminExamOverviewItem } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
 import { NBSP } from "@/lib/format"
@@ -32,7 +33,7 @@ export const ExamsOverview = ({
         description="Chaque examen s'ouvre sur une fenêtre de dates. Les résultats sont publiés à la fermeture."
         actions={
           <Button asChild>
-            <Link href="/admin/examens/creer" data-testid="btn-create-exam">
+            <Link href={examCreateHref()} data-testid="btn-create-exam">
               <Plus aria-hidden />
               Créer un examen
             </Link>

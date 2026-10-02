@@ -1,7 +1,6 @@
 "use client"
 
 import { Lock } from "lucide-react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -9,6 +8,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { PageIntro } from "@/components/shared/page-intro"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { SegmentedControl } from "@/components/ui/segmented-control"
+import { composerReturnHref } from "@/constants/exam-routes"
 import {
   addExamQuestions,
   previewExamCompletion,
@@ -20,6 +20,7 @@ import type { ExamStatus } from "@/lib/exam-status"
 import { NBSP } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
+import { ExamBreadcrumb } from "../../../_components/exam-breadcrumb"
 import { BankColumn } from "./bank-column"
 import { CompletionDialog, type CompletionDraw } from "./completion-dialog"
 import { ComposerCounter } from "./composer-counter"
@@ -32,7 +33,6 @@ import {
 import {
   type ComposerState,
   cleared,
-  returnHref,
   serializeComposer,
   withChange,
 } from "./composer-params"
@@ -137,7 +137,7 @@ export const ComposerClient = ({
         )
         if (exam.finalized && !res.finalized) {
           toast.info(
-            "L'examen est repassé en préparation : finalisez-le de nouveau.",
+            "L'examen est repassé en préparation : finalisez-le de nouveau.",
           )
         }
         startWrite(() => router.refresh())
@@ -177,20 +177,16 @@ export const ComposerClient = ({
     )
   }
 
-  const doneHref = returnHref(exam.id, state.back)
+  const doneHref = composerReturnHref(exam.id, state.back)
 
   return (
     <div className="flex flex-col gap-3.5 max-lg:pb-20">
-      <nav aria-label="Fil d'Ariane" className="text-ink-3 text-sm">
-        <Link href="/admin/examens" className="hover:text-ink">
-          Examens blancs
-        </Link>{" "}
-        ›{" "}
-        <Link href={doneHref} className="hover:text-ink">
-          {exam.title}
-        </Link>{" "}
-        › <span className="text-ink">Jeu de questions</span>
-      </nav>
+      <ExamBreadcrumb
+        items={[
+          { label: exam.title, href: doneHref },
+          { label: "Jeu de questions" },
+        ]}
+      />
 
       <PageIntro
         title="Composer le jeu de questions"
@@ -202,7 +198,7 @@ export const ComposerClient = ({
           <Lock aria-hidden />
           <AlertTitle>Lecture seule</AlertTitle>
           <AlertDescription>
-            Des participations existent : le jeu de questions ne peut plus
+            Des participations existent : le jeu de questions ne peut plus
             changer.
           </AlertDescription>
         </Alert>
@@ -309,12 +305,12 @@ export const ComposerClient = ({
         title={`Remettre l'examen en préparation${NBSP}?`}
         description={
           <>
-            Modifier le jeu remet l&apos;examen en préparation : il faudra le
+            Modifier le jeu remet l&apos;examen en préparation : il faudra le
             finaliser de nouveau.
             {exam.openToStudents && (
               <>
                 {" "}
-                L&apos;examen est ouvert : il disparaîtra de la liste des
+                L&apos;examen est ouvert : il disparaîtra de la liste des
                 étudiants jusqu&apos;à la refinalisation.
               </>
             )}

@@ -1,3 +1,4 @@
+import { countLabel } from "@/components/admin/question-detail/labels"
 import type { ExamField, ExamFieldErrors } from "@/features/exams/actions"
 import type {
   AdminExam,
@@ -11,6 +12,7 @@ import {
   SECONDS_PER_QUESTION,
   type SaveExamInput,
 } from "@/features/exams/schemas"
+import type { ExamAudienceType } from "@/features/exams/schemas"
 import type { BankQuestion } from "@/features/questions/dal"
 import { NBSP, formatIsoDay } from "@/lib/format"
 
@@ -25,7 +27,7 @@ export type ExamFormValues = {
   targetQuestionCount: number
   enablePause: boolean
   pauseDurationMinutes: number
-  audienceType: "subscribers" | "restricted"
+  audienceType: ExamAudienceType
   audience: ExamAudienceUser[]
 }
 
@@ -148,9 +150,6 @@ export const saveErrors = (v: ExamFormValues): ExamFieldErrors => ({
     : { targetQuestionCount: TARGET_ERROR }),
 })
 
-export const datesOutOfOrder = (v: ExamFormValues) =>
-  v.startDate !== null && v.endDate !== null && v.endDate <= v.startDate
-
 /**
  * Charge de `saveExam` : l'état entier, dates nulles comprises. `questionIds`
  * ne part que pour créer une réouverture ; absent, le jeu est conservé.
@@ -221,7 +220,7 @@ const shortDay = (day: string) => formatIsoDay(day).replace(/^1 /, "1er ")
 export const windowNote = (startDay: string, endDay: string) => {
   const n = dayIndex(endDay) - dayIndex(startDay)
   const midnight = `0${NBSP}h${NBSP}00`
-  return `Ouvert ${n} jour${n > 1 ? "s" : ""}${NBSP}: du ${shortDay(startDay)} ${midnight} au ${shortDay(endDay)} ${midnight}`
+  return `Ouvert ${countLabel(n, "jour")}${NBSP}: du ${shortDay(startDay)} ${midnight} au ${shortDay(endDay)} ${midnight}`
 }
 
 export type SelectionSummary = {

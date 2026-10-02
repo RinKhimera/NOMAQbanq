@@ -18,6 +18,29 @@ export type DomainSupply = {
 /** Ce qu'il faut tirer d'un domaine : anciennes d'abord, récentes en repli. */
 export type DomainDraw = { domain: string; clean: number; fallback: number }
 
+/** Ligne de l'aperçu : tirées d'un domaine, dont récentes faute d'anciennes. */
+export type CompletionLine = { domain: string; count: number; fallback: number }
+
+/** Lignes de l'aperçu d'un tirage, du domaine le plus fourni au moins fourni. */
+export const completionLines = (
+  drawn: readonly { domain: string; recent: boolean }[],
+): CompletionLine[] => {
+  const lines = new Map<string, CompletionLine>()
+  for (const q of drawn) {
+    const line = lines.get(q.domain) ?? {
+      domain: q.domain,
+      count: 0,
+      fallback: 0,
+    }
+    line.count++
+    if (q.recent) line.fallback++
+    lines.set(q.domain, line)
+  }
+  return [...lines.values()].sort(
+    (a, b) => b.count - a.count || a.domain.localeCompare(b.domain, "fr"),
+  )
+}
+
 const byName = (a: string, b: string) => a.localeCompare(b, "fr")
 
 /**

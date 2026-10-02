@@ -1,8 +1,8 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
+import { examHref } from "@/constants/exam-routes"
 import { cn } from "@/lib/utils"
-import { examHref } from "./exam-routes"
 
 /** Titre d'examen menant à sa fiche : un lien par examen, donc sans prefetch. */
 export const ExamTitleLink = ({

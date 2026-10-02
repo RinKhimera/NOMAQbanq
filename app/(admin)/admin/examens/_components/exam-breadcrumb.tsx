@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Fragment } from "react"
+import { EXAMS_HREF } from "@/constants/exam-routes"
 
 type Crumb = { label: string; href?: string }
 
@@ -7,7 +8,7 @@ type Crumb = { label: string; href?: string }
 export const ExamBreadcrumb = ({ items }: { items: Crumb[] }) => (
   <nav aria-label="Fil d'Ariane" className="text-ink-3 text-sm">
     <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-      {[{ label: "Examens blancs", href: "/admin/examens" }, ...items].map(
+      {[{ label: "Examens blancs", href: EXAMS_HREF }, ...items].map(
         (crumb, index, all) => (
           <Fragment key={`${index}-${crumb.label}`}>
             {index > 0 && <li aria-hidden>›</li>}

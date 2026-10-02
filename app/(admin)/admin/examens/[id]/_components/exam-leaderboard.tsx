@@ -3,6 +3,10 @@
 import Link from "next/link"
 import { useState } from "react"
 import {
+  countLabel,
+  formatCount,
+} from "@/components/admin/question-detail/labels"
+import {
   DataTable,
   type DataTableColumn,
 } from "@/components/shared/data-table/data-table"
@@ -10,6 +14,7 @@ import { SearchInput } from "@/components/shared/search-input"
 import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
+import { examCopyHref } from "@/constants/exam-routes"
 import type { LeaderboardEntry, LeaderboardFlag } from "@/features/exams/dal"
 import { formatScore, scoreTextClass } from "@/lib/score"
 import { foldForSearch } from "@/lib/search"
@@ -68,7 +73,7 @@ export function ExamLeaderboard({
   const rows = truncated ? matches.slice(0, LEADERBOARD_PREVIEW) : matches
 
   const copyHref = (entry: LeaderboardEntry) =>
-    entry.user ? `/admin/examens/${examId}/resultats/${entry.user.id}` : null
+    entry.user ? examCopyHref(examId, entry.user.id) : null
 
   const columns: DataTableColumn<RankedEntry>[] = [
     {
@@ -78,7 +83,7 @@ export function ExamLeaderboard({
       cellClassName: "font-mono text-ink-2 tabular-nums",
       cell: ({ rank }) =>
         rank === null ? (
-          <span title="Hors classement : compte admin ou supprimé">—</span>
+          <span title="Hors classement : compte admin ou supprimé">—</span>
         ) : (
           rank
         ),
@@ -153,7 +158,7 @@ export function ExamLeaderboard({
           </h2>
           {provisional && (
             <StatusPill tone="warning" data-testid="leaderboard-provisional">
-              Provisoire : l&apos;examen est encore ouvert
+              Provisoire : l&apos;examen est encore ouvert
             </StatusPill>
           )}
         </span>
@@ -215,8 +220,8 @@ export function ExamLeaderboard({
         <div className="text-ink-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem]">
           <span data-testid="leaderboard-summary">
             {truncated
-              ? `${LEADERBOARD_PREVIEW} premiers sur ${leaderboard.length.toLocaleString("fr-CA")}.`
-              : `${leaderboard.length.toLocaleString("fr-CA")} ${leaderboard.length > 1 ? "copies soumises" : "copie soumise"}.`}
+              ? `${LEADERBOARD_PREVIEW} premiers sur ${formatCount(leaderboard.length)}.`
+              : `${countLabel(leaderboard.length, "copie soumise", "copies soumises")}.`}
             {
               " Supprimer une participation, depuis sa copie, permet à l'étudiant de repasser l'examen."
             }

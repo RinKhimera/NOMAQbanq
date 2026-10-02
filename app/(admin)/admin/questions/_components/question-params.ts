@@ -3,7 +3,8 @@ import type {
   QuestionSortBy,
 } from "@/features/questions/dal"
 import { QUESTIONS_PAGE_SIZE } from "@/features/questions/page-size"
-import { keyForParam } from "@/lib/url-param"
+import { notUsedSinceParam } from "@/features/questions/recent-exams"
+import { keyForParam, positiveIntParam } from "@/lib/url-param"
 
 // Module pur : l'état de la liste des questions vit dans l'URL, lu par la
 // page serveur (liste et détail) et réécrit par l'écran client. Le détail et
@@ -40,8 +41,6 @@ export const DEFAULT_QUESTION_LIST: QuestionListState = {
   page: 1,
 }
 
-export const NOT_USED_SINCE_MAX = 20
-
 const TAB_PARAM: Record<QuestionTab, string | null> = {
   all: null,
   toVerify: "cle-a-verifier",
@@ -67,17 +66,11 @@ export const FIRST_ORDER: Record<QuestionSortBy, "asc" | "desc"> = {
   answerCount: "desc",
 }
 
-const positiveInt = (raw: string | null) => {
-  const n = Number(raw)
-  return Number.isInteger(n) && n > 0 ? n : null
-}
-
 export const parseQuestionList = (
   params: URLSearchParams,
 ): QuestionListState => {
   const sort = keyForParam(SORT_PARAM, params.get("tri")) ?? "createdAt"
   const order = params.get("ordre")
-  const since = positiveInt(params.get("depuis"))
   const domain = params.get("domaine")?.trim() ?? ""
   return {
     q: params.get("q")?.trim() ?? "",
@@ -86,11 +79,11 @@ export const parseQuestionList = (
     // Un objectif n'a de sens que dans son domaine.
     objective: domain ? (params.get("objectif")?.trim() ?? "") : "",
     images: keyForParam(IMAGES_PARAM, params.get("images")) ?? "all",
-    notUsedSince: since === null ? null : Math.min(since, NOT_USED_SINCE_MAX),
+    notUsedSince: notUsedSinceParam(params.get("depuis")),
     exam: params.get("examen")?.trim() ?? "",
     sort,
     order: order === "asc" || order === "desc" ? order : FIRST_ORDER[sort],
-    page: positiveInt(params.get("page")) ?? 1,
+    page: positiveIntParam(params.get("page")) ?? 1,
   }
 }
 

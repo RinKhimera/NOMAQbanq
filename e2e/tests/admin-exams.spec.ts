@@ -3,6 +3,8 @@ import { AdminExamsPage } from "../pages/admin-exams.page"
 
 const SECRET = process.env.E2E_RESET_SECRET
 const PREFIX = "[E2E] Admin examens"
+const STUDENT_EMAIL =
+  process.env.E2E_USER_EMAIL ?? "e2e.student@nomaqtest.local"
 
 test.describe("Admin — examens blancs", () => {
   test.describe.configure({ mode: "serial" })
@@ -92,5 +94,60 @@ test.describe("Admin — examens blancs", () => {
     await page.getByTestId("btn-delete-exam-confirm").click()
     await page.waitForURL(/\/admin\/examens$/, { timeout: 15_000 })
     await expect(page.getByText(title)).toHaveCount(0)
+  })
+
+  test("copie d'un étudiant : rang, filtre, puis suppression de la participation", async ({
+    page,
+    request,
+  }) => {
+    test.skip(!SECRET, "E2E_RESET_SECRET requis")
+    // Examen clos, 4 questions, une copie de l'étudiant : index pairs justes.
+    const seed = await request.post("/api/e2e", {
+      data: {
+        secret: SECRET,
+        action: "seed-exam",
+        title: `${PREFIX} copie ${Date.now()}`,
+        questionCount: 4,
+        closed: true,
+        completedFor: STUDENT_EMAIL,
+      },
+    })
+    const { examId, participationId } = await seed.json()
+    expect(participationId).toBeTruthy()
+
+    await page.goto(`/admin/examens/${examId}`)
+    await page.getByTestId(`btn-view-copy-${participationId}`).click()
+    await page.waitForURL(/\/resultats\//)
+    await expect(page.getByTestId("copy-rank")).toHaveText("Rang 1 sur 1")
+    await expect(page.locator('[data-testid^="copy-row-"]')).toHaveCount(4)
+    await page.getByTestId("copy-filter-wrong").click()
+    await expect(page.locator('[data-testid^="copy-row-"]')).toHaveCount(2)
+
+    await page.getByTestId("btn-delete-participation").click()
+    await page.getByTestId("btn-delete-participation-confirm").click()
+    await page.waitForURL(new RegExp(`/admin/examens/${examId}$`))
+    await expect(page.getByTestId("leaderboard-empty")).toBeVisible()
+  })
+
+  test("désactiver puis réactiver un examen", async ({ page, request }) => {
+    test.skip(!SECRET, "E2E_RESET_SECRET requis")
+    const seed = await request.post("/api/e2e", {
+      data: {
+        secret: SECRET,
+        action: "seed-exam",
+        title: `${PREFIX} désactivation ${Date.now()}`,
+        questionCount: 3,
+        closed: true,
+      },
+    })
+    const { examId } = await seed.json()
+
+    await page.goto(`/admin/examens/${examId}`)
+    await expect(page.getByTestId("exam-badges")).toContainText("Terminé")
+    await page.getByTestId("btn-deactivate-exam").click()
+    await page.getByTestId("btn-deactivate-exam-confirm").click()
+    await expect(page.getByTestId("exam-badges")).toContainText("Désactivé")
+    await page.getByTestId("btn-reactivate-exam").click()
+    await expect(page.getByTestId("exam-badges")).toContainText("Terminé")
   })
 })

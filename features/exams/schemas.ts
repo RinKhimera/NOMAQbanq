@@ -12,6 +12,10 @@ export const MIN_PAUSE_MINUTES = 1
 export const MAX_PAUSE_MINUTES = 60
 export const DEFAULT_PAUSE_MINUTES = 15
 
+/** Audience d'un examen : abonnés Examens, ou liste restreinte. */
+export const EXAM_AUDIENCES = ["subscribers", "restricted"] as const
+export type ExamAudienceType = (typeof EXAM_AUDIENCES)[number]
+
 const examFields = {
   title: z
     .string()
@@ -67,7 +71,7 @@ export const saveExamSchema = z
       .optional(),
     enablePause: z.boolean(),
     pauseDurationMinutes: examFields.pauseDurationMinutes,
-    audienceType: z.enum(["subscribers", "restricted"]),
+    audienceType: z.enum(EXAM_AUDIENCES),
     audienceUserIds: z.array(z.string().min(1)).max(5000),
   })
   .refine(
@@ -97,8 +101,14 @@ export const composeQuestionsSchema = z.object({
     .max(MAX_EXAM_QUESTIONS, `Au plus ${MAX_EXAM_QUESTIONS} questions`),
 })
 
-export const finalizePreparedExamSchema = z.object({
+/** Une action qui ne vise qu'un examen (finaliser, aperçu de complétion). */
+export const examIdSchema = z.object({
   examId: z.string().min(1),
+})
+
+export const deleteExamSchema = examIdSchema.extend({
+  /** Participations vues par l'admin en confirmant. */
+  expectedParticipations: z.number().int().min(0),
 })
 
 export const saveExamAnswerSchema = z.object({

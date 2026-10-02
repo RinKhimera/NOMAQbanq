@@ -3,10 +3,15 @@
 import { Pencil } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import {
+  countLabel,
+  formatCount,
+} from "@/components/admin/question-detail/labels"
 import { SearchInput } from "@/components/shared/search-input"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
 import type { ExamAudienceUser } from "@/features/exams/dal"
+import { NBSP } from "@/lib/format"
 import { foldForSearch } from "@/lib/search"
 import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import { DetailCard } from "./detail-card"
@@ -47,13 +52,13 @@ export const RestrictedAudienceCard = ({
     <DetailCard
       testId="restricted-audience-card"
       eyebrow="Audience restreinte"
-      title={`${n.toLocaleString("fr-CA")} étudiant${n > 1 ? "s" : ""} sur la liste`}
+      title={`${countLabel(n, "étudiant")} sur la liste`}
       description="Seules ces personnes peuvent passer l'examen, sans abonnement. Elles le voient dans leur liste d'examens."
       action={<EditAudience href={editHref} />}
     >
       {n === 0 ? (
         <p className="text-ink-3 px-5 pb-6 text-sm md:px-6">
-          Liste vide : personne ne peut passer cet examen.
+          Liste vide : personne ne peut passer cet examen.
         </p>
       ) : (
         <>
@@ -109,7 +114,7 @@ export const SubscribersAudienceCard = ({
     testId="subscribers-audience-card"
     eyebrow="Audience"
     title="Abonnés Examens"
-    description={`Tous les étudiants avec un accès Examens actif au moment du démarrage : ${eligible.toLocaleString("fr-CA")} aujourd'hui.`}
+    description={`Tous les étudiants avec un accès Examens actif au moment du démarrage${NBSP}: ${formatCount(eligible)} aujourd'hui.`}
     action={<EditAudience href={editHref} />}
   />
 )

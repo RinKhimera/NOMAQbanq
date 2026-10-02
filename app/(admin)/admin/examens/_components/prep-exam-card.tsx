@@ -4,6 +4,7 @@ import ExamStatusBadge from "@/components/admin/exam-status-badge"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
+import { examEditHref } from "@/constants/exam-routes"
 import {
   calendarDaysUntil,
   examReadiness,
@@ -14,7 +15,6 @@ import { formatDayMonth } from "@/lib/format"
 import { TONE_COLOR } from "@/lib/tone"
 import { TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
-import { examEditHref } from "./exam-routes"
 import { ExamTitleLink } from "./exam-title-link"
 import type { OverviewExam } from "./exams-overview-model"
 import { inDaysLabel } from "./exams-overview-model"

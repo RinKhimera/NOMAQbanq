@@ -197,7 +197,7 @@ export const SelectionColumn = ({
                                 onClick={() =>
                                   onRemove(`remove:${q.id}`, [q.id])
                                 }
-                                aria-label={`Retirer : ${q.question.slice(0, 80)}`}
+                                aria-label={`Retirer : ${q.question.slice(0, 80)}`}
                                 className={TOUCH_HEIGHT}
                                 data-testid="btn-composer-remove"
                               >
