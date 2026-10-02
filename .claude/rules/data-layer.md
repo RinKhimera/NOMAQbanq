@@ -86,8 +86,8 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
 - **Passation d'examen — invariante d'accès** : le contenu des questions n'est
   livré/écrit que pour une participation `in_progress` (créée par `startExam`,
   seul à vérifier finalisation + audience + fenêtre + accès + examen actif à
-  la création).
-  Désactiver un examen ferme les NOUVELLES participations et le rend
+  la création ; seuls l'audience et l'accès sont levés pour un admin).
+  Désactiver un examen ferme les NOUVELLES participations, admin compris, et le rend
   introuvable à qui n'y a pas participé (page, liste, classement), sans couper
   une épreuve en cours : `requireAttempt` ne lit pas `isActive`,
   volontairement, et la liste garde l'examen pour son participant. La page evaluation

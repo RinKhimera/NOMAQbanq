@@ -703,9 +703,9 @@ export type StartExamResult =
   | { success: false; error: string }
 
 /**
- * [Auth] Démarre (ou reprend) un examen. Garde accès payant (bypass admin),
- * fenêtre de dates, une seule participation (idempotent si en cours, refus si
- * déjà passé). Verrou de ligne user → sérialise les démarrages concurrents.
+ * [Auth] Démarre (ou reprend) un examen. Garde accès payant et audience
+ * (bypass admin) ; finalisation, examen actif et fenêtre de dates pour tous ;
+ * une seule participation (idempotent si en cours, refus si déjà passé). Verrou de ligne user → sérialise les démarrages concurrents.
  * Pré-crée les lignes examAnswers (une par question) avec selectedAnswer=null.
  */
 export const startExam = async ({
@@ -814,8 +814,9 @@ export const startExam = async ({
       }
 
       // Après la reprise ci-dessus : désactiver un examen ferme les nouvelles
-      // participations sans couper une épreuve en cours.
-      if (!exam.isActive && !isAdmin) throw new Error("EXAM_INACTIVE")
+      // participations sans couper une épreuve en cours. Admin compris : sa
+      // participation compterait dans le classement et les chiffres de la fiche.
+      if (!exam.isActive) throw new Error("EXAM_INACTIVE")
 
       const participationId = createId()
       await tx.insert(examParticipations).values({

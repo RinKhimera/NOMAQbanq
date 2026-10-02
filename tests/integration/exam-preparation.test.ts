@@ -698,17 +698,19 @@ describe("modifier un examen finalisé", () => {
 })
 
 describe("désactivé et en préparation", () => {
-  it("finaliser un examen désactivé ne l'ouvre pas", async () => {
+  it("finaliser un examen désactivé ne l'ouvre pas, admin compris", async () => {
     const examId = await saveComplete()
     await db.update(exams).set({ isActive: false }).where(eq(exams.id, examId))
 
     expect(await finalizePreparedExam({ examId })).toEqual({ success: true })
 
-    asUser(STUDENT_ID)
-    expect(await startExam({ examId })).toEqual({
-      success: false,
-      error: "Cet examen n'est plus disponible.",
-    })
+    for (const asViewer of [() => asUser(STUDENT_ID), asAdmin]) {
+      asViewer()
+      expect(await startExam({ examId })).toEqual({
+        success: false,
+        error: "Cet examen n'est plus disponible.",
+      })
+    }
   })
 })
 

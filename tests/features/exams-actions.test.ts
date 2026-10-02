@@ -413,27 +413,34 @@ describe("startExam", () => {
     expect(res).toMatchObject({ success: true, startedAt: NOW })
   })
 
-  it("examen désactivé : refuse une nouvelle participation", async () => {
-    setRows({
-      user: [{ id: "u1" }],
-      exams: [
-        {
-          startDate: new Date(0),
-          finalizedAt: new Date(0),
-          endDate: new Date(10_000),
-          audienceType: "restricted",
-          isActive: false,
-        },
-      ],
-      examAudience: [{ userId: "u1" }],
-      examParticipations: [],
-      examQuestions: [{ questionId: "q1" }],
-    })
-    expect(await startExam({ examId: "e1" })).toEqual({
-      success: false,
-      error: "Cet examen n'est plus disponible.",
-    })
-  })
+  it.each([
+    ["étudiant", "user"],
+    ["admin", "admin"],
+  ])(
+    "examen désactivé : refuse une nouvelle participation (%s)",
+    async (_label, role) => {
+      mocks.session.current = { user: { id: "u1", role } }
+      setRows({
+        user: [{ id: "u1" }],
+        exams: [
+          {
+            startDate: new Date(0),
+            finalizedAt: new Date(0),
+            endDate: new Date(10_000),
+            audienceType: "restricted",
+            isActive: false,
+          },
+        ],
+        examAudience: [{ userId: "u1" }],
+        examParticipations: [],
+        examQuestions: [{ questionId: "q1" }],
+      })
+      expect(await startExam({ examId: "e1" })).toEqual({
+        success: false,
+        error: "Cet examen n'est plus disponible.",
+      })
+    },
+  )
 
   // Borne du glossaire (« examen ouvert » = date de fin non passée) : cas
   // jumeaux à 1 ms près, comme la garde answer/close.

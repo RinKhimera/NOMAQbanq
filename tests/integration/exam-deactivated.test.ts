@@ -133,12 +133,15 @@ describe("examen désactivé", () => {
     expect(rows).toHaveLength(0)
   })
 
-  it("startExam laisse un admin démarrer", async () => {
+  it("startExam refuse aussi un admin", async () => {
     const examId = await seedExam()
     await deactivate(examId)
     asUser(ADMIN_ID, "admin")
 
-    expect((await startExam({ examId })).success).toBe(true)
+    expect(await startExam({ examId })).toEqual({
+      success: false,
+      error: "Cet examen n'est plus disponible.",
+    })
   })
 
   it("se lit comme introuvable pour un non-admin sans participation", async () => {
