@@ -70,7 +70,7 @@ export function UserMultiSelect({
       renderOption={(u) => (
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{u.name}</p>
-          <p className="text-muted-foreground truncate text-xs">{u.email}</p>
+          <p className="text-ink-3 truncate text-xs">{u.email}</p>
         </div>
       )}
       search={query}
@@ -85,12 +85,12 @@ export function UserMultiSelect({
       loadingText="Recherche..."
       disabled={disabled}
       triggerIcon={Users}
-      triggerClassName="rounded-xl"
+      triggerClassName="rounded-md"
       chipsFirst
       modal
       listFooter={
         results.length >= SEARCH_LIMIT && (
-          <p className="text-muted-foreground border-t px-3 py-2 text-center text-xs">
+          <p className="text-ink-3 border-t px-3 py-2 text-center text-xs">
             Affinez la recherche pour voir plus de résultats
           </p>
         )

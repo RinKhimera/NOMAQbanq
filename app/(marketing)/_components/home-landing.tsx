@@ -107,7 +107,7 @@ const OfferCard = ({ totalQuestions }: { totalQuestions: string }) => (
           Entraînement, examens blancs, suivi
         </p>
       </div>
-      <Badge variant="badge" className="font-mono">
+      <Badge variant="accent" className="font-mono">
         {totalQuestions} QCM
       </Badge>
     </div>

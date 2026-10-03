@@ -42,8 +42,6 @@ export const profileSchema = z.object({
   bio: bioSchema.optional(),
 })
 
-export type ProfileFormValues = z.infer<typeof profileSchema>
-
 export const updateUserRoleSchema = z.object({
   userId: z.string().min(1, "Utilisateur requis"),
   role: z.enum(["user", "admin"]),

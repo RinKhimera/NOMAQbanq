@@ -8,17 +8,6 @@ export type QuestionCardVariant = "default" | "exam" | "review"
 // arriver en différé via `lazy*`.
 export type { QuizQuestion } from "@/components/quiz/runner/types"
 
-export type QuestionActionType =
-  "view" | "edit" | "delete" | "add" | "remove" | "permanent-delete"
-
-export type ActionConfig = {
-  type: QuestionActionType
-  label: string
-  icon: ReactNode
-  variant?: "default" | "destructive"
-  onClick: () => void
-}
-
 /**
  * `muted` : choix ni retenu ni juste, une fois la correction affichée. Une clé
  * retenue n'a pas d'état propre : la réponse reste `selected`, rien n'est
@@ -85,9 +74,6 @@ export type QuestionCardProps = {
    * seulement (fiche, aperçu) : jamais en passation.
    */
   revealExplanationImages?: boolean
-
-  // === Admin ===
-  actions?: ActionConfig[]
 
   className?: string
 }

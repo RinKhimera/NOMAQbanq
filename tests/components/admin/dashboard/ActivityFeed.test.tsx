@@ -1,12 +1,7 @@
 import { render, screen } from "@testing-library/react"
-import { type ComponentProps, type ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { type ComponentProps } from "react"
+import { describe, expect, it } from "vitest"
 import { ActivityFeed } from "@/components/admin/dashboard/activity-feed"
-
-// Radix ScrollArea (ResizeObserver) -> stub passthrough en happy-dom.
-vi.mock("@/components/ui/scroll-area", () => ({
-  ScrollArea: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}))
 
 type Activities = ComponentProps<typeof ActivityFeed>["activities"]
 

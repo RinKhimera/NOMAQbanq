@@ -10,21 +10,17 @@ import {
 } from "@/lib/app-zone"
 import {
   formatCalendarDay,
-  formatCompactDateTime,
   formatCountdown,
   formatCurrency,
   formatDateTime,
   formatDayMonth,
   formatDeadline,
-  formatDuration,
   formatExpiration,
   formatFileTimestamp,
   formatFullDateTime,
   formatIsoDay,
-  formatLongDateTime,
   formatMediumDate,
   formatMonthYear,
-  formatPaddedMediumDate,
   formatPercent,
   formatPresentmentAmount,
   formatShortDate,
@@ -294,13 +290,6 @@ describe("formatMediumDate", () => {
   })
 })
 
-describe("formatLongDateTime", () => {
-  it("formate en « d MMMM yyyy à HH:mm »", () => {
-    const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
-    expect(formatLongDateTime(timestamp)).toBe("15 mars 2024 à 10:05")
-  })
-})
-
 describe("formatFullDateTime", () => {
   it("formate la variante PPP avec l'heure", () => {
     const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
@@ -315,23 +304,6 @@ describe("formatDeadline", () => {
     const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
     expect(formatDeadline(timestamp)).toBe(
       "15 mars 2024 à 10:05 (heure de l'Est)",
-    )
-  })
-})
-
-describe("formatCompactDateTime", () => {
-  it("formate en date + heure compactes", () => {
-    const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
-    const result = formatCompactDateTime(timestamp)
-    expect(result).toContain("15/03/2024")
-    expect(result).toContain("10:05")
-  })
-})
-
-describe("formatPaddedMediumDate", () => {
-  it("préfixe le jour d'un zéro", () => {
-    expect(formatPaddedMediumDate(new Date("2024-07-03T12:00:00Z"))).toBe(
-      "03 juil. 2024",
     )
   })
 })
@@ -605,14 +577,6 @@ describe("formatIsoDay", () => {
 
   it("rend l'entrée telle quelle quand elle n'est pas un jour ISO", () => {
     expect(formatIsoDay("pas une date")).toBe("pas une date")
-  })
-})
-
-describe("formatDuration", () => {
-  it("heures et minutes au-delà d'une heure, minutes seules en dessous", () => {
-    expect(formatDuration((2 * 60 + 5) * 60_000)).toBe("2h 5min")
-    expect(formatDuration(42 * 60_000 + 30_000)).toBe("42 minutes")
-    expect(formatDuration(0)).toBe("0 minutes")
   })
 })
 

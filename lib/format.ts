@@ -163,13 +163,6 @@ export const formatCountdown = (ms: number): string => {
   return `${minutes} min ${String(seconds % 60).padStart(2, "0")} s`
 }
 
-/** Durée restante : « 2h 5min », ou « 42 minutes » sous l'heure. */
-export const formatDuration = (ms: number): string => {
-  const hours = Math.floor(ms / (1000 * 60 * 60))
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
-  return hours > 0 ? `${hours}h ${minutes}min` : `${minutes} minutes`
-}
-
 /** « 27-09-2026_09-05 » — suffixe de nom de fichier d'export. */
 export const formatFileTimestamp = (d: Date): string =>
   format(d, "dd-MM-yyyy_HH-mm")
@@ -204,11 +197,6 @@ export const formatMediumDate = (d: Date | number | string): string => {
 export const formatLongDate = (d: Date | number | string): string =>
   format(inAppZone(d), "d MMMM yyyy", { locale: fr })
 
-/** « 3 juillet 2026 à 14:05 » — panneaux de détail. */
-export const formatLongDateTime = (d: Date | number | string): string => {
-  return format(inAppZone(d), "d MMMM yyyy 'à' HH:mm", { locale: fr })
-}
-
 /** « 3 juillet 2026 à 14:05 » (variante PPP) — détails examen. */
 export const formatFullDateTime = (d: Date | number | string): string => {
   return format(inAppZone(d), "PPP 'à' HH:mm", { locale: fr })
@@ -221,16 +209,6 @@ export const formatFullDateTime = (d: Date | number | string): string => {
  */
 export const formatDeadline = (d: Date | number | string): string =>
   `${formatFullDateTime(d)} (${APP_TIME_ZONE_LABEL})`
-
-/** « 03/07/2026, 14:05 » — lignes compactes (leaderboard, tables). */
-export const formatCompactDateTime = (d: Date | number | string): string => {
-  return format(inAppZone(d), "Pp", { locale: fr })
-}
-
-/** « 03 juil. 2026 » (jour zéro-préfixé) — boutons d'ouverture d'examen. */
-export const formatPaddedMediumDate = (d: Date | number | string): string => {
-  return format(inAppZone(d), "dd MMM yyyy", { locale: fr })
-}
 
 /** « vendredi 3 juillet 2026 » — sous-titres de page. */
 export const formatWeekdayLongDate = (d: Date | number | string): string => {

@@ -322,7 +322,7 @@ export const QuestionDetailClient = ({
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-0 flex-[1_1_360px] flex-col items-start gap-2">
-          <Badge variant="badge">{q.domain}</Badge>
+          <Badge variant="accent">{q.domain}</Badge>
           <h1 className="type-h3 text-ink wrap-anywhere">{q.objectifCMC}</h1>
           <span className="text-ink-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem]">
             <span>

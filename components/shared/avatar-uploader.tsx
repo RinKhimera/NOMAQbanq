@@ -268,7 +268,7 @@ export const AvatarUploader = ({
           {imageSrc && (
             <div className="space-y-4">
               {/* Crop area */}
-              <div className="bg-muted relative h-64 w-full overflow-hidden rounded-lg">
+              <div className="bg-surface-2 relative h-64 w-full overflow-hidden rounded-lg">
                 <Cropper
                   image={imageSrc}
                   crop={crop}

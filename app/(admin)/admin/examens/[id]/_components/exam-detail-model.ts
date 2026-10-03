@@ -3,7 +3,6 @@ import {
   formatCount,
 } from "@/components/admin/question-detail/labels"
 import type { StatBandItem } from "@/components/shared/stat-band"
-import { examCopyHref } from "@/constants/exam-routes"
 import type {
   AdminExam,
   ExamFigures,
@@ -29,8 +28,6 @@ export type DetailExam = AdminExam["exam"]
 
 export const examQuestionsHref = (examId: string) =>
   `/admin/questions?examen=${examId}`
-export const participantCopyHref = (examId: string, userId: string) =>
-  examCopyHref(examId, userId)
 
 /** « Terminé » ou « Désactivé » : la bande montre le bilan, pas le suivi. */
 export const isSettled = (phase: ExamStatus) =>

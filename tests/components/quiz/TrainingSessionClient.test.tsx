@@ -45,7 +45,7 @@ vi.mock("@/features/training/actions", () => ({
   completeTrainingSession,
   setQuestionBookmark,
 }))
-// Le runner complet (timers, Radix, motion) est hors sujet : on capture ses props.
+// Le runner complet (timers, Radix) est hors sujet : on capture ses props.
 vi.mock("@/components/quiz/runner/quiz-runner", () => ({
   QuizRunner: (props: Record<string, unknown>) => {
     runnerProps.current = props

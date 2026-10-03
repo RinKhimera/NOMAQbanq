@@ -47,12 +47,12 @@ export const RouteError = ({
       onRetry={reset}
       details={
         process.env.NODE_ENV === "development" && (
-          <div className="rounded-lg bg-gray-100 p-3 text-left dark:bg-gray-800">
-            <p className="font-mono text-xs text-gray-700 dark:text-gray-300">
+          <div className="bg-surface-2 rounded-md p-3 text-left">
+            <p className="text-ink-2 font-mono text-xs">
               <strong>Erreur:</strong> {error.message}
             </p>
             {error.digest && (
-              <p className="mt-1 font-mono text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-ink-3 mt-1 font-mono text-xs">
                 <strong>ID:</strong> {error.digest}
               </p>
             )}

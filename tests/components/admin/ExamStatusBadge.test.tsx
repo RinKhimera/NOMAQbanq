@@ -4,11 +4,6 @@ import { describe, expect, it, vi } from "vitest"
 import ExamStatusBadge from "@/components/admin/exam-status-badge"
 import type { ExamStatus } from "@/lib/exam-status"
 
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
-
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />

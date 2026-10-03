@@ -65,9 +65,6 @@ export type DataTableColumn<Row> = {
   cellClassName?: string
 }
 
-/** `selected` : ligne cochée ; `active` : ligne ouverte dans un panneau. */
-export type DataTableRowTone = "selected" | "active"
-
 type DataTableProps<Row> = {
   columns: DataTableColumn<Row>[]
   rows: Row[]
@@ -77,7 +74,6 @@ type DataTableProps<Row> = {
   /** Colonne épinglée à droite, toujours affichée et atteignable sans défiler. */
   action?: { label: string; cell: (row: Row) => ReactNode }
   onRowClick?: (row: Row) => void
-  rowTone?: (row: Row) => DataTableRowTone | undefined
   /** Ligne grisée ; sa colonne d'action reste pleinement lisible. */
   isRowDisabled?: (row: Row) => boolean
   /** Premier chargement, rien à afficher encore : squelette. */
@@ -100,17 +96,10 @@ const AUTO_CLASS: Record<Exclude<VisibleFrom, "never">, string> = {
   wide: "hidden @min-[54rem]:table-cell",
 }
 
-// Teintes OPAQUES : la cellule épinglée hérite du fond de sa ligne et doit
-// masquer les colonnes qui défilent dessous. Chaque teinte reproduit le rendu
-// d'une teinte translucide posée sur le fond du tableau. Chacune fixe aussi son
-// survol : sinon le `hover:bg-muted/50` translucide de `TableRow` s'applique.
-const ROW_BACKGROUND = {
-  idle: "bg-white hover:bg-[color-mix(in_oklab,var(--color-gray-50)_50%,white)] dark:bg-gray-900 dark:hover:bg-[color-mix(in_oklab,var(--color-gray-800)_30%,var(--color-gray-900))]",
-  selected:
-    "bg-[color-mix(in_oklab,var(--color-violet-50)_50%,white)] hover:bg-[color-mix(in_oklab,var(--color-violet-50)_50%,white)] shadow-[inset_3px_0_0_0_rgb(139,92,246)] dark:bg-[color-mix(in_oklab,var(--color-violet-900)_20%,var(--color-gray-900))] dark:hover:bg-[color-mix(in_oklab,var(--color-violet-900)_20%,var(--color-gray-900))]",
-  active:
-    "bg-[color-mix(in_oklab,var(--color-blue-50)_50%,white)] hover:bg-[color-mix(in_oklab,var(--color-blue-50)_50%,white)] shadow-[inset_3px_0_0_0_rgb(59,130,246)] dark:bg-[color-mix(in_oklab,var(--color-blue-900)_20%,var(--color-gray-900))] dark:hover:bg-[color-mix(in_oklab,var(--color-blue-900)_20%,var(--color-gray-900))]",
-} as const
+// Fond OPAQUE, survol compris : la cellule épinglée hérite du fond de sa ligne
+// et doit masquer les colonnes qui défilent dessous. Le survol translucide de
+// `TableRow` laisserait voir ces colonnes.
+const ROW_BACKGROUND = "bg-surface hover:bg-surface-2"
 
 function visibilityClass(
   state: ColumnVisibility,
@@ -192,7 +181,6 @@ export function DataTable<Row>({
   preferencesKey,
   action,
   onRowClick,
-  rowTone,
   isRowDisabled,
   isLoading,
   isPending = false,
@@ -248,12 +236,12 @@ export function DataTable<Row>({
     <div
       ref={containerRef}
       className={cn(
-        "@container overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900",
+        "bg-surface border-line @container overflow-hidden rounded-lg border",
         className,
       )}
     >
       {(hideableColumns.length > 0 || overflows) && (
-        <div className="flex items-center justify-end gap-1 border-b border-gray-200/80 px-3 py-1.5 dark:border-gray-700/50">
+        <div className="border-line flex items-center justify-end gap-1 border-b px-3 py-1.5">
           {overflows && (
             <>
               <ScrollButton
@@ -325,7 +313,7 @@ export function DataTable<Row>({
                 {action && (
                   <TableHead
                     className={cn(
-                      "sticky right-0 w-12.5 bg-white dark:bg-gray-900",
+                      "bg-surface sticky right-0 w-12.5",
                       edges.end && "shadow-[-10px_0_10px_-8px_rgb(0_0_0/0.35)]",
                     )}
                   >
@@ -336,7 +324,6 @@ export function DataTable<Row>({
             </TableHeader>
             <TableBody>
               {rows.map((row) => {
-                const tone = rowTone?.(row)
                 const disabled = isRowDisabled?.(row) ?? false
                 return (
                   <TableRow
@@ -344,7 +331,7 @@ export function DataTable<Row>({
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                     className={cn(
                       "transition-colors duration-150",
-                      ROW_BACKGROUND[tone ?? "idle"],
+                      ROW_BACKGROUND,
                       onRowClick && "cursor-pointer",
                       disabled && "[&>td:not([data-pinned])]:opacity-50",
                     )}
@@ -378,13 +365,13 @@ export function DataTable<Row>({
         {edges.start && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-linear-to-r from-black/10 to-transparent dark:from-black/40"
+            className="pointer-events-none absolute inset-y-0 left-0 w-4 shadow-[inset_10px_0_10px_-8px_rgb(0_0_0/0.35)]"
           />
         )}
         {edges.end && !action && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-linear-to-l from-black/10 to-transparent dark:from-black/40"
+            className="pointer-events-none absolute inset-y-0 right-0 w-4 shadow-[inset_-10px_0_10px_-8px_rgb(0_0_0/0.35)]"
           />
         )}
       </PendingRegion>

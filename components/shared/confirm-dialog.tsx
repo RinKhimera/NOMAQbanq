@@ -105,23 +105,13 @@ export const ConfirmDialog = ({
       >
         <AlertDialogHeader>
           {Icon && (
-            <div
+            <Icon
+              aria-hidden
               className={cn(
-                "mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full",
-                destructive
-                  ? "bg-red-100 dark:bg-red-900/30"
-                  : "bg-blue-100 dark:bg-blue-900/30",
+                "mx-auto mb-2 size-7",
+                destructive ? "text-danger-ink" : "text-accent-ink",
               )}
-            >
-              <Icon
-                className={cn(
-                  "h-7 w-7",
-                  destructive
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-blue-600 dark:text-blue-400",
-                )}
-              />
-            </div>
+            />
           )}
           <AlertDialogTitle className={cn("text-xl", Icon && "text-center")}>
             {title}

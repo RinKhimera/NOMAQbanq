@@ -178,5 +178,3 @@ export const MarketingHeader = () => {
     </Sheet>
   )
 }
-
-export default MarketingHeader

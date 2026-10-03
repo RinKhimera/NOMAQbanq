@@ -53,7 +53,6 @@ export default defineConfig({
         "app/**/page.tsx",
         "app/**/error.tsx",
         "app/**/not-found.tsx",
-        "providers/**",
         "tests/**",
         "lib/auth.ts",
         // Infra server-only (I/O) : couverte par les tests d'integration
@@ -89,14 +88,10 @@ export default defineConfig({
         // Marketing (display pur)
         "components/marketing/**",
         // Modals/forms lourds
-        "components/admin/question-form.tsx",
-        "components/admin/edit-question-dialog.tsx",
         "components/admin/user-multi-select.tsx",
-        "components/admin/questions-list.tsx",
         // Quiz tools (complex UI, low logic)
         "components/quiz/calculator/**",
         "components/quiz/lab-values/**",
-        "schemas/index.ts",
       ],
       thresholds: {
         statements: 80,

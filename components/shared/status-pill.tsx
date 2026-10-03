@@ -30,23 +30,6 @@ export const StatusPill = ({
   </span>
 )
 
-export const RolePill = ({
-  role,
-  className,
-}: {
-  role: string | null | undefined
-  className?: string
-}) =>
-  role === "admin" ? (
-    <StatusPill tone="admin" className={className}>
-      Administrateur
-    </StatusPill>
-  ) : (
-    <StatusPill tone="neutral" className={className}>
-      Utilisateur
-    </StatusPill>
-  )
-
 export const BannedPill = () => (
   <StatusPill tone="danger" icon={ShieldOff} data-testid="ban-badge">
     Suspendu

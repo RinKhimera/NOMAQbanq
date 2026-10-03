@@ -118,7 +118,7 @@ export function MultiCombobox<T>({
           size="sm"
           disabled={disabled}
           onClick={() => onChange([])}
-          className="h-7 text-xs text-gray-500 hover:text-gray-700"
+          className="text-ink-3 hover:text-ink h-7 text-xs"
         >
           Tout effacer
         </Button>
@@ -140,12 +140,12 @@ export function MultiCombobox<T>({
             disabled={disabled || (disableTriggerWhileLoading && isLoading)}
             className={cn(
               "w-full justify-between font-normal",
-              selected.length === 0 && "text-muted-foreground",
+              selected.length === 0 && "text-ink-3",
               triggerClassName,
             )}
           >
             <span className="flex min-w-0 items-center gap-2">
-              {TriggerIcon && <TriggerIcon className="h-4 w-4 text-gray-500" />}
+              {TriggerIcon && <TriggerIcon className="text-ink-3 h-4 w-4" />}
               <span className="truncate">
                 {selected.length === 0
                   ? placeholder
@@ -170,7 +170,7 @@ export function MultiCombobox<T>({
             />
             <CommandList>
               {isLoading ? (
-                <div className="text-muted-foreground flex items-center justify-center gap-2 py-6 text-sm">
+                <div className="text-ink-3 flex items-center justify-center gap-2 py-6 text-sm">
                   <Spinner size="sm" />
                   {loadingText}
                 </div>
@@ -218,7 +218,7 @@ export function MultiCombobox<T>({
       {!chipsFirst && chips}
 
       {isQuotaReached && maxSelectionsLabel && (
-        <p className="text-xs text-amber-600 dark:text-amber-400">
+        <p className="text-warning-ink text-xs">
           {maxSelectionsLabel(maxSelections)}
         </p>
       )}

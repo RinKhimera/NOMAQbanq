@@ -140,5 +140,3 @@ export const PauseDialog = ({
     </div>
   )
 }
-
-export default PauseDialog

@@ -19,27 +19,10 @@ import { TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { KEY_WITHHELD_MESSAGE } from "../runner/types"
 import { AnswerOptionList } from "./answer-option"
-import {
-  QuestionActions,
-  createAddAction,
-  createDeleteAction,
-  createEditAction,
-  createPermanentDeleteAction,
-  createRemoveAction,
-  createViewAction,
-} from "./question-actions"
 import { RevealPanels } from "./reveal-panels"
 import type { AnswerOptionState, QuestionCardProps } from "./types"
 
-export {
-  createViewAction,
-  createEditAction,
-  createDeleteAction,
-  createAddAction,
-  createPermanentDeleteAction,
-  createRemoveAction,
-}
-export type { ActionConfig, QuestionCardProps } from "./types"
+export type { QuestionCardProps } from "./types"
 
 const REVIEW_STATUS: Record<
   AnswerOutcome,
@@ -98,7 +81,6 @@ export const QuestionCard = ({
   showObjectifBadge = true,
   footer,
   revealExplanationImages = false,
-  actions = [],
   className,
 }: QuestionCardProps) => {
   const explanation = lazyExplanation ?? question.explanation
@@ -181,7 +163,7 @@ export const QuestionCard = ({
             <h2 className="text-ink font-mono text-xs font-normal">{label}</h2>
           )}
           {showDomainBadge && question.domain && (
-            <Badge variant="badge">{question.domain}</Badge>
+            <Badge variant="accent">{question.domain}</Badge>
           )}
           {showObjectifBadge && question.objectifCMC && (
             <Badge className="bg-objective-soft text-objective max-w-full truncate border-transparent">
@@ -249,12 +231,6 @@ export const QuestionCard = ({
                   />
                 </Button>
               )}
-            </div>
-          )}
-
-          {variant === "default" && actions.length > 0 && (
-            <div className="ml-auto">
-              <QuestionActions actions={actions} />
             </div>
           )}
         </header>
@@ -358,5 +334,3 @@ export const QuestionCard = ({
     </article>
   )
 }
-
-export default QuestionCard

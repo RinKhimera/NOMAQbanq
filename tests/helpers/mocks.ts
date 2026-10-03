@@ -1,6 +1,5 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 import { vi } from "vitest"
-import type { QuizQuestion } from "@/components/quiz/runner/types"
 
 // ===== Router Mock =====
 // Mock volontairement partiel : seuls les membres réellement appelés par les
@@ -60,43 +59,5 @@ export const mockAuthSession = (
   data: null,
   isPending: false,
   error: null,
-  ...overrides,
-})
-
-// ===== Current User Hook Mock =====
-// Reflète la forme retournée par `useCurrentUser` (wrapper de Better Auth).
-// On garde une forme simple (BetterAuthUser) ; les tests castent au besoin vers
-// le type inféré exact du hook au point d'appel de `mockReturnValue`.
-type CurrentUserReturn = {
-  currentUser: BetterAuthUser | null | undefined
-  isLoading: boolean
-  isAuthenticated: boolean
-}
-
-export const mockCurrentUser = (
-  overrides?: Partial<CurrentUserReturn>,
-): CurrentUserReturn => ({
-  currentUser: null,
-  isLoading: false,
-  isAuthenticated: false,
-  ...overrides,
-})
-
-// ===== Question Doc Factory =====
-// Forme-pont enrichie de sa correction, comme la reçoivent les composants de
-// résultats (le serveur joint `questionExplanations` à la révélation).
-export type MockQuestionDoc = QuizQuestion
-
-export const createMockQuestionDoc = (
-  overrides?: Partial<MockQuestionDoc>,
-): MockQuestionDoc => ({
-  _id: "q1",
-  question: "Quelle est la capitale de la France ?",
-  options: ["Paris", "Lyon", "Marseille", "Bordeaux"],
-  images: [],
-  correctAnswer: "Paris",
-  explanation: "Paris est la capitale de la France.",
-  objectifCMC: "Objectif 1",
-  domain: "Général",
   ...overrides,
 })

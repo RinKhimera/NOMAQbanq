@@ -340,15 +340,6 @@ export const getMyExamPercentiles = cache(
   },
 )
 
-/** [Admin] Percentile d'un étudiant à un examen ; `null` si non disponible. */
-export const getExamPercentileForUser = async (
-  examId: string,
-  userId: string,
-): Promise<number | null> => {
-  await requireRole(["admin"])
-  return (await percentilesOf(userId, [examId]))[examId] ?? null
-}
-
 // ============================================
 // Maîtrise par domaine
 // ============================================

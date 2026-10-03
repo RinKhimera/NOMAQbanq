@@ -45,13 +45,6 @@ const ZONE_FRAME = {
   },
 } satisfies Record<ShellZone, Record<string, string>>
 
-/**
- * Annule le padding du `<main>` ci-dessous : un bloc de page pleine largeur
- * (barre de passation, en-tête de résultats) s'étend jusqu'aux bords de la
- * colonne de contenu. Les deux changent ensemble.
- */
-export const SHELL_BLEED = "-mx-4 -mt-6 sm:-mx-6 md:-mt-8"
-
 type ShellFrameProps = {
   zone: ShellZone
   /** Bandeau collant au-dessus de tout (AdminBar). */

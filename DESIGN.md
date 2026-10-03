@@ -18,7 +18,7 @@ Design system : **NOMAQbanq v2 « Manuel »**, direction A — éditorial acadé
 
 ## 2. Jetons
 
-Définis dans `app/globals.css` (palette brute, sémantique clair/sombre, alias shadcn ; source : `prototypes/_ds/…/tokens/*.css` du handoff). **Toujours** utiliser les jetons sémantiques (`--ink`, `--line`…), jamais la palette brute dans les composants.
+Définis dans `app/globals.css` (palette brute, sémantique clair/sombre ; source : `prototypes/_ds/…/tokens/*.css` du handoff). **Toujours** utiliser les jetons sémantiques (`--ink`, `--line`…), jamais la palette brute dans les composants.
 
 ### Couleurs sémantiques
 

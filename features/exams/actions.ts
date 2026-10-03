@@ -32,9 +32,7 @@ import { drawFromBank, getBankSupply } from "../questions/dal"
 import { type SelectableUser, searchSelectableUsers } from "../users/dal"
 import { completionLines, planCompletion } from "./completion"
 import {
-  type ExamAudienceUser,
   type QuestionExplanationView,
-  getExamAudience,
   getExamQuestionExplanations,
   getRemainingSeats,
 } from "./dal"
@@ -85,14 +83,6 @@ export const loadSearchSelectableUsers = async (params: {
 }): Promise<SelectableUser[]> => {
   await requireRole(["admin"])
   return searchSelectableUsers(params)
-}
-
-/** [Admin] Audience restreinte d'un examen (pré-remplissage du picker en édition). */
-export const loadExamAudience = async (
-  examId: string,
-): Promise<ExamAudienceUser[]> => {
-  await requireRole(["admin"])
-  return getExamAudience(examId)
 }
 
 // ============================================

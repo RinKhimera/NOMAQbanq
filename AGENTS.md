@@ -85,7 +85,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 
 ## Gotchas
 
-- **motion** : Import depuis `motion/react`, pas `framer-motion`
+- **Animations** : CSS seul (`tw-animate-css`, transitions sur `--duration-*`) ; `motion` est retiré et interdit par `tests/architecture/forbidden-styles.test.ts`
 - **Icons** : `lucide-react` (primaire — utilisé partout), `@tabler/icons-react` (secondaire — surtout admin/dashboard et profil)
 - **Auth** : Better Auth (`lib/auth.ts`, route `app/api/auth/[...all]`) ; client `authClient` (`lib/auth-client.ts`)
 - **Webhooks** : Stripe -> `app/api/stripe/webhook` (signature verifiee, 500 sur erreur -> retry)

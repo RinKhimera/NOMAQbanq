@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest"
 import {
   type QuestionImage,
   QuestionImageGallery,
-  QuestionImageIndicator,
 } from "@/components/shared/question-image-gallery"
 
 vi.mock("next/image", () => ({
@@ -213,31 +212,5 @@ describe("QuestionImageGallery", () => {
       const button = container.querySelector("button")
       expect(button).toHaveClass("custom-class")
     })
-  })
-})
-
-describe("QuestionImageIndicator", () => {
-  it("returns null when no images", () => {
-    const { container } = render(<QuestionImageIndicator images={[]} />)
-    expect(container.firstChild).toBeNull()
-  })
-
-  it("returns null when images is undefined", () => {
-    const { container } = render(<QuestionImageIndicator />)
-    expect(container.firstChild).toBeNull()
-  })
-
-  it("displays count for single image", () => {
-    const images = createMockImages(1)
-    render(<QuestionImageIndicator images={images} />)
-
-    expect(screen.getByText("1")).toBeInTheDocument()
-  })
-
-  it("displays count for multiple images", () => {
-    const images = createMockImages(5)
-    render(<QuestionImageIndicator images={images} />)
-
-    expect(screen.getByText("5")).toBeInTheDocument()
   })
 })

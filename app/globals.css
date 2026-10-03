@@ -6,30 +6,15 @@
 /*
  * Jetons du design system NOMAQbanq v2 « Manuel » (DESIGN.md §2).
  *
- * Trois couches, dans cet ordre : la palette brute (jamais employée dans un
- * composant), les jetons sémantiques (clair puis sombre), puis les variables
- * shadcn en ALIAS de ces jetons. L'alias est ce qui fait changer tout le site
- * de palette, de rayons et d'ombres en une fois : les écrans encore écrits
- * sur `bg-card`, `rounded-2xl` ou `shadow-lg` prennent le nouveau style sans
- * être touchés, puis se réécrivent zone par zone. La contraction (#246)
- * retirera les alias devenus inutiles.
+ * Deux couches : la palette brute (jamais employée dans un composant), puis
+ * les jetons sémantiques (clair puis sombre), exposés en utilitaires par
+ * `@theme`. Un composant ne nomme que les jetons sémantiques.
  */
 
 /* ---- Palette brute ---- */
 :root {
-  --blue-50: #eff6ff;
-  --blue-100: #dbeafe;
-  --blue-200: #bfdbfe;
-  --blue-300: #93c5fd;
-  --blue-400: #60a5fa;
-  --blue-500: #3b82f6;
   --blue-600: #2563eb;
   --blue-700: #1d4ed8;
-  --blue-800: #1e40af;
-  --blue-900: #1e3a8a;
-  --blue-950: #172554;
-  --indigo-400: #818cf8;
-  --indigo-600: #4f46e5;
   --emerald-50: #ecfdf5;
   --emerald-200: #a7f3d0;
   --emerald-400: #34d399;
@@ -86,7 +71,6 @@
   --accent-soft: #eef3fe;
   --accent-ink: var(--blue-700);
   --accent-fg: #ffffff;
-  --indigo: var(--indigo-600);
   --success: var(--emerald-600);
   --success-soft: var(--emerald-50);
   --success-ink: var(--emerald-700);
@@ -112,15 +96,9 @@
   --shadow-2: 0 1px 3px rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04);
   --shadow-pop: 0 12px 32px -12px rgb(15 23 42 / 0.22), 0 0 0 1px var(--line);
 
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --duration-fast: 120ms;
   --duration-base: 180ms;
   --duration-slow: 260ms;
-
-  --control-sm: 32px;
-  --control-md: 40px;
-  --control-lg: 48px;
-  --header-height: 64px;
 
   color-scheme: light;
 }
@@ -143,7 +121,6 @@
   --accent-soft: rgb(37 99 235 / 0.16);
   --accent-ink: #93b4ff;
   --accent-fg: #ffffff;
-  --indigo: var(--indigo-400);
   --success: var(--emerald-500);
   --success-soft: rgb(16 185 129 / 0.1);
   --success-ink: var(--emerald-400);
@@ -172,32 +149,6 @@
   color-scheme: dark;
 }
 
-/* ---- Alias shadcn (compatibilité jusqu'à la contraction) ---- */
-:root,
-.dark {
-  --background: var(--bg);
-  --foreground: var(--ink);
-  --card: var(--surface);
-  --card-foreground: var(--ink);
-  --popover: var(--surface);
-  --popover-foreground: var(--ink);
-  --primary: var(--accent);
-  --primary-foreground: var(--accent-fg);
-  --secondary: var(--surface-2);
-  --secondary-foreground: var(--ink);
-  --muted: var(--surface-2);
-  --muted-foreground: var(--ink-3);
-  --destructive: var(--danger);
-  --border: var(--line);
-  --input: var(--line-strong);
-  --ring: var(--accent);
-  --chart-1: var(--accent);
-  --chart-2: var(--success);
-  --chart-3: var(--warning);
-  --chart-4: var(--danger);
-  --chart-5: var(--objective);
-}
-
 @theme inline {
   /* Polices : variables posées sur <html> par next/font (app/layout.tsx). */
   --font-sans:
@@ -206,13 +157,11 @@
   --font-serif: var(--font-source-serif), Georgia, "Times New Roman", serif;
   --font-mono:
     var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  /* Alias transitoire : les titres écrits en `font-display` sont déjà en serif. */
-  --font-display: var(--font-source-serif), Georgia, "Times New Roman", serif;
 
   /*
    * Rayons « angles presque droits » : 2 badges · 3 lettres A–E · 4 contrôles
-   * · 6 cartes et dialogues. Les paliers xl et au-delà sont rabattus sur 6 px
-   * pour que les écrans encore en `rounded-2xl`/`3xl` suivent, sans les toucher.
+   * · 6 cartes et dialogues. Les paliers xl et au-delà restent plafonnés à
+   * 6 px : un `rounded-2xl` écrit par réflexe ne sort pas de la charte.
    */
   --radius-xs: 2px;
   --radius-sm: 3px;
@@ -223,7 +172,11 @@
   --radius-3xl: 6px;
   --radius-4xl: 6px;
 
-  /* Ombres : la structure vient des filets ; une ombre seulement pour ce qui flotte. */
+  /*
+   * Ombres : la structure vient des filets ; une ombre seulement pour ce qui
+   * flotte. Les paliers Tailwind (`shadow-xs` … `2xl`) restent plafonnés aux
+   * trois ombres du thème, pour la même raison que les rayons.
+   */
   --shadow-1: var(--shadow-1);
   --shadow-2: var(--shadow-2);
   --shadow-pop: var(--shadow-pop);
@@ -271,30 +224,6 @@
   --color-objective: var(--objective);
   --color-objective-soft: var(--objective-soft);
   --color-overlay: var(--overlay);
-  --color-pattern-dot: var(--pattern-dot);
-
-  /* Alias shadcn */
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-
-  --ease-standard: var(--ease-standard);
 }
 
 /*
@@ -421,7 +350,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-line;
   }
   /* La place de la barre est réservée : pas de saut horizontal entre une page courte et une longue. */
   html {

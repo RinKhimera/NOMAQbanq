@@ -3,8 +3,6 @@ import { type VariantProps, cva } from "class-variance-authority"
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-// `badge` et `success_badge` : alias hérités, rendus au nouveau style jusqu'à
-// la contraction.
 const badgeVariants = cva(
   "focus-ring inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-xs border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] aria-invalid:border-danger [&>svg]:pointer-events-none [&>svg]:size-3",
   {
@@ -16,8 +14,7 @@ const badgeVariants = cva(
           "bg-surface-2 text-ink-2 [a&]:hover:bg-line border-transparent",
         destructive: "border-danger-line bg-danger-soft text-danger-ink",
         outline: "border-line-strong text-ink-2 [a&]:hover:bg-surface-2",
-        badge: "bg-accent-soft text-accent-ink border-transparent",
-        success_badge: "border-success-line bg-success-soft text-success-ink",
+        accent: "bg-accent-soft text-accent-ink border-transparent",
       },
     },
     defaultVariants: {

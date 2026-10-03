@@ -9,10 +9,7 @@ import {
   questions,
   user,
 } from "@/db/schema"
-import {
-  getExamPercentileForUser,
-  getMyExamPercentiles,
-} from "@/features/analytics/dal"
+import { getMyExamPercentiles } from "@/features/analytics/dal"
 import { getExamLeaderboard } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
@@ -289,34 +286,6 @@ describe("percentile d'examen", () => {
     await withholdScore(examId, userIds[0]!)
     asUser(userIds[0])
     expect((await getMyExamPercentiles())[examId]).toBeNull()
-  })
-})
-
-describe("percentile d'examen côté admin", () => {
-  it("lit le percentile d'un étudiant", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-      { score: 60 },
-    ])
-    asUser(createId(), "admin")
-    expect(await getExamPercentileForUser(examId, userIds[3]!)).toBe(100)
-  })
-
-  it("est refusé à un étudiant", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-      { score: 60 },
-    ])
-    asUser(userIds[0])
-    await expect(
-      getExamPercentileForUser(examId, userIds[1]!),
-    ).rejects.toThrow()
   })
 })
 

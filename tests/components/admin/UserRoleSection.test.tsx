@@ -18,11 +18,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("sonner", () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError },
 }))
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
-
 const baseUser = {
   id: "user-1",
   name: "Marie Curie",

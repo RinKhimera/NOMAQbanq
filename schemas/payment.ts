@@ -58,8 +58,3 @@ export interface AccessInfo {
   expiresAt: number
   daysRemaining: number
 }
-
-export interface MyAccessStatus {
-  examAccess: AccessInfo | null
-  trainingAccess: AccessInfo | null
-}

@@ -51,9 +51,7 @@ export const ErrorState = ({
     <div
       className={cn(
         "flex items-center justify-center p-4",
-        variant === "page"
-          ? "min-h-screen bg-gray-50 dark:bg-gray-900"
-          : "min-h-40",
+        variant === "page" ? "bg-background min-h-screen" : "min-h-40",
       )}
     >
       <div
@@ -61,18 +59,12 @@ export const ErrorState = ({
         className={cn(
           "w-full max-w-lg space-y-4 text-center",
           variant === "page" &&
-            "bg-card rounded-xl border p-6 shadow-sm dark:border-gray-800",
+            "bg-surface border-line shadow-1 rounded-lg border p-6",
         )}
       >
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-          <Icon className="h-8 w-8 text-red-600 dark:text-red-400" />
-        </div>
-        <Heading className="text-xl font-semibold text-gray-900 dark:text-white">
-          {title}
-        </Heading>
-        {description && (
-          <p className="text-gray-600 dark:text-gray-400">{description}</p>
-        )}
+        <Icon aria-hidden className="text-danger-ink mx-auto size-8" />
+        <Heading className="text-ink text-xl font-semibold">{title}</Heading>
+        {description && <p className="text-ink-2">{description}</p>}
         {details}
         {(retry || actions) && (
           <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
@@ -80,9 +72,7 @@ export const ErrorState = ({
             {actions}
           </div>
         )}
-        {footnote && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">{footnote}</p>
-        )}
+        {footnote && <p className="text-ink-3 text-xs">{footnote}</p>}
       </div>
     </div>
   )

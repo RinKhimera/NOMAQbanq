@@ -14,50 +14,10 @@ export interface Testimonial {
 export type ExamStatus =
   "preparation" | "active" | "upcoming" | "completed" | "inactive"
 
-/**
- * Forme native d'un examen : convention `_id` / `_creationTime` de la « forme
- * pont » renvoyée par les DAL Drizzle, plus les colonnes de la table `exams`.
- */
-export type ExamDoc = {
-  _id: string
-  _creationTime: number
-  title: string
-  description?: string
-  startDate: number
-  endDate: number
-  questionIds: string[]
-  completionTime: number
-  enablePause?: boolean
-  pauseDurationMinutes?: number
-  isActive: boolean
-  createdBy: string
-}
-
 export type ExamStatusConfig = {
   label: string
   tone: StatusTone
   icon: LucideIcon
-}
-
-/**
- * Exam type without embedded participants (V2 normalized schema)
- * Use this for admin list views and other places that don't need participant details
- */
-export type ExamWithoutParticipants = ExamDoc & {
-  participantCount: number
-}
-
-/**
- * Exam with user's participation status (V2)
- * Used by examen-blanc page to show "already taken" status
- */
-export type ExamWithUserParticipation = ExamDoc & {
-  userHasTaken: boolean
-  userParticipation: {
-    status: "in_progress" | "completed" | "auto_submitted" | undefined
-    score: number
-    completedAt: number
-  } | null
 }
 
 // ===== Navigation Types =====
@@ -65,9 +25,4 @@ export interface NavItem {
   title: string
   url: string
   icon: React.ComponentType<{ className?: string }>
-}
-
-export interface NavigationConfig {
-  navMain: NavItem[]
-  navSecondary: NavItem[]
 }

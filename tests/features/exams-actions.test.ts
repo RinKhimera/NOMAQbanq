@@ -5,7 +5,6 @@ import {
   deleteExam,
   deleteParticipation,
   finalizeExam,
-  loadExamAudience,
   loadExamQuestionExplanations,
   loadSearchSelectableUsers,
   pauseExam,
@@ -43,7 +42,6 @@ const { mocks } = vi.hoisted(() => ({
     requireAttempt: vi.fn(),
     closeAttempts: vi.fn(async () => ["p1"]),
     searchSelectableUsers: vi.fn(async () => []),
-    getExamAudience: vi.fn(async () => []),
     getExamQuestionExplanations: vi.fn(async () => []),
   },
 }))
@@ -77,7 +75,6 @@ vi.mock("@/features/users/dal", () => ({
   searchSelectableUsers: mocks.searchSelectableUsers,
 }))
 vi.mock("@/features/exams/dal", () => ({
-  getExamAudience: mocks.getExamAudience,
   getExamQuestionExplanations: mocks.getExamQuestionExplanations,
 }))
 vi.mock("@/features/questions/dal", () => ({
@@ -157,11 +154,9 @@ describe("lectures gardees", () => {
     expect(mocks.getExamQuestionExplanations).toHaveBeenCalledWith(["q1"])
   })
 
-  it("loadSearchSelectableUsers et loadExamAudience deleguent au DAL", async () => {
+  it("loadSearchSelectableUsers delegue au DAL", async () => {
     await loadSearchSelectableUsers({ query: "ali" })
-    await loadExamAudience("e1")
     expect(mocks.searchSelectableUsers).toHaveBeenCalledWith({ query: "ali" })
-    expect(mocks.getExamAudience).toHaveBeenCalledWith("e1")
   })
 
   it("readServerClock : l'heure du serveur, sans toucher la base", async () => {

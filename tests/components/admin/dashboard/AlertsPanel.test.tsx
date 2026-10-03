@@ -3,11 +3,6 @@ import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { AlertsPanel } from "@/components/admin/dashboard/alerts-panel"
 
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../../helpers/motion-mock")
-  return motionMockFactory
-})
-
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />
