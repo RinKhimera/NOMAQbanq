@@ -14,10 +14,12 @@ import { objectiveKey } from "./label"
 import {
   type CorrectQuestionObjectiveInput,
   type CreateObjectiveInput,
+  type KeepObjectiveInput,
   type MergeObjectivesInput,
   type RenameObjectiveInput,
   correctQuestionObjectiveSchema,
   createObjectiveSchema,
+  keepObjectiveSchema,
   mergeObjectivesSchema,
   objectiveIdSchema,
   renameObjectiveSchema,
@@ -232,15 +234,17 @@ export const mergeObjectives = async (
 }
 
 /**
- * [Admin] « Garder tel quel » : l'objectif est revu sans changer. Refusé si
- * une autre entrée a la même clé normalisée : elles sont à fusionner.
+ * [Admin] « Garder tel quel » : l'objectif est revu, sous un libellé
+ * éventuellement retouché (mêmes règles que le renommage). Refusé si une
+ * autre entrée a la même clé normalisée : elles sont à fusionner.
  */
 export const keepObjective = async (
-  id: string,
+  input: KeepObjectiveInput,
 ): Promise<ObjectiveWriteResult> => {
   await requireRole(["admin"])
-  const parsed = objectiveIdSchema.safeParse(id)
+  const parsed = keepObjectiveSchema.safeParse(input)
   if (!parsed.success) return firstIssue(parsed.error)
+  const { id } = parsed.data
 
   return settle("[keepObjective]", () =>
     db.transaction(async (tx) => {
@@ -250,11 +254,17 @@ export const keepObjective = async (
         throw new RefusalError(
           "Une valeur invalide se corrige question par question.",
         )
-      await assertUniqueKey(tx, entry!.label, [id])
+      const label = parsed.data.label ?? entry!.label
+      await assertUniqueKey(tx, label, [id])
       await tx
         .update(cmcObjectives)
-        .set({ reviewedAt: new Date() })
+        .set({ label, reviewedAt: new Date() })
         .where(eq(cmcObjectives.id, id))
+      if (label !== entry!.label)
+        await tx
+          .update(questions)
+          .set(mirrorLabel(label))
+          .where(eq(questions.objectiveId, id))
       return {}
     }),
   )

@@ -39,6 +39,19 @@ paths:
   reprend `QuestionDetailContent` en aperçu et le filtre « dernière
   utilisation » de la liste.
 
+## Objectifs du CMC
+
+- **`/admin/questions/objectifs`** (lien « Objectifs du CMC » de la liste) :
+  tout le référentiel arrive avec la page (`getObjectiveEntries`), groupé par
+  `objectivesBoard` (`features/objectives/groups.ts`). « À traiter » : un
+  groupe par clé normalisée (fusionner, ou garder tel quel une valeur seule,
+  rattacher / détacher), puis les valeurs invalides, corrigées question par
+  question dans un volet (chaque choix s'enregistre aussitôt). « Traités » :
+  les objectifs revus, avec renommer, fusionner dans un autre et supprimer ;
+  « Nouvel objectif » dans l'en-tête. Onglet et domaine dans l'URL
+  (`?onglet=traites&domaine=`), posés par `history.replaceState` ; les
+  écritures font `router.refresh()`.
+
 ## Examens blancs
 
 - **Liste `/admin/examens` = vue de pilotage**, sans onglets, bande ni

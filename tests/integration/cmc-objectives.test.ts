@@ -223,12 +223,23 @@ describe("création, renommage, garde et suppression", () => {
 
   it("« Garder tel quel » marque l'entrée revue, mais pas si une variante de même clé existe", async () => {
     const alone = await objectiveIdFor(label("Ictère"))
-    expect(await keepObjective(alone)).toEqual({ success: true })
+    expect(await keepObjective({ id: alone })).toEqual({ success: true })
     expect((await entry(alone))?.reviewedAt).not.toBeNull()
+
+    const retouched = await objectiveIdFor(label("ictere neonatal"))
+    const q = await newQuestion(retouched)
+    expect(
+      await keepObjective({ id: retouched, label: label("Ictère néonatal") }),
+    ).toEqual({ success: true })
+    expect(await entry(retouched)).toMatchObject({
+      label: label("Ictère néonatal"),
+      reviewedAt: expect.any(Date),
+    })
+    expect((await rowsOf([q]))[0]?.objectifCmc).toBe(label("Ictère néonatal"))
 
     const a = await objectiveIdFor(label("Hématurie"))
     await objectiveIdFor(label("hematurie"))
-    expect(await keepObjective(a)).toMatchObject({ success: false })
+    expect(await keepObjective({ id: a })).toMatchObject({ success: false })
     expect((await entry(a))?.reviewedAt).toBeNull()
   })
 

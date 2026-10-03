@@ -21,6 +21,12 @@ export const renameObjectiveSchema = z.object({
   label: objectiveLabelField,
 })
 
+export const keepObjectiveSchema = z.object({
+  id: objectiveId,
+  /** Libellé retouché ; absent, l'objectif garde le sien. */
+  label: objectiveLabelField.optional(),
+})
+
 export const mergeObjectivesSchema = z
   .object({
     keepId: objectiveId,
@@ -44,6 +50,7 @@ export const correctQuestionObjectiveSchema = z.object({
 
 export type CreateObjectiveInput = z.input<typeof createObjectiveSchema>
 export type RenameObjectiveInput = z.input<typeof renameObjectiveSchema>
+export type KeepObjectiveInput = z.input<typeof keepObjectiveSchema>
 export type MergeObjectivesInput = z.input<typeof mergeObjectivesSchema>
 export type CorrectQuestionObjectiveInput = z.input<
   typeof correctQuestionObjectiveSchema
