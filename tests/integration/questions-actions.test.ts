@@ -100,6 +100,12 @@ describe("createQuestion", () => {
       objectifCMC: TEST_OBJECTIVE_LABEL,
       objectiveNeedsFix: false,
     })
+    // Copie lue par la version précédente (build, rollback).
+    const [row] = await db
+      .select({ objectifCmc: questions.objectifCmc })
+      .from(questions)
+      .where(eq(questions.id, id))
+    expect(row?.objectifCmc).toBe(TEST_OBJECTIVE_LABEL)
   })
 
   it("refuse un objectif hors du référentiel ou à corriger", async () => {

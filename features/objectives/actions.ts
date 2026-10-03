@@ -19,6 +19,7 @@ import {
   correctQuestionObjectiveSchema,
   createObjectiveSchema,
   mergeObjectivesSchema,
+  objectiveIdSchema,
   renameObjectiveSchema,
 } from "./schemas"
 
@@ -52,6 +53,16 @@ class RefusalError extends Error {
 
 const STALE =
   "Un objectif a été modifié entre-temps. Rechargez la page et recommencez."
+
+/**
+ * Écritures sur une question : `objectif_cmc` suit le libellé, que lit
+ * encore la version précédente (build, rollback) jusqu'au `DROP COLUMN` ; la
+ * date de modification ne bouge pas, la question n'a pas changé.
+ */
+const mirrorLabel = (label: string) => ({
+  objectifCmc: label,
+  updatedAt: sql`${questions.updatedAt}`,
+})
 
 const revalidateObjectives = () => {
   revalidatePath(OBJECTIVES_HREF)
@@ -166,6 +177,10 @@ export const renameObjective = async (
         .update(cmcObjectives)
         .set({ label })
         .where(eq(cmcObjectives.id, id))
+      await tx
+        .update(questions)
+        .set(mirrorLabel(label))
+        .where(eq(questions.objectiveId, id))
       return {}
     }),
   )
@@ -199,9 +214,13 @@ export const mergeObjectives = async (
       await assertUniqueKey(tx, label, all)
       const moved = await tx
         .update(questions)
-        .set({ objectiveId: keepId, updatedAt: sql`${questions.updatedAt}` })
+        .set({ objectiveId: keepId, ...mirrorLabel(label) })
         .where(inArray(questions.objectiveId, mergeIds))
         .returning({ id: questions.id })
+      await tx
+        .update(questions)
+        .set(mirrorLabel(label))
+        .where(eq(questions.objectiveId, keepId))
       await tx.delete(cmcObjectives).where(inArray(cmcObjectives.id, mergeIds))
       await tx
         .update(cmcObjectives)
@@ -220,7 +239,8 @@ export const keepObjective = async (
   id: string,
 ): Promise<ObjectiveWriteResult> => {
   await requireRole(["admin"])
-  if (typeof id !== "string" || !id) return fail("Objectif requis")
+  const parsed = objectiveIdSchema.safeParse(id)
+  if (!parsed.success) return firstIssue(parsed.error)
 
   return settle("[keepObjective]", () =>
     db.transaction(async (tx) => {
@@ -249,7 +269,8 @@ export const deleteObjective = async (
   id: string,
 ): Promise<ObjectiveWriteResult> => {
   await requireRole(["admin"])
-  if (typeof id !== "string" || !id) return fail("Objectif requis")
+  const parsed = objectiveIdSchema.safeParse(id)
+  if (!parsed.success) return firstIssue(parsed.error)
 
   try {
     const deleted = await db
@@ -285,14 +306,24 @@ export const correctQuestionObjective = async (
 
   return settle("[correctQuestionObjective]", () =>
     db.transaction(async (tx) => {
+      const activeQuestion = and(
+        eq(questions.id, questionId),
+        isNull(questions.deletedAt),
+      )
+      const [seen] = await tx
+        .select({ objectiveId: questions.objectiveId })
+        .from(questions)
+        .where(activeQuestion)
+      if (!seen) throw new RefusalError("Question introuvable.")
+      const fromId = seen.objectiveId
+      // Objectifs puis question, comme la fusion : l'ordre inverse interbloque.
+      const entries = await lockEntries(tx, [fromId, objectiveId])
       const [question] = await tx
         .select({ objectiveId: questions.objectiveId })
         .from(questions)
-        .where(and(eq(questions.id, questionId), isNull(questions.deletedAt)))
+        .where(activeQuestion)
         .for("update")
-      if (!question) throw new RefusalError("Question introuvable.")
-      const fromId = question.objectiveId
-      const entries = await lockEntries(tx, [fromId, objectiveId])
+      if (question?.objectiveId !== fromId) throw new RefusalError(STALE)
       const from = entries.find((e) => e.id === fromId)!
       const to = entries.find((e) => e.id === objectiveId)!
       if (!from.needsFix || to.needsFix)
@@ -303,16 +334,23 @@ export const correctQuestionObjective = async (
         )
       await tx
         .update(questions)
-        .set({ objectiveId, updatedAt: sql`${questions.updatedAt}` })
+        .set({ objectiveId, ...mirrorLabel(to.label) })
         .where(eq(questions.id, questionId))
+      // Les questions supprimées retiennent l'entrée (clé étrangère) sans
+      // compter parmi celles qui restent à corriger.
       const [rest] = await tx
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
+        .select({
+          all: sql<number>`count(*)`.mapWith(Number),
+          active:
+            sql<number>`count(*) filter (where ${questions.deletedAt} is null)`.mapWith(
+              Number,
+            ),
+        })
         .from(questions)
         .where(eq(questions.objectiveId, fromId))
-      const remaining = rest?.n ?? 0
-      if (remaining === 0)
+      if ((rest?.all ?? 0) === 0)
         await tx.delete(cmcObjectives).where(eq(cmcObjectives.id, fromId))
-      return { remaining }
+      return { remaining: rest?.active ?? 0 }
     }),
   )
 }

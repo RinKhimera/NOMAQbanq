@@ -687,7 +687,13 @@ export const QuestionForm = ({
   const previewOptions = values.options.filter((o) => o.trim())
   const keyText =
     values.keyIndex !== null ? values.options[values.keyIndex] : undefined
-  const objectives = [...initialObjectives.objectives, ...createdObjectives]
+  // Un objectif créé ici revient aussi avec la page rechargée par l'action.
+  const objectives = [
+    ...initialObjectives.objectives,
+    ...createdObjectives.filter(
+      (c) => !initialObjectives.objectives.some((o) => o.id === c.id),
+    ),
+  ]
   const objectiveLabel = objectives.find(
     (o) => o.id === values.objective,
   )?.label
@@ -711,8 +717,12 @@ export const QuestionForm = ({
       })
       return
     }
-    setCreatedObjectives((list) => [...list, res.objective])
-    chooseObjective(res.objective.id)
+    adoptObjective(res.objective)
+  }
+  /** Choisit un objectif que la liste chargée avec la page peut ignorer. */
+  const adoptObjective = (objective: ObjectiveOption) => {
+    setCreatedObjectives((list) => [...list, objective])
+    chooseObjective(objective.id)
   }
 
   return (
@@ -787,7 +797,6 @@ export const QuestionForm = ({
                     setValues((v) => ({
                       ...v,
                       domain,
-                      objective: domain === v.domain ? v.objective : "",
                     }))
                   }
                 >
@@ -847,9 +856,9 @@ export const QuestionForm = ({
                         {" "}
                         <button
                           type="button"
-                          className="text-accent-ink underline underline-offset-2"
+                          className="text-accent-ink focus-ring cursor-pointer rounded-xs underline underline-offset-2"
                           onClick={() =>
-                            chooseObjective(objectiveRefusal.existing!.id)
+                            adoptObjective(objectiveRefusal.existing!)
                           }
                         >
                           Choisir « {objectiveRefusal.existing.label} »

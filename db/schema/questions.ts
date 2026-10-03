@@ -43,8 +43,9 @@ export const questions = pgTable(
     question: text("question").notNull(),
     correctAnswer: text("correct_answer").notNull(),
     options: jsonb("options").$type<string[]>().notNull(),
-    // Remplacé par `objectiveId`, ni lu ni écrit ; supprimé par une migration
-    // ultérieure, l'ancienne version le lisant encore pendant le build.
+    // Remplacé par `objectiveId` et plus jamais lu. Toute écriture y recopie
+    // le libellé de l'objectif : la version précédente le lit encore (build,
+    // rollback) jusqu'à la migration qui le supprime.
     objectifCmc: text("objectif_cmc"),
     objectiveId: text("objective_id")
       .notNull()

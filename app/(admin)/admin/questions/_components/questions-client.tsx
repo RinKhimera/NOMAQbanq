@@ -242,7 +242,7 @@ export const QuestionsClient = ({
     },
     state.objective && {
       label: "Objectif",
-      value: objectiveLabels.get(state.objective) ?? "Objectif fusionné",
+      value: objectiveLabels.get(state.objective) ?? "Objectif introuvable",
       reset: { objective: "" },
     },
     state.images !== "all" && {

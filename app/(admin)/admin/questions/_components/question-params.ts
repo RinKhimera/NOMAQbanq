@@ -76,7 +76,7 @@ export const parseQuestionList = (
     q: params.get("q")?.trim() ?? "",
     tab: keyForParam(TAB_PARAM, params.get("onglet")) ?? "all",
     domain,
-    // Un objectif n'a de sens que dans son domaine.
+    // Le filtre propose les objectifs du domaine : pas d'objectif sans lui.
     objective: domain ? (params.get("objectif")?.trim() ?? "") : "",
     images: keyForParam(IMAGES_PARAM, params.get("images")) ?? "all",
     notUsedSince: notUsedSinceParam(params.get("depuis")),

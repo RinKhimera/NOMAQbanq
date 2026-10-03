@@ -232,22 +232,25 @@ class ObjectiveRefusedError extends Error {
 const OBJECTIVE_REFUSED = "Choisissez un objectif du référentiel."
 
 /**
- * Exige un objectif du référentiel qui ne soit pas à corriger. Le verrou
- * partagé tient jusqu'à l'écriture : une fusion concurrente ne peut pas le
- * supprimer entre-temps.
+ * Exige un objectif du référentiel qui ne soit pas à corriger, et rend son
+ * libellé. Le verrou partagé tient jusqu'à l'écriture : une fusion
+ * concurrente ne peut pas le supprimer entre-temps. Il se prend AVANT celui
+ * de la question, dans l'ordre des écritures du référentiel (objectif puis
+ * questions), sans quoi une fusion concurrente interbloque.
  */
 const assertSelectableObjective = async (
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   objectiveId: string,
 ) => {
   const [objective] = await tx
-    .select({ id: cmcObjectives.id })
+    .select({ id: cmcObjectives.id, label: cmcObjectives.label })
     .from(cmcObjectives)
     .where(
       and(eq(cmcObjectives.id, objectiveId), eq(cmcObjectives.needsFix, false)),
     )
     .for("share")
   if (!objective) throw new ObjectiveRefusedError()
+  return objective.label
 }
 
 /**
@@ -270,13 +273,14 @@ export const createQuestion = async (
 
   try {
     await db.transaction(async (tx) => {
-      await assertSelectableObjective(tx, d.objectiveId)
+      const label = await assertSelectableObjective(tx, d.objectiveId)
       await tx.insert(questions).values({
         id,
         question: d.question,
         correctAnswer: d.correctAnswer,
         options: d.options,
         objectiveId: d.objectiveId,
+        objectifCmc: label,
         domain: d.domain,
       })
       await tx.insert(questionExplanations).values({
@@ -331,6 +335,7 @@ export const updateQuestion = async (
 
   try {
     const objectivesChanged = await db.transaction(async (tx) => {
+      const label = await assertSelectableObjective(tx, d.objectiveId)
       const [current] = await tx
         .select({
           question: questions.question,
@@ -370,7 +375,6 @@ export const updateQuestion = async (
       // changé pour autant.
       const clearsConfirmation =
         choicesChanged || current.question.trim() !== d.question
-      await assertSelectableObjective(tx, d.objectiveId)
 
       await tx
         .update(questions)
@@ -379,6 +383,7 @@ export const updateQuestion = async (
           correctAnswer: d.correctAnswer,
           options: d.options,
           objectiveId: d.objectiveId,
+          objectifCmc: label,
           domain: d.domain,
           ...(clearsConfirmation && {
             keyConfirmedAt: null,

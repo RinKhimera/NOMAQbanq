@@ -61,9 +61,16 @@ const rowsOf = (ids: string[]) =>
 const entry = async (id: string) =>
   (await db.select().from(cmcObjectives).where(eq(cmcObjectives.id, id)))[0]
 
-/** Tout sauf l'objectif : ce qu'une fusion ou une correction ne touche pas. */
+/**
+ * Tout sauf l'objectif et sa copie `objectif_cmc` : ce qu'une fusion ou une
+ * correction ne touche pas.
+ */
 const withoutObjective = (rows: Awaited<ReturnType<typeof rowsOf>>) =>
-  rows.map((row) => ({ ...row, objectiveId: undefined }))
+  rows.map((row) => ({
+    ...row,
+    objectiveId: undefined,
+    objectifCmc: undefined,
+  }))
 
 beforeAll(() => {
   vi.mocked(requireRole).mockResolvedValue({
@@ -203,10 +210,12 @@ describe("création, renommage, garde et suppression", () => {
   it("renomme sous les mêmes règles, sans se compter comme doublon de lui-même", async () => {
     const id = await objectiveIdFor(label("Fievre"))
     const other = await objectiveIdFor(label("Céphalée"))
+    const q = await newQuestion(id)
     expect(await renameObjective({ id, label: label("Fièvre") })).toEqual({
       success: true,
     })
     expect((await entry(id))?.label).toBe(label("Fièvre"))
+    expect((await rowsOf([q]))[0]?.objectifCmc).toBe(label("Fièvre"))
     expect(
       await renameObjective({ id, label: label("cephalee") }),
     ).toMatchObject({ success: false, existing: { id: other } })
@@ -258,6 +267,11 @@ describe("fusion", () => {
     expect(withoutObjective(after)).toEqual(withoutObjective(before))
     const objectiveOf = new Map(after.map((r) => [r.id, r.objectiveId]))
     expect(moved.map((id) => objectiveOf.get(id))).toEqual([keep, keep])
+    // Copie pour la version précédente : les questions déplacées comme celles
+    // de l'entrée gardée portent le libellé final.
+    expect(
+      after.filter((r) => r.objectiveId === keep).map((r) => r.objectifCmc),
+    ).toEqual(Array(3).fill(label("Douleur abdominale aiguë")))
     expect(objectiveOf.get(stays[1]!)).toBe(bystander)
     expect(await entry(variant)).toBeUndefined()
     expect(await entry(keep)).toMatchObject({
@@ -292,7 +306,7 @@ describe("fusion", () => {
     ).toMatchObject({ success: false })
   })
 
-  it("deux fusions simultanées sur la même entrée ne perdent aucune question", async () => {
+  it("deux fusions simultanées sur la même entrée : une issue sérialisée, aucune question perdue", async () => {
     const k = await objectiveIdFor(label("Vertige"))
     const x = await objectiveIdFor(label("Vertiges"))
     const y = await objectiveIdFor(label("Vertige rotatoire"))
@@ -303,24 +317,30 @@ describe("fusion", () => {
       await newQuestion(y),
     ]
 
-    const results = await Promise.all([
+    const [xIntoK, yIntoX] = await Promise.all([
       mergeObjectives({ keepId: k, mergeIds: [x], label: label("Vertige") }),
       mergeObjectives({ keepId: x, mergeIds: [y], label: label("Vertiges") }),
     ])
-    expect(results.some((r) => r.success)).toBe(true)
 
-    const rows = await rowsOf(ids)
-    expect(rows).toHaveLength(4)
-    const remaining = await db
-      .select({ id: cmcObjectives.id })
-      .from(cmcObjectives)
-      .where(
-        inArray(
-          cmcObjectives.id,
-          rows.map((r) => r.objectiveId),
-        ),
-      )
-    expect(new Set(rows.map((r) => r.objectiveId)).size).toBe(remaining.length)
+    // X→K ne trouve jamais X absent : il réussit toujours. Y→X réussit s'il
+    // passe le premier, sinon il voit X supprimé et refuse — jamais d'erreur
+    // serveur, que produirait la clé étrangère sans les verrous.
+    expect(xIntoK).toEqual({ success: true, moved: expect.any(Number) })
+    const objectiveOf = new Map(
+      (await rowsOf(ids)).map((r) => [r.id, r.objectiveId]),
+    )
+    const objectives = ids.map((id) => objectiveOf.get(id))
+    const yFirst = { yIntoX: { success: true }, objectives: [k, k, k, k] }
+    const xFirst = {
+      yIntoX: {
+        success: false,
+        error: expect.stringMatching(/modifié entre-temps/),
+      },
+      objectives: [k, k, k, y],
+    }
+    expect({ yIntoX, objectives }).toMatchObject(
+      yIntoX.success ? yFirst : xFirst,
+    )
   })
 })
 
@@ -342,6 +362,9 @@ describe("correction d'une valeur invalide", () => {
     const after = await rowsOf([q1!, q2!])
     expect(withoutObjective(after)).toEqual(withoutObjective(before))
     expect(after.map((r) => r.objectiveId)).toEqual([target, target])
+    expect(after.map((r) => r.objectifCmc)).toEqual(
+      Array(2).fill(label("Hémoptysie")),
+    )
     expect(await entry(invalid)).toBeUndefined()
   })
 

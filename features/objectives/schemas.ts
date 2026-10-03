@@ -3,6 +3,8 @@ import { normalizeObjectiveLabel, objectiveLabelError } from "./label"
 
 const objectiveId = z.string().trim().min(1, "Objectif requis").max(64)
 
+export const objectiveIdSchema = objectiveId
+
 /** Libellé saisi : nettoyé, puis soumis aux règles du référentiel. */
 export const objectiveLabelField = z
   .string()
