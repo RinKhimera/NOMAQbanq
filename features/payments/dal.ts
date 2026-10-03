@@ -77,6 +77,62 @@ export const getAccessStatus = cache(
   },
 )
 
+export type CheckoutPurchase = {
+  productName: string
+  /** `completed` : le webhook a écrit l'accès ; `pending` : pas encore passé. */
+  status: (typeof transactions.status.enumValues)[number]
+  /** Accès couverts par l'achat, examens d'abord ; vide hors `completed`. */
+  access: { type: AccessType; expiresAt: number }[]
+}
+
+const ACCESS_ORDER: AccessType[] = ["exam", "training"]
+
+/**
+ * Achat de l'utilisateur courant rattaché à une session Checkout, pour la page
+ * de retour de paiement. Les expirations viennent de `user_access` (cumul
+ * compris), pas du snapshot de la transaction. `null` si aucune transaction de
+ * cet utilisateur ne porte la session.
+ */
+export const getCheckoutPurchase = cache(
+  async (stripeSessionId: string): Promise<CheckoutPurchase | null> => {
+    const session = await requireSession()
+    const [purchase] = await db
+      .select({
+        productName: products.name,
+        status: transactions.status,
+        accessType: transactions.accessType,
+        isCombo: products.isCombo,
+      })
+      .from(transactions)
+      .innerJoin(products, eq(products.id, transactions.productId))
+      .where(
+        and(
+          eq(transactions.stripeSessionId, stripeSessionId),
+          eq(transactions.userId, session.user.id),
+        ),
+      )
+      .limit(1)
+    if (!purchase) return null
+
+    const { productName, status } = purchase
+    if (status !== "completed") return { productName, status, access: [] }
+
+    const covered = purchase.isCombo ? ACCESS_ORDER : [purchase.accessType]
+    const rows = await db
+      .select({
+        accessType: userAccess.accessType,
+        expiresAt: userAccess.expiresAt,
+      })
+      .from(userAccess)
+      .where(eq(userAccess.userId, session.user.id))
+    const access = covered.flatMap((type) => {
+      const row = rows.find((r) => r.accessType === type)
+      return row ? [{ type, expiresAt: row.expiresAt.getTime() }] : []
+    })
+    return { productName, status, access }
+  },
+)
+
 export type LapsedAccess = {
   /** Échéance passée de l'accès Examens (epoch ms) ; `null` = actif ou jamais eu. */
   exam: number | null

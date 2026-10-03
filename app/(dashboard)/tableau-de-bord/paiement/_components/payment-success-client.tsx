@@ -2,426 +2,363 @@
 
 import {
   ArrowRight,
-  CircleCheckBig,
-  CircleX,
+  CircleAlert,
+  CircleCheck,
   Clock,
-  CreditCard,
-  FileText,
-  House,
-  PartyPopper,
-  RefreshCw,
+  RotateCcw,
 } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
-import { toast } from "sonner"
+import { useSearchParams } from "next/navigation"
+import { type ReactNode, useEffect, useState } from "react"
 import {
   AccessBadge,
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
+import { StatusCard } from "@/components/shared/status-card"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import { verifyStripeCheckout } from "@/features/payments/actions"
-import type { AccessStatus } from "@/features/payments/dal"
-import { formatCurrency } from "@/lib/format"
+import type { AccessType } from "@/features/payments/access-ledger"
+import {
+  type VerifyCheckoutResult,
+  verifyStripeCheckout,
+} from "@/features/payments/actions"
+import { formatCurrency, formatExpiration } from "@/lib/format"
+import { callAction } from "@/lib/safe-action"
 
-type VerificationState = "loading" | "success" | "pending" | "error"
+const DAY_MS = 24 * 60 * 60 * 1000
+const POLL_INTERVAL_MS = 2000
+/** Relectures automatiques avant de rendre la main à « Vérifier à nouveau ». */
+const MAX_POLLS = { activation: 5, pending: 3 }
 
-interface VerificationResult {
-  success: boolean
-  status: string
-  customerEmail?: string | null
-  amountTotal?: number | null
-  currency?: string | null
+type GrantedAccess = {
+  type: AccessType
+  expiresAt: number
+  daysRemaining: number
+}
+
+type Receipt = {
+  productName: string | null
+  amount: string | null
+  customerEmail: string | null
+  promo: boolean
+}
+
+type View =
+  | { kind: "verifying" }
+  | { kind: "paid"; receipt: Receipt; access: GrantedAccess[] | null }
+  | { kind: "pending" }
+  | { kind: "refunded" }
+  | { kind: "error" }
+
+// payment_status Stripe : `no_payment_required` = code promo à 100 %.
+const toView = (res: VerifyCheckoutResult, now: number): View => {
+  if (!res.success) return { kind: "error" }
+  if (res.status === "unpaid") return { kind: "pending" }
+  if (res.status !== "paid" && res.status !== "no_payment_required") {
+    return { kind: "error" }
+  }
+  const purchase = res.purchase
+  if (purchase?.status === "refunded") return { kind: "refunded" }
+  if (purchase?.status === "failed") return { kind: "error" }
+  const promo = res.status === "no_payment_required"
+  return {
+    kind: "paid",
+    receipt: {
+      productName: purchase?.productName ?? null,
+      amount:
+        res.amountTotal == null
+          ? null
+          : formatCurrency(res.amountTotal, res.currency?.toUpperCase()),
+      customerEmail: promo ? null : res.customerEmail,
+      promo,
+    },
+    access:
+      purchase?.status === "completed"
+        ? purchase.access.map((a) => ({
+            ...a,
+            daysRemaining: Math.ceil((a.expiresAt - now) / DAY_MS),
+          }))
+        : null,
+  }
+}
+
+const isWaiting = (view: View) =>
+  view.kind === "pending" || (view.kind === "paid" && view.access === null)
+
+const pollLimit = (view: View) =>
+  view.kind === "pending" ? MAX_POLLS.pending : MAX_POLLS.activation
+
+const TAB_TITLE: Record<View["kind"], string> = {
+  verifying: "Vérification du paiement",
+  paid: "Paiement réussi",
+  pending: "Paiement en attente",
+  refunded: "Paiement remboursé",
+  error: "Erreur de paiement",
 }
 
 export const PaymentSuccessContent = ({
-  accessStatus,
+  supportEmail,
 }: {
-  accessStatus: AccessStatus
+  supportEmail: string
 }) => {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const sessionId = searchParams.get("session_id")
-
-  const [state, setState] = useState<VerificationState>(() =>
-    sessionId ? "loading" : "error",
+  const sessionId = useSearchParams().get("session_id")
+  const [view, setView] = useState<View>(() =>
+    sessionId ? { kind: "verifying" } : { kind: "error" },
   )
-  const [result, setResult] = useState<VerificationResult | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
+  // `round` relance une série de relectures (« Vérifier à nouveau ») ;
+  // `attempt` compte les relectures automatiques de la série.
+  const [poll, setPoll] = useState({ round: 0, attempt: 0 })
+  const [rechecking, setRechecking] = useState(false)
+  const [exhausted, setExhausted] = useState(false)
 
   useEffect(() => {
-    // La page est sous /dashboard (session garantie par le layout) ; l'action
-    // `verifyStripeCheckout` revérifie côté serveur (+ appartenance de la session).
+    document.title = `${TAB_TITLE[view.kind]} | NOMAQbanq`
+  }, [view.kind])
+
+  useEffect(() => {
     if (!sessionId) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
 
-    let timeoutId: NodeJS.Timeout | undefined
-    let isCancelled = false
-
-    const verify = async () => {
-      try {
-        const res = await verifyStripeCheckout(sessionId)
-
-        if (isCancelled) return
-
-        if (!res.success) {
-          setResult({ success: false, status: "error" })
-          setState("error")
-          return
-        }
-
-        setResult({
-          success: true,
-          status: String(res.status),
-          customerEmail: res.customerEmail,
-          amountTotal: res.amountTotal,
-          currency: res.currency,
-        })
-
-        // payment_status Stripe : "paid", "unpaid" ou "no_payment_required".
-        if (res.status === "paid" || res.status === "no_payment_required") {
-          setState("success")
-          // Re-fetch du Server Component parent : repeuple `accessStatus` une fois
-          // le webhook passé.
-          router.refresh()
-        } else if (String(res.status) === "unpaid") {
-          // Webhook might not have processed yet
-          if (retryCount < 3) {
-            setState("pending")
-            timeoutId = setTimeout(() => {
-              if (!isCancelled) {
-                setRetryCount((c) => c + 1)
-              }
-            }, 2000)
-          } else {
-            setState("pending")
-          }
-        } else {
-          setState("error")
-        }
-      } catch (error) {
-        if (isCancelled) return
-        console.error("Verification error:", error)
-        toast.error("Erreur lors de la vérification du paiement")
-        setState("error")
+    void callAction(() => verifyStripeCheckout(sessionId)).then((res) => {
+      if (cancelled) return
+      const next = toView(res, Date.now())
+      setView(next)
+      setRechecking(false)
+      const again = isWaiting(next) && poll.attempt < pollLimit(next)
+      setExhausted(isWaiting(next) && !again)
+      if (again) {
+        timer = setTimeout(
+          () => setPoll((p) => ({ ...p, attempt: p.attempt + 1 })),
+          POLL_INTERVAL_MS,
+        )
       }
-    }
-
-    verify()
+    })
 
     return () => {
-      isCancelled = true
-      if (timeoutId) clearTimeout(timeoutId)
+      cancelled = true
+      clearTimeout(timer)
     }
-  }, [sessionId, retryCount, router])
+  }, [sessionId, poll])
 
-  const handleRetry = () => {
-    setState("loading")
-    setRetryCount(0)
+  const recheck = () => {
+    setRechecking(true)
+    setPoll((p) => ({ round: p.round + 1, attempt: 0 }))
   }
 
+  const support = (
+    <a href={`mailto:${supportEmail}`} className="text-accent-ink underline">
+      {supportEmail}
+    </a>
+  )
+
   return (
-    <div className="flex min-h-[80vh] flex-col items-center justify-center p-4">
-      <AnimatePresence mode="wait">
-        {/* Loading State */}
-        {state === "loading" && (
-          <motion.div
-            key="loading"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="text-center"
-          >
-            <div className="mb-8 flex justify-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50">
-                <Spinner size="lg" />
-              </div>
-            </div>
-            <h1 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
-              Vérification du paiement...
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Veuillez patienter pendant que nous confirmons votre transaction
-            </p>
-          </motion.div>
-        )}
+    <div className="grid min-h-[min(70vh,680px)] place-items-center py-6">
+      {view.kind === "verifying" && (
+        <StatusCard busy label="Paiement" title="Vérification du paiement…">
+          <p className="text-ink-2 text-[15px] leading-relaxed">
+            Nous confirmons votre paiement auprès de Stripe. Cela prend quelques
+            secondes.
+          </p>
+        </StatusCard>
+      )}
 
-        {/* Success State */}
-        {state === "success" && (
-          <motion.div
-            key="success"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="w-full max-w-lg"
-          >
-            {/* Success animation */}
-            <div className="mb-8 flex justify-center">
-              <div className="relative">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-                  className="flex h-28 w-28 items-center justify-center rounded-3xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-2xl shadow-emerald-500/30"
-                >
-                  <CircleCheckBig className="h-14 w-14 text-white" />
-                </motion.div>
-                {/* Confetti effect */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="absolute -top-4 -right-4"
-                >
-                  <PartyPopper className="h-8 w-8 text-yellow-500" />
-                </motion.div>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <motion.h1
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="mb-3 text-3xl font-bold text-gray-900 dark:text-white"
-              >
-                Paiement réussi !
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="mb-8 text-gray-600 dark:text-gray-400"
-              >
-                Merci pour votre achat. Votre accès a été activé instantanément.
-              </motion.p>
-            </div>
-
-            {/* Payment details card */}
-            {result && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="mb-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
-              >
-                <div className="border-b border-gray-100 bg-gray-50/80 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/80">
-                  <h2 className="font-semibold text-gray-900 dark:text-white">
-                    Détails de la transaction
-                  </h2>
-                </div>
-                <div className="space-y-4 p-6">
-                  {result.amountTotal != null && (
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                        <CreditCard className="h-4 w-4" />
-                        Montant payé
-                      </span>
-                      <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(
-                          result.amountTotal,
-                          result.currency || "CAD",
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  {result.customerEmail && (
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                        <FileText className="h-4 w-4" />
-                        Reçu envoyé à
-                      </span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {result.customerEmail}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Access status */}
-            {accessStatus && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="mb-8 rounded-2xl bg-linear-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/30 dark:to-indigo-950/30"
-              >
-                <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">
-                  Vos accès actifs
-                </h3>
-                <div className="flex flex-wrap gap-3">
-                  {accessStatus.examAccess && (
-                    <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800">
-                      <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                        Examens Simulés
-                      </div>
-                      <AccessBadge
-                        accessType="exam"
-                        status={getAccessStatus(
-                          accessStatus.examAccess.expiresAt,
-                          accessStatus.examAccess.daysRemaining,
-                        )}
-                        daysRemaining={accessStatus.examAccess.daysRemaining}
-                        expiresAt={accessStatus.examAccess.expiresAt}
-                        showDetails
-                      />
-                    </div>
-                  )}
-                  {accessStatus.trainingAccess && (
-                    <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800">
-                      <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                        Banque d{"'"}Entraînement
-                      </div>
-                      <AccessBadge
-                        accessType="training"
-                        status={getAccessStatus(
-                          accessStatus.trainingAccess.expiresAt,
-                          accessStatus.trainingAccess.daysRemaining,
-                        )}
-                        daysRemaining={
-                          accessStatus.trainingAccess.daysRemaining
-                        }
-                        expiresAt={accessStatus.trainingAccess.expiresAt}
-                        showDetails
-                      />
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="flex flex-col gap-3 sm:flex-row"
-            >
-              <Button
-                asChild
-                size="lg"
-                className="h-14 w-full flex-1 rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 text-base font-bold text-white hover:opacity-90"
-              >
+      {view.kind === "paid" && (
+        <StatusCard
+          icon={CircleCheck}
+          iconTone="success"
+          label={view.receipt.promo ? "Code promo" : "Paiement"}
+          title="Paiement réussi"
+          actions={
+            <>
+              <Button asChild>
                 <Link href="/tableau-de-bord">
                   Aller au tableau de bord
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight aria-hidden />
                 </Link>
               </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-14 w-full flex-1 rounded-2xl text-base font-medium"
-              >
+              <Button asChild variant="outline">
                 <Link href="/tableau-de-bord/abonnements">
-                  Voir mon abonnement
+                  Voir mes abonnements
                 </Link>
               </Button>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {/* Pending State */}
-        {state === "pending" && (
-          <motion.div
-            key="pending"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="w-full max-w-lg text-center"
-          >
-            <div className="mb-8 flex justify-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-amber-100 to-orange-100 dark:from-amber-900/50 dark:to-orange-900/50">
-                <Clock className="h-12 w-12 text-amber-600 dark:text-amber-400" />
-              </div>
+            </>
+          }
+          help={<>Une question sur ce paiement ? Écrivez-nous à {support}.</>}
+        >
+          <ReceiptBox receipt={view.receipt} />
+          {view.access ? (
+            <AccessList access={view.access} />
+          ) : (
+            <div className="bg-surface-2 border-line flex flex-wrap items-center gap-2.5 rounded-md border px-3.5 py-3">
+              <Spinner size="sm" className="text-ink-3" />
+              <span className="text-ink text-sm">
+                Activation de votre accès…
+              </span>
+              {exhausted && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto"
+                  disabled={rechecking}
+                  onClick={recheck}
+                >
+                  Vérifier à nouveau
+                </Button>
+              )}
             </div>
+          )}
+        </StatusCard>
+      )}
 
-            <h1 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
-              Paiement en cours de traitement
-            </h1>
-            <p className="mb-8 text-gray-600 dark:text-gray-400">
-              Votre paiement a été reçu et est en cours de traitement. L{"'"}
-              accès sera activé sous quelques instants.
-            </p>
-
-            <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                Si votre accès n{"'"}est pas activé dans les prochaines minutes,
-                veuillez rafraîchir la page ou nous contacter.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button
-                size="lg"
-                onClick={handleRetry}
-                className="h-14 flex-1 rounded-2xl"
-              >
-                <RefreshCw className="mr-2 h-5 w-5" />
+      {view.kind === "pending" && (
+        <StatusCard
+          icon={Clock}
+          iconTone="warning"
+          label="En attente"
+          title="Paiement en cours de confirmation"
+          actions={
+            <>
+              <Button disabled={rechecking} onClick={recheck}>
+                {rechecking ? <Spinner size="sm" /> : <RotateCcw aria-hidden />}
                 Vérifier à nouveau
               </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-14 w-full flex-1 rounded-2xl"
-              >
-                <Link href="/tableau-de-bord">
-                  <House className="mr-2 h-5 w-5" />
-                  Retour au dashboard
-                </Link>
+              <Button asChild variant="outline">
+                <Link href="/tableau-de-bord">Retour au tableau de bord</Link>
               </Button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Error State */}
-        {state === "error" && (
-          <motion.div
-            key="error"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="w-full max-w-lg text-center"
-          >
-            <div className="mb-8 flex justify-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-red-100 to-rose-100 dark:from-red-900/50 dark:to-rose-900/50">
-                <CircleX className="h-12 w-12 text-red-600 dark:text-red-400" />
-              </div>
-            </div>
-
-            <h1 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
-              Erreur de vérification
-            </h1>
-            <p className="mb-8 text-gray-600 dark:text-gray-400">
-              {!sessionId
-                ? "Aucun identifiant de session trouvé. Veuillez réessayer votre achat."
-                : "Nous n'avons pas pu vérifier votre paiement. Si vous avez été débité, contactez-nous."}
+            </>
+          }
+          help={<>Une question sur ce paiement ? Écrivez-nous à {support}.</>}
+        >
+          <Prose>
+            <p>
+              Le paiement n&apos;est pas encore confirmé. Votre accès sera
+              activé dès la confirmation.
             </p>
+            <p>
+              Vous pouvez quitter cette page&nbsp;: vous recevrez votre accès
+              sans avoir à revenir ici.
+            </p>
+          </Prose>
+        </StatusCard>
+      )}
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button
-                asChild
-                size="lg"
-                className="h-14 w-full flex-1 rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 text-white"
-              >
-                <Link href="/tarifs">Réessayer l{"'"}achat</Link>
+      {view.kind === "refunded" && (
+        <StatusCard
+          icon={RotateCcw}
+          label="Remboursement"
+          title="Ce paiement a été remboursé"
+          actions={
+            <>
+              <Button asChild>
+                <Link href="/tarifs">Voir les tarifs</Link>
               </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-14 w-full flex-1 rounded-2xl"
-              >
-                <Link href="/tableau-de-bord">Retour au dashboard</Link>
+              <Button asChild variant="outline">
+                <Link href="/tableau-de-bord">Retour au tableau de bord</Link>
               </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </>
+          }
+          help={
+            <>Une question sur ce remboursement ? Écrivez-nous à {support}.</>
+          }
+        >
+          <Prose>
+            <p>L&apos;accès lié à cet achat a été retiré.</p>
+          </Prose>
+        </StatusCard>
+      )}
+
+      {view.kind === "error" && (
+        <StatusCard
+          icon={CircleAlert}
+          iconTone="danger"
+          label="Erreur"
+          title="Impossible de vérifier ce paiement"
+          actions={
+            <>
+              <Button asChild>
+                <Link href="/tarifs">Retour aux tarifs</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/tableau-de-bord">Retour au tableau de bord</Link>
+              </Button>
+            </>
+          }
+          help={<>Le problème persiste ? Écrivez-nous à {support}.</>}
+        >
+          <Prose>
+            <p>
+              Si un montant a été débité, votre accès sera activé quand même.
+              Sinon, vous pouvez réessayer depuis la page des tarifs.
+            </p>
+          </Prose>
+        </StatusCard>
+      )}
+    </div>
+  )
+}
+
+const Prose = ({ children }: { children: ReactNode }) => (
+  <div className="text-ink-2 flex flex-col gap-2.5 text-[15px] leading-relaxed">
+    {children}
+  </div>
+)
+
+const ReceiptBox = ({ receipt }: { receipt: Receipt }) => (
+  <div className="bg-surface-2 border-line flex flex-col gap-2 rounded-md border px-4 py-3.5">
+    <div className="flex flex-wrap items-baseline justify-between gap-3">
+      <span className="text-ink text-[15px] font-semibold">
+        {receipt.productName ?? "Votre achat"}
+      </span>
+      {receipt.amount && (
+        <span className="text-ink font-mono text-[15px]">{receipt.amount}</span>
+      )}
+    </div>
+    {receipt.promo && (
+      <span className="text-ink-3 font-mono text-[13px]">
+        Code promo appliqué (−100 %)
+      </span>
+    )}
+    {receipt.customerEmail && (
+      <span className="text-ink-2 text-[13px] wrap-anywhere">
+        Reçu envoyé à <span className="text-ink">{receipt.customerEmail}</span>
+      </span>
+    )}
+  </div>
+)
+
+const AccessList = ({ access }: { access: GrantedAccess[] }) => {
+  const label = access.length > 1 ? "Accès activés" : "Accès activé"
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="type-label" aria-hidden>
+        {label}
+      </span>
+      <ul
+        aria-label={label}
+        className="border-line bg-surface divide-line divide-y rounded-md border"
+      >
+        {access.map((a) => (
+          <li
+            key={a.type}
+            className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-3"
+          >
+            <AccessBadge
+              accessType={a.type}
+              status={getAccessStatus(a.expiresAt, a.daysRemaining)}
+              daysRemaining={a.daysRemaining}
+              showDetails
+              size="sm"
+            />
+            <span className="text-ink-2 text-[13px]">
+              Expire le{" "}
+              <span className="text-ink font-medium">
+                {formatExpiration(a.expiresAt)}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

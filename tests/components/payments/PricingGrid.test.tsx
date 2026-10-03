@@ -126,7 +126,7 @@ describe("PricingGrid", () => {
       expect(createStripeCheckout).toHaveBeenCalledWith({
         productCode: "exam_access",
         successPath: "/tableau-de-bord/paiement/succes",
-        cancelPath: "/tarifs",
+        cancelPath: "/tarifs?annule=1",
       }),
     )
     expect(push).not.toHaveBeenCalled()

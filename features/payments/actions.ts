@@ -26,7 +26,9 @@ import { describePriceDrift, resolveStripePrice } from "./catalog"
 import {
   type AccessImpact,
   type AdminTransactionsPage,
+  type CheckoutPurchase,
   getAllTransactions,
+  getCheckoutPurchase,
   getTransactionAccessImpact,
 } from "./dal"
 import { grantManualAccess } from "./lib"
@@ -556,6 +558,7 @@ export type VerifyCheckoutResult =
       amountTotal: number | null
       currency: string | null
       customerEmail: string | null
+      purchase: CheckoutPurchase | null
     }
   | { success: false; error: string }
 
@@ -583,12 +586,29 @@ export const verifyStripeCheckout = async (
       amountTotal: checkout.amount_total,
       currency: checkout.currency,
       customerEmail: checkout.customer_email,
+      purchase: await readCheckoutPurchase(sessionId, session.user.id),
     }
   } catch (error) {
     captureServerError("[verifyStripeCheckout]", error, {
       userId: session.user.id,
     })
     return { success: false, error: "Session non trouvée ou invalide" }
+  }
+}
+
+// Stripe a déjà confirmé le paiement : une panne de lecture en base (réveil
+// Neon) ne doit pas le transformer en erreur. Sans achat, la page relit.
+const readCheckoutPurchase = async (
+  sessionId: string,
+  userId: string,
+): Promise<CheckoutPurchase | null> => {
+  try {
+    return await getCheckoutPurchase(sessionId)
+  } catch (error) {
+    captureServerError("[verifyStripeCheckout] lecture de l'achat", error, {
+      userId,
+    })
+    return null
   }
 }
 

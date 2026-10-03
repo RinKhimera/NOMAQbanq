@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
+import { Spinner } from "@/components/ui/spinner"
 import { TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { StatusTitle } from "./status-title"
@@ -9,6 +10,8 @@ type StatusCardProps = Omit<ComponentProps<"div">, "title"> & {
   description?: ReactNode
   icon?: LucideIcon
   iconTone?: Tone
+  /** Attente en cours : un spinner remplace l'icône. */
+  busy?: boolean
   /** Libellé mono à côté de l'icône (« Erreur 404 », « Compte suspendu »). */
   label?: string
   actions?: ReactNode
@@ -30,6 +33,7 @@ export const StatusCard = ({
   description,
   icon: Icon,
   iconTone = "neutral",
+  busy = false,
   label,
   actions,
   help,
@@ -48,10 +52,14 @@ export const StatusCard = ({
     {...props}
   >
     <div className="flex flex-col gap-2">
-      {(Icon || label) && (
+      {(Icon || busy || label) && (
         <div className="mb-2 flex items-center gap-2.5">
-          {Icon && (
-            <Icon aria-hidden className={cn("size-5", TONE_TEXT[iconTone])} />
+          {busy ? (
+            <Spinner className="text-ink-3" />
+          ) : (
+            Icon && (
+              <Icon aria-hidden className={cn("size-5", TONE_TEXT[iconTone])} />
+            )
           )}
           {label && <span className="type-label">{label}</span>}
         </div>

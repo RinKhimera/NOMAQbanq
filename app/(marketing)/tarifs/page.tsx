@@ -21,7 +21,12 @@ export const metadata: Metadata = {
   },
 }
 
-export default async function TarifsRoute() {
+export default async function TarifsRoute({
+  searchParams,
+}: {
+  searchParams: Promise<{ annule?: string }>
+}) {
+  const { annule } = await searchParams
   // Produits publics + accès courant (null si visiteur non connecté) + stats.
   // Page dynamique (session via getAccessStatus) : pas d'ISR ici.
   // `isAuthenticated` descend en prop plutôt que d'être lu côté client : la
@@ -39,6 +44,7 @@ export default async function TarifsRoute() {
       accessStatus={accessStatus}
       stats={stats}
       isAuthenticated={!!session?.user}
+      checkoutCancelled={annule === "1"}
     />
   )
 }

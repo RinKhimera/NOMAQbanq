@@ -46,7 +46,7 @@ export const PricingGrid = ({
     }
     await checkout(productCode, {
       successPath: "/tableau-de-bord/paiement/succes",
-      cancelPath: "/tarifs",
+      cancelPath: "/tarifs?annule=1",
     })
   }
 
