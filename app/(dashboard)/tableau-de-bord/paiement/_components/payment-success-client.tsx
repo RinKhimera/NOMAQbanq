@@ -171,6 +171,14 @@ export const PaymentSuccessContent = ({
       {supportEmail}
     </a>
   )
+  const paymentHelp = (
+    <>Une question sur ce paiement&nbsp;? Écrivez-nous à {support}.</>
+  )
+  const backToDashboard = (
+    <Button asChild variant="outline">
+      <Link href="/tableau-de-bord">Retour au tableau de bord</Link>
+    </Button>
+  )
 
   return (
     <div className="grid min-h-[min(70vh,680px)] place-items-center py-6">
@@ -209,9 +217,7 @@ export const PaymentSuccessContent = ({
               </Button>
             </>
           }
-          help={
-            <>Une question sur ce paiement&nbsp;? Écrivez-nous à {support}.</>
-          }
+          help={paymentHelp}
         >
           <ReceiptBox receipt={view.receipt} />
           {view.access ? (
@@ -251,14 +257,10 @@ export const PaymentSuccessContent = ({
                 {rechecking ? <Spinner size="sm" /> : <RotateCcw aria-hidden />}
                 Vérifier à nouveau
               </Button>
-              <Button asChild variant="outline">
-                <Link href="/tableau-de-bord">Retour au tableau de bord</Link>
-              </Button>
+              {backToDashboard}
             </>
           }
-          help={
-            <>Une question sur ce paiement&nbsp;? Écrivez-nous à {support}.</>
-          }
+          help={paymentHelp}
         >
           <Prose>
             <p>
@@ -284,9 +286,7 @@ export const PaymentSuccessContent = ({
               <Button asChild>
                 <Link href="/tarifs">Voir les tarifs</Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link href="/tableau-de-bord">Retour au tableau de bord</Link>
-              </Button>
+              {backToDashboard}
             </>
           }
           help={
@@ -313,14 +313,10 @@ export const PaymentSuccessContent = ({
               <Button asChild>
                 <Link href="/tarifs">Retour aux tarifs</Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link href="/tableau-de-bord">Retour au tableau de bord</Link>
-              </Button>
+              {backToDashboard}
             </>
           }
-          help={
-            <>Une question sur ce paiement&nbsp;? Écrivez-nous à {support}.</>
-          }
+          help={paymentHelp}
         >
           <Prose>
             <p>
@@ -343,9 +339,7 @@ export const PaymentSuccessContent = ({
               <Button asChild>
                 <Link href="/tarifs">Retour aux tarifs</Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link href="/tableau-de-bord">Retour au tableau de bord</Link>
-              </Button>
+              {backToDashboard}
             </>
           }
           help={<>Le problème persiste&nbsp;? Écrivez-nous à {support}.</>}

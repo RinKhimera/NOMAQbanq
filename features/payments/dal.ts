@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, gt, gte, lt, ne, or, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  lt,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { cache } from "react"
 import "server-only"
@@ -77,10 +89,12 @@ export const getAccessStatus = cache(
   },
 )
 
+type TxStatus = (typeof transactions.status.enumValues)[number]
+
 export type CheckoutPurchase = {
   productName: string
   /** `completed` : le webhook a écrit l'accès ; `pending` : pas encore passé. */
-  status: (typeof transactions.status.enumValues)[number]
+  status: TxStatus
   /** Accès couverts par l'achat, examens d'abord ; vide hors `completed`. */
   access: { type: AccessType; expiresAt: number }[]
 }
@@ -118,17 +132,25 @@ export const getCheckoutPurchase = cache(
     if (status !== "completed") return { productName, status, access: [] }
 
     const covered = purchase.isCombo ? ACCESS_ORDER : [purchase.accessType]
+    // L'ordre de l'enum `access_type` (exam, training) donne « examens d'abord ».
     const rows = await db
       .select({
         accessType: userAccess.accessType,
         expiresAt: userAccess.expiresAt,
       })
       .from(userAccess)
-      .where(eq(userAccess.userId, session.user.id))
-    const access = covered.flatMap((type) => {
-      const row = rows.find((r) => r.accessType === type)
-      return row ? [{ type, expiresAt: row.expiresAt.getTime() }] : []
-    })
+      .where(
+        and(
+          eq(userAccess.userId, session.user.id),
+          inArray(userAccess.accessType, covered),
+        ),
+      )
+      .orderBy(asc(userAccess.accessType))
+      .limit(ACCESS_ORDER.length)
+    const access = rows.map((r) => ({
+      type: r.accessType,
+      expiresAt: r.expiresAt.getTime(),
+    }))
     return { productName, status, access }
   },
 )
@@ -423,8 +445,6 @@ export const getMyTransactions = async ({
 // ============================================
 // [Admin] Transactions d'un client (pagination keyset)
 // ============================================
-
-type TxStatus = (typeof transactions.status.enumValues)[number]
 
 export type AdminTransactionView = {
   id: string
