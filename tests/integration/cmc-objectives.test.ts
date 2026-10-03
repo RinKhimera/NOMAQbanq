@@ -237,6 +237,19 @@ describe("création, renommage, garde et suppression", () => {
     })
     expect((await rowsOf([q]))[0]?.objectifCmc).toBe(label("Ictère néonatal"))
 
+    // Jumeau : un libellé retouché qui double un autre objectif ne touche à rien.
+    const other = await objectiveIdFor(label("Prurit anal"))
+    const clashing = await objectiveIdFor(label("Prurit vulvaire"))
+    const q2 = await newQuestion(clashing)
+    expect(
+      await keepObjective({ id: clashing, label: label("prurit anal") }),
+    ).toMatchObject({ success: false, existing: { id: other } })
+    expect(await entry(clashing)).toMatchObject({
+      label: label("Prurit vulvaire"),
+      reviewedAt: null,
+    })
+    expect((await rowsOf([q2]))[0]?.objectifCmc).toBeNull()
+
     const a = await objectiveIdFor(label("Hématurie"))
     await objectiveIdFor(label("hematurie"))
     expect(await keepObjective({ id: a })).toMatchObject({ success: false })

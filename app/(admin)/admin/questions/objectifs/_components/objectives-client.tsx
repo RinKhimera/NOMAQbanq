@@ -32,7 +32,7 @@ import { foldForSearch } from "@/lib/search"
 import { TONE_COLOR } from "@/lib/tone"
 import { TOUCH_TARGET } from "@/lib/touch-target"
 import { type ObjectiveDialog, ObjectiveDialogs } from "./objective-dialogs"
-import { ObjectiveFixSheet } from "./objective-fix-sheet"
+import { InlineObjectiveFix, ObjectiveFixSheet } from "./objective-fix-sheet"
 import { DomainList, ObjectiveGroupCard } from "./objective-group-card"
 import {
   type ObjectivesState,
@@ -75,10 +75,11 @@ export const ObjectivesClient = ({
     touchesDomain(e.domains, state.domain),
   )
   const term = foldForSearch(search)
-  const reviewed = board.reviewed.filter(
-    (e) =>
-      touchesDomain(e.domains, state.domain) &&
-      (!term || foldForSearch(e.label).includes(term)),
+  const reviewedInDomain = board.reviewed.filter((e) =>
+    touchesDomain(e.domains, state.domain),
+  )
+  const reviewed = reviewedInDomain.filter(
+    (e) => !term || foldForSearch(e.label).includes(term),
   )
   const { done, total } = board.progress
 
@@ -104,7 +105,7 @@ export const ObjectivesClient = ({
         eyebrow="Contenu"
         title="Objectifs du CMC"
         backHref="/admin/questions"
-        description={`Le champ objectif était saisi en texte libre : ${entries.length.toLocaleString("fr-CA")} valeurs, dont beaucoup de variantes d'accents, de casse ou d'espaces. Choisissez le libellé à garder, puis fusionnez.`}
+        description={`${entries.length.toLocaleString("fr-CA")} objectifs au référentiel, issus de la saisie libre. Choisissez le libellé à garder pour chaque groupe de variantes, puis fusionnez.`}
         actions={
           <Button type="button" onClick={() => setDialog({ kind: "create" })}>
             <Plus aria-hidden />
@@ -143,9 +144,9 @@ export const ObjectivesClient = ({
             {
               value: "todo",
               label: "À traiter",
-              count: board.pending.length + board.invalid.length,
+              count: groups.length + invalid.length,
             },
-            { value: "done", label: "Traités", count: board.reviewed.length },
+            { value: "done", label: "Traités", count: reviewedInDomain.length },
           ]}
           testIdPrefix="objectives-tab"
         />
@@ -180,7 +181,7 @@ export const ObjectivesClient = ({
         <>
           {groups.map((g) => (
             <ObjectiveGroupCard
-              key={g.entries.map((e) => e.id).join("|")}
+              key={g.key}
               group={g}
               entries={valid}
               onDone={settled}
@@ -242,25 +243,35 @@ export const ObjectivesClient = ({
                 getRowId={(e) => e.id}
                 action={{
                   label: "Corriger",
-                  cell: (e) => (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className={TOUCH_TARGET}
-                      onClick={() => setFixing(e)}
-                      data-testid={`btn-fix-${e.id}`}
-                    >
-                      Corriger
-                    </Button>
-                  ),
+                  cell: (e) =>
+                    e.questionCount === 1 ? (
+                      <InlineObjectiveFix
+                        invalid={e}
+                        objectives={valid}
+                        onDone={settled}
+                        onError={failed}
+                      />
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className={TOUCH_TARGET}
+                        onClick={() => setFixing(e)}
+                        data-testid={`btn-fix-${e.id}`}
+                      >
+                        Corriger
+                      </Button>
+                    ),
                 }}
               />
             </section>
           )}
           {groups.length === 0 && invalid.length === 0 && (
             <p className="text-ink-3 py-8 text-sm">
-              Tous les groupes de ce filtre sont traités.
+              {state.domain
+                ? "Tous les groupes de ce domaine sont traités."
+                : "Tous les groupes sont traités."}
             </p>
           )}
         </>

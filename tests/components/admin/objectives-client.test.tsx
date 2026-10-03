@@ -12,6 +12,8 @@ import type { ObjectiveEntryView } from "@/features/objectives/groups"
 const {
   mergeObjectives,
   keepObjective,
+  renameObjective,
+  deleteObjective,
   correctQuestionObjective,
   loadObjectiveQuestions,
   refresh,
@@ -20,6 +22,8 @@ const {
 } = vi.hoisted(() => ({
   mergeObjectives: vi.fn(),
   keepObjective: vi.fn(),
+  renameObjective: vi.fn(),
+  deleteObjective: vi.fn(),
   correctQuestionObjective: vi.fn(),
   loadObjectiveQuestions: vi.fn(),
   refresh: vi.fn(),
@@ -38,8 +42,8 @@ vi.mock("@/features/objectives/actions", () => ({
   mergeObjectives,
   keepObjective,
   createObjective: vi.fn(),
-  renameObjective: vi.fn(),
-  deleteObjective: vi.fn(),
+  renameObjective,
+  deleteObjective,
   correctQuestionObjective,
   loadObjectiveQuestions,
 }))
@@ -67,6 +71,10 @@ const ENTRIES = [
   entry("toux", "Toux", { domains: ["Pneumologie"] }),
   entry("dyspnee", "Dyspnée", { reviewedAt: 1, questionCount: 91 }),
   entry("dash", "-", { needsFix: true, questionCount: 21 }),
+  entry("pasted", "Une jeune fille de 13 ans…", {
+    needsFix: true,
+    questionCount: 1,
+  }),
 ]
 
 const renderScreen = (state: ObjectivesState = { tab: "todo", domain: "" }) =>
@@ -120,18 +128,82 @@ describe("ObjectivesClient", () => {
     )
   })
 
-  it("détacher une variante laisse une valeur seule, qui se garde telle quelle", async () => {
+  it("une valeur rattachée entre dans la fusion ; seule elle se détache", async () => {
     const user = userEvent.setup()
-    keepObjective.mockResolvedValue({ success: true })
+    mergeObjectives.mockResolvedValue({ success: true, moved: 14 })
+    renderScreen()
+    const card = screen.getByTestId("objective-group-douleurabdominaleaigue")
+    expect(within(card).queryByRole("button", { name: /Détacher/ })).toBeNull()
+
+    await user.click(
+      within(card).getByRole("button", { name: "Rattacher une valeur…" }),
+    )
+    await user.click(await screen.findByRole("button", { name: /^Toux/ }))
+    expect(
+      within(card).getByRole("button", { name: "Détacher « Toux »" }),
+    ).toBeInTheDocument()
+    await user.click(within(card).getByTestId("btn-merge-objectives"))
+    expect(mergeObjectives).toHaveBeenCalledWith({
+      keepId: "aigue",
+      mergeIds: ["aiguee", "toux"],
+      label: "Douleur abdominale aigue",
+    })
+  })
+
+  it("détacher une valeur rattachée la retire de la fusion", async () => {
+    const user = userEvent.setup()
+    mergeObjectives.mockResolvedValue({ success: true, moved: 13 })
     renderScreen()
     const card = screen.getByTestId("objective-group-douleurabdominaleaigue")
     await user.click(
-      within(card).getByRole("button", {
-        name: "Détacher « Douleur abdominale aiguë »",
-      }),
+      within(card).getByRole("button", { name: "Rattacher une valeur…" }),
     )
-    await user.click(within(card).getByTestId("btn-keep-objective"))
-    expect(keepObjective).toHaveBeenCalledWith({ id: "aigue" })
+    await user.click(await screen.findByRole("button", { name: /^Toux/ }))
+    await user.click(
+      within(card).getByRole("button", { name: "Détacher « Toux »" }),
+    )
+    await user.click(within(card).getByTestId("btn-merge-objectives"))
+    expect(mergeObjectives).toHaveBeenCalledWith(
+      expect.objectContaining({ mergeIds: ["aiguee"] }),
+    )
+  })
+
+  it("une valeur seule se garde telle quelle, ou sous un libellé retouché", async () => {
+    const user = userEvent.setup()
+    keepObjective.mockResolvedValue({ success: true })
+    renderScreen()
+    const card = screen.getByTestId("objective-group-toux")
+    await user.click(
+      within(card).getByRole("button", { name: /Garder tel quel/ }),
+    )
+    expect(keepObjective).toHaveBeenLastCalledWith({ id: "toux" })
+
+    const field = within(card).getByLabelText("Libellé final, modifiable")
+    await user.clear(field)
+    await user.type(field, "Toux  chronique")
+    await user.click(
+      within(card).getByRole("button", { name: /Garder sous ce libellé/ }),
+    )
+    expect(keepObjective).toHaveBeenLastCalledWith({
+      id: "toux",
+      label: "Toux  chronique",
+    })
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith("« Toux chronique » gardé"),
+    )
+  })
+
+  it("un espace ajouté n'est pas un changement de libellé", async () => {
+    const user = userEvent.setup()
+    renderScreen()
+    const card = screen.getByTestId("objective-group-toux")
+    await user.type(
+      within(card).getByLabelText("Libellé final, modifiable"),
+      " ",
+    )
+    expect(
+      within(card).getByRole("button", { name: /Garder tel quel/ }),
+    ).toBeInTheDocument()
   })
 
   it("un refus du serveur s'affiche sans recharger", async () => {
@@ -194,5 +266,103 @@ describe("correction d'une valeur invalide", () => {
     expect(await screen.findByText("1 / 1 corrigée")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Terminé" }))
     expect(refresh).toHaveBeenCalled()
+  })
+})
+
+describe("valeur invalide d'une seule question", () => {
+  it("l'objectif se choisit dans le tableau, sans volet", async () => {
+    const user = userEvent.setup()
+    loadObjectiveQuestions.mockResolvedValue([
+      { id: "q9", question: "Une jeune fille…", domain: "Pédiatrie" },
+    ])
+    correctQuestionObjective.mockResolvedValue({ success: true, remaining: 0 })
+    renderScreen()
+    expect(screen.queryByTestId("btn-fix-pasted")).toBeNull()
+    await user.click(
+      within(screen.getByTestId("invalid-objectives")).getByRole("combobox", {
+        name: "Objectif de la question",
+      }),
+    )
+    await user.click(await screen.findByRole("option", { name: /Toux/ }))
+    await waitFor(() =>
+      expect(correctQuestionObjective).toHaveBeenCalledWith({
+        questionId: "q9",
+        objectiveId: "toux",
+      }),
+    )
+    await waitFor(() => expect(refresh).toHaveBeenCalled())
+  })
+})
+
+describe("onglet et domaine dans l'URL", () => {
+  it("passer à « Traités » réécrit l'URL sans recharger", async () => {
+    const user = userEvent.setup()
+    window.history.replaceState(null, "", "/admin/questions/objectifs")
+    renderScreen()
+    await user.click(screen.getByRole("button", { name: /Traités/ }))
+    expect(window.location.search).toBe("?onglet=traites")
+    expect(refresh).not.toHaveBeenCalled()
+  })
+})
+
+describe("gestion du référentiel", () => {
+  const openRename = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(
+      screen.getByRole("button", { name: "Actions sur « Dyspnée »" }),
+    )
+    await user.click(await screen.findByRole("menuitem", { name: /Renommer/ }))
+    return screen.findByLabelText("Libellé")
+  }
+
+  it("un renommage refusé garde le dialogue ouvert ; l'erreur s'efface à la saisie", async () => {
+    const user = userEvent.setup()
+    renameObjective.mockResolvedValue({
+      success: false,
+      error: "L'objectif « Toux » existe déjà : choisissez-le plutôt.",
+    })
+    renderScreen({ tab: "done", domain: "" })
+    const field = await openRename(user)
+    await user.clear(field)
+    await user.type(field, "toux")
+    await user.click(screen.getByRole("button", { name: "Renommer" }))
+
+    expect(renameObjective).toHaveBeenCalledWith({
+      id: "dyspnee",
+      label: "toux",
+    })
+    expect(await screen.findByText(/existe déjà/)).toBeInTheDocument()
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument()
+    await user.type(field, "x")
+    expect(screen.queryByText(/existe déjà/)).toBeNull()
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it("un libellé hors règles est refusé avant tout envoi", async () => {
+    const user = userEvent.setup()
+    renderScreen({ tab: "done", domain: "" })
+    const field = await openRename(user)
+    await user.clear(field)
+    await user.type(field, "-")
+    await user.click(screen.getByRole("button", { name: "Renommer" }))
+    expect(await screen.findByText(/3 caractères au moins/)).toBeInTheDocument()
+    expect(renameObjective).not.toHaveBeenCalled()
+  })
+
+  it("supprimer un objectif utilisé : refus affiché, rien n'est rechargé", async () => {
+    const user = userEvent.setup()
+    deleteObjective.mockResolvedValue({
+      success: false,
+      error:
+        "Des questions utilisent encore cet objectif : fusionnez-le plutôt.",
+    })
+    renderScreen({ tab: "done", domain: "" })
+    await user.click(
+      screen.getByRole("button", { name: "Actions sur « Dyspnée »" }),
+    )
+    await user.click(await screen.findByRole("menuitem", { name: /Supprimer/ }))
+    await user.click(screen.getByRole("button", { name: "Supprimer" }))
+    expect(deleteObjective).toHaveBeenCalledWith("dyspnee")
+    expect(await screen.findByText(/fusionnez-le plutôt/)).toBeInTheDocument()
+    expect(refresh).not.toHaveBeenCalled()
   })
 })

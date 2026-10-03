@@ -51,7 +51,7 @@ export const ObjectiveFixSheet = ({
     failed: boolean
   }>({ questions: null, failed: false })
   const [chosen, setChosen] = useState<Record<string, string>>({})
-  const [saving, setSaving] = useState<string | null>(null)
+  const [saving, setSaving] = useState<ReadonlySet<string>>(new Set())
 
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
@@ -69,11 +69,15 @@ export const ObjectiveFixSheet = ({
     objectives.filter((o) => o.domains.includes(domain)).map((o) => o.id)
 
   const choose = async (question: ObjectiveQuestion, objectiveId: string) => {
-    setSaving(question.id)
+    setSaving((ids) => new Set(ids).add(question.id))
     const res = await callAction(() =>
       correctQuestionObjective({ questionId: question.id, objectiveId }),
     )
-    setSaving(null)
+    setSaving((ids) => {
+      const next = new Set(ids)
+      next.delete(question.id)
+      return next
+    })
     if (!res.success) return onError(res.error)
     setChosen((c) => ({ ...c, [question.id]: objectiveId }))
   }
@@ -134,7 +138,7 @@ export const ObjectiveFixSheet = ({
                         placeholder="Choisir un objectif"
                         searchPlaceholder="Rechercher un objectif"
                         emptyText="Aucun objectif ne correspond"
-                        disabled={saving === q.id}
+                        disabled={saving.has(q.id)}
                       />
                     </>
                   )}
@@ -159,5 +163,61 @@ export const ObjectiveFixSheet = ({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  )
+}
+
+/**
+ * Valeur invalide portée par une seule question : l'objectif se choisit
+ * directement dans le tableau, sans volet.
+ */
+export const InlineObjectiveFix = ({
+  invalid,
+  objectives,
+  onDone,
+  onError,
+}: {
+  invalid: InvalidObjective
+  objectives: readonly ObjectiveEntryView[]
+  onDone: (message: string) => void
+  onError: (message: string) => void
+}) => {
+  const [saving, setSaving] = useState(false)
+  const options = objectives.map((o) => ({ id: o.id, label: o.label }))
+  const domainIds = objectives
+    .filter((o) => o.domains.some((d) => invalid.domains.includes(d)))
+    .map((o) => o.id)
+
+  const choose = async (objectiveId: string) => {
+    setSaving(true)
+    const questions = await loadObjectiveQuestions(invalid.id).catch(() => null)
+    const question = questions?.[0]
+    if (!question) {
+      setSaving(false)
+      return onError("Impossible de charger la question. Réessayez.")
+    }
+    const res = await callAction(() =>
+      correctQuestionObjective({ questionId: question.id, objectiveId }),
+    )
+    setSaving(false)
+    if (!res.success) return onError(res.error)
+    onDone("1 question corrigée")
+  }
+
+  return (
+    <div className="w-56">
+      <label htmlFor={`fix-inline-${invalid.id}`} className="sr-only">
+        Objectif de la question
+      </label>
+      <SearchableSelect
+        id={`fix-inline-${invalid.id}`}
+        value=""
+        onChange={choose}
+        options={objectiveSelectOptions(options, domainIds)}
+        placeholder={saving ? "Correction…" : "Choisir un objectif"}
+        searchPlaceholder="Rechercher un objectif"
+        emptyText="Aucun objectif ne correspond"
+        disabled={saving}
+      />
+    </div>
   )
 }

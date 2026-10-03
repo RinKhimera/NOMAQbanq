@@ -16,10 +16,12 @@ import type {
   ObjectiveEntryView,
   ObjectiveGroup,
 } from "@/features/objectives/groups"
+import { normalizeObjectiveLabel } from "@/features/objectives/label"
 import { callAction } from "@/lib/safe-action"
-import { TOUCH_TARGET } from "@/lib/touch-target"
+import { TOUCH_MIN_HEIGHT, TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import {
+  ATTACH_LIMIT,
   attachCandidates,
   groupDomains,
   questionsLabel,
@@ -47,7 +49,8 @@ const AttachValue = ({
 }) => {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const candidates = attachCandidates(entries, selectedIds, search).slice(0, 50)
+  const found = attachCandidates(entries, selectedIds, search)
+  const candidates = found.slice(0, ATTACH_LIMIT)
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -67,7 +70,6 @@ const AttachValue = ({
             value={search}
             onValueChange={setSearch}
             placeholder="Rechercher une valeur"
-            aria-label="Rechercher une valeur"
           />
         </div>
         <ul className="max-h-72 overflow-y-auto py-1">
@@ -75,7 +77,10 @@ const AttachValue = ({
             <li key={e.id}>
               <button
                 type="button"
-                className="hover:bg-surface-2 focus-ring flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left text-sm max-lg:min-h-11"
+                className={cn(
+                  "hover:bg-surface-2 focus-ring flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left text-sm",
+                  TOUCH_MIN_HEIGHT,
+                )}
                 onClick={() => {
                   onPick(e)
                   setOpen(false)
@@ -93,6 +98,12 @@ const AttachValue = ({
             <li className="text-ink-3 px-3 py-2.5 text-sm">Aucun résultat</li>
           )}
         </ul>
+        {found.length > candidates.length && (
+          <p className="border-line text-ink-3 border-t px-3 py-2 text-xs">
+            {ATTACH_LIMIT} premières valeurs sur {found.length} : affinez la
+            recherche.
+          </p>
+        )}
       </PopoverContent>
     </Popover>
   )
@@ -100,8 +111,13 @@ const AttachValue = ({
 
 /**
  * Un groupe à traiter : le libellé à garder parmi ses variantes, des valeurs
- * rattachées ou détachées, le libellé final, puis « Fusionner » (ou « Garder
- * tel quel » quand il ne reste qu'une valeur).
+ * rattachées d'autres groupes (et détachables), le libellé final, puis
+ * « Fusionner » (ou « Garder » quand il ne reste qu'une valeur). Les
+ * variantes d'origine partagent la clé normalisée : détachée, l'une d'elles
+ * ferait refuser la fusion ou la garde, d'où « Détacher » réservé aux
+ * valeurs rattachées. La carte ne garde que des identifiants et relit le
+ * référentiel à chaque rendu : une valeur supprimée ailleurs sort de sa
+ * sélection.
  */
 export const ObjectiveGroupCard = ({
   group,
@@ -115,15 +131,24 @@ export const ObjectiveGroupCard = ({
   onDone: (message: string) => void
   onError: (message: string) => void
 }) => {
-  const [selection, setSelection] = useState(group.entries)
-  const [keptId, setKeptId] = useState(group.entries[0]!.id)
+  const [attachedIds, setAttachedIds] = useState<string[]>([])
+  const [keptId, setKeptId] = useState<string | null>(null)
   const [label, setLabel] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
+  const byId = new Map(entries.map((e) => [e.id, e]))
+  const ownIds = new Set(group.entries.map((e) => e.id))
+  const selection = [
+    ...group.entries,
+    ...attachedIds.flatMap((id) => {
+      const entry = byId.get(id)
+      return entry && !ownIds.has(id) ? [entry] : []
+    }),
+  ]
   const kept = selection.find((e) => e.id === keptId) ?? selection[0]!
   const finalLabel = label ?? kept.label
   const single = selection.length === 1
-  const relabeled = finalLabel.trim() !== kept.label
+  const relabeled = normalizeObjectiveLabel(finalLabel) !== kept.label
   const questionCount = selection.reduce((n, e) => n + e.questionCount, 0)
   const headingId = `group-${group.key}`
 
@@ -132,9 +157,8 @@ export const ObjectiveGroupCard = ({
     setLabel(null)
   }
   const detach = (id: string) => {
-    const next = selection.filter((e) => e.id !== id)
-    setSelection(next)
-    if (id === keptId) choose(next[0]!.id)
+    setAttachedIds((ids) => ids.filter((x) => x !== id))
+    if (id === kept.id) choose(selection[0]!.id)
   }
 
   const submit = async () => {
@@ -157,10 +181,11 @@ export const ObjectiveGroupCard = ({
         )
     setPending(false)
     if (!res.success) return onError(res.error)
+    const shown = normalizeObjectiveLabel(finalLabel)
     onDone(
       single
-        ? `« ${finalLabel.trim()} » gardé`
-        : `${questionsLabel(questionCount)} regroupées sous « ${finalLabel.trim()} »`,
+        ? `« ${shown} » gardé`
+        : `${questionsLabel(questionCount)} regroupées sous « ${shown} »`,
     )
   }
 
@@ -185,6 +210,7 @@ export const ObjectiveGroupCard = ({
           variant={single ? "outline" : "default"}
           disabled={pending}
           onClick={submit}
+          className={TOUCH_TARGET}
           data-testid={single ? "btn-keep-objective" : "btn-merge-objectives"}
         >
           {pending ? (
@@ -203,28 +229,35 @@ export const ObjectiveGroupCard = ({
       </div>
       <div role="radiogroup" aria-label="Libellé à conserver">
         {selection.map((e) => (
-          <label
+          <div
             key={e.id}
             className={cn(
-              "border-line flex cursor-pointer items-center gap-3 border-b px-5 py-2.5 max-lg:min-h-11",
+              "border-line flex items-center gap-3 border-b pr-3",
               e.id === kept.id && "bg-accent-soft",
             )}
           >
-            <input
-              type="radio"
-              name={headingId}
-              checked={e.id === kept.id}
-              onChange={() => choose(e.id)}
-              aria-label={e.label}
-              className="size-4 accent-(--accent)"
-            />
-            <span className="text-ink min-w-0 flex-1 text-sm wrap-anywhere">
-              {e.label}
-            </span>
-            <span className="text-ink-3 font-mono text-xs">
-              {e.questionCount}
-            </span>
-            {single ? (
+            <label
+              className={cn(
+                "flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-2.5 pl-5",
+                TOUCH_MIN_HEIGHT,
+              )}
+            >
+              <input
+                type="radio"
+                name={headingId}
+                checked={e.id === kept.id}
+                onChange={() => choose(e.id)}
+                aria-label={e.label}
+                className="accent-accent size-4"
+              />
+              <span className="text-ink min-w-0 flex-1 text-sm wrap-anywhere">
+                {e.label}
+              </span>
+              <span className="text-ink-3 font-mono text-xs">
+                {e.questionCount}
+              </span>
+            </label>
+            {ownIds.has(e.id) ? (
               <span className="size-8" aria-hidden />
             ) : (
               <Button
@@ -234,36 +267,33 @@ export const ObjectiveGroupCard = ({
                 className={TOUCH_TARGET}
                 aria-label={`Détacher « ${e.label} »`}
                 title="Détacher"
-                onClick={(ev) => {
-                  ev.preventDefault()
-                  detach(e.id)
-                }}
+                onClick={() => detach(e.id)}
               >
                 <X aria-hidden />
               </Button>
             )}
-          </label>
+          </div>
         ))}
-        <div className="border-line border-b px-3 py-1.5">
-          <AttachValue
-            entries={entries}
-            selectedIds={selection.map((e) => e.id)}
-            onPick={(e) => setSelection((s) => [...s, e])}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5 px-5 pt-3 pb-4">
-          <label
-            htmlFor={`${headingId}-label`}
-            className="text-ink-3 text-[0.8125rem]"
-          >
-            Libellé final, modifiable
-          </label>
-          <Input
-            id={`${headingId}-label`}
-            value={finalLabel}
-            onChange={(ev) => setLabel(ev.target.value)}
-          />
-        </div>
+      </div>
+      <div className="border-line border-b px-3 py-1.5">
+        <AttachValue
+          entries={entries}
+          selectedIds={selection.map((e) => e.id)}
+          onPick={(e) => setAttachedIds((ids) => [...ids, e.id])}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5 px-5 pt-3 pb-4">
+        <label
+          htmlFor={`${headingId}-label`}
+          className="text-ink-3 text-[0.8125rem]"
+        >
+          Libellé final, modifiable
+        </label>
+        <Input
+          id={`${headingId}-label`}
+          value={finalLabel}
+          onChange={(ev) => setLabel(ev.target.value)}
+        />
       </div>
     </article>
   )

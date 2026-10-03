@@ -127,7 +127,10 @@ export const ObjectiveDialogs = ({
         <LabelField
           id="objective-create"
           value={label}
-          onChange={setLabel}
+          onChange={(value) => {
+            setLabel(value)
+            setError(null)
+          }}
           error={error}
         />
       </ConfirmDialog>
@@ -154,7 +157,10 @@ export const ObjectiveDialogs = ({
         <LabelField
           id="objective-rename"
           value={label}
-          onChange={setLabel}
+          onChange={(value) => {
+            setLabel(value)
+            setError(null)
+          }}
           error={error}
         />
       </ConfirmDialog>
@@ -216,7 +222,10 @@ export const ObjectiveDialogs = ({
             <LabelField
               id="objective-merge-label"
               value={finalLabel}
-              onChange={setMergeLabel}
+              onChange={(value) => {
+                setMergeLabel(value)
+                setError(null)
+              }}
               error={error}
             />
           )}

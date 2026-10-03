@@ -39,6 +39,9 @@ export const visibleGroups = (
   domain: string,
 ) => groups.filter((g) => touchesDomain(g.domains, domain))
 
+/** Valeurs proposées au rattachement : au-delà, la recherche doit les affiner. */
+export const ATTACH_LIMIT = 50
+
 /** Objectifs rattachables à un groupe : hors de sa sélection, recherchés. */
 export const attachCandidates = (
   entries: readonly ObjectiveEntryView[],
