@@ -24,6 +24,7 @@ import { searchSelectableUsers } from "@/features/users/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -146,7 +147,7 @@ beforeAll(async () => {
       question: `AudQ ${i} ${suffix} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `AUD-${suffix}`,
     })),
   )

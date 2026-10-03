@@ -155,7 +155,7 @@ const questionInput = {
   options: ["A", "B", "C", "D"],
   correctAnswer: "A",
   explanation: "parce que",
-  objectifCMC: "1-1",
+  objectiveId: "obj-1",
   domain: "Cardiologie",
 }
 

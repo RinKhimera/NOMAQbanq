@@ -57,7 +57,8 @@ export class AdminQuestionsPage extends BasePage {
       .getByText(data.domain, { exact: true })
       .click()
 
-    // Objectif : combobox à recherche, création libre.
+    // Objectif : combobox à recherche ; « Créer » passe par le serveur, qui
+    // refuse un doublon du référentiel.
     await main.locator("#qf-objective").click()
     await this.page
       .getByPlaceholder("Rechercher un objectif")
@@ -69,6 +70,7 @@ export class AdminQuestionsPage extends BasePage {
     const create = this.page.getByRole("option").filter({ hasText: "Créer" })
     await exact.or(create).first().waitFor({ state: "visible" })
     await ((await exact.count()) > 0 ? exact : create).first().click()
+    await expect(main.locator("#qf-objective")).toContainText(data.objective)
 
     await main.getByTestId("question-input").fill(data.question)
     for (const [i, option] of data.options.entries())

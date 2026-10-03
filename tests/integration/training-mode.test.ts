@@ -20,6 +20,7 @@ import {
 import { getTrainingSessionById } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -31,7 +32,6 @@ vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 const suffix = createId().slice(0, 8)
 const USER_ID = createId()
 const DOMAIN = `TM-${suffix}`
-const OBJ = `Obj TM ${suffix}`
 const qIds = Array.from({ length: 6 }, () => createId())
 
 const asAdmin = () =>
@@ -51,7 +51,7 @@ beforeAll(async () => {
       question: `TM Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: OBJ,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: DOMAIN,
     })),
   )

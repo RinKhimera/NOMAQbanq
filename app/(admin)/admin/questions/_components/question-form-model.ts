@@ -1,4 +1,6 @@
 import type { SummaryCheck } from "@/components/shared/form-steps"
+import type { SearchableOption } from "@/components/shared/searchable-select"
+import type { ObjectiveOption } from "@/features/objectives/dal"
 import {
   EXPLANATION_MAX_LENGTH,
   REFERENCE_MAX_LENGTH,
@@ -15,6 +17,7 @@ export type FormImage = { url: string; storagePath: string; order: number }
 
 export type QuestionFormValues = {
   domain: string
+  /** Identifiant d'un objectif du référentiel. */
   objective: string
   question: string
   options: string[]
@@ -153,7 +156,7 @@ export const toQuestionPayload = (v: QuestionFormValues) => ({
   correctAnswer: v.keyIndex === null ? "" : (v.options[v.keyIndex] ?? ""),
   explanation: v.explanation,
   references: v.references.filter((r) => r.trim() !== ""),
-  objectifCMC: v.objective,
+  objectiveId: v.objective,
   domain: v.domain,
 })
 
@@ -177,4 +180,31 @@ export const newQuestionId = (): string => {
   bytes[8] = (bytes[8] & 0x3f) | 0x80
   const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+/**
+ * Options du choix d'objectif : celles du domaine d'abord, puis le reste du
+ * référentiel. Sans domaine, tout le référentiel, sans groupes.
+ */
+export const objectiveSelectOptions = (
+  objectives: readonly ObjectiveOption[],
+  domainIds: readonly string[],
+): SearchableOption[] => {
+  if (domainIds.length === 0)
+    return objectives.map((o) => ({ value: o.id, label: o.label }))
+  const inDomain = new Set(domainIds)
+  const own = objectives.filter((o) => inDomain.has(o.id))
+  const others = objectives.filter((o) => !inDomain.has(o.id))
+  return [
+    ...own.map((o) => ({
+      value: o.id,
+      label: o.label,
+      group: "Objectifs du domaine",
+    })),
+    ...others.map((o) => ({
+      value: o.id,
+      label: o.label,
+      group: "Autres objectifs",
+    })),
+  ]
 }

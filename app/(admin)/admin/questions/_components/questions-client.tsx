@@ -46,8 +46,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { MEDICAL_DOMAINS } from "@/constants"
+import { MEDICAL_DOMAINS, OBJECTIVES_HREF } from "@/constants"
 import type { ExamPickerOption } from "@/features/exams/dal"
+import type { ObjectiveOptions } from "@/features/objectives/dal"
 import type {
   QuestionListItem,
   QuestionListPage,
@@ -172,13 +173,13 @@ const SortButton = ({
 export const QuestionsClient = ({
   state,
   list,
-  objectivesByDomain,
+  objectives,
   exams,
   initialNow,
 }: {
   state: QuestionListState
   list: QuestionListPage
-  objectivesByDomain: Record<string, string[]>
+  objectives: ObjectiveOptions
   exams: ExamPickerOption[]
   initialNow: number
 }) => {
@@ -222,9 +223,12 @@ export const QuestionsClient = ({
     hint: EXAM_STATUS_CONFIG[adminPhaseOf(e, initialNow)].label,
   }))
   const examTitle = exams.find((e) => e.id === state.exam)?.title
-  const objectives = state.domain
-    ? (objectivesByDomain[state.domain] ?? [])
-    : []
+  const objectiveLabels = new Map(
+    objectives.objectives.map((o) => [o.id, o.label]),
+  )
+  const objectiveOptions = (
+    state.domain ? (objectives.byDomain[state.domain] ?? []) : []
+  ).map((id) => ({ value: id, label: objectiveLabels.get(id) ?? id }))
 
   const chips: {
     label: string
@@ -238,7 +242,7 @@ export const QuestionsClient = ({
     },
     state.objective && {
       label: "Objectif",
-      value: state.objective,
+      value: objectiveLabels.get(state.objective) ?? "Objectif fusionné",
       reset: { objective: "" },
     },
     state.images !== "all" && {
@@ -386,6 +390,9 @@ export const QuestionsClient = ({
         description="Banque de l'entraînement et des examens blancs, classée par domaine et objectif du CMC."
         actions={
           <>
+            <Button asChild variant="outline">
+              <Link href={OBJECTIVES_HREF}>Objectifs du CMC</Link>
+            </Button>
             <ExportQuestionsButton
               selection={toQuestionFilters(state)}
               questionCount={list.total}
@@ -490,7 +497,7 @@ export const QuestionsClient = ({
               id="filter-objective"
               value={state.objective}
               onChange={(objective) => change({ objective })}
-              options={objectives.map((o) => ({ value: o, label: o }))}
+              options={objectiveOptions}
               clearLabel="Tous les objectifs"
               placeholder="Tous les objectifs"
               searchPlaceholder="Rechercher un objectif"

@@ -41,6 +41,7 @@ import {
 } from "@/features/questions/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -86,7 +87,7 @@ const mkQuestion = (id: string, label: string, domain = DOMAIN) => ({
   question: `Compositeur ${label} ${suffix}`,
   correctAnswer: "A",
   options: ["A", "B", "C", "D"],
-  objectifCmc: "Objectif",
+  objectiveId: TEST_OBJECTIVE_ID,
   domain,
 })
 

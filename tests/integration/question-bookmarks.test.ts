@@ -6,6 +6,7 @@ import { setQuestionBookmark } from "@/features/training/actions"
 import { getBookmarkedQuestionIds } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -36,7 +37,7 @@ beforeAll(async () => {
       question: `QB Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj QB ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: DOMAIN,
     })),
   )
@@ -72,7 +73,7 @@ describe("table question_bookmarks", () => {
       question: `QB doomed ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj QB ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: DOMAIN,
     })
     await db

@@ -15,6 +15,8 @@ const makeFile = (over: Partial<QuestionFile> = {}): QuestionFile => ({
     options: ["Option A", "Option B", "Option C", "Option D"],
     correctAnswer: "Option B",
     objectifCMC: "Toux",
+    objectiveId: "obj-toux",
+    objectiveNeedsFix: false,
     domain: "Pneumologie",
     createdAt: NOW - 30 * DAY,
     updatedAt: NOW - 30 * DAY,

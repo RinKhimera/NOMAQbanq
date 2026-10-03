@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 import { questionTitle } from "@/components/admin/question-detail/labels"
 import { getQuestionAnswerBreakdown } from "@/features/analytics/dal"
+import { getObjectiveOptions } from "@/features/objectives/dal"
 import {
   type QuestionImageView,
-  getObjectivesByDomain,
   getQuestionById,
   getQuestionExams,
 } from "@/features/questions/dal"
@@ -39,11 +39,11 @@ export default async function EditQuestionPage({
   const { questionId } = await params
   const list = parseQuestionList(toSearchParams(await searchParams))
 
-  const [question, breakdown, exams, objectivesByDomain] = await Promise.all([
+  const [question, breakdown, exams, objectives] = await Promise.all([
     getQuestionById(questionId),
     getQuestionAnswerBreakdown(questionId),
     getQuestionExams(questionId),
-    getObjectivesByDomain(),
+    getObjectiveOptions(),
   ])
 
   if (!question) return <QuestionNotFound listHref={questionListHref(list)} />
@@ -59,7 +59,8 @@ export default async function EditQuestionPage({
         initialQuestionId={question.id}
         initial={{
           domain: question.domain,
-          objective: question.objectifCMC,
+          // Une valeur invalide ne se garde pas : l'admin choisit un objectif.
+          objective: question.objectiveNeedsFix ? "" : question.objectiveId,
           question: question.question,
           options: question.options,
           sources: question.options.map((_, i) => i),
@@ -72,7 +73,7 @@ export default async function EditQuestionPage({
           statementImages: toFormImages(question.images),
           explanationImages: toFormImages(question.explanationImages),
         }}
-        objectivesByDomain={objectivesByDomain}
+        objectives={objectives}
         list={list}
         edit={{
           title: questionTitle(question.createdAt),
@@ -82,6 +83,9 @@ export default async function EditQuestionPage({
           confirmation: review.confirmation,
           lockingExam: lockingExam
             ? { title: lockingExam.title, endDate: lockingExam.endDate }
+            : null,
+          invalidObjective: question.objectiveNeedsFix
+            ? question.objectifCMC
             : null,
         }}
       />

@@ -6,6 +6,7 @@ import type { QuestionFile } from "@/components/admin/question-detail/question-d
 import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
+  cmcObjectives,
   examQuestions,
   exams,
   questionExplanations,
@@ -30,7 +31,7 @@ import {
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
 import { questionSuccessStats } from "../analytics/answers-sql"
 import { getQuestionAnswerBreakdown } from "../analytics/dal"
-import { MARKETING_STATS_TAG } from "../marketing/cache-tags"
+import { MARKETING_STATS_TAG, OBJECTIVES_TAG } from "../marketing/cache-tags"
 import { lockFor } from "./answer-key-lock"
 import {
   type QuestionExportRow,
@@ -42,7 +43,6 @@ import {
   getRandomQuizQuestions,
 } from "./dal"
 import { keyReview } from "./key-review"
-import { normalizeObjectifCMC } from "./lib"
 import { diagnoseCorrection } from "./normalization"
 import { signQuizToken, verifyQuizToken } from "./quiz-token"
 import {
@@ -216,10 +216,38 @@ export type CreateQuestionResult =
   | { success: true; id: string }
   | { success: false; error: string; alreadyExists?: true }
 
-const revalidateQuestion = (id: string) => {
+const revalidateQuestion = (id: string, objectivesChanged: boolean) => {
   revalidatePath("/admin/questions")
   revalidatePath(`/admin/questions/${id}`)
   revalidateTag(MARKETING_STATS_TAG, "max")
+  if (objectivesChanged) revalidateTag(OBJECTIVES_TAG, "max")
+}
+
+class ObjectiveRefusedError extends Error {
+  constructor() {
+    super("OBJECTIVE_REFUSED")
+  }
+}
+
+const OBJECTIVE_REFUSED = "Choisissez un objectif du référentiel."
+
+/**
+ * Exige un objectif du référentiel qui ne soit pas à corriger. Le verrou
+ * partagé tient jusqu'à l'écriture : une fusion concurrente ne peut pas le
+ * supprimer entre-temps.
+ */
+const assertSelectableObjective = async (
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  objectiveId: string,
+) => {
+  const [objective] = await tx
+    .select({ id: cmcObjectives.id })
+    .from(cmcObjectives)
+    .where(
+      and(eq(cmcObjectives.id, objectiveId), eq(cmcObjectives.needsFix, false)),
+    )
+    .for("share")
+  if (!objective) throw new ObjectiveRefusedError()
 }
 
 /**
@@ -242,12 +270,13 @@ export const createQuestion = async (
 
   try {
     await db.transaction(async (tx) => {
+      await assertSelectableObjective(tx, d.objectiveId)
       await tx.insert(questions).values({
         id,
         question: d.question,
         correctAnswer: d.correctAnswer,
         options: d.options,
-        objectifCmc: normalizeObjectifCMC(d.objectifCMC),
+        objectiveId: d.objectiveId,
         domain: d.domain,
       })
       await tx.insert(questionExplanations).values({
@@ -256,9 +285,10 @@ export const createQuestion = async (
         references: d.references ?? null,
       })
     })
-    revalidateQuestion(id)
+    revalidateQuestion(id, true)
     return { success: true, id }
   } catch (error) {
+    if (error instanceof ObjectiveRefusedError) return fail(OBJECTIVE_REFUSED)
     // Identifiant réservé déjà pris : une création précédente a abouti sans
     // que sa réponse arrive au navigateur, qui reprend en mise à jour.
     if (isPgUniqueViolation(error)) {
@@ -300,12 +330,14 @@ export const updateQuestion = async (
   const d = parsed.data
 
   try {
-    await db.transaction(async (tx) => {
+    const objectivesChanged = await db.transaction(async (tx) => {
       const [current] = await tx
         .select({
           question: questions.question,
           options: questions.options,
           correctAnswer: questions.correctAnswer,
+          domain: questions.domain,
+          objectiveId: questions.objectiveId,
         })
         .from(questions)
         .where(and(eq(questions.id, d.id), isNull(questions.deletedAt)))
@@ -338,6 +370,7 @@ export const updateQuestion = async (
       // changé pour autant.
       const clearsConfirmation =
         choicesChanged || current.question.trim() !== d.question
+      await assertSelectableObjective(tx, d.objectiveId)
 
       await tx
         .update(questions)
@@ -345,7 +378,7 @@ export const updateQuestion = async (
           question: d.question,
           correctAnswer: d.correctAnswer,
           options: d.options,
-          objectifCmc: normalizeObjectifCMC(d.objectifCMC),
+          objectiveId: d.objectiveId,
           domain: d.domain,
           ...(clearsConfirmation && {
             keyConfirmedAt: null,
@@ -370,10 +403,14 @@ export const updateQuestion = async (
             references: d.references ?? null,
           },
         })
+      return (
+        current.domain !== d.domain || current.objectiveId !== d.objectiveId
+      )
     })
-    revalidateQuestion(d.id)
+    revalidateQuestion(d.id, objectivesChanged)
     return { success: true }
   } catch (error) {
+    if (error instanceof ObjectiveRefusedError) return fail(OBJECTIVE_REFUSED)
     if (error instanceof FrozenChoicesError) {
       return fail(
         `Cette question est dans l'examen ouvert « ${error.examTitle} » : ses choix et sa clé sont verrouillés jusqu'à la fermeture.`,
@@ -504,6 +541,7 @@ export const deleteQuestion = async (
     await Promise.all(imagePaths.map((p) => tryDeleteFromStorage(p)))
     revalidatePath("/admin/questions")
     revalidateTag(MARKETING_STATS_TAG, "max")
+    revalidateTag(OBJECTIVES_TAG, "max")
     return { success: true, mode: "hard" }
   } catch (error) {
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
@@ -525,6 +563,7 @@ export const deleteQuestion = async (
 
     revalidatePath("/admin/questions")
     revalidateTag(MARKETING_STATS_TAG, "max")
+    revalidateTag(OBJECTIVES_TAG, "max")
     return { success: true, mode: "soft" }
   } catch (error) {
     captureServerError("[deleteQuestion]", error)

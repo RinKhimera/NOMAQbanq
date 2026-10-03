@@ -25,6 +25,7 @@ import { toAppZoneCalendarDay } from "@/lib/app-zone"
 import { getCurrentSession } from "@/lib/dal"
 import { periodWindow } from "@/lib/dashboard-period"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -273,7 +274,7 @@ beforeAll(async () => {
     question: `Q ${suffix}`,
     correctAnswer: "A",
     options: ["A", "B"],
-    objectifCmc: "Objectif",
+    objectiveId: TEST_OBJECTIVE_ID,
     domain: "Cardiologie",
   })
   openExam = await examWith({

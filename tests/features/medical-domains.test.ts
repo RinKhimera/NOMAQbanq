@@ -31,7 +31,7 @@ describe("domaine d'une question côté serveur", () => {
     options: ["A", "B", "C", "D"],
     correctAnswer: "A",
     explanation: "Parce que.",
-    objectifCMC: "Objectif",
+    objectiveId: "obj-1",
   }
 
   it("accepte un domaine de la liste", () => {

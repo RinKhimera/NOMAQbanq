@@ -4,6 +4,7 @@ import "server-only"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
+  cmcObjectives,
   questionBookmarks,
   questionExplanations,
   questions,
@@ -12,6 +13,7 @@ import {
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
+import { objectiveLabelSql } from "../objectives/sql"
 import {
   type LockUser,
   lockFor,
@@ -260,33 +262,37 @@ export const getAvailableDomains = cache(async (): Promise<DomainsView> => {
 })
 
 export type ObjectifsView = {
-  objectifs: { objectif: string; count: number }[]
+  objectifs: { id: string; objectif: string; count: number }[]
   total: number
 }
 
 /**
- * Objectifs CMC + comptage (multi-select), optionnellement filtrés par domaine.
- * Remplace `getAvailableObjectifsCMC` (qui lisait la table d'agrégation).
+ * Objectifs du référentiel + comptage (multi-select), optionnellement filtrés
+ * par domaine. Les entrées à corriger ne sont jamais proposées.
  */
 export const getAvailableObjectifsCMC = cache(
   async (domain?: string): Promise<ObjectifsView> => {
     await requireSession()
     const where = and(
       isNull(questions.deletedAt),
+      eq(cmcObjectives.needsFix, false),
       domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
     )
     const rows = await db
       .select({
-        objectif: questions.objectifCmc,
+        id: cmcObjectives.id,
+        objectif: cmcObjectives.label,
         count: sql<number>`count(*)`.mapWith(Number),
       })
       .from(questions)
+      .innerJoin(cmcObjectives, eq(cmcObjectives.id, questions.objectiveId))
       .where(where)
-      .groupBy(questions.objectifCmc)
+      .groupBy(cmcObjectives.id, cmcObjectives.label)
+      .limit(5000)
 
     const objectifs = rows
       .filter((r) => r.count > 0)
-      .map((r) => ({ objectif: r.objectif, count: r.count }))
+      .map((r) => ({ id: r.id, objectif: r.objectif, count: r.count }))
       .sort((a, b) =>
         b.count !== a.count
           ? b.count - a.count
@@ -359,7 +365,7 @@ export const getTrainingSessionById = async (
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: objectiveLabelSql,
       domain: questions.domain,
       explanation: questionExplanations.explanation,
       references: questionExplanations.references,
@@ -483,7 +489,7 @@ export const getTrainingSessionResults = async (
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: objectiveLabelSql,
       domain: questions.domain,
       explanation: questionExplanations.explanation,
       references: questionExplanations.references,

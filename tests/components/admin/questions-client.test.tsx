@@ -63,7 +63,10 @@ const renderList = (
     <QuestionsClient
       state={state}
       list={page}
-      objectivesByDomain={{ Cardiologie: ["Douleur thoracique"] }}
+      objectives={{
+        objectives: [{ id: "obj-dt", label: "Douleur thoracique" }],
+        byDomain: { Cardiologie: ["obj-dt"] },
+      }}
       exams={[
         {
           id: "e1",
@@ -158,7 +161,7 @@ describe("QuestionsClient", () => {
       <QuestionsClient
         state={DEFAULT_QUESTION_LIST}
         list={list()}
-        objectivesByDomain={{}}
+        objectives={{ objectives: [], byDomain: {} }}
         exams={[]}
         initialNow={NOW}
       />,

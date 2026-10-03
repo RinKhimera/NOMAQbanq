@@ -28,6 +28,7 @@ import { grantManualAccess } from "@/features/payments/lib"
 import { completeStripeTransaction } from "@/features/payments/stripe"
 import { createId } from "@/lib/ids"
 import { fakeMailer } from "../helpers/fake-mailer"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("@/email", () =>
   import("../helpers/fake-mailer").then((m) => m.fakeMailer),
@@ -139,7 +140,7 @@ beforeAll(async () => {
     question: `Q retenue ${lockedQuestion} ?`,
     correctAnswer: "A",
     options: ["A", "B", "C", "D"],
-    objectifCmc: "Obj notif",
+    objectiveId: TEST_OBJECTIVE_ID,
     domain: "NOTIF",
   })
   await db.insert(examQuestions).values([

@@ -64,6 +64,46 @@ describe("SearchableSelect", () => {
     expect(onChange).toHaveBeenCalledWith("")
   })
 
+  it("confie la création à `onCreate` sans changer la valeur", async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    const onCreate = vi.fn()
+    render(
+      <SearchableSelect
+        value=""
+        onChange={onChange}
+        onCreate={onCreate}
+        options={OPTIONS}
+        placeholder="Choisir"
+        searchPlaceholder="Rechercher"
+      />,
+    )
+    await user.click(screen.getByRole("combobox"))
+    await user.type(screen.getByPlaceholderText("Rechercher"), "Fièvre ")
+    await user.click(screen.getByText("Créer « Fièvre »"))
+    expect(onCreate).toHaveBeenCalledWith("Fièvre")
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it("regroupe les options sous leur intitulé", async () => {
+    const user = userEvent.setup()
+    render(
+      <SearchableSelect
+        value=""
+        onChange={vi.fn()}
+        options={[
+          { value: "toux", label: "Toux", group: "Objectifs du domaine" },
+          { value: "fievre", label: "Fièvre", group: "Autres objectifs" },
+        ]}
+        placeholder="Choisir"
+        searchPlaceholder="Rechercher"
+      />,
+    )
+    await user.click(screen.getByRole("combobox"))
+    expect(screen.getByText("Objectifs du domaine")).toBeInTheDocument()
+    expect(screen.getByText("Autres objectifs")).toBeInTheDocument()
+  })
+
   it("propose la création d'une valeur absente, pas d'un doublon", async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()

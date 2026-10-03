@@ -69,7 +69,8 @@ const questionFields = {
     .array(referenceField)
     .max(50, "Au plus 50 références")
     .optional(),
-  objectifCMC: z.string().trim().min(1, "L'objectif CMC est requis"),
+  /** Objectif du référentiel ; aucune valeur libre. */
+  objectiveId: z.string().trim().min(1, "L'objectif du CMC est requis").max(64),
   domain: z
     .string()
     .trim()

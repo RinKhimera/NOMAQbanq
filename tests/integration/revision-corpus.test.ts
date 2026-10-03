@@ -23,6 +23,7 @@ import {
 } from "@/features/training/revision"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { objectiveIdFor } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -51,6 +52,7 @@ const OBJ = `Obj RC ${suffix}`
 // Deuxième objectif, porté par la seule question d'index 4 : exerce la branche
 // « filtre objectifs » du SQL brut, qu'aucun autre test ne traverse.
 const OBJ_ALT = `Obj RC alt ${suffix}`
+let objAltId = ""
 
 // 0 = ratée · 1 = ratée puis réussie · 2 = réussie · 3 = marquée (jamais vue)
 // 4 = jamais vue (objectif alternatif) · 5 = ratée par l'AUTRE utilisateur
@@ -96,13 +98,15 @@ beforeAll(async () => {
       email: `rc-other-${suffix}@test.invalid`,
     },
   ])
+  const objId = await objectiveIdFor(OBJ)
+  objAltId = await objectiveIdFor(OBJ_ALT)
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
       question: `RC Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: i === 4 ? OBJ_ALT : OBJ,
+      objectiveId: i === 4 ? objAltId : objId,
       domain: DOMAIN,
     })),
   )
@@ -305,14 +309,14 @@ describe("corpus de révision", () => {
       viewer: AS_USER,
       criteria: ["unseen"],
       domain: DOMAIN,
-      objectifsCMCs: [OBJ_ALT],
+      objectiveIds: [objAltId],
       limit: 20,
     })
     expect(ids).toEqual([qIds[4]])
 
     const counts = await getRevisionCounts(AS_USER, {
       domain: DOMAIN,
-      objectifsCMCs: [OBJ_ALT],
+      objectiveIds: [objAltId],
     })
     expect(counts.unseen).toBe(1)
   })

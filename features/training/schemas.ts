@@ -34,7 +34,7 @@ export const createTrainingSessionSchema = z
       .min(1, "Au moins une question")
       .max(MAX_QUESTIONS, `Au plus ${MAX_QUESTIONS} questions`),
     domain: z.string().trim().min(1).optional(),
-    objectifsCMCs: z.array(z.string().trim().min(1)).max(50).optional(),
+    objectiveIds: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
     mode: z.enum(["tutor", "test"]).optional().default("test"),
     revisionFilters: z.array(revisionCriterionSchema).max(3).optional(),
   })
@@ -56,7 +56,7 @@ export type CreateTrainingSessionInput = z.infer<
 
 export const revisionCountsScopeSchema = z.object({
   domain: z.string().trim().min(1).optional(),
-  objectifsCMCs: z.array(z.string().trim().min(1)).max(50).optional(),
+  objectiveIds: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
 })
 export type RevisionCountsScopeInput = z.infer<typeof revisionCountsScopeSchema>
 

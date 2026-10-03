@@ -21,6 +21,7 @@ import {
 } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -99,7 +100,7 @@ beforeAll(async () => {
       question: `Q désactivé ${i} ${suffix}`,
       correctAnswer: "A",
       options: ["A", "B"],
-      objectifCmc: "Objectif",
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: "Cardiologie",
     })),
   )

@@ -63,7 +63,7 @@ export const loadTrainingHistory = async (args: {
 
 /**
  * [Auth] Compteurs de révision de l'utilisateur courant (formulaire). Les
- * entrées passent par zod comme toute action : `objectifsCMCs` alimente une
+ * entrées passent par zod comme toute action : `objectiveIds` alimente une
  * clause `in (…)` et doit rester plafonné comme à la création de session.
  */
 export const loadRevisionCounts = async (
@@ -108,7 +108,7 @@ export const createTrainingSession = async (
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
-  const { questionCount, domain, objectifsCMCs, mode, revisionFilters } =
+  const { questionCount, domain, objectiveIds, mode, revisionFilters } =
     parsed.data
   const criteria = revisionFilters ?? []
   const isRevision = criteria.length > 0
@@ -119,16 +119,12 @@ export const createTrainingSession = async (
       return fail("Votre accès à l'entraînement a expiré.")
     }
 
-    // Sélection des questions (domaine + objectifs CMC, logique ET, insensible
-    // à la casse).
-    const objLower = objectifsCMCs
-      ?.map((o) => o.trim().toLowerCase())
-      .filter(Boolean)
+    // Sélection des questions (domaine ET objectifs du référentiel).
     const where = and(
       isNull(questions.deletedAt),
       domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
-      objLower?.length
-        ? inArray(sql`lower(${questions.objectifCmc})`, objLower)
+      objectiveIds?.length
+        ? inArray(questions.objectiveId, objectiveIds)
         : undefined,
     )
 
@@ -196,7 +192,7 @@ export const createTrainingSession = async (
           viewer: viewerOf(session.user),
           criteria,
           domain,
-          objectifsCMCs,
+          objectiveIds,
           limit: questionCount,
         })
         if (ids.length === 0) throw new Error("EMPTY_REVISION")

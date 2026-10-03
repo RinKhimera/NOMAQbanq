@@ -43,6 +43,7 @@ import { getTrainingHistory } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
@@ -170,7 +171,7 @@ beforeAll(async () => {
       question: `Q ${i} ${suffix} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `EXAM-${suffix}`,
     })),
   )

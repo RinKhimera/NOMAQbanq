@@ -207,7 +207,7 @@ export const TrainingConfigForm = ({
   // Compteurs de révision : recalculés au changement de domaine ou
   // d'objectifs. Clé sérialisée : `objectifs` change d'identité à chaque
   // setState, et chaque exécution balaie la banque de questions.
-  const objectifsKey = JSON.stringify(objectifs.map((o) => o.objectif))
+  const objectifsKey = JSON.stringify(objectifs.map((o) => o.id))
   const [counts, setCounts] = useState<{
     key: string
     value: RevisionCounts
@@ -222,10 +222,10 @@ export const TrainingConfigForm = ({
     latestCountsKey.current = countsKey
     startCountsLoad(async () => {
       try {
-        const objectifsCMCs = JSON.parse(objectifsKey) as string[]
+        const objectiveIds = JSON.parse(objectifsKey) as string[]
         const value = await loadRevisionCounts({
           domain: domain === ALL_DOMAINS ? undefined : domain,
-          objectifsCMCs: objectifsCMCs.length > 0 ? objectifsCMCs : undefined,
+          objectiveIds: objectiveIds.length > 0 ? objectiveIds : undefined,
         })
         if (latestCountsKey.current === countsKey)
           setCounts({ key: countsKey, value })
@@ -320,8 +320,8 @@ export const TrainingConfigForm = ({
         createTrainingSession({
           questionCount: effectiveCount,
           domain: domain === ALL_DOMAINS ? undefined : domain,
-          objectifsCMCs:
-            objectifs.length > 0 ? objectifs.map((o) => o.objectif) : undefined,
+          objectiveIds:
+            objectifs.length > 0 ? objectifs.map((o) => o.id) : undefined,
           mode,
           revisionFilters: isRevision ? activeCriteria : undefined,
         }),
@@ -410,7 +410,7 @@ export const TrainingConfigForm = ({
               options={objectifOptions}
               selected={objectifs}
               onChange={chooseObjectifs}
-              getKey={(o) => o.objectif}
+              getKey={(o) => o.id}
               getLabel={(o) => o.objectif}
               renderMeta={(o) => fmt(o.count)}
               search={objectifSearch}

@@ -37,6 +37,7 @@ import { getPgErrorCode } from "@/lib/db-errors"
 import { adminPhaseOf } from "@/lib/exam-phase"
 import { createId } from "@/lib/ids"
 import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
@@ -156,7 +157,7 @@ beforeAll(async () => {
       question: `Q préparation ${i} ${suffix}`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: "Objectif",
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: "Cardiologie",
     })),
     {
@@ -164,7 +165,7 @@ beforeAll(async () => {
       question: `Q sans dates ${suffix}`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: "Objectif",
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: "Cardiologie",
     },
     {
@@ -172,7 +173,7 @@ beforeAll(async () => {
       question: `Q libre ${suffix}`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: "Objectif",
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: "Cardiologie",
     },
     {
@@ -180,7 +181,7 @@ beforeAll(async () => {
       question: `Q supprimée ${suffix}`,
       correctAnswer: "A",
       options: ["A", "B"],
-      objectifCmc: "Objectif",
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: "Cardiologie",
     },
   ])
@@ -731,7 +732,7 @@ describe("verrou de clé et choix figés", () => {
         correctAnswer: "B",
         explanation: "Parce que.",
         references: [],
-        objectifCMC: "Objectif",
+        objectiveId: TEST_OBJECTIVE_ID,
         domain: "Cardiologie",
       }),
     ).toEqual({ success: true })

@@ -203,6 +203,21 @@ colonne)` dans le WHERE des canaux de
   migration « contract » de la première PR qui touche `exams` après la mise en
   production de l'examen en préparation. Le verrou
   de clé anonyme couvre aussi un examen en préparation, dates ou non.
+- **Référentiel des objectifs du CMC** (`features/objectives/`, vocabulaire
+  dans `CONTEXT.md`) : toute question porte `objective_id`, jamais un libellé
+  libre (`questions.objectif_cmc` n'est plus ni lu ni écrit, en attendant son
+  `DROP COLUMN`). Les règles d'un libellé et la clé normalisée vivent dans
+  `label.ts` (pur, partagé avec le formulaire ; la migration 0023 les recopie
+  en SQL). L'unicité sur la clé n'est PAS en base tant que des variantes
+  restent à fusionner : chaque écriture qui pose un libellé la vérifie sous
+  `pg_advisory_xact_lock`. Une entrée `needs_fix` (valeur invalide) n'est
+  proposée nulle part et refusée par `createQuestion`/`updateQuestion`. La
+  fusion et la correction ne changent que `objective_id` (date de
+  modification comprise). Lecture du libellé : `objectiveLabelSql`, corrélée
+  sur `"questions"`. La vitrine passe par `getCachedDomainObjectives`
+  (étiquette `objectives`, 14 j), que toute écriture du référentiel invalide,
+  comme les écritures de question qui changent domaine, objectif ou
+  existence.
 - **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
   sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
   renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou

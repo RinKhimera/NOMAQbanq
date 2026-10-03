@@ -23,6 +23,7 @@ import {
 import { signQuizToken, verifyQuizToken } from "@/features/questions/quiz-token"
 import { createId } from "@/lib/ids"
 import { getClientIpKey } from "@/lib/quiz-rate-limit"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -77,7 +78,7 @@ const mkQuestion = (id: string, correct: string) =>
     question: `Question ${id.slice(0, 6)} ${suffix} ?`,
     correctAnswer: correct,
     options: ["A", "B", "C", "D"],
-    objectifCmc: `OBJ-${suffix}`,
+    objectiveId: TEST_OBJECTIVE_ID,
     domain: DOMAIN,
   })
 

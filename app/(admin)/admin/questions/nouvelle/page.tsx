@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { getObjectivesByDomain } from "@/features/questions/dal"
+import { getObjectiveOptions } from "@/features/objectives/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 import { QuestionForm } from "../_components/question-form"
@@ -18,7 +18,7 @@ export default async function NewQuestionPage({
 }) {
   await requireRole(["admin"])
   const list = parseQuestionList(toSearchParams(await searchParams))
-  const objectivesByDomain = await getObjectivesByDomain()
+  const objectives = await getObjectiveOptions()
 
   return (
     <div className="flex flex-col gap-4 p-4 lg:p-6">
@@ -27,7 +27,7 @@ export default async function NewQuestionPage({
         // Réservé dès l'ouverture : les images s'envoient avant la création.
         initialQuestionId={createId()}
         initial={blankQuestionForm()}
-        objectivesByDomain={objectivesByDomain}
+        objectives={objectives}
         list={list}
         edit={null}
       />

@@ -18,6 +18,7 @@ import {
   DOMAIN_SAMPLE_QUESTIONS,
   HERO_QUESTION_KEY_ONLY,
 } from "@/constants/sample-questions"
+import { getCachedDomainObjectives } from "@/features/marketing/cached"
 import { cn } from "@/lib/utils"
 
 type Props = { params: Promise<{ slug: string }> }
@@ -46,6 +47,7 @@ export default async function DomainPage({ params }: Props) {
   const domain = domainBySlug((await params).slug)
   if (!domain) notFound()
 
+  const objectives = (await getCachedDomainObjectives())[domain.name] ?? []
   const sample = DOMAIN_SAMPLE_QUESTIONS[domain.name]
   const siblings = DOMAINS.filter(
     (d) => d.group.id === domain.group.id && d.slug !== domain.slug,
@@ -125,11 +127,11 @@ export default async function DomainPage({ params }: Props) {
             <h2 className="type-h2 text-ink">Ce que couvre ce domaine</h2>
             <p className="text-ink-2 text-[15px] leading-relaxed">
               Les questions sont rattachées aux objectifs du Conseil médical du
-              Canada. En voici les principaux.
+              Canada, du plus fréquent au moins fréquent.
             </p>
           </div>
           <ol className="border-line border-t">
-            {domain.objectives.map((objective, i) => (
+            {objectives.map((objective, i) => (
               <li
                 key={objective}
                 className="border-line grid grid-cols-[32px_minmax(0,1fr)] items-baseline gap-3 border-b py-3.5"

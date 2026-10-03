@@ -31,6 +31,7 @@ import { getQuestionById, getQuestionList } from "@/features/questions/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { createPresignedUpload } from "@/lib/aws"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID, objectiveIdFor } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -72,7 +73,7 @@ const base = {
   correctAnswer: "A",
   explanation: "Parce que.",
   references: ["R1"],
-  objectifCMC: `Objectif ${suffix}`,
+  objectiveId: TEST_OBJECTIVE_ID,
   domain: DOMAIN,
 }
 
@@ -231,7 +232,7 @@ describe("clé confirmée", () => {
       ...base,
       id,
       explanation: "Autre explication.",
-      objectifCMC: "Autre objectif",
+      objectiveId: await objectiveIdFor("Autre objectif"),
     })
     expect((await getQuestionById(id))?.keyConfirmation).not.toBeNull()
   })
@@ -312,7 +313,7 @@ describe("choix figés", () => {
         question: `Énoncé revu ${suffix}`,
         explanation: "Explication revue.",
         references: ["R1", "R2"],
-        objectifCMC: "Objectif revu",
+        objectiveId: await objectiveIdFor("Objectif revu"),
         domain: "Neurologie",
       }),
     ).toEqual({ success: true })

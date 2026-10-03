@@ -32,6 +32,8 @@ const file: QuestionFile = {
     options: ["A", "B", "C", "D"],
     correctAnswer: "B",
     objectifCMC: "Toux",
+    objectiveId: "obj-toux",
+    objectiveNeedsFix: false,
     domain: "Pneumologie",
     createdAt: NOW,
     updatedAt: NOW,

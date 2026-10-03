@@ -24,6 +24,8 @@ export type SearchableOption = {
   label: string
   /** Complément en mono à droite (phase d'un examen, effectif). */
   hint?: string
+  /** Intitulé du groupe ; les options d'un même groupe se suivent. */
+  group?: string
 }
 
 type SearchableSelectProps = {
@@ -38,6 +40,11 @@ type SearchableSelectProps = {
   clearLabel?: string
   /** Propose « Créer « … » » quand la recherche ne correspond à aucune option. */
   creatable?: boolean
+  /**
+   * Création confiée à l'appelant (qui choisit ensuite la nouvelle valeur) ;
+   * sans elle, le texte saisi devient la valeur.
+   */
+  onCreate?: (label: string) => void
   emptyText?: string
   disabled?: boolean
   invalid?: boolean
@@ -54,6 +61,7 @@ export function SearchableSelect({
   searchPlaceholder,
   clearLabel,
   creatable = false,
+  onCreate,
   emptyText = "Aucun résultat",
   disabled = false,
   invalid = false,
@@ -67,10 +75,11 @@ export function SearchableSelect({
     ? options.filter((o) => foldForSearch(o.label).includes(term))
     : options
   const canCreate =
-    creatable &&
+    (creatable || !!onCreate) &&
     term !== "" &&
     !options.some((o) => foldForSearch(o.label) === term)
   const current = options.find((o) => o.value === value)
+  const groups = groupOptions(shown)
 
   const pick = (next: string) => {
     onChange(next)
@@ -115,8 +124,8 @@ export function SearchableSelect({
             {shown.length === 0 && !canCreate && (
               <CommandEmpty>{emptyText}</CommandEmpty>
             )}
-            <CommandGroup>
-              {clearLabel && !term && (
+            {clearLabel && !term && (
+              <CommandGroup>
                 <CommandItem value="__clear" onSelect={() => pick("")}>
                   <Check
                     aria-hidden
@@ -124,41 +133,63 @@ export function SearchableSelect({
                   />
                   {clearLabel}
                 </CommandItem>
-              )}
-              {shown.map((o) => (
-                <CommandItem
-                  key={o.value}
-                  value={o.value}
-                  onSelect={() => pick(o.value)}
-                >
-                  <Check
-                    aria-hidden
-                    className={cn(
-                      "size-4",
-                      value === o.value ? "" : "opacity-0",
+              </CommandGroup>
+            )}
+            {groups.map(({ heading, items }) => (
+              <CommandGroup key={heading ?? ""} heading={heading}>
+                {items.map((o) => (
+                  <CommandItem
+                    key={o.value}
+                    value={o.value}
+                    onSelect={() => pick(o.value)}
+                  >
+                    <Check
+                      aria-hidden
+                      className={cn(
+                        "size-4",
+                        value === o.value ? "" : "opacity-0",
+                      )}
+                    />
+                    <span className="min-w-0 flex-1">{o.label}</span>
+                    {o.hint && (
+                      <span className="text-ink-3 font-mono text-[11px]">
+                        {o.hint}
+                      </span>
                     )}
-                  />
-                  <span className="min-w-0 flex-1">{o.label}</span>
-                  {o.hint && (
-                    <span className="text-ink-3 font-mono text-[11px]">
-                      {o.hint}
-                    </span>
-                  )}
-                </CommandItem>
-              ))}
-              {canCreate && (
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+            {canCreate && (
+              <CommandGroup>
                 <CommandItem
                   value="__create"
-                  onSelect={() => pick(search.trim())}
+                  onSelect={() => {
+                    if (!onCreate) return pick(search.trim())
+                    onCreate(search.trim())
+                    setOpen(false)
+                    setSearch("")
+                  }}
                 >
                   <Plus aria-hidden className="size-4" />
                   Créer « {search.trim()} »
                 </CommandItem>
-              )}
-            </CommandGroup>
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
     </Popover>
   )
+}
+
+/** Options regroupées dans l'ordre de leur première apparition. */
+const groupOptions = (options: readonly SearchableOption[]) => {
+  const groups: { heading?: string; items: SearchableOption[] }[] = []
+  for (const option of options) {
+    const last = groups.at(-1)
+    if (last && last.heading === option.group) last.items.push(option)
+    else groups.push({ heading: option.group, items: [option] })
+  }
+  return groups
 }

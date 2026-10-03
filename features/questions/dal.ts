@@ -20,6 +20,7 @@ import "server-only"
 import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
+  cmcObjectives,
   examQuestions,
   exams,
   questionExplanations,
@@ -30,6 +31,7 @@ import {
 import { requireRole } from "@/lib/auth-guards"
 import { questionSuccessStats } from "../analytics/answers-sql"
 import type { DomainDraw, DomainSupply } from "../exams/completion"
+import { objectiveLabelSql } from "../objectives/sql"
 import { AnswerKeyLock, excludeLocked } from "./answer-key-lock"
 import {
   KEY_CONFIRMATION_MIN_NEW_ANSWERS,
@@ -195,6 +197,7 @@ export type QuestionSelection = {
   /** Énoncé, objectif, choix de réponse ou identifiant exact. */
   search?: string
   domain?: string
+  /** Identifiant d'un objectif du référentiel. */
   objective?: string
   hasImages?: boolean
   /** Clé à vérifier. */
@@ -246,11 +249,11 @@ const selectionWhere = ({
   return and(
     isNull(questions.deletedAt),
     domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
-    objective ? eq(questions.objectifCmc, objective) : undefined,
+    objective ? eq(questions.objectiveId, objective) : undefined,
     searchTerm
       ? or(
           ilike(questions.question, pattern),
-          ilike(questions.objectifCmc, pattern),
+          sql`${objectiveLabelSql} ilike ${pattern}`,
           sql`exists (
             select 1
               from jsonb_array_elements_text("questions"."options") opt
@@ -398,7 +401,7 @@ export const questionListItems = async (
         id: questions.id,
         question: questions.question,
         domain: questions.domain,
-        objectifCMC: questions.objectifCmc,
+        objectifCMC: objectiveLabelSql,
         options: questions.options,
         createdAt: questions.createdAt,
         updatedAt: questions.updatedAt,
@@ -665,6 +668,9 @@ export type QuestionDetail = {
   options: string[]
   correctAnswer: string
   objectifCMC: string
+  objectiveId: string
+  /** L'objectif est une valeur invalide, à remplacer. */
+  objectiveNeedsFix: boolean
   domain: string
   /** Epoch ms. */
   createdAt: number
@@ -696,7 +702,9 @@ export const getQuestionById = async (
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: cmcObjectives.label,
+      objectiveId: questions.objectiveId,
+      objectiveNeedsFix: cmcObjectives.needsFix,
       domain: questions.domain,
       createdAt: questions.createdAt,
       updatedAt: questions.updatedAt,
@@ -708,6 +716,7 @@ export const getQuestionById = async (
       references: questionExplanations.references,
     })
     .from(questions)
+    .innerJoin(cmcObjectives, eq(cmcObjectives.id, questions.objectiveId))
     .leftJoin(user, eq(user.id, questions.keyConfirmedBy))
     .leftJoin(
       questionExplanations,
@@ -749,6 +758,8 @@ export const getQuestionById = async (
     options: q.options,
     correctAnswer: q.correctAnswer,
     objectifCMC: q.objectifCMC,
+    objectiveId: q.objectiveId,
+    objectiveNeedsFix: q.objectiveNeedsFix,
     domain: q.domain,
     createdAt: q.createdAt.getTime(),
     updatedAt: q.updatedAt.getTime(),
@@ -1106,35 +1117,6 @@ export const drawFromBank = async (
 }
 
 // ============================================
-// [Admin] Objectifs CMC + ids (combobox, auto-complete)
-// ============================================
-
-/**
- * [Admin] Objectifs du CMC de chaque domaine : ceux qu'utilise au moins une
- * question active du domaine, triés en français. Seule lecture des objectifs
- * (filtre de la liste, combobox du formulaire) : elle basculera sur le
- * référentiel des objectifs sans toucher aux écrans.
- */
-export const getObjectivesByDomain = async (): Promise<
-  Record<string, string[]>
-> => {
-  await requireRole(["admin"])
-  const rows = await db
-    .selectDistinct({
-      domain: questions.domain,
-      objective: questions.objectifCmc,
-    })
-    .from(questions)
-    .where(isNull(questions.deletedAt))
-    .limit(5000)
-  const byDomain: Record<string, string[]> = {}
-  for (const r of rows) (byDomain[r.domain] ??= []).push(r.objective)
-  for (const list of Object.values(byDomain))
-    list.sort((a, b) => a.localeCompare(b, "fr"))
-  return byDomain
-}
-
-// ============================================
 // [Public] Quiz marketing (sans auth)
 // ============================================
 
@@ -1170,7 +1152,7 @@ export const getRandomQuizQuestions = async ({
       questionId: questions.id,
       question: questions.question,
       options: questions.options,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: objectiveLabelSql,
       domain: questions.domain,
     })
     .from(questions)
@@ -1313,7 +1295,7 @@ export const getQuestionsForExport = async (
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: objectiveLabelSql,
       domain: questions.domain,
       createdAt: questions.createdAt,
       explanation: questionExplanations.explanation,
