@@ -11,6 +11,7 @@ import type { AccessStatus, ProductView } from "@/features/payments/dal"
 import { formatCurrency } from "@/lib/format"
 import { MONTH_DAYS, savingsOf } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
+import { CheckoutCancelledNotice } from "./checkout-cancelled-notice"
 import { PricingGrid } from "./pricing-grid"
 
 const FACTS = [
@@ -73,11 +74,14 @@ export default function TarifsPage({
   accessStatus,
   stats,
   isAuthenticated,
+  checkoutCancelled = false,
 }: {
   products: ProductView[]
   accessStatus: AccessStatus | null
   stats: MarketingStats
   isAuthenticated: boolean
+  /** Retour de Stripe Checkout sans paiement (`/tarifs?annule=1`). */
+  checkoutCancelled?: boolean
 }) {
   return (
     <>
@@ -93,11 +97,14 @@ export default function TarifsPage({
 
       <section className={MARKETING_SECTION}>
         <div className={cn(MARKETING_WRAP, "flex flex-col gap-14")}>
-          <PricingGrid
-            products={products}
-            accessStatus={accessStatus}
-            isAuthenticated={isAuthenticated}
-          />
+          <div className="flex flex-col gap-6">
+            {checkoutCancelled && <CheckoutCancelledNotice />}
+            <PricingGrid
+              products={products}
+              accessStatus={accessStatus}
+              isAuthenticated={isAuthenticated}
+            />
+          </div>
           <div className="border-line overflow-hidden rounded-lg border">
             <ul className="-mr-px -mb-px grid md:grid-cols-2 lg:grid-cols-3">
               {FACTS.map((fact) => (

@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, gt, gte, lt, ne, or, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  lt,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { cache } from "react"
 import "server-only"
@@ -74,6 +86,72 @@ export const getAccessStatus = cache(
         now,
       ),
     }
+  },
+)
+
+type TxStatus = (typeof transactions.status.enumValues)[number]
+
+export type CheckoutPurchase = {
+  productName: string
+  /** `completed` : le webhook a écrit l'accès ; `pending` : pas encore passé. */
+  status: TxStatus
+  /** Accès couverts par l'achat, examens d'abord ; vide hors `completed`. */
+  access: { type: AccessType; expiresAt: number }[]
+}
+
+const ACCESS_ORDER: AccessType[] = ["exam", "training"]
+
+/**
+ * Achat de l'utilisateur courant rattaché à une session Checkout, pour la page
+ * de retour de paiement. Les expirations viennent de `user_access` (cumul
+ * compris), pas du snapshot de la transaction. `null` si aucune transaction de
+ * cet utilisateur ne porte la session.
+ */
+export const getCheckoutPurchase = cache(
+  async (stripeSessionId: string): Promise<CheckoutPurchase | null> => {
+    const session = await requireSession()
+    const [purchase] = await db
+      .select({
+        productName: products.name,
+        status: transactions.status,
+        accessType: transactions.accessType,
+        isCombo: products.isCombo,
+      })
+      .from(transactions)
+      .innerJoin(products, eq(products.id, transactions.productId))
+      .where(
+        and(
+          eq(transactions.stripeSessionId, stripeSessionId),
+          eq(transactions.userId, session.user.id),
+        ),
+      )
+      .limit(1)
+    if (!purchase) return null
+
+    const { productName, status } = purchase
+    if (status !== "completed") return { productName, status, access: [] }
+
+    const covered = purchase.isCombo ? ACCESS_ORDER : [purchase.accessType]
+    // L'ordre de l'enum `access_type` (exam, training) donne « examens d'abord ».
+    const rows = await db
+      .select({
+        accessType: userAccess.accessType,
+        expiresAt: userAccess.expiresAt,
+      })
+      .from(userAccess)
+      .where(
+        and(
+          eq(userAccess.userId, session.user.id),
+          inArray(userAccess.accessType, covered),
+        ),
+      )
+      .orderBy(asc(userAccess.accessType))
+      .limit(ACCESS_ORDER.length)
+    const access = rows.map((r) => ({
+      type: r.accessType,
+      expiresAt: r.expiresAt.getTime(),
+    }))
+    return { productName, status, access }
   },
 )
 
@@ -367,8 +445,6 @@ export const getMyTransactions = async ({
 // ============================================
 // [Admin] Transactions d'un client (pagination keyset)
 // ============================================
-
-type TxStatus = (typeof transactions.status.enumValues)[number]
 
 export type AdminTransactionView = {
   id: string

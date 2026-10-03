@@ -5,6 +5,7 @@ import { stripeBox } from "../helpers/fake-stripe"
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     captureServerError: vi.fn(),
+    getCheckoutPurchase: vi.fn(),
   },
 }))
 
@@ -21,6 +22,7 @@ vi.mock("@/db/schema", () => ({
 vi.mock("@/features/payments/dal", () => ({
   getAccessStatus: vi.fn(),
   getAllTransactions: vi.fn(),
+  getCheckoutPurchase: mocks.getCheckoutPurchase,
   getMyTransactions: vi.fn(),
   getTransactionAccessImpact: vi.fn(),
   getTransactionStats: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
 beforeEach(() => {
   stripeBox.reset()
+  mocks.getCheckoutPurchase.mockResolvedValue(null)
 })
 
 describe("verifyStripeCheckout — session inconnue vs panne", () => {
@@ -105,6 +108,28 @@ describe("verifyStripeCheckout — anti-IDOR + happy path", () => {
       amountTotal: 5000,
       currency: "cad",
       customerEmail: "x@test.invalid",
+      purchase: null,
     })
+  })
+
+  it("lecture de l'achat en panne : le paiement confirmé reste un succès, sans achat", async () => {
+    stripeBox.seedCheckoutSession({
+      id: "cs_ok",
+      metadata: { userId: "u1" },
+      payment_status: "paid",
+      amount_total: 5000,
+      currency: "cad",
+    })
+    const boom = new Error("Neon endormi")
+    mocks.getCheckoutPurchase.mockRejectedValue(boom)
+
+    const res = await verifyStripeCheckout("cs_ok")
+
+    expect(res).toMatchObject({ success: true, status: "paid", purchase: null })
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[verifyStripeCheckout] lecture de l'achat",
+      boom,
+      { userId: "u1" },
+    )
   })
 })
