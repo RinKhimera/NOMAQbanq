@@ -41,6 +41,7 @@ import {
 import { getTrainingSessionResults } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
@@ -58,7 +59,6 @@ const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 const STUDENT_ID = createId()
 const DOMAIN = `EXPL-${suffix}`
-const OBJ = `Obj EXPL ${suffix}`
 
 // qBoth : statement + explanation ; qStmtOnly : statement seul ;
 // qExplOnly : explanation seul ; qExam : pour la participation examen complétée ;
@@ -99,7 +99,7 @@ beforeAll(async () => {
       question: `EX Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: OBJ,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: DOMAIN,
     })),
   )

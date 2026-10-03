@@ -42,6 +42,7 @@ import {
 } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { objectiveIdFor } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -70,13 +71,14 @@ beforeAll(async () => {
     name: "IT training",
     email: `training-${suffix}@test.invalid`,
   })
+  const objectiveId = await objectiveIdFor(OBJ)
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
       question: `Q ${i} ${suffix} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: OBJ,
+      objectiveId,
       domain: DOMAIN,
     })),
   )
@@ -320,7 +322,7 @@ describe("gardes", () => {
   it("filtre objectif CMC inexistant → 0 disponible", async () => {
     const res = await createTrainingSession({
       questionCount: 5,
-      objectifsCMCs: [`ghost-${suffix}`],
+      objectiveIds: [`ghost-${suffix}`],
       mode: "test",
     })
     expect(res.success).toBe(false)

@@ -155,7 +155,7 @@ const questionInput = {
   options: ["A", "B", "C", "D"],
   correctAnswer: "A",
   explanation: "parce que",
-  objectifCMC: "1-1",
+  objectiveId: "obj-1",
   domain: "Cardiologie",
 }
 
@@ -302,11 +302,12 @@ describe("createQuestion", () => {
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
-  it("succes : revalide la liste admin et les stats publiques", async () => {
+  it("succes : revalide la liste admin, les stats publiques et les objectifs de la vitrine", async () => {
     const res = await createQuestion(questionInput)
     expect(res).toMatchObject({ success: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/questions")
     expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
+    expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
   })
 
   it("erreur inattendue → capture", async () => {
@@ -343,6 +344,20 @@ describe("updateQuestion", () => {
     expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
   })
 
+  // La transaction rend « domaine ou objectif changé » : seule cette
+  // modification touche ce qu'affiche une page domaine.
+  it("domaine et objectif inchangés : les objectifs de la vitrine gardent leur cache", async () => {
+    mocks.transaction.mockResolvedValueOnce(false)
+    await updateQuestion(input)
+    expect(mocks.revalidateTag).not.toHaveBeenCalledWith("objectives", "max")
+  })
+
+  it("domaine ou objectif changé : les objectifs de la vitrine sont invalidés", async () => {
+    mocks.transaction.mockResolvedValueOnce(true)
+    await updateQuestion(input)
+    expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
+  })
+
   it("erreur inattendue → capture", async () => {
     mocks.transaction.mockRejectedValueOnce(new Error("boom"))
     const res = await updateQuestion(input)
@@ -371,6 +386,7 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
       "questions/q1/a.jpg",
     )
     expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
+    expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
   })
 
   it("question inexistante → message metier, aucun soft delete tente", async () => {
@@ -393,6 +409,7 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
       expect(res).toEqual({ success: true, mode: "soft" })
       expect(mocks.tryDeleteFromStorage).not.toHaveBeenCalled()
       expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
+      expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
       expect(mocks.captureServerError).not.toHaveBeenCalled()
     },
   )

@@ -65,6 +65,9 @@ export const adminNavSections: NavSection[] = [
   },
 ]
 
+/** Référentiel des objectifs du CMC (fusion des variantes, valeurs invalides). */
+export const OBJECTIVES_HREF = "/admin/questions/objectifs"
+
 /** Paramètre d'URL qui présélectionne un domaine dans l'entraînement. */
 export const TRAINING_DOMAIN_PARAM = "domaine"
 

@@ -24,3 +24,7 @@ if (!databaseUrl.includes(host)) {
 }
 
 applyTestEnvDefaults()
+
+// Import différé : `@/db` lit l'environnement au chargement.
+const { seedTestObjective } = await import("./tests/helpers/objective")
+await seedTestObjective()

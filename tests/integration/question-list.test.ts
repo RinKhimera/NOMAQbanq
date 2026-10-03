@@ -19,6 +19,7 @@ import {
 } from "@/features/questions/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { objectiveIdFor } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -45,7 +46,7 @@ const createdUsers: string[] = []
 const createdSessions: string[] = []
 const createdExams: string[] = []
 
-const mkQuestion = (
+const mkQuestion = async (
   id: string,
   label: string,
   days: number,
@@ -57,7 +58,7 @@ const mkQuestion = (
     question: `Énoncé ${label} ${suffix}`,
     correctAnswer: options[0],
     options,
-    objectifCmc: objective,
+    objectiveId: await objectiveIdFor(objective),
     domain: DOMAIN,
     createdAt: at(days),
     updatedAt: at(days + 100 - days * 2),
@@ -181,7 +182,10 @@ describe("liste des questions : filtres et compteurs", () => {
       noReferences: 2,
     })
     expect(
-      await getQuestionTabCounts({ domain: DOMAIN, objective: "Dyspnée" }),
+      await getQuestionTabCounts({
+        domain: DOMAIN,
+        objective: await objectiveIdFor("Dyspnée"),
+      }),
     ).toEqual({ all: 1, toVerify: 1, noReferences: 0 })
   })
 
@@ -208,7 +212,9 @@ describe("liste des questions : filtres et compteurs", () => {
   })
 
   it("filtre par objectif", async () => {
-    expect(await listIds({ objective: "Dyspnée" })).toEqual([ids.mid])
+    expect(
+      await listIds({ objective: await objectiveIdFor("Dyspnée") }),
+    ).toEqual([ids.mid])
   })
 })
 

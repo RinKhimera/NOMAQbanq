@@ -1,9 +1,7 @@
 import type { Metadata } from "next"
 import { getExamsForPicker } from "@/features/exams/dal"
-import {
-  getObjectivesByDomain,
-  getQuestionList,
-} from "@/features/questions/dal"
+import { getObjectiveOptions } from "@/features/objectives/dal"
+import { getQuestionList } from "@/features/questions/dal"
 import { currentTimeMs } from "@/lib/clock"
 import {
   parseQuestionList,
@@ -23,9 +21,9 @@ export default async function AdminQuestionsPage({
 }) {
   const state = parseQuestionList(toSearchParams(await searchParams))
 
-  const [list, objectivesByDomain, exams] = await Promise.all([
+  const [list, objectives, exams] = await Promise.all([
     getQuestionList(toQuestionFilters(state)),
-    getObjectivesByDomain(),
+    getObjectiveOptions(),
     getExamsForPicker(),
   ])
 
@@ -34,7 +32,7 @@ export default async function AdminQuestionsPage({
       <QuestionsClient
         state={state}
         list={list}
-        objectivesByDomain={objectivesByDomain}
+        objectives={objectives}
         exams={exams}
         initialNow={currentTimeMs()}
       />

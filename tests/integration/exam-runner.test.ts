@@ -26,6 +26,7 @@ import {
 import { getExamSession, getExamWithQuestions } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
@@ -98,7 +99,7 @@ beforeAll(async () => {
       question: `ER Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj ER ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `ER-${suffix}`,
     })),
   )

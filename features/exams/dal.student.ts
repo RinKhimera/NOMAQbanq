@@ -29,6 +29,7 @@ import {
 import type { AttemptTiming } from "@/lib/attempt-clock"
 import { getCurrentSession } from "@/lib/dal"
 import { canReadResults } from "@/lib/exam-phase"
+import { objectiveLabelSql } from "../objectives/sql"
 import { hasAccess } from "../payments/dal"
 import {
   AnswerKeyLock,
@@ -427,7 +428,7 @@ export const getExamWithQuestions = async (
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: objectiveLabelSql,
       domain: questions.domain,
     })
     .from(examQuestions)
@@ -754,7 +755,7 @@ export const getParticipantExamResults = async (
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: objectiveLabelSql,
       domain: questions.domain,
     })
     .from(examQuestions)

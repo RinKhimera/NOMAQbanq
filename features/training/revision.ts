@@ -16,7 +16,8 @@ export type RevisionScope = {
    */
   viewer: LockUser
   domain?: string
-  objectifsCMCs?: string[]
+  /** Objectifs du référentiel. */
+  objectiveIds?: string[]
 }
 
 // Historique unifié entraînement + examens de l'utilisateur, réduit à sa
@@ -68,16 +69,14 @@ const CRITERION_PREDICATE: Record<RevisionCriterion, SQL> = {
   unseen: sql`not exists (select 1 from attempts a2 where a2.question_id = q.id)`,
 }
 
-const corpusWhere = ({ viewer, domain, objectifsCMCs }: RevisionScope): SQL => {
+const corpusWhere = ({ viewer, domain, objectiveIds }: RevisionScope): SQL => {
   const parts: SQL[] = [sql`q.deleted_at is null`]
   if (domain && domain !== "all") parts.push(sql`q.domain = ${domain}`)
 
-  const objectifs =
-    objectifsCMCs?.map((o) => o.trim().toLowerCase()).filter(Boolean) ?? []
-  if (objectifs.length > 0) {
+  if (objectiveIds?.length) {
     parts.push(
-      sql`lower(q.objectif_cmc) in (${sql.join(
-        objectifs.map((o) => sql`${o}`),
+      sql`q.objective_id in (${sql.join(
+        objectiveIds.map((id) => sql`${id}`),
         sql`, `,
       )})`,
     )

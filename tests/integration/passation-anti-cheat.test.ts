@@ -33,6 +33,7 @@ import {
 import { getTrainingSessionById } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
@@ -62,7 +63,6 @@ const ADMIN_ID = createId()
 const STUDENT_ID = createId()
 const PID = createId()
 const DOMAIN = `AC-${suffix}`
-const OBJ = `Obj AC ${suffix}`
 const qIds = Array.from({ length: 6 }, () => createId())
 
 const setSession = (id: string, role: "user" | "admin") =>
@@ -135,7 +135,7 @@ beforeAll(async () => {
       question: `AC Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: OBJ,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: DOMAIN,
     })),
   )

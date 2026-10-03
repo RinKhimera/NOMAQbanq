@@ -35,8 +35,8 @@ vi.mock("@/features/training/actions", () => ({
 }))
 
 const objectifs = [
-  { objectif: "Douleur thoracique", count: 40 },
-  { objectif: "Dyspnée", count: 3 },
+  { id: "obj-dt", objectif: "Douleur thoracique", count: 40 },
+  { id: "obj-dyspnee", objectif: "Dyspnée", count: 3 },
 ]
 
 const props = {
@@ -368,7 +368,7 @@ describe("TrainingConfigForm — domaine et objectifs", () => {
     await waitFor(() =>
       expect(loadRevisionCounts).toHaveBeenLastCalledWith({
         domain: "Cardiologie",
-        objectifsCMCs: ["Dyspnée"],
+        objectiveIds: ["obj-dyspnee"],
       }),
     )
     // 3 questions pour cet objectif : trop peu hors révision.
@@ -387,7 +387,7 @@ describe("TrainingConfigForm — domaine et objectifs", () => {
       expect(createTrainingSession).toHaveBeenCalledWith(
         expect.objectContaining({
           domain: "Cardiologie",
-          objectifsCMCs: ["Dyspnée"],
+          objectiveIds: ["obj-dyspnee"],
           questionCount: 3,
         }),
       )

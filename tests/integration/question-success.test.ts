@@ -17,6 +17,7 @@ import {
 } from "@/features/questions/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -40,7 +41,7 @@ const newQuestion = async () => {
     question: `Réussite ${suffix} ${id}`,
     correctAnswer: "A",
     options: ["A", "B", "C"],
-    objectifCmc: "Objectif",
+    objectiveId: TEST_OBJECTIVE_ID,
     domain: "Cardiologie",
   })
   return id

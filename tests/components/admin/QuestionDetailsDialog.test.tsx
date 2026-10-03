@@ -9,6 +9,8 @@ const question: QuestionDetail = {
   options: ["A", "B"],
   correctAnswer: "B",
   objectifCMC: "OBJ",
+  objectiveId: "obj",
+  objectiveNeedsFix: false,
   domain: "Cardiologie",
   createdAt: 0,
   updatedAt: 0,

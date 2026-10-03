@@ -9,7 +9,7 @@ const question = {
   options: ["Amoxicilline", "Doxycycline", "Céfazoline", "Vancomycine"],
   correctAnswer: "Amoxicilline",
   explanation: "Parce que.",
-  objectifCMC: "Objectif",
+  objectiveId: "obj-1",
   domain: "Cardiologie",
 }
 

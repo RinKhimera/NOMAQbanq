@@ -49,6 +49,11 @@ import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { MEDICAL_DOMAINS } from "@/constants"
+import { createObjective } from "@/features/objectives/actions"
+import type {
+  ObjectiveOption,
+  ObjectiveOptions,
+} from "@/features/objectives/dal"
 import {
   createQuestion,
   setQuestionImages,
@@ -80,6 +85,7 @@ import {
   duplicateOf,
   hasReferences,
   newQuestionId,
+  objectiveSelectOptions,
   questionFormChecks,
   snapshotOf,
   toQuestionPayload,
@@ -102,6 +108,8 @@ export type QuestionEditContext = {
   confirmation: KeyConfirmation | null
   /** Examen ouvert qui fige les choix et la clé. */
   lockingExam: { title: string; endDate: number } | null
+  /** Valeur invalide portée par la question, à remplacer par un objectif. */
+  invalidObjective: string | null
 }
 
 const STEP_ID: Record<QuestionFormStep, string> = {
@@ -403,7 +411,7 @@ export const QuestionForm = ({
   mode,
   initialQuestionId,
   initial,
-  objectivesByDomain,
+  objectives: initialObjectives,
   list,
   edit,
 }: {
@@ -411,7 +419,7 @@ export const QuestionForm = ({
   /** Identifiant réservé en création (images envoyées avant l'enregistrement). */
   initialQuestionId: string
   initial: QuestionFormValues
-  objectivesByDomain: Record<string, string[]>
+  objectives: ObjectiveOptions
   list: QuestionListState
   edit: QuestionEditContext | null
 }) => {
@@ -434,6 +442,14 @@ export const QuestionForm = ({
     field: "explanation" | "references"
     raw: Pick<QuestionFormValues, "explanation" | "references">
   } | null>(null)
+  const [createdObjectives, setCreatedObjectives] = useState<ObjectiveOption[]>(
+    [],
+  )
+  const [objectiveRefusal, setObjectiveRefusal] = useState<{
+    error: string
+    existing?: ObjectiveOption
+  } | null>(null)
+  const [creatingObjective, setCreatingObjective] = useState(false)
   const [reveal, setReveal] = useState(true)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [uploads, setUploads] = useState({
@@ -671,9 +687,43 @@ export const QuestionForm = ({
   const previewOptions = values.options.filter((o) => o.trim())
   const keyText =
     values.keyIndex !== null ? values.options[values.keyIndex] : undefined
-  const objectives = values.domain
-    ? (objectivesByDomain[values.domain] ?? [])
-    : []
+  // Un objectif créé ici revient aussi avec la page rechargée par l'action.
+  const objectives = [
+    ...initialObjectives.objectives,
+    ...createdObjectives.filter(
+      (c) => !initialObjectives.objectives.some((o) => o.id === c.id),
+    ),
+  ]
+  const objectiveLabel = objectives.find(
+    (o) => o.id === values.objective,
+  )?.label
+  const objectiveOptions = objectiveSelectOptions(
+    objectives,
+    values.domain ? (initialObjectives.byDomain[values.domain] ?? []) : [],
+  )
+  const chooseObjective = (objective: string) => {
+    setObjectiveRefusal(null)
+    setValues((v) => ({ ...v, objective }))
+  }
+  const createObjectiveFrom = async (label: string) => {
+    setCreatingObjective(true)
+    setObjectiveRefusal(null)
+    const res = await callAction(() => createObjective({ label }))
+    setCreatingObjective(false)
+    if (!res.success) {
+      setObjectiveRefusal({
+        error: res.error,
+        existing: "existing" in res ? res.existing : undefined,
+      })
+      return
+    }
+    adoptObjective(res.objective)
+  }
+  /** Choisit un objectif que la liste chargée avec la page peut ignorer. */
+  const adoptObjective = (objective: ObjectiveOption) => {
+    setCreatedObjectives((list) => [...list, objective])
+    chooseObjective(objective.id)
+  }
 
   return (
     <div className="flex flex-col gap-4 pb-20 lg:pb-0">
@@ -747,7 +797,6 @@ export const QuestionForm = ({
                     setValues((v) => ({
                       ...v,
                       domain,
-                      objective: domain === v.domain ? v.objective : "",
                     }))
                   }
                 >
@@ -779,25 +828,51 @@ export const QuestionForm = ({
                 <SearchableSelect
                   id="qf-objective"
                   value={values.objective}
-                  onChange={(objective) =>
-                    setValues((v) => ({ ...v, objective }))
-                  }
-                  options={objectives.map((o) => ({ value: o, label: o }))}
+                  onChange={chooseObjective}
+                  onCreate={createObjectiveFrom}
+                  options={objectiveOptions}
                   placeholder={
                     values.domain
                       ? "Choisir ou créer un objectif"
                       : "Choisissez d'abord un domaine"
                   }
                   searchPlaceholder="Rechercher un objectif"
-                  emptyText="Aucun objectif pour ce domaine"
-                  creatable
-                  disabled={!values.domain}
+                  emptyText="Aucun objectif ne correspond"
+                  disabled={!values.domain || creatingObjective}
                   invalid={
                     failing("classement") &&
                     !!values.domain &&
                     !values.objective.trim()
                   }
                 />
+                {creatingObjective && (
+                  <Message>Création de l&apos;objectif…</Message>
+                )}
+                {objectiveRefusal && (
+                  <Message tone="danger">
+                    {objectiveRefusal.error}
+                    {objectiveRefusal.existing && (
+                      <>
+                        {" "}
+                        <button
+                          type="button"
+                          className="text-accent-ink focus-ring cursor-pointer rounded-xs underline underline-offset-2"
+                          onClick={() =>
+                            adoptObjective(objectiveRefusal.existing!)
+                          }
+                        >
+                          Choisir « {objectiveRefusal.existing.label} »
+                        </button>
+                      </>
+                    )}
+                  </Message>
+                )}
+                {edit?.invalidObjective && !values.objective && (
+                  <Message>
+                    La valeur enregistrée « {edit.invalidObjective} » n&apos;est
+                    pas un objectif : choisissez-en un.
+                  </Message>
+                )}
                 {failing("classement") &&
                   values.domain &&
                   !values.objective.trim() && (
@@ -1166,7 +1241,7 @@ export const QuestionForm = ({
                     question: values.question.trim() || "…",
                     options: previewOptions.length ? previewOptions : ["…"],
                     domain: values.domain || "Domaine",
-                    objectifCMC: values.objective || "Objectif du CMC",
+                    objectifCMC: objectiveLabel ?? "Objectif du CMC",
                     images: values.statementImages,
                     correctAnswer:
                       keyText && keyText.trim() ? keyText : undefined,

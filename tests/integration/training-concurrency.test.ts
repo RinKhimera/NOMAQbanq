@@ -23,6 +23,7 @@ import {
 import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -50,7 +51,7 @@ beforeAll(async () => {
       question: `Q${i} ${suffix} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `CONC-${suffix}`,
     })),
   )

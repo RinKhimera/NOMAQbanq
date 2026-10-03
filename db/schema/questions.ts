@@ -1,14 +1,38 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core"
 import { createId } from "@/lib/ids"
 import { user } from "./auth"
 import { questionImageKind } from "./enums"
+
+/**
+ * Référentiel des objectifs du CMC (`CONTEXT.md`). L'unicité sur la clé
+ * normalisée n'est pas en base tant que des variantes restent à fusionner :
+ * l'application la vérifie à chaque création et renommage.
+ */
+export const cmcObjectives = pgTable(
+  "cmc_objectives",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    label: text("label").notNull(),
+    /** Valeur invalide héritée de la saisie libre : jamais proposée. */
+    needsFix: boolean("needs_fix").default(false).notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [uniqueIndex("cmc_objectives_label_key").on(t.label)],
+)
 
 export const questions = pgTable(
   "questions",
@@ -19,7 +43,13 @@ export const questions = pgTable(
     question: text("question").notNull(),
     correctAnswer: text("correct_answer").notNull(),
     options: jsonb("options").$type<string[]>().notNull(),
-    objectifCmc: text("objectif_cmc").notNull(),
+    // Remplacé par `objectiveId` et plus jamais lu. Toute écriture y recopie
+    // le libellé de l'objectif : la version précédente le lit encore (build,
+    // rollback) jusqu'à la migration qui le supprime.
+    objectifCmc: text("objectif_cmc"),
+    objectiveId: text("objective_id")
+      .notNull()
+      .references(() => cmcObjectives.id, { onDelete: "restrict" }),
     domain: text("domain").notNull(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     // precision 3 (ms) : la pagination keyset encode le curseur via toISOString
@@ -44,7 +74,7 @@ export const questions = pgTable(
   },
   (t) => [
     index("questions_domain_idx").on(t.domain),
-    index("questions_objectif_cmc_idx").on(t.objectifCmc),
+    index("questions_objective_id_idx").on(t.objectiveId),
   ],
 )
 

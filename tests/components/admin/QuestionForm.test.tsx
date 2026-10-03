@@ -18,6 +18,7 @@ const {
   updateQuestion,
   createQuestion,
   setQuestionImages,
+  createObjective,
 } = vi.hoisted(() => ({
   push: vi.fn(),
   toastError: vi.fn(),
@@ -25,6 +26,7 @@ const {
   updateQuestion: vi.fn(),
   createQuestion: vi.fn(),
   setQuestionImages: vi.fn(),
+  createObjective: vi.fn(),
 }))
 
 vi.mock("next/navigation", async (orig) => ({
@@ -39,6 +41,7 @@ vi.mock("@/features/questions/actions", () => ({
   createQuestion,
   setQuestionImages,
 }))
+vi.mock("@/features/objectives/actions", () => ({ createObjective }))
 // Uploader (dnd-kit, react-dropzone) : hors sujet ici.
 vi.mock("@/components/admin/question-image-uploader", () => ({
   QuestionImageUploader: () => <div data-testid="uploader-stub" />,
@@ -66,17 +69,26 @@ vi.mock("@/components/shared/searchable-select", () => ({
   SearchableSelect: ({
     value,
     onChange,
+    onCreate,
   }: {
     value: string
     onChange: (v: string) => void
+    onCreate?: (label: string) => void
   }) => (
-    <input
-      aria-label="Objectif du CMC"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <>
+      <input
+        aria-label="Objectif du CMC"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button type="button" onClick={() => onCreate?.("Toux chronique")}>
+        stub-create
+      </button>
+    </>
   ),
 }))
+
+const NO_OBJECTIVES = { objectives: [], byDomain: {} }
 
 const filled = (
   over: Partial<QuestionFormValues> = {},
@@ -103,6 +115,7 @@ const editContext = (
   originalKeyIndex: 0,
   confirmation: null,
   lockingExam: null,
+  invalidObjective: null,
   ...over,
 })
 
@@ -117,7 +130,7 @@ const openEdit = (
       mode="edit"
       initialQuestionId="q1"
       initial={values}
-      objectivesByDomain={{}}
+      objectives={NO_OBJECTIVES}
       list={DEFAULT_QUESTION_LIST}
       edit={edit}
     />,
@@ -202,7 +215,7 @@ describe("QuestionForm — formulaire incomplet", () => {
         mode="create"
         initialQuestionId="reserved-1"
         initial={blankQuestionForm()}
-        objectivesByDomain={{}}
+        objectives={NO_OBJECTIVES}
         list={DEFAULT_QUESTION_LIST}
         edit={null}
       />,
@@ -230,7 +243,7 @@ describe("QuestionForm — création", () => {
         mode="create"
         initialQuestionId="reserved-1"
         initial={filled({ sources: [null, null, null, null] })}
-        objectivesByDomain={{}}
+        objectives={NO_OBJECTIVES}
         list={DEFAULT_QUESTION_LIST}
         edit={null}
       />,
@@ -412,7 +425,7 @@ describe("QuestionForm — quitter sans enregistrer", () => {
           mode="edit"
           initialQuestionId="q1"
           initial={filled()}
-          objectivesByDomain={{}}
+          objectives={NO_OBJECTIVES}
           list={DEFAULT_QUESTION_LIST}
           edit={editContext()}
         />
@@ -506,5 +519,47 @@ describe("QuestionForm — correction collée", () => {
     expect(screen.getByTestId("explanation-input")).toHaveValue(
       "Premier point. [1]\n\nSecond point.",
     )
+  })
+})
+
+describe("QuestionForm — objectif du référentiel", () => {
+  it("un objectif créé est choisi d'emblée", async () => {
+    const user = userEvent.setup()
+    createObjective.mockResolvedValue({
+      success: true,
+      objective: { id: "obj-new", label: "Toux chronique" },
+    })
+    openEdit()
+    await user.click(screen.getByText("stub-create"))
+
+    expect(createObjective).toHaveBeenCalledWith({ label: "Toux chronique" })
+    await waitFor(() =>
+      expect(screen.getByLabelText("Objectif du CMC")).toHaveValue("obj-new"),
+    )
+  })
+
+  it("une création qui double un objectif propose de le choisir", async () => {
+    const user = userEvent.setup()
+    createObjective.mockResolvedValue({
+      success: false,
+      error: "L'objectif « Toux » existe déjà : choisissez-le plutôt.",
+      existing: { id: "obj-toux", label: "Toux" },
+    })
+    openEdit()
+    await user.click(screen.getByText("stub-create"))
+
+    expect(
+      await screen.findByText(/L'objectif « Toux » existe déjà/),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Choisir « Toux »" }))
+    expect(screen.getByLabelText("Objectif du CMC")).toHaveValue("obj-toux")
+  })
+
+  it("une valeur invalide enregistrée est signalée et laisse le choix vide", () => {
+    openEdit(filled({ objective: "" }), editContext({ invalidObjective: "-" }))
+    expect(
+      screen.getByText(/La valeur enregistrée « - » n'est pas un objectif/),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Objectif du CMC")).toHaveValue("")
   })
 })

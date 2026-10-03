@@ -10,9 +10,9 @@ import {
   user,
 } from "@/db/schema"
 import { getExamsForPicker } from "@/features/exams/dal"
+import { getObjectiveOptions } from "@/features/objectives/dal"
 import {
   type QuestionStats,
-  getObjectivesByDomain,
   getQuestionById,
   getQuestionStats,
   getQuestionsForExport,
@@ -20,6 +20,7 @@ import {
 } from "@/features/questions/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { objectiveIdFor } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -43,13 +44,13 @@ const creatorId = createId() // créateur de l'examen (FK createdBy)
 
 let baseline: QuestionStats
 
-const mkQuestion = (id: string, label: string, createdAt: Date) =>
+const mkQuestion = async (id: string, label: string, createdAt: Date) =>
   db.insert(questions).values({
     id,
     question: `Question ${label} ${suffix} ?`,
     correctAnswer: "A",
     options: ["A", "B", "C", "D"],
-    objectifCmc: OBJ,
+    objectiveId: await objectiveIdFor(OBJ),
     domain: DOMAIN,
     createdAt,
   })
@@ -233,10 +234,18 @@ describe("getQuestionById", () => {
   })
 })
 
-describe("getObjectivesByDomain", () => {
+describe("getObjectiveOptions", () => {
   it("rattache l'objectif seedé à son domaine", async () => {
-    const byDomain = await getObjectivesByDomain()
-    expect(byDomain[DOMAIN]).toEqual([OBJ])
+    const id = await objectiveIdFor(OBJ)
+    const { objectives, byDomain } = await getObjectiveOptions()
+    expect(byDomain[DOMAIN]).toEqual([id])
+    expect(objectives).toContainEqual({ id, label: OBJ })
+  })
+
+  it("ne propose jamais une entrée à corriger", async () => {
+    const id = await objectiveIdFor(`- ${suffix}`, { needsFix: true })
+    const { objectives } = await getObjectiveOptions()
+    expect(objectives.map((o) => o.id)).not.toContain(id)
   })
 })
 
