@@ -14,6 +14,7 @@ import {
   createStripeCheckout,
   verifyStripeCheckout,
 } from "@/features/payments/actions"
+import { getCheckoutPurchase } from "@/features/payments/dal"
 import { completeStripeTransaction } from "@/features/payments/stripe"
 import { createId } from "@/lib/ids"
 import { stripeBox } from "../helpers/fake-stripe"
@@ -207,5 +208,13 @@ describe("verifyStripeCheckout — achat lu en base", () => {
       success: false,
       error: "Session non trouvée ou invalide",
     })
+  })
+
+  it("la lecture de l'achat ne rend jamais celui d'un autre compte", async () => {
+    const sessionId = await checkout("exam_access")
+    await fulfil(sessionId)
+    mocks.sessionUserId.current = OTHER
+
+    expect(await getCheckoutPurchase(sessionId)).toBeNull()
   })
 })

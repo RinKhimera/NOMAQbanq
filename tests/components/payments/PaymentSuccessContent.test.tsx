@@ -128,6 +128,28 @@ describe("PaymentSuccessContent", () => {
     expect(
       await screen.findByRole("list", { name: "Accès activé" }),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "Paiement réussi" }),
+    ).toHaveFocus()
+  })
+
+  it("échec passager pendant l'activation : le paiement réussi reste affiché", async () => {
+    verify.mockResolvedValueOnce(notYetFulfilled).mockResolvedValue({
+      success: false,
+      error: "Erreur réseau",
+    })
+
+    render(<PaymentSuccessContent supportEmail="support@test.invalid" />)
+    await screen.findByText("Activation de votre accès…")
+    await act(() => vi.advanceTimersByTimeAsync(2000))
+
+    expect(verify).toHaveBeenCalledTimes(2)
+    expect(
+      screen.getByRole("heading", { name: "Paiement réussi" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Vérifier à nouveau" }),
+    ).toBeInTheDocument()
   })
 
   it("pack Premium : les deux accès", async () => {
@@ -150,10 +172,8 @@ describe("PaymentSuccessContent", () => {
     expect(within(access).getAllByRole("listitem")).toHaveLength(2)
   })
 
-  it("code promo à 100 % : 0 $, mention du code, pas de reçu", async () => {
-    verify.mockResolvedValue(
-      paid({ status: "no_payment_required", amountTotal: 0 }),
-    )
+  it("code promo à 100 % (Stripe : paid, total 0) : mention du code, pas de reçu", async () => {
+    verify.mockResolvedValue(paid({ status: "paid", amountTotal: 0 }))
 
     render(<PaymentSuccessContent supportEmail="support@test.invalid" />)
 
@@ -163,6 +183,32 @@ describe("PaymentSuccessContent", () => {
     expect(screen.getByText("0 $")).toBeInTheDocument()
     expect(screen.getByText("Code promo appliqué (−100 %)")).toBeInTheDocument()
     expect(screen.queryByText(/Reçu envoyé à/)).toBeNull()
+    expect(
+      screen.getByText("Code promo", { selector: "span" }),
+    ).toBeInTheDocument()
+  })
+
+  it("paiement différé échoué ou session expirée : ne promet aucun accès, ne relit pas", async () => {
+    verify.mockResolvedValue(
+      paid({
+        status: "unpaid",
+        purchase: { ...awaitingWebhook, status: "failed" },
+      }),
+    )
+
+    render(<PaymentSuccessContent supportEmail="support@test.invalid" />)
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Ce paiement n'a pas abouti",
+      }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/sera activé/)).toBeNull()
+    await act(() => vi.advanceTimersByTimeAsync(10_000))
+    expect(verify).toHaveBeenCalledTimes(1)
+    await waitFor(() =>
+      expect(document.title).toBe("Paiement non abouti | NOMAQbanq"),
+    )
   })
 
   it("en attente puis réussi : texte juste pendant l'attente, relecture automatique", async () => {

@@ -4,12 +4,13 @@ import {
   ArrowRight,
   CircleAlert,
   CircleCheck,
+  CircleX,
   Clock,
   RotateCcw,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { type ReactNode, useEffect, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import {
   AccessBadge,
   getAccessStatus,
@@ -24,6 +25,8 @@ import {
 } from "@/features/payments/actions"
 import { formatCurrency, formatExpiration } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
+import { TOUCH_TARGET } from "@/lib/touch-target"
+import { cn } from "@/lib/utils"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const POLL_INTERVAL_MS = 2000
@@ -48,19 +51,23 @@ type View =
   | { kind: "paid"; receipt: Receipt; access: GrantedAccess[] | null }
   | { kind: "pending" }
   | { kind: "refunded" }
+  | { kind: "failed" }
   | { kind: "error" }
 
-// payment_status Stripe : `no_payment_required` = code promo à 100 %.
 const toView = (res: VerifyCheckoutResult, now: number): View => {
   if (!res.success) return { kind: "error" }
+  const purchase = res.purchase
+  // Lu avant `payment_status` : un paiement différé échoué ou une session
+  // expirée restent `unpaid` chez Stripe, seule la transaction dit l'issue.
+  if (purchase?.status === "refunded") return { kind: "refunded" }
+  if (purchase?.status === "failed") return { kind: "failed" }
   if (res.status === "unpaid") return { kind: "pending" }
   if (res.status !== "paid" && res.status !== "no_payment_required") {
     return { kind: "error" }
   }
-  const purchase = res.purchase
-  if (purchase?.status === "refunded") return { kind: "refunded" }
-  if (purchase?.status === "failed") return { kind: "error" }
-  const promo = res.status === "no_payment_required"
+  // Un paiement unique couvert à 100 % par un code promo arrive `paid` avec un
+  // total nul, pas `no_payment_required` : aucun PaymentIntent, donc aucun reçu.
+  const promo = res.amountTotal === 0
   return {
     kind: "paid",
     receipt: {
@@ -93,6 +100,7 @@ const TAB_TITLE: Record<View["kind"], string> = {
   paid: "Paiement réussi",
   pending: "Paiement en attente",
   refunded: "Paiement remboursé",
+  failed: "Paiement non abouti",
   error: "Erreur de paiement",
 }
 
@@ -110,6 +118,10 @@ export const PaymentSuccessContent = ({
   const [poll, setPoll] = useState({ round: 0, attempt: 0 })
   const [rechecking, setRechecking] = useState(false)
   const [exhausted, setExhausted] = useState(false)
+  // La carte qui suit un clic sur « Vérifier à nouveau » prend le focus : le
+  // bouton cliqué disparaît avec l'ancienne.
+  const [rechecked, setRechecked] = useState(false)
+  const shown = useRef<View | null>(null)
 
   useEffect(() => {
     document.title = `${TAB_TITLE[view.kind]} | NOMAQbanq`
@@ -123,8 +135,15 @@ export const PaymentSuccessContent = ({
     void callAction(() => verifyStripeCheckout(sessionId)).then((res) => {
       if (cancelled) return
       const next = toView(res, Date.now())
-      setView(next)
       setRechecking(false)
+      // Un échec de relecture (réseau, Stripe) ne remplace pas un résultat
+      // déjà montré : on rend la main à « Vérifier à nouveau ».
+      if (next.kind === "error" && shown.current && isWaiting(shown.current)) {
+        setExhausted(true)
+        return
+      }
+      shown.current = next
+      setView(next)
       const again = isWaiting(next) && poll.attempt < pollLimit(next)
       setExhausted(isWaiting(next) && !again)
       if (again) {
@@ -143,6 +162,7 @@ export const PaymentSuccessContent = ({
 
   const recheck = () => {
     setRechecking(true)
+    setRechecked(true)
     setPoll((p) => ({ round: p.round + 1, attempt: 0 }))
   }
 
@@ -154,6 +174,9 @@ export const PaymentSuccessContent = ({
 
   return (
     <div className="grid min-h-[min(70vh,680px)] place-items-center py-6">
+      <p role="status" className="sr-only">
+        {view.kind === "verifying" ? "" : TAB_TITLE[view.kind]}
+      </p>
       {view.kind === "verifying" && (
         <StatusCard busy label="Paiement" title="Vérification du paiement…">
           <p className="text-ink-2 text-[15px] leading-relaxed">
@@ -165,6 +188,8 @@ export const PaymentSuccessContent = ({
 
       {view.kind === "paid" && (
         <StatusCard
+          key={view.access ? "granted" : "activation"}
+          focusTitle={rechecked}
           icon={CircleCheck}
           iconTone="success"
           label={view.receipt.promo ? "Code promo" : "Paiement"}
@@ -184,7 +209,9 @@ export const PaymentSuccessContent = ({
               </Button>
             </>
           }
-          help={<>Une question sur ce paiement ? Écrivez-nous à {support}.</>}
+          help={
+            <>Une question sur ce paiement&nbsp;? Écrivez-nous à {support}.</>
+          }
         >
           <ReceiptBox receipt={view.receipt} />
           {view.access ? (
@@ -199,7 +226,7 @@ export const PaymentSuccessContent = ({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="ml-auto"
+                  className={cn("ml-auto", TOUCH_TARGET)}
                   disabled={rechecking}
                   onClick={recheck}
                 >
@@ -213,6 +240,7 @@ export const PaymentSuccessContent = ({
 
       {view.kind === "pending" && (
         <StatusCard
+          focusTitle={rechecked}
           icon={Clock}
           iconTone="warning"
           label="En attente"
@@ -228,7 +256,9 @@ export const PaymentSuccessContent = ({
               </Button>
             </>
           }
-          help={<>Une question sur ce paiement ? Écrivez-nous à {support}.</>}
+          help={
+            <>Une question sur ce paiement&nbsp;? Écrivez-nous à {support}.</>
+          }
         >
           <Prose>
             <p>
@@ -245,6 +275,7 @@ export const PaymentSuccessContent = ({
 
       {view.kind === "refunded" && (
         <StatusCard
+          focusTitle={rechecked}
           icon={RotateCcw}
           label="Remboursement"
           title="Ce paiement a été remboursé"
@@ -259,7 +290,9 @@ export const PaymentSuccessContent = ({
             </>
           }
           help={
-            <>Une question sur ce remboursement ? Écrivez-nous à {support}.</>
+            <>
+              Une question sur ce remboursement&nbsp;? Écrivez-nous à {support}.
+            </>
           }
         >
           <Prose>
@@ -268,8 +301,39 @@ export const PaymentSuccessContent = ({
         </StatusCard>
       )}
 
+      {view.kind === "failed" && (
+        <StatusCard
+          focusTitle={rechecked}
+          icon={CircleX}
+          iconTone="danger"
+          label="Paiement"
+          title="Ce paiement n'a pas abouti"
+          actions={
+            <>
+              <Button asChild>
+                <Link href="/tarifs">Retour aux tarifs</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/tableau-de-bord">Retour au tableau de bord</Link>
+              </Button>
+            </>
+          }
+          help={
+            <>Une question sur ce paiement&nbsp;? Écrivez-nous à {support}.</>
+          }
+        >
+          <Prose>
+            <p>
+              Aucun accès n&apos;a été activé. Vous pouvez réessayer depuis la
+              page des tarifs.
+            </p>
+          </Prose>
+        </StatusCard>
+      )}
+
       {view.kind === "error" && (
         <StatusCard
+          focusTitle={rechecked}
           icon={CircleAlert}
           iconTone="danger"
           label="Erreur"
@@ -284,7 +348,7 @@ export const PaymentSuccessContent = ({
               </Button>
             </>
           }
-          help={<>Le problème persiste ? Écrivez-nous à {support}.</>}
+          help={<>Le problème persiste&nbsp;? Écrivez-nous à {support}.</>}
         >
           <Prose>
             <p>
