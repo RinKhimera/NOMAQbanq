@@ -81,6 +81,13 @@ describe("EmailRecap", () => {
     expect(html).toContain("border-bottom:1px solid #e6e4df")
   })
 
+  it("marge basse réduite en mode serré, pour une note qui le suit", async () => {
+    const normal = await render(<EmailRecap rows={rows} />)
+    expect(normal).toContain("margin:4px 0 20px")
+    const tight = await render(<EmailRecap rows={rows} tight />)
+    expect(tight).toContain("margin:4px 0 12px")
+  })
+
   it("une valeur chiffrée s'écrit en monospace, les autres non", async () => {
     const html = await render(<EmailRecap rows={rows} />)
     expect(html).toMatch(/<span style="font-family:Menlo[^"]*">200,00 \$/)

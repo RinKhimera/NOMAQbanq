@@ -1,6 +1,7 @@
 import { render } from "@react-email/render"
 import { createElement } from "react"
 import { describe, expect, it } from "vitest"
+import { plainTextOptions } from "@/email/plain-text"
 import { AbandonedCartEmail } from "@/email/templates/abandoned-cart-email"
 import { AccessExpiringEmail } from "@/email/templates/access-expiring-email"
 import { ExamResultsEmail } from "@/email/templates/exam-results-email"
@@ -85,6 +86,8 @@ describe("email templates", () => {
     expect(previewOf(html)).toBe(
       "Le détail de chaque question est consultable dans votre espace.",
     )
+    // Une marge négative n'est pas appliquée partout : l'écart se règle sur le récapitulatif.
+    expect(html).not.toContain("margin:-")
   })
 
   it("access expiring email : prolonger, pluriel des jours, espaces insécables", async () => {
@@ -188,7 +191,7 @@ describe("email templates", () => {
   it("purchase confirmation email : le texte brut garde une ligne par donnée du récapitulatif", async () => {
     const text = await render(
       createElement(PurchaseConfirmationEmail, confirmationProps),
-      { plainText: true },
+      plainTextOptions,
     )
     expect(text).not.toContain("ProduitAccès")
     expect(text).toMatch(/Produit\s+Accès Examens - 6 mois/)

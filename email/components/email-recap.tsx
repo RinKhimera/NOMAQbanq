@@ -21,7 +21,14 @@ const cell = {
   lineHeight: "20px",
 } as const
 
-export function EmailRecap({ rows }: { rows: EmailRecapRow[] }) {
+export function EmailRecap({
+  rows,
+  tight = false,
+}: {
+  rows: EmailRecapRow[]
+  /** Marge basse réduite, pour une note grise qui s'y rattache. */
+  tight?: boolean
+}) {
   return (
     <table
       role="presentation"
@@ -34,7 +41,7 @@ export function EmailRecap({ rows }: { rows: EmailRecapRow[] }) {
       style={{
         borderCollapse: "collapse",
         borderTop: `1px solid ${colors.line}`,
-        margin: "4px 0 20px",
+        margin: tight ? "4px 0 12px" : "4px 0 20px",
       }}
     >
       <tbody>

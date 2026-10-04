@@ -36,6 +36,7 @@ export function ExamResultsEmail({
         le détail de chaque question.
       </EmailParagraph>
       <EmailRecap
+        tight={!scoreLabel}
         rows={[
           { label: "Examen", value: examTitle },
           ...(scoreLabel
@@ -46,7 +47,7 @@ export function ExamResultsEmail({
       {/* Aucune date : le score reste retenu tant qu'une de ses questions
           figure dans un autre examen encore ouvert. */}
       {scoreLabel ? null : (
-        <EmailParagraph muted style={{ margin: "-8px 0 16px" }}>
+        <EmailParagraph muted style={{ margin: "0 0 16px" }}>
           Votre score sera affiché sur la page de résultats dès qu&apos;il sera
           disponible.
         </EmailParagraph>

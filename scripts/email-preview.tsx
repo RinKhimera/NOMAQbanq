@@ -9,6 +9,7 @@ import { render } from "@react-email/render"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { ReactElement } from "react"
+import { plainTextOptions } from "@/email/plain-text"
 import { AbandonedCartEmail } from "@/email/templates/abandoned-cart-email"
 import { AccessExpiringEmail } from "@/email/templates/access-expiring-email"
 import { ExamResultsEmail } from "@/email/templates/exam-results-email"
@@ -132,7 +133,7 @@ await mkdir(outDir, { recursive: true })
 for (const [name, element] of Object.entries(samples)) {
   const [html, text] = await Promise.all([
     render(element),
-    render(element, { plainText: true }),
+    render(element, plainTextOptions),
   ])
   await writeFile(join(outDir, `${name}.html`), html)
   await writeFile(join(outDir, `${name}.txt`), text)

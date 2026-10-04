@@ -81,7 +81,9 @@ export function EmailLayout({
                   style={{
                     maxWidth: `${emailTheme.cardWidth}px`,
                     margin: "0 auto",
-                    borderCollapse: "collapse",
+                    // `separate` : en `collapse`, l'arrondi de la carte
+                    // (bordure d'une cellule) n'est pas rendu.
+                    borderCollapse: "separate",
                   }}
                 >
                   <tbody>
