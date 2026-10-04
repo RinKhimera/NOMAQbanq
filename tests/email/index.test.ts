@@ -42,7 +42,7 @@ describe("email domain helpers", () => {
     expect(sendEmailSpy).toHaveBeenCalledTimes(1)
     const arg = firstArg()
     expect(arg.to).toBe("u@x.com")
-    expect(arg.subject).toContain("Vérifiez votre adresse")
+    expect(arg.subject).toContain("Confirmez votre adresse")
     expect(arg.react).toBeTruthy()
   })
 
@@ -96,6 +96,97 @@ describe("email domain helpers", () => {
   })
 })
 
+// Objets de la maquette, sans suffixe « — NOMAQbanq » : le nom de
+// l'expéditeur s'affiche déjà dans la boîte de réception.
+describe("objets des courriels", () => {
+  const NB = " "
+  const purchase = {
+    to: "u@x.com",
+    productName: "Pack Premium - 6 mois",
+    amountPaid: 35000,
+    currency: "CAD" as const,
+    presentmentAmount: null,
+    presentmentCurrency: null,
+    purchasedAt: new Date("2026-06-05T14:00:00Z"),
+    grantedAccess: [],
+  }
+
+  it.each([
+    [
+      "confirmation d'adresse",
+      () => sendVerificationEmail({ to: "u@x.com", url: "https://x/v" }),
+      "Confirmez votre adresse courriel",
+    ],
+    [
+      "réinitialisation",
+      () => sendResetPassword({ to: "u@x.com", url: "https://x/r" }),
+      "Réinitialisation de votre mot de passe",
+    ],
+    [
+      "bienvenue",
+      () => sendWelcomeEmail({ to: "u@x.com" }),
+      "Bienvenue sur NOMAQbanq",
+    ],
+    [
+      "confirmation d'achat",
+      () => sendPurchaseConfirmationEmail(purchase),
+      `Merci pour votre achat${NB}: Pack Premium - 6 mois`,
+    ],
+    [
+      "accès bientôt expiré, examens, 5 jours",
+      () =>
+        sendAccessExpiringEmail({
+          to: "u@x.com",
+          accessType: "exam",
+          daysRemaining: 5,
+          renewUrl: "https://x/abonnements",
+        }),
+      `Votre accès aux examens expire dans 5${NB}jours`,
+    ],
+    [
+      "accès bientôt expiré, entraînement, 1 jour",
+      () =>
+        sendAccessExpiringEmail({
+          to: "u@x.com",
+          accessType: "training",
+          daysRemaining: 1,
+          renewUrl: "https://x/abonnements",
+        }),
+      `Votre accès à l'entraînement expire dans 1${NB}jour`,
+    ],
+    [
+      "résultats",
+      () =>
+        sendExamResultsEmail({
+          to: "u@x.com",
+          examTitle: "Examen blanc EB-26",
+          score: null,
+          resultUrl: "https://x/resultats",
+        }),
+      `Vos résultats sont disponibles${NB}: Examen blanc EB-26`,
+    ],
+    [
+      "relance d'inactivité",
+      () => sendInactivityReminderEmail({ to: "u@x.com", userId: "user_1" }),
+      "Votre préparation vous attend",
+    ],
+    [
+      "panier abandonné",
+      () =>
+        sendAbandonedCartEmail({
+          to: "u@x.com",
+          userId: "user_1",
+          productName: "Accès Examens - 6 mois",
+          priceCad: 20000,
+        }),
+      "Votre commande n'a pas été finalisée",
+    ],
+  ])("%s", async (_name, send, subject) => {
+    await send()
+    expect(firstArg().subject).toBe(subject)
+  })
+})
+
 describe("sendPurchaseConfirmationEmail", () => {
   // Intl fr-CA sépare avec des espaces insécables (U+00A0 / U+202F) : on
   // normalise avant de comparer.
@@ -119,7 +210,7 @@ describe("sendPurchaseConfirmationEmail", () => {
     expect(messageId).toBe("msg-1")
     const arg = firstArg()
     expect(arg.to).toBe("u@x.com")
-    expect(arg.subject).toBe("Confirmation de votre achat — NOMAQbanq")
+    expect(arg.subject).toBe("Merci pour votre achat : Accès examens")
     const props = (arg.react as { props: Record<string, unknown> }).props
     expect(plain(props.amountLabel as string)).toBe("200 $")
     expect(plain(props.presentmentLabel as string).replace(/ /g, "")).toContain(
@@ -127,8 +218,8 @@ describe("sendPurchaseConfirmationEmail", () => {
     )
     expect(props.purchasedAtLabel).toBe("2 septembre 2026")
     expect(props.grantedAccess).toEqual([
-      { label: "Accès aux examens", expiresAtLabel: "31 décembre 2026" },
-      { label: "Accès à l'entraînement", expiresAtLabel: "2 octobre 2026" },
+      { label: "Accès Examens", expiresAtLabel: "31 décembre 2026" },
+      { label: "Accès Entraînement", expiresAtLabel: "2 octobre 2026" },
     ])
     expect(props.accountUrl).toBe(
       "https://nomaqbanq.ca/tableau-de-bord/abonnements",

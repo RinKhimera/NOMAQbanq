@@ -1,14 +1,4 @@
-import {
-  Body,
-  Container,
-  Head,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components"
+import { Body, Head, Html, Img, Link, Preview } from "@react-email/components"
 import type { ReactNode } from "react"
 import { emailBrand, emailTheme } from "../theme"
 
@@ -30,20 +20,28 @@ export type EmailLayoutProps = {
   children: ReactNode
 } & CategoryProps
 
-const { colors, fontFamily, radius } = emailTheme
+const { colors, fonts, radius } = emailTheme
+
+// Seule feuille de style du courriel : les styles en ligne ne connaissent pas
+// la largeur d'écran. `!important` l'emporte sur eux ; Outlook bureau ignore la
+// règle et garde la mise en page d'ordinateur, ce qui reste lisible.
+const RESPONSIVE_CSS = `
+@media only screen and (max-width: 479px) {
+  .nq-shell { padding: 20px 12px 28px !important; }
+  .nq-card { padding: 20px !important; }
+  .nq-title { font-size: 24px !important; line-height: 30px !important; }
+  .nq-btn { width: 100% !important; }
+}
+`
 
 const footerText = {
-  fontFamily,
-  fontSize: "12.5px",
-  lineHeight: "1.6",
-  color: colors.footer,
   margin: "0 0 6px",
+  fontFamily: fonts.sans,
+  fontSize: "12px",
+  lineHeight: "18px",
+  color: colors.ink3,
 } as const
-const footerLink = {
-  color: colors.footer,
-  textDecoration: "underline",
-} as const
-const separator = { color: "#c3cad6" } as const
+const footerLink = { color: colors.ink3, textDecoration: "underline" } as const
 
 export function EmailLayout({
   preview,
@@ -60,188 +58,207 @@ export function EmailLayout({
       <Head>
         <meta name="color-scheme" content="light" />
         <meta name="supported-color-schemes" content="light" />
+        <style dangerouslySetInnerHTML={{ __html: RESPONSIVE_CSS }} />
       </Head>
       <Preview>{preview}</Preview>
-      <Body style={{ margin: 0, backgroundColor: colors.page, fontFamily }}>
-        <Container
-          style={{
-            maxWidth: `${emailTheme.cardWidth}px`,
-            margin: "0 auto",
-            padding: "24px 8px",
-          }}
+      <Body style={{ margin: 0, backgroundColor: colors.page }}>
+        <table
+          role="presentation"
+          cellPadding={0}
+          cellSpacing={0}
+          width="100%"
+          style={{ backgroundColor: colors.page }}
         >
-          <Section
-            style={{
-              backgroundColor: colors.card,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.card,
-            }}
-          >
-            {/* Filet dégradé en cellule de tableau : Outlook bureau (moteur Word)
-                ignore `height` sur un div vide mais honore `height` et
-                `background-color` sur un td, d'où un aplat bleu à défaut du
-                dégradé. */}
-            <table
-              role="presentation"
-              cellPadding={0}
-              cellSpacing={0}
-              width="100%"
-            >
-              <tbody>
-                <tr>
-                  <td
-                    height={4}
-                    style={{
-                      height: "4px",
-                      fontSize: 0,
-                      lineHeight: 0,
-                      backgroundColor: colors.accent,
-                      backgroundImage: `linear-gradient(90deg, ${colors.accent}, ${colors.accentEnd})`,
-                      borderRadius: `${radius.card} ${radius.card} 0 0`,
-                    }}
-                  >
-                    &nbsp;
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <table
-              role="presentation"
-              cellPadding={0}
-              cellSpacing={0}
-              style={{ margin: "22px 28px 0" }}
-            >
-              <tbody>
-                <tr>
-                  <td style={{ width: "52px", verticalAlign: "middle" }}>
-                    <Img
-                      src={emailBrand.logoUrl}
-                      alt={emailBrand.name}
-                      width={40}
-                      height={40}
-                      style={{ display: "block", borderRadius: "9px" }}
-                    />
-                  </td>
-                  <td style={{ verticalAlign: "middle" }}>
-                    <div
-                      style={{
-                        fontFamily,
-                        fontSize: "19px",
-                        fontWeight: 800,
-                        letterSpacing: "-0.02em",
-                        lineHeight: "1.2",
-                      }}
-                    >
-                      <span style={{ color: colors.accent }}>NOMAQ</span>
-                      <span style={{ color: colors.text }}>banq</span>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily,
-                        fontSize: "12px",
-                        color: colors.muted,
-                      }}
-                    >
-                      {emailBrand.tagline}
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <Section style={{ padding: "22px 28px 8px" }}>
-              <Text
-                style={{
-                  fontFamily,
-                  fontSize: "21px",
-                  fontWeight: 800,
-                  letterSpacing: "-0.01em",
-                  lineHeight: "1.3",
-                  color: colors.text,
-                  margin: "0 0 10px",
-                }}
-              >
-                {heading}
-              </Text>
-              {firstName ? (
-                <Text
+          <tbody>
+            <tr>
+              <td className="nq-shell" style={{ padding: "32px 24px 40px" }}>
+                <table
+                  role="presentation"
+                  align="center"
+                  cellPadding={0}
+                  cellSpacing={0}
+                  width="100%"
                   style={{
-                    fontFamily,
-                    fontSize: "15px",
-                    lineHeight: "1.55",
-                    color: colors.text,
-                    margin: "0 0 12px",
+                    maxWidth: `${emailTheme.cardWidth}px`,
+                    margin: "0 auto",
+                    borderCollapse: "collapse",
                   }}
                 >
-                  {/* Une seule expression : React insère `<!-- -->` entre
-                      nœuds texte adjacents, ce qui casserait « Bonjour Samuel, ». */}
-                  {`Bonjour ${firstName},`}
-                </Text>
-              ) : null}
-              {children}
-            </Section>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: "0 4px 16px" }}>
+                        <table
+                          role="presentation"
+                          cellPadding={0}
+                          cellSpacing={0}
+                          style={{ borderCollapse: "collapse" }}
+                        >
+                          <tbody>
+                            <tr>
+                              <td
+                                style={{
+                                  paddingRight: "8px",
+                                  verticalAlign: "middle",
+                                }}
+                              >
+                                <Img
+                                  src={emailBrand.logoUrl}
+                                  alt=""
+                                  width={24}
+                                  height={24}
+                                  style={{
+                                    display: "block",
+                                    borderRadius: radius.control,
+                                  }}
+                                />
+                              </td>
+                              <td
+                                style={{
+                                  verticalAlign: "middle",
+                                  fontFamily: fonts.sans,
+                                  fontSize: "17px",
+                                  fontWeight: 600,
+                                  lineHeight: "20px",
+                                  letterSpacing: "-0.01em",
+                                  color: colors.ink,
+                                }}
+                              >
+                                NOMAQ
+                                <span style={{ color: colors.accent }}>
+                                  banq
+                                </span>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <div
+                          style={{
+                            marginTop: "6px",
+                            fontFamily: fonts.mono,
+                            fontSize: "10px",
+                            lineHeight: "14px",
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            color: colors.ink3,
+                          }}
+                        >
+                          {emailBrand.tagline}
+                        </div>
+                      </td>
+                    </tr>
 
-            <Section
-              style={{
-                borderTop: `1px solid ${colors.divider}`,
-                padding: "18px 28px 24px",
-                textAlign: "center",
-              }}
-            >
-              <Text style={footerText}>
-                {emailBrand.name} ·{" "}
-                {/* Ancre sans href : empêche Gmail et Apple Mail de transformer
-                    l'adresse en lien bleu souligné. */}
-                <a style={{ color: colors.footer, textDecoration: "none" }}>
-                  {emailBrand.postalAddress}
-                </a>
-              </Text>
-              <Text style={footerText}>
-                <Link href={absolute(emailBrand.links.help)} style={footerLink}>
-                  Aide
-                </Link>
-                <span style={separator}> · </span>
-                <Link
-                  href={absolute(emailBrand.links.terms)}
-                  style={footerLink}
-                >
-                  Conditions
-                </Link>
-                <span style={separator}> · </span>
-                <Link
-                  href={absolute(emailBrand.links.privacy)}
-                  style={footerLink}
-                >
-                  Confidentialité
-                </Link>
-              </Text>
-              {category === "commercial" ? (
-                <Text
-                  style={{
-                    ...footerText,
-                    borderTop: `1px solid ${colors.divider}`,
-                    paddingTop: "10px",
-                    marginTop: "10px",
-                  }}
-                >
-                  Vous recevez ce courriel parce que vous avez un compte{" "}
-                  {emailBrand.name}.{" "}
-                  <Link href={unsubscribeUrl} style={footerLink}>
-                    Ne plus recevoir ces rappels
-                  </Link>{" "}
-                  ou{" "}
-                  <Link
-                    href={absolute(emailBrand.links.preferences)}
-                    style={footerLink}
-                  >
-                    gérer mes préférences
-                  </Link>
-                  .
-                </Text>
-              ) : null}
-            </Section>
-          </Section>
-        </Container>
+                    <tr>
+                      <td
+                        className="nq-card"
+                        style={{
+                          backgroundColor: colors.card,
+                          border: `1px solid ${colors.line}`,
+                          borderRadius: radius.card,
+                          padding: "32px",
+                        }}
+                      >
+                        <h1
+                          className="nq-title"
+                          style={{
+                            margin: "0 0 20px",
+                            fontFamily: fonts.serif,
+                            fontSize: "26px",
+                            lineHeight: "32px",
+                            fontWeight: 600,
+                            letterSpacing: "-0.01em",
+                            color: colors.ink,
+                          }}
+                        >
+                          {heading}
+                        </h1>
+                        {firstName ? (
+                          <p
+                            style={{
+                              margin: "0 0 16px",
+                              fontFamily: fonts.sans,
+                              fontSize: "16px",
+                              lineHeight: "26px",
+                              color: colors.ink,
+                            }}
+                          >
+                            {/* Une seule expression : React insère `<!-- -->` entre
+                                nœuds texte adjacents, ce qui casserait « Bonjour Samuel, ». */}
+                            {`Bonjour ${firstName},`}
+                          </p>
+                        ) : null}
+                        {children}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td style={{ padding: "20px 4px 0" }}>
+                        <p style={footerText}>
+                          {`${emailBrand.name} · `}
+                          {/* Ancre sans href : empêche Gmail et Apple Mail de
+                              transformer l'adresse en lien bleu souligné. */}
+                          <a
+                            style={{
+                              color: colors.ink3,
+                              textDecoration: "none",
+                            }}
+                          >
+                            {emailBrand.postalAddress}
+                          </a>
+                        </p>
+                        <p style={{ ...footerText, margin: 0 }}>
+                          <Link
+                            href={absolute(emailBrand.links.help)}
+                            style={footerLink}
+                          >
+                            Aide
+                          </Link>
+                          {" · "}
+                          <Link
+                            href={absolute(emailBrand.links.terms)}
+                            style={footerLink}
+                          >
+                            Conditions
+                          </Link>
+                          {" · "}
+                          <Link
+                            href={absolute(emailBrand.links.privacy)}
+                            style={footerLink}
+                          >
+                            Confidentialité
+                          </Link>
+                        </p>
+                        {category === "commercial" ? (
+                          <p
+                            style={{
+                              ...footerText,
+                              margin: "14px 0 0",
+                              paddingTop: "14px",
+                              borderTop: `1px solid ${colors.line}`,
+                            }}
+                          >
+                            Vous recevez ce courriel parce que vous avez un
+                            compte {emailBrand.name}.{" "}
+                            <Link href={unsubscribeUrl} style={footerLink}>
+                              Ne plus recevoir ces rappels
+                            </Link>{" "}
+                            ou{" "}
+                            <Link
+                              href={absolute(emailBrand.links.preferences)}
+                              style={footerLink}
+                            >
+                              gérer mes préférences
+                            </Link>
+                            .
+                          </p>
+                        ) : null}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </Body>
     </Html>
   )

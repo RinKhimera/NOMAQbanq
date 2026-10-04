@@ -15,17 +15,18 @@ export function VerificationEmail({
   return (
     <EmailLayout
       category="transactional"
-      preview="Confirmez votre adresse courriel"
+      preview="Un clic pour activer votre compte NOMAQbanq."
       heading="Confirmez votre adresse courriel"
       firstName={firstName}
       baseUrl={baseUrl}
     >
       <EmailParagraph>
-        Bienvenue ! Confirmez votre adresse courriel pour activer votre compte.
+        Bienvenue&nbsp;! Confirmez votre adresse courriel pour activer votre
+        compte.
       </EmailParagraph>
       <EmailButton href={url}>Vérifier mon adresse</EmailButton>
       <EmailFallbackLink href={url} />
-      <EmailParagraph muted>
+      <EmailParagraph muted style={{ margin: 0 }}>
         Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de
         cette demande, ignorez ce message.
       </EmailParagraph>

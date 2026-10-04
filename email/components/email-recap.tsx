@@ -5,9 +5,21 @@ export type EmailRecapRow = {
   value: string
   /** Ligne secondaire sous la valeur (ex. montant en devise locale). */
   sub?: string | null
+  /** Chiffre (montant, score) : monospace, comme les chiffres du site. */
+  mono?: boolean
 }
 
-const { colors, fontFamily, radius } = emailTheme
+const { colors, fonts } = emailTheme
+
+// Filet sur la cellule, pas sur la ligne : Outlook bureau ignore la bordure
+// d'un `<tr>`.
+const cell = {
+  borderBottom: `1px solid ${colors.line}`,
+  verticalAlign: "top",
+  fontFamily: fonts.sans,
+  fontSize: "14px",
+  lineHeight: "20px",
+} as const
 
 export function EmailRecap({ rows }: { rows: EmailRecapRow[] }) {
   return (
@@ -20,47 +32,56 @@ export function EmailRecap({ rows }: { rows: EmailRecapRow[] }) {
       cellSpacing={0}
       width="100%"
       style={{
-        borderCollapse: "separate",
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.table,
-        margin: "4px 0 18px",
-        fontFamily,
+        borderCollapse: "collapse",
+        borderTop: `1px solid ${colors.line}`,
+        margin: "4px 0 20px",
       }}
     >
       <tbody>
-        {rows.map((row, index) => {
-          const cell = {
-            padding: "10px 14px",
-            fontSize: "14px",
-            lineHeight: "1.45",
-            verticalAlign: "top" as const,
-            borderTop: index === 0 ? "none" : `1px solid ${colors.divider}`,
-          }
-          return (
-            <tr key={`${row.label}:${row.value}`}>
-              <td style={{ ...cell, color: colors.muted, width: "38%" }}>
-                {row.label}
-              </td>
-              <td style={{ ...cell, color: colors.text, fontWeight: 600 }}>
-                {row.value}
-                {row.sub ? (
-                  <>
-                    <br />
-                    <span
-                      style={{
-                        fontWeight: 400,
-                        fontSize: "12.5px",
-                        color: colors.muted,
-                      }}
-                    >
-                      {row.sub}
-                    </span>
-                  </>
-                ) : null}
-              </td>
-            </tr>
-          )
-        })}
+        {rows.map((row) => (
+          <tr key={`${row.label}:${row.value}`}>
+            <td
+              style={{
+                ...cell,
+                padding: "11px 12px 11px 0",
+                width: "42%",
+                color: colors.ink3,
+              }}
+            >
+              {row.label}
+            </td>
+            <td
+              style={{
+                ...cell,
+                padding: "11px 0",
+                textAlign: "right",
+                wordBreak: "break-word",
+                fontWeight: 600,
+                color: colors.ink,
+              }}
+            >
+              {row.mono ? (
+                <span style={{ fontFamily: fonts.mono }}>{row.value}</span>
+              ) : (
+                row.value
+              )}
+              {row.sub ? (
+                <>
+                  <br />
+                  <span
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "13px",
+                      color: colors.ink3,
+                    }}
+                  >
+                    {row.sub}
+                  </span>
+                </>
+              ) : null}
+            </td>
+          </tr>
+        ))}
       </tbody>
     </table>
   )

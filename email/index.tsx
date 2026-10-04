@@ -12,13 +12,22 @@ import {
 import { firstNameOf } from "./first-name"
 import { sendEmail } from "./send"
 import { AbandonedCartEmail } from "./templates/abandoned-cart-email"
-import { AccessExpiringEmail } from "./templates/access-expiring-email"
-import { ExamResultsEmail } from "./templates/exam-results-email"
+import {
+  AccessExpiringEmail,
+  accessExpiringTitle,
+} from "./templates/access-expiring-email"
+import {
+  ExamResultsEmail,
+  examResultsTitle,
+} from "./templates/exam-results-email"
 import { InactivityReminderEmail } from "./templates/inactivity-reminder-email"
 import { PurchaseConfirmationEmail } from "./templates/purchase-confirmation-email"
 import { ResetPasswordEmail } from "./templates/reset-password-email"
 import { VerificationEmail } from "./templates/verification-email"
 import { WelcomeEmail } from "./templates/welcome-email"
+
+// Objets sans suffixe « — NOMAQbanq » : le nom de l'expéditeur s'affiche déjà
+// dans la boîte de réception.
 
 /** Nom complet du destinataire tel qu'en base ; le prénom en est extrait ici. */
 type Recipient = { to: string; name?: string | null }
@@ -35,7 +44,7 @@ export function sendVerificationEmail({
 }: Recipient & { url: string }) {
   return sendEmail({
     to,
-    subject: "Vérifiez votre adresse courriel — NOMAQbanq",
+    subject: "Confirmez votre adresse courriel",
     react: <VerificationEmail url={url} {...layoutProps(name)} />,
   })
 }
@@ -47,7 +56,7 @@ export function sendResetPassword({
 }: Recipient & { url: string }) {
   return sendEmail({
     to,
-    subject: "Réinitialisation de votre mot de passe — NOMAQbanq",
+    subject: "Réinitialisation de votre mot de passe",
     react: <ResetPasswordEmail url={url} {...layoutProps(name)} />,
   })
 }
@@ -65,7 +74,7 @@ export function sendExamResultsEmail({
 }) {
   return sendEmail({
     to,
-    subject: `Résultats disponibles : ${examTitle} — NOMAQbanq`,
+    subject: `${examResultsTitle} : ${examTitle}`,
     react: (
       <ExamResultsEmail
         examTitle={examTitle}
@@ -88,10 +97,9 @@ export function sendAccessExpiringEmail({
   daysRemaining: number
   renewUrl: string
 }) {
-  const label = accessType === "exam" ? "aux examens" : "à l'entraînement"
   return sendEmail({
     to,
-    subject: `Votre accès ${label} expire bientôt — NOMAQbanq`,
+    subject: accessExpiringTitle(accessType, daysRemaining),
     react: (
       <AccessExpiringEmail
         accessType={accessType}
@@ -104,8 +112,8 @@ export function sendAccessExpiringEmail({
 }
 
 const ACCESS_LABEL = {
-  exam: "Accès aux examens",
-  training: "Accès à l'entraînement",
+  exam: "Accès Examens",
+  training: "Accès Entraînement",
 } as const
 
 export function sendPurchaseConfirmationEmail({
@@ -144,7 +152,7 @@ export function sendPurchaseConfirmationEmail({
   const { baseUrl, firstName } = layoutProps(name)
   return sendEmail({
     to,
-    subject: "Confirmation de votre achat — NOMAQbanq",
+    subject: `Merci pour votre achat : ${productName}`,
     react: (
       <PurchaseConfirmationEmail
         productName={productName}
@@ -184,7 +192,7 @@ export function sendInactivityReminderEmail({
   const unsubscribeUrl = createUnsubscribeUrl(baseUrl, userId)
   return sendEmail({
     to,
-    subject: "Votre préparation vous attend — NOMAQbanq",
+    subject: "Votre préparation vous attend",
     unsubscribeUrl: createOneClickUnsubscribeUrl(baseUrl, userId),
     react: (
       <InactivityReminderEmail
@@ -207,7 +215,7 @@ export function sendAbandonedCartEmail({
   const unsubscribeUrl = createUnsubscribeUrl(baseUrl, userId)
   return sendEmail({
     to,
-    subject: "Votre commande n'a pas été finalisée — NOMAQbanq",
+    subject: "Votre commande n'a pas été finalisée",
     unsubscribeUrl: createOneClickUnsubscribeUrl(baseUrl, userId),
     react: (
       <AbandonedCartEmail

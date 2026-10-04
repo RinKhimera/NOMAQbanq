@@ -1,7 +1,11 @@
-import { Button } from "@react-email/components"
 import type { ReactNode } from "react"
 import { emailTheme } from "../theme"
 
+const { colors, fonts, radius } = emailTheme
+
+// Largeur naturelle ; la règle `.nq-btn` du layout l'étend sous 480 px. Le
+// lien en bloc rend tout l'aplat cliquable ; Outlook bureau (moteur Word)
+// ignore le padding d'un lien et lit `mso-padding-alt` sur la cellule.
 export function EmailButton({
   href,
   children,
@@ -10,24 +14,42 @@ export function EmailButton({
   children: ReactNode
 }) {
   return (
-    <Button
-      href={href}
-      style={{
-        display: "block",
-        width: "100%",
-        boxSizing: "border-box",
-        textAlign: "center",
-        backgroundColor: emailTheme.colors.accent,
-        color: "#ffffff",
-        fontFamily: emailTheme.fontFamily,
-        fontSize: "15px",
-        fontWeight: 700,
-        padding: "13px 24px",
-        borderRadius: emailTheme.radius.button,
-        textDecoration: "none",
-      }}
+    <table
+      role="presentation"
+      className="nq-btn"
+      cellPadding={0}
+      cellSpacing={0}
+      style={{ borderCollapse: "separate", margin: "8px 0 16px" }}
     >
-      {children}
-    </Button>
+      <tbody>
+        <tr>
+          <td
+            style={{
+              backgroundColor: colors.accent,
+              borderRadius: radius.control,
+              textAlign: "center",
+              msoPaddingAlt: "12px 22px",
+            }}
+          >
+            <a
+              href={href}
+              target="_blank"
+              style={{
+                display: "block",
+                padding: "12px 22px",
+                fontFamily: fonts.sans,
+                fontSize: "16px",
+                fontWeight: 600,
+                lineHeight: "20px",
+                color: "#ffffff",
+                textDecoration: "none",
+              }}
+            >
+              {children}
+            </a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   )
 }

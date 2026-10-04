@@ -22,28 +22,24 @@ export function AbandonedCartEmail({
     <EmailLayout
       category="commercial"
       unsubscribeUrl={unsubscribeUrl}
-      preview={`Votre commande ${productName} n'a pas été finalisée`}
+      preview="Aucun accès n'a été activé. Reprenez votre achat quand vous le souhaitez."
       heading="Votre commande n'a pas été finalisée"
       firstName={firstName}
       baseUrl={baseUrl}
     >
       <EmailParagraph>
         Votre paiement n&apos;a pas été complété, votre accès n&apos;a donc pas
-        été activé. Voici ce que vous aviez choisi :
+        été activé. Voici ce que vous aviez choisi&nbsp;:
       </EmailParagraph>
       <EmailRecap
         rows={[
           { label: "Produit", value: productName },
-          { label: "Prix", value: priceLabel },
+          { label: "Prix", value: priceLabel, mono: true },
         ]}
       />
-      <EmailParagraph>
-        Cet accès débloque l&apos;ensemble des questions du domaine et les
-        examens blancs correspondants, avec le suivi de votre progression.
-      </EmailParagraph>
       <EmailButton href={pricingUrl}>Reprendre mon achat</EmailButton>
       <EmailFallbackLink href={pricingUrl} />
-      <EmailParagraph muted>
+      <EmailParagraph muted style={{ margin: 0 }}>
         Si vous avez changé d&apos;avis, ignorez simplement ce courriel.
       </EmailParagraph>
     </EmailLayout>

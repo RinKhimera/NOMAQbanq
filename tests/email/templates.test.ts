@@ -10,10 +10,18 @@ import { ResetPasswordEmail } from "@/email/templates/reset-password-email"
 import { VerificationEmail } from "@/email/templates/verification-email"
 import { WelcomeEmail } from "@/email/templates/welcome-email"
 
+const NB = " "
 const common = { firstName: "Samuel", baseUrl: "https://nomaqbanq.ca" }
 
+/** Texte d'aperçu (préentête) tel que la boîte de réception l'affiche. */
+const previewOf = (html: string) =>
+  /data-skip-in-text="true">([^<]*)</.exec(html)?.[1].replaceAll("&#x27;", "'")
+
+/** Texte visible, apostrophes décodées, pour comparer aux textes de la maquette. */
+const textOf = (html: string) => html.replaceAll("&#x27;", "'")
+
 describe("email templates", () => {
-  it("verification email contains the url and FR copy", async () => {
+  it("verification email : lien, salutation, textes de la maquette", async () => {
     const html = await render(
       createElement(VerificationEmail, {
         ...common,
@@ -24,9 +32,11 @@ describe("email templates", () => {
     expect(html).toContain("Vérifier mon adresse")
     expect(html).toContain("Bonjour Samuel,")
     expect(html).toContain("Confirmez votre adresse courriel")
+    expect(html).toContain(`Bienvenue${NB}! Confirmez votre adresse`)
+    expect(previewOf(html)).toBe("Un clic pour activer votre compte NOMAQbanq.")
   })
 
-  it("reset password email contains the url and FR copy", async () => {
+  it("reset password email : lien, avertissement, aperçu", async () => {
     const html = await render(
       createElement(ResetPasswordEmail, {
         ...common,
@@ -35,29 +45,49 @@ describe("email templates", () => {
     )
     expect(html).toContain("https://nomaqbanq.ca/r?token=xyz")
     expect(html).toContain("Réinitialiser mon mot de passe")
-    expect(html).toContain("votre mot de passe reste inchangé")
+    expect(textOf(html)).toContain(
+      `ignorez ce message${NB}; votre mot de passe reste inchangé.`,
+    )
+    expect(previewOf(html)).toBe(
+      "Choisissez un nouveau mot de passe. Ce lien expirera bientôt.",
+    )
   })
 
-  it("exam results email : titre, score en récapitulatif, bouton", async () => {
+  const resultsProps = {
+    ...common,
+    examTitle: "Examen blanc 3",
+    resultUrl: "https://nomaqbanq.ca/tableau-de-bord/examen-blanc/e1/resultats",
+  }
+
+  it("exam results email, score affiché : score en monospace, aperçu chiffré", async () => {
     const html = await render(
-      createElement(ExamResultsEmail, {
-        ...common,
-        examTitle: "Examen blanc 3",
-        score: 78,
-        resultUrl:
-          "https://nomaqbanq.ca/tableau-de-bord/examen-blanc/e1/resultats",
-      }),
+      createElement(ExamResultsEmail, { ...resultsProps, score: 78 }),
     )
     expect(html).toContain("Vos résultats sont disponibles")
     expect(html).toContain("Examen blanc 3")
-    expect(html).toContain("78 %")
+    expect(html).toMatch(new RegExp(`font-family:Menlo[^"]*">78${NB}%`))
     expect(html).toContain("Voir mes résultats")
-    expect(html).toContain(
-      "https://nomaqbanq.ca/tableau-de-bord/examen-blanc/e1/resultats",
+    expect(html).toContain(resultsProps.resultUrl)
+    expect(html).not.toContain("dès qu")
+    expect(previewOf(html)).toBe(
+      `Score${NB}: 78${NB}%. Le détail de chaque question est consultable dans votre espace.`,
     )
   })
 
-  it("access expiring email : avertissement, pluriel des jours, bouton", async () => {
+  it("exam results email, score retenu : ni score ni date, ligne grise d'attente", async () => {
+    const html = await render(
+      createElement(ExamResultsEmail, { ...resultsProps, score: null }),
+    )
+    expect(html).not.toContain("Score")
+    expect(textOf(html)).toContain(
+      "Votre score sera affiché sur la page de résultats dès qu'il sera disponible.",
+    )
+    expect(previewOf(html)).toBe(
+      "Le détail de chaque question est consultable dans votre espace.",
+    )
+  })
+
+  it("access expiring email : prolonger, pluriel des jours, espaces insécables", async () => {
     const plural = await render(
       createElement(AccessExpiringEmail, {
         ...common,
@@ -67,9 +97,13 @@ describe("email templates", () => {
       }),
     )
     expect(plural).toContain('data-variant="warning"')
-    expect(plural).toContain("expire dans 5 jours")
-    expect(plural).toContain("aux examens")
-    expect(plural).toContain("Renouveler mon accès")
+    expect(plural).toContain(`Votre accès aux examens expire dans 5${NB}jours`)
+    expect(textOf(plural)).toContain("tant qu'il n'est pas prolongé.")
+    expect(plural).toContain("Prolonger mon accès")
+    expect(plural).not.toContain("enouvel")
+    expect(previewOf(plural)).toBe(
+      `Prolongez-le maintenant${NB}: le temps restant s'ajoute à votre nouvel accès.`,
+    )
 
     const singular = await render(
       createElement(AccessExpiringEmail, {
@@ -79,38 +113,74 @@ describe("email templates", () => {
         renewUrl: "https://nomaqbanq.ca/tableau-de-bord/abonnements",
       }),
     )
-    expect(singular).toContain("expire dans 1 jour<")
+    expect(textOf(singular)).toContain(
+      `Votre accès à l'entraînement expire dans 1${NB}jour<`,
+    )
   })
 
   const confirmationProps = {
     ...common,
-    productName: "Accès examens — 90 jours",
+    productName: "Accès Examens - 6 mois",
     amountLabel: "200,00 $",
-    presentmentLabel: "228 000 FCFA",
-    purchasedAtLabel: "2 septembre 2026",
+    presentmentLabel: "82 000 FCFA",
+    purchasedAtLabel: "5 juin 2026",
     grantedAccess: [
-      { label: "Accès aux examens", expiresAtLabel: "31 décembre 2026" },
-      { label: "Accès à l'entraînement", expiresAtLabel: "2 octobre 2026" },
+      { label: "Accès Examens", expiresAtLabel: "2 décembre 2026" },
     ],
     accountUrl: "https://nomaqbanq.ca/tableau-de-bord/abonnements",
     supportEmail: "support@nomaqbanq.ca",
   }
 
-  it("purchase confirmation email : produit, montant, libellé de relevé, un accès par ligne, support", async () => {
+  it("purchase confirmation email : produit, montant en monospace, libellé de relevé, accès, support", async () => {
     const html = await render(
       createElement(PurchaseConfirmationEmail, confirmationProps),
     )
     expect(html).toContain("Merci pour votre achat")
-    expect(html).toContain("Accès examens — 90 jours")
-    expect(html).toContain("200,00 $")
-    expect(html).toContain("228 000 FCFA")
+    expect(html).toContain("Accès Examens - 6 mois")
+    expect(html).toMatch(/font-family:Menlo[^"]*">200,00 \$/)
+    expect(html).toContain("soit environ 82 000 FCFA")
     expect(html).toContain("NOMAQBANQ")
     expect(html).toContain('data-variant="info"')
-    expect(html).toContain("Accès aux examens")
-    expect(html).toContain("31 décembre 2026")
-    expect(html).toContain("2 octobre 2026")
+    expect(textOf(html)).toContain("jusqu'au 2 décembre 2026")
     expect(html).toContain("support@nomaqbanq.ca")
+    expect(html).toContain(`Une question sur cet achat${NB}?`)
     expect(html).toContain("https://nomaqbanq.ca/tableau-de-bord/abonnements")
+    expect(previewOf(html)).toBe(
+      "Votre accès est activé jusqu'au 2 décembre 2026. Récapitulatif de votre commande.",
+    )
+  })
+
+  it("purchase confirmation email, Pack Premium : une ligne par accès, aperçu daté si l'échéance est commune", async () => {
+    const html = await render(
+      createElement(PurchaseConfirmationEmail, {
+        ...confirmationProps,
+        productName: "Pack Premium - 6 mois",
+        presentmentLabel: null,
+        grantedAccess: [
+          { label: "Accès Examens", expiresAtLabel: "2 décembre 2026" },
+          { label: "Accès Entraînement", expiresAtLabel: "2 décembre 2026" },
+        ],
+      }),
+    )
+    expect(html).toContain("Accès Entraînement")
+    expect(previewOf(html)).toBe(
+      "Votre accès est activé jusqu'au 2 décembre 2026. Récapitulatif de votre commande.",
+    )
+  })
+
+  it("purchase confirmation email : échéances différentes, aperçu sans date", async () => {
+    const html = await render(
+      createElement(PurchaseConfirmationEmail, {
+        ...confirmationProps,
+        grantedAccess: [
+          { label: "Accès Examens", expiresAtLabel: "31 décembre 2026" },
+          { label: "Accès Entraînement", expiresAtLabel: "2 décembre 2026" },
+        ],
+      }),
+    )
+    expect(previewOf(html)).toBe(
+      "Votre accès est activé. Récapitulatif de votre commande.",
+    )
   })
 
   // Le corps `Text` envoyé par SES est ce rendu : le récapitulatif doit y rester
@@ -121,11 +191,12 @@ describe("email templates", () => {
       { plainText: true },
     )
     expect(text).not.toContain("ProduitAccès")
-    expect(text).toMatch(/Produit\s+Accès examens — 90 jours/)
+    expect(text).toMatch(/Produit\s+Accès Examens - 6 mois/)
     expect(text).toMatch(/Montant\s+200,00 \$/)
     expect(text).not.toContain("$soit")
-    expect(text).toContain("soit environ 228 000 FCFA")
-    expect(text).toMatch(/Date\s+2 septembre 2026/)
+    expect(text).toContain("soit environ 82 000 FCFA")
+    expect(text).toMatch(/Date\s+5 juin 2026/)
+    expect(text).toMatch(/Accès Examens\s+jusqu'au 2 décembre 2026/)
     expect(text).toContain("Bonjour Samuel,")
   })
 
@@ -143,10 +214,13 @@ describe("email templates", () => {
 })
 
 describe("courriels de cycle de vie", () => {
-  it("welcome email : transactionnel, trois premiers pas, tableau de bord", async () => {
+  it("welcome email : transactionnel, trois étapes numérotées, tableau de bord", async () => {
     const html = await render(createElement(WelcomeEmail, common))
     expect(html).toContain("Bienvenue sur NOMAQbanq")
     expect(html).toContain("Bonjour Samuel,")
+    expect(html).toContain(`Pour bien commencer${NB}:`)
+    expect(html).toContain(">01</td>")
+    expect(html).toContain(">03</td>")
     expect(html).toContain('href="https://nomaqbanq.ca/tableau-de-bord/profil"')
     expect(html).toContain(
       'href="https://nomaqbanq.ca/tableau-de-bord/entrainement"',
@@ -156,6 +230,9 @@ describe("courriels de cycle de vie", () => {
     )
     expect(html).toContain("Accéder à mon tableau de bord")
     expect(html).not.toContain("Ne plus recevoir ces rappels")
+    expect(previewOf(html)).toBe(
+      "Votre compte est activé. Trois étapes pour bien commencer.",
+    )
   })
 
   it("inactivity reminder : commercial avec désabonnement, bouton entraînement", async () => {
@@ -166,6 +243,7 @@ describe("courriels de cycle de vie", () => {
       }),
     )
     expect(html).toContain("Votre préparation vous attend")
+    expect(html).toContain(`garder le rythme${NB}:`)
     expect(html).toContain("Reprendre l")
     expect(html).toContain(
       'href="https://nomaqbanq.ca/tableau-de-bord/entrainement"',
@@ -174,23 +252,30 @@ describe("courriels de cycle de vie", () => {
     expect(html).toContain(
       'href="https://nomaqbanq.ca/desabonnement?token=abc"',
     )
+    expect(previewOf(html)).toBe(
+      "Votre progression est intacte. Quelques questions suffisent pour reprendre.",
+    )
   })
 
-  it("abandoned cart : commercial, récapitulatif produit et prix, bouton tarifs", async () => {
+  it("abandoned cart : commercial, récapitulatif produit et prix, sans promesse de contenu", async () => {
     const html = await render(
       createElement(AbandonedCartEmail, {
         ...common,
         unsubscribeUrl: "https://nomaqbanq.ca/desabonnement?token=abc",
-        productName: "Accès aux examens — 90 jours",
-        priceLabel: "200 $",
+        productName: "Accès Examens - 6 mois",
+        priceLabel: "200,00 $",
       }),
     )
     expect(html).toContain("Votre commande n")
-    expect(html).toContain("Accès aux examens — 90 jours")
-    expect(html).toContain("200 $")
+    expect(html).toContain("Accès Examens - 6 mois")
+    expect(html).toMatch(/font-family:Menlo[^"]*">200,00 \$/)
     expect(html).toContain("Reprendre mon achat")
     expect(html).toContain('href="https://nomaqbanq.ca/tarifs"')
     expect(html).toContain("Ne plus recevoir ces rappels")
+    expect(html).not.toContain("débloque")
     expect(html).not.toContain("rabais")
+    expect(previewOf(html)).toBe(
+      "Aucun accès n'a été activé. Reprenez votre achat quand vous le souhaitez.",
+    )
   })
 })
