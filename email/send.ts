@@ -4,6 +4,7 @@ import { render } from "@react-email/render"
 import type { ReactElement } from "react"
 import { env } from "@/lib/env/server"
 import { getSesClient } from "./client"
+import { plainTextOptions } from "./plain-text"
 
 export interface SendEmailInput {
   to: string
@@ -31,7 +32,7 @@ export async function sendEmail({
 
   const [html, text] = await Promise.all([
     render(react),
-    render(react, { plainText: true }),
+    render(react, plainTextOptions),
   ])
 
   const response = await getSesClient().send(

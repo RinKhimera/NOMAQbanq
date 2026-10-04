@@ -1,25 +1,40 @@
-import { Text } from "@react-email/components"
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import { emailTheme } from "../theme"
+
+const { colors, fonts } = emailTheme
 
 export function EmailParagraph({
   muted = false,
+  style,
   children,
 }: {
   muted?: boolean
+  /** Ajustement local de marge ou de couleur. */
+  style?: CSSProperties
   children: ReactNode
 }) {
   return (
-    <Text
+    <p
       style={{
-        fontFamily: emailTheme.fontFamily,
-        fontSize: muted ? "13px" : "15px",
-        lineHeight: "1.55",
-        color: muted ? emailTheme.colors.muted : emailTheme.colors.text,
-        margin: "0 0 16px",
+        ...(muted
+          ? {
+              margin: "0 0 12px",
+              fontFamily: fonts.sans,
+              fontSize: "13px",
+              lineHeight: "20px",
+              color: colors.ink3,
+            }
+          : {
+              margin: "0 0 16px",
+              fontFamily: fonts.sans,
+              fontSize: "16px",
+              lineHeight: "26px",
+              color: colors.ink2,
+            }),
+        ...style,
       }}
     >
       {children}
-    </Text>
+    </p>
   )
 }

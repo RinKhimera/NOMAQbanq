@@ -1,5 +1,6 @@
 import { createElement } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { plainTextOptions } from "@/email/plain-text"
 import { sendEmail } from "@/email/send"
 
 const { sendSpy, renderSpy, commandSpy } = vi.hoisted(() => ({
@@ -55,6 +56,11 @@ beforeEach(() => {
 })
 
 describe("sendEmail", () => {
+  it("rend le corps texte avec les options partagées du texte brut", async () => {
+    await sendEmail({ to: "u@x.com", subject: "Objet", react })
+    expect(renderSpy).toHaveBeenCalledWith(react, plainTextOptions)
+  })
+
   it("pose l'adresse de support en Reply-To quand elle est configurée", async () => {
     envMock.current = {
       EMAIL_FROM: "NOMAQbanq <noreply@nomaqbanq.ca>",

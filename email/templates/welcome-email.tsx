@@ -1,18 +1,11 @@
-import { Link } from "@react-email/components"
 import { EmailButton } from "../components/email-button"
 import { EmailFallbackLink } from "../components/email-fallback-link"
 import { EmailParagraph } from "../components/email-paragraph"
+import { EmailSteps } from "../components/email-steps"
 import { emailTheme } from "../theme"
 import { EmailLayout } from "./email-layout"
 
-const step = {
-  fontFamily: emailTheme.fontFamily,
-  fontSize: "15px",
-  lineHeight: "1.6",
-  color: emailTheme.colors.text,
-  margin: "0 0 8px",
-} as const
-const link = { color: emailTheme.colors.accent } as const
+const link = { color: emailTheme.colors.accent, textDecoration: "underline" }
 
 export function WelcomeEmail({
   firstName,
@@ -25,7 +18,7 @@ export function WelcomeEmail({
   return (
     <EmailLayout
       category="transactional"
-      preview="Votre compte est activé : voici par où commencer"
+      preview="Votre compte est activé. Trois étapes pour bien commencer."
       heading="Bienvenue sur NOMAQbanq"
       firstName={firstName}
       baseUrl={baseUrl}
@@ -35,27 +28,41 @@ export function WelcomeEmail({
         d&apos;entraînement par domaine, aux examens blancs et au suivi de votre
         progression.
       </EmailParagraph>
-      <EmailParagraph>Pour bien commencer :</EmailParagraph>
-      <ol style={{ paddingLeft: "20px", margin: "0 0 16px" }}>
-        <li style={step}>
-          <Link href={`${baseUrl}/tableau-de-bord/profil`} style={link}>
-            Complétez votre profil
-          </Link>{" "}
-          pour personnaliser votre espace.
-        </li>
-        <li style={step}>
-          <Link href={`${baseUrl}/tableau-de-bord/entrainement`} style={link}>
-            Lancez un premier entraînement
-          </Link>{" "}
-          sur le domaine de votre choix.
-        </li>
-        <li style={step}>
-          <Link href={`${baseUrl}/tableau-de-bord/examen-blanc`} style={link}>
-            Découvrez les examens blancs
-          </Link>{" "}
-          chronométrés, dans les conditions de l&apos;EACMC.
-        </li>
-      </ol>
+      <EmailParagraph
+        style={{ margin: "0 0 8px", color: emailTheme.colors.ink }}
+      >
+        Pour bien commencer&nbsp;:
+      </EmailParagraph>
+      <EmailSteps
+        items={[
+          <>
+            <a href={`${dashboardUrl}/profil`} target="_blank" style={link}>
+              Complétez votre profil
+            </a>{" "}
+            pour personnaliser votre espace.
+          </>,
+          <>
+            <a
+              href={`${dashboardUrl}/entrainement`}
+              target="_blank"
+              style={link}
+            >
+              Lancez un premier entraînement
+            </a>{" "}
+            sur le domaine de votre choix.
+          </>,
+          <>
+            <a
+              href={`${dashboardUrl}/examen-blanc`}
+              target="_blank"
+              style={link}
+            >
+              Découvrez les examens blancs
+            </a>{" "}
+            chronométrés, dans les conditions de l&apos;EACMC.
+          </>,
+        ]}
+      />
       <EmailButton href={dashboardUrl}>
         Accéder à mon tableau de bord
       </EmailButton>

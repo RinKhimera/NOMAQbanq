@@ -15,7 +15,7 @@ export function ResetPasswordEmail({
   return (
     <EmailLayout
       category="transactional"
-      preview="Réinitialisation de votre mot de passe"
+      preview="Choisissez un nouveau mot de passe. Ce lien expirera bientôt."
       heading="Réinitialisez votre mot de passe"
       firstName={firstName}
       baseUrl={baseUrl}
@@ -26,9 +26,10 @@ export function ResetPasswordEmail({
       </EmailParagraph>
       <EmailButton href={url}>Réinitialiser mon mot de passe</EmailButton>
       <EmailFallbackLink href={url} />
-      <EmailParagraph muted>
+      <EmailParagraph muted style={{ margin: 0 }}>
         Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de
-        cette demande, ignorez ce message ; votre mot de passe reste inchangé.
+        cette demande, ignorez ce message&nbsp;; votre mot de passe reste
+        inchangé.
       </EmailParagraph>
     </EmailLayout>
   )
