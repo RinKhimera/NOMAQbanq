@@ -230,7 +230,7 @@ export const TransactionsClient = ({
       </p>
       <PendingRegion
         isPending={isPending}
-        className="grid items-start gap-3 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]"
+        className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]"
       >
         <div className={cn(selected && "max-lg:hidden")}>
           <ClientList

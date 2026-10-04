@@ -155,7 +155,8 @@ export const ObjectivesClient = ({
           onValueChange={(v) => change({ domain: v === ALL_DOMAINS ? "" : v })}
         >
           <SelectTrigger className="w-full sm:w-64" aria-label="Domaine">
-            <SelectValue />
+            {/* Libellé rendu dès le serveur : Radix ne le remplit qu'à l'hydratation, lente sur cette page. */}
+            <SelectValue>{state.domain || "Tous les domaines"}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL_DOMAINS}>Tous les domaines</SelectItem>
