@@ -314,7 +314,8 @@ export function DataTable<Row>({
                   <TableHead
                     className={cn(
                       "bg-surface sticky right-0 w-12.5",
-                      edges.end && "shadow-[-10px_0_10px_-8px_rgb(0_0_0/0.35)]",
+                      edges.end &&
+                        "shadow-[-10px_0_10px_-8px_var(--edge-shadow)]",
                     )}
                   >
                     <span className="sr-only">{action.label}</span>
@@ -350,7 +351,7 @@ export function DataTable<Row>({
                         className={cn(
                           "sticky right-0 bg-inherit",
                           edges.end &&
-                            "shadow-[-10px_0_10px_-8px_rgb(0_0_0/0.35)]",
+                            "shadow-[-10px_0_10px_-8px_var(--edge-shadow)]",
                         )}
                       >
                         {action.cell(row)}
@@ -365,13 +366,13 @@ export function DataTable<Row>({
         {edges.start && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-0 w-4 shadow-[inset_10px_0_10px_-8px_rgb(0_0_0/0.35)]"
+            className="pointer-events-none absolute inset-y-0 left-0 w-4 shadow-[inset_10px_0_10px_-8px_var(--edge-shadow)]"
           />
         )}
         {edges.end && !action && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 w-4 shadow-[inset_-10px_0_10px_-8px_rgb(0_0_0/0.35)]"
+            className="pointer-events-none absolute inset-y-0 right-0 w-4 shadow-[inset_-10px_0_10px_-8px_var(--edge-shadow)]"
           />
         )}
       </PendingRegion>

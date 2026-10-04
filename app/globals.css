@@ -73,6 +73,7 @@
   --accent-fg: #ffffff;
   --success: var(--emerald-600);
   --success-soft: var(--emerald-50);
+  --success-fg: #ffffff;
   --success-ink: var(--emerald-700);
   --success-line: var(--emerald-200);
   --danger: var(--red-600);
@@ -95,6 +96,8 @@
   --shadow-1: 0 1px 2px rgb(15 23 42 / 0.05);
   --shadow-2: 0 1px 3px rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04);
   --shadow-pop: 0 12px 32px -12px rgb(15 23 42 / 0.22), 0 0 0 1px var(--line);
+  /* Ombre portée sur le bord d'une zone qui défile (tableau, colonne épinglée). */
+  --edge-shadow: rgb(15 23 42 / 0.3);
 
   --duration-fast: 120ms;
   --duration-base: 180ms;
@@ -123,6 +126,7 @@
   --accent-fg: #ffffff;
   --success: var(--emerald-500);
   --success-soft: rgb(16 185 129 / 0.1);
+  --success-fg: #ffffff;
   --success-ink: var(--emerald-400);
   --success-line: rgb(16 185 129 / 0.45);
   --danger: var(--red-500);
@@ -145,6 +149,7 @@
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow-2: 0 1px 3px rgb(0 0 0 / 0.4);
   --shadow-pop: 0 16px 40px -12px rgb(0 0 0 / 0.6), 0 0 0 1px var(--line);
+  --edge-shadow: rgb(0 0 0 / 0.75);
 
   color-scheme: dark;
 }
@@ -208,6 +213,7 @@
   --color-accent-foreground: var(--accent-fg);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-fg);
   --color-success-ink: var(--success-ink);
   --color-success-line: var(--success-line);
   --color-danger: var(--danger);

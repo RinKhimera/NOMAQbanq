@@ -30,7 +30,7 @@ export const examQuestionsHref = (examId: string) =>
   `/admin/questions?examen=${examId}`
 
 /** « Terminé » ou « Désactivé » : la bande montre le bilan, pas le suivi. */
-export const isSettled = (phase: ExamStatus) =>
+const isSettled = (phase: ExamStatus) =>
   phase === "completed" || phase === "inactive"
 
 /** « 230 questions », ou « 140 / 230 questions » tant que le jeu se compose. */

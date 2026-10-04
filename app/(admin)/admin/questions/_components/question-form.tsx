@@ -298,7 +298,7 @@ const ChoicesEditor = ({
                 className={cn(
                   "focus-ring flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm border font-mono text-sm font-semibold disabled:cursor-default max-lg:size-11",
                   isKey
-                    ? "border-success bg-success text-accent-foreground"
+                    ? "border-success bg-success text-success-foreground"
                     : "border-line-strong text-ink-2 hover:bg-surface-2",
                 )}
               >

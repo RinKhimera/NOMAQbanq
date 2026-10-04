@@ -61,17 +61,23 @@ ni le thème sombre ni un changement de charte.
 | Filets et bordures de contrôles       | `border-line`, `border-line-strong`                                                                                                                                                |
 | Action primaire, focus, sélection     | `bg-accent`, `text-accent-ink`, `bg-accent-soft`, `hover:bg-accent-hover`                                                                                                          |
 | Tonalités                             | `success`, `danger`, `warning`, `admin`, `objective`, chacune avec `-ink`, `-soft`, `-line` (`text-success-ink`, `bg-danger-soft`, `border-warning-line`)                          |
-| Ombres                                | `shadow-1` (cartes), `shadow-2`, `shadow-pop` (flottants)                                                                                                                          |
+| Ombres                                | `shadow-1` (cartes), `shadow-2`, `shadow-pop` (flottants) ; `var(--edge-shadow)` sur le bord d'une zone qui défile                                                                 |
 | Rayons                                | `rounded-xs` 2 px badges · `rounded-sm` 3 px lettres A–E · `rounded-md` 4 px contrôles · `rounded-lg` 6 px cartes et dialogues · `rounded-full` avatar, switch, compteur seulement |
 | Polices                               | `font-sans` (IBM Plex Sans, défaut), `font-serif` (Source Serif 4 : titres, vignettes, grands chiffres), `font-mono` (IBM Plex Mono : libellés, chiffres, chrono, ID)              |
 | Anneau de focus                       | `focus-ring` (utilitaire sur le jeton `--focus-ring`), sur tout contrôle                                                                                                           |
 
 Il n'existe plus d'alias shadcn (`bg-primary`, `bg-muted`,
 `text-muted-foreground`, `border-border`…) : ces classes ne produisent aucun
-style. Un composant shadcn ajouté se réécrit sur les jetons ci-dessus. Les
-paliers Tailwind de rayon (`rounded-xl` et au-delà) et d'ombre (`shadow-xs` …
-`2xl`) restent plafonnés aux valeurs du thème, mais un nouveau code écrit
-`rounded-lg`, `shadow-1`, `shadow-2` ou `shadow-pop`.
+style. Un composant shadcn ajouté se réécrit sur les jetons ci-dessus. Trois
+noms d'origine shadcn restent, parce qu'ils désignent un rôle et non un
+alias : `bg-background` (fond de page), `text-foreground` (= `text-ink`) et
+`text-accent-foreground` (texte sur un aplat d'accent). Le texte sur un aplat
+de succès a son propre jeton, `text-success-foreground`, pour ne pas suivre
+l'accent.
+
+Les paliers Tailwind de rayon (`rounded-xl` et au-delà) et d'ombre
+(`shadow-xs` … `2xl`) restent plafonnés aux valeurs du thème, mais un nouveau
+code écrit `rounded-lg`, `shadow-1`, `shadow-2` ou `shadow-pop`.
 
 Le sens des couleurs est fixe (`DESIGN.md` §1) : émeraude = correct,
 entraînement, actif ; rouge = incorrect, critique, suppression ; ambre =

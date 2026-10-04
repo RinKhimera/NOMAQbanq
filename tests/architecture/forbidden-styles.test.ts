@@ -47,6 +47,10 @@ const RULES = {
   "alias shadcn retiré": new RegExp(
     `(?<![\\w-])(?:${COLOR_UTILITY})-(?:${SHADCN_ALIASES})(?:-foreground)?(?:\\/\\d+)?(?![\\w-])`,
   ),
+  // Une couleur écrite en dur dans une valeur arbitraire (`shadow-[…rgb(…)]`,
+  // `bg-[#fff]`) échappe aux noms de palette : elle ne suit pas le thème.
+  "couleur en dur dans une valeur arbitraire":
+    /-\[[^\]\s"'`]*(?:#[0-9a-fA-F]{3,8}(?![\w-])|(?:rgba?|hsla?|oklch|oklab)\()/,
 } as const
 
 type Rule = keyof typeof RULES
@@ -78,7 +82,7 @@ const offenders = (rule: Rule) =>
       ),
   )
 
-describe("styles interdits dans app/ et components/", () => {
+describe("styles interdits dans le code de l'interface", () => {
   it.each(Object.keys(RULES) as Rule[])("%s : aucune occurrence", (rule) => {
     expect(
       offenders(rule),
@@ -138,6 +142,15 @@ describe("détecteur des styles interdits", () => {
     ["alias shadcn retiré", `className="border-input bg-popover"`],
     ["alias shadcn retiré", `className="border-border"`],
     ["alias shadcn retiré", `className="data-[state=on]:bg-primary"`],
+    [
+      "couleur en dur dans une valeur arbitraire",
+      `className="shadow-[inset_10px_0_10px_-8px_rgb(0_0_0/0.35)]"`,
+    ],
+    ["couleur en dur dans une valeur arbitraire", `className="bg-[#fff]"`],
+    [
+      "couleur en dur dans une valeur arbitraire",
+      `className="border-[oklch(0.7_0.1_200)]"`,
+    ],
   ]
 
   const spared: [Rule, string][] = [
@@ -163,6 +176,14 @@ describe("détecteur des styles interdits", () => {
       `className="border-line bg-accent-soft ring-accent"`,
     ],
     ["alias shadcn retiré", `className="text-foreground bg-background"`],
+    [
+      "couleur en dur dans une valeur arbitraire",
+      `className="shadow-[inset_10px_0_10px_-8px_var(--edge-shadow)]"`,
+    ],
+    [
+      "couleur en dur dans une valeur arbitraire",
+      `className="max-w-[calc(100vw-40px)] text-[15px] grid-cols-[minmax(0,360px)_1fr]"`,
+    ],
   ]
 
   it.each(caught)("reconnaît un %s : %s", (rule, line) => {

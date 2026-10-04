@@ -43,6 +43,7 @@ import {
 } from "./objectives-model"
 
 const ALL_DOMAINS = "__all"
+const ALL_DOMAINS_LABEL = "Tous les domaines"
 
 // Un énoncé collé élargirait le tableau jusqu'à en masquer les colonnes.
 const shortValue = (label: string) =>
@@ -156,10 +157,10 @@ export const ObjectivesClient = ({
         >
           <SelectTrigger className="w-full sm:w-64" aria-label="Domaine">
             {/* Libellé rendu dès le serveur : Radix ne le remplit qu'à l'hydratation, lente sur cette page. */}
-            <SelectValue>{state.domain || "Tous les domaines"}</SelectValue>
+            <SelectValue>{state.domain || ALL_DOMAINS_LABEL}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL_DOMAINS}>Tous les domaines</SelectItem>
+            <SelectItem value={ALL_DOMAINS}>{ALL_DOMAINS_LABEL}</SelectItem>
             {domains.map((d) => (
               <SelectItem key={d} value={d}>
                 {d}

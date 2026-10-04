@@ -3,11 +3,6 @@ import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 
 export type QuestionCardVariant = "default" | "exam" | "review"
 
-// La forme-pont appartient au moteur de quiz (`runner/types.ts`) ; la carte la
-// consomme telle quelle. `explanation`/`references` peuvent être absents et
-// arriver en différé via `lazy*`.
-export type { QuizQuestion } from "@/components/quiz/runner/types"
-
 /**
  * `muted` : choix ni retenu ni juste, une fois la correction affichée. Une clé
  * retenue n'a pas d'état propre : la réponse reste `selected`, rien n'est
@@ -28,6 +23,10 @@ export type AnswerOptionProps = {
 }
 
 export type QuestionCardProps = {
+  /**
+   * Forme-pont du moteur de quiz, consommée telle quelle : `explanation` et
+   * `references` peuvent manquer et arriver en différé via `lazy*`.
+   */
   question: QuizQuestion
 
   /** Correction chargée à la demande, prioritaire sur celle de `question`. */
