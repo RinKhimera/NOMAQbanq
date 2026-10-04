@@ -64,6 +64,8 @@ const EXCEPTIONS: Partial<Record<Rule, Record<string, string>>> = {
 }
 
 // `lib/` et `features/` portent aussi des tables de classes (`lib/tone.ts`).
+// `email/` écrit ses styles en ligne (hex du thème courriel), mais un dégradé
+// ou un import de motion y reste interdit.
 const FILES = [
   "app",
   "components",
@@ -71,6 +73,7 @@ const FILES = [
   "lib",
   "constants",
   "features",
+  "email",
 ].flatMap((dir) => walk(dir))
 
 const offenders = (rule: Rule) =>
