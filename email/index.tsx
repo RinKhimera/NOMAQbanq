@@ -1,3 +1,4 @@
+import type { AccessType } from "@/features/payments/access-ledger"
 import { getBaseUrl } from "@/lib/base-url"
 import { env } from "@/lib/env/server"
 import {
@@ -25,9 +26,6 @@ import { PurchaseConfirmationEmail } from "./templates/purchase-confirmation-ema
 import { ResetPasswordEmail } from "./templates/reset-password-email"
 import { VerificationEmail } from "./templates/verification-email"
 import { WelcomeEmail } from "./templates/welcome-email"
-
-// Objets sans suffixe « — NOMAQbanq » : le nom de l'expéditeur s'affiche déjà
-// dans la boîte de réception.
 
 /** Nom complet du destinataire tel qu'en base ; le prénom en est extrait ici. */
 type Recipient = { to: string; name?: string | null }
@@ -93,7 +91,7 @@ export function sendAccessExpiringEmail({
   daysRemaining,
   renewUrl,
 }: Recipient & {
-  accessType: "exam" | "training"
+  accessType: AccessType
   daysRemaining: number
   renewUrl: string
 }) {
@@ -111,10 +109,10 @@ export function sendAccessExpiringEmail({
   })
 }
 
-const ACCESS_LABEL = {
+const ACCESS_NAME: Record<AccessType, string> = {
   exam: "Accès Examens",
   training: "Accès Entraînement",
-} as const
+}
 
 export function sendPurchaseConfirmationEmail({
   to,
@@ -136,7 +134,7 @@ export function sendPurchaseConfirmationEmail({
   presentmentCurrency: string | null
   purchasedAt: Date
   /** Expirations EFFECTIVES écrites par le fulfillment, une par type octroyé. */
-  grantedAccess: { accessType: "exam" | "training"; expiresAt: Date }[]
+  grantedAccess: { accessType: AccessType; expiresAt: Date }[]
 }) {
   const presentmentLabel =
     presentmentAmount != null && presentmentCurrency
@@ -160,7 +158,7 @@ export function sendPurchaseConfirmationEmail({
         presentmentLabel={presentmentLabel}
         purchasedAtLabel={formatExpiration(purchasedAt.getTime())}
         grantedAccess={grantedAccess.map((a) => ({
-          label: ACCESS_LABEL[a.accessType],
+          label: ACCESS_NAME[a.accessType],
           expiresAtLabel: formatExpiration(a.expiresAt.getTime()),
         }))}
         accountUrl={`${baseUrl}/tableau-de-bord/abonnements`}

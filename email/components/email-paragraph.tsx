@@ -9,7 +9,7 @@ export function EmailParagraph({
   children,
 }: {
   muted?: boolean
-  /** Ajustement local (marge, couleur), comme dans la maquette. */
+  /** Ajustement local de marge ou de couleur. */
   style?: CSSProperties
   children: ReactNode
 }) {

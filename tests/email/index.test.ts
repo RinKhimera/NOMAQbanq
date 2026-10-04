@@ -96,8 +96,8 @@ describe("email domain helpers", () => {
   })
 })
 
-// Objets de la maquette, sans suffixe « — NOMAQbanq » : le nom de
-// l'expéditeur s'affiche déjà dans la boîte de réception.
+// L'objet ne répète pas « NOMAQbanq » : le nom de l'expéditeur s'affiche déjà
+// dans la boîte de réception.
 describe("objets des courriels", () => {
   const NB = " "
   const purchase = {

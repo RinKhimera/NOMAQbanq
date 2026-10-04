@@ -1,7 +1,7 @@
 /**
  * Rend chaque courriel avec des données d'exemple, en HTML et en texte brut,
  * dans `.email-preview/` (ignoré par git) pour les ouvrir dans un navigateur.
- * Une entrée par variante de la maquette. Aucun envoi, aucun serveur.
+ * Une entrée par variante de chaque modèle. Aucun envoi, aucun serveur.
  *
  * Usage : bun run email:preview
  */
