@@ -19,10 +19,3 @@ export type ExamStatusConfig = {
   tone: StatusTone
   icon: LucideIcon
 }
-
-// ===== Navigation Types =====
-export interface NavItem {
-  title: string
-  url: string
-  icon: React.ComponentType<{ className?: string }>
-}

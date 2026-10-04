@@ -116,10 +116,10 @@ Lucide uniquement, trait 1.75, 14–18 px, couleur `--ink-3` ou sémantique. Une
 
 Base : composants du design system des maquettes, portés sur les primitives `components/ui/*` du dépôt. Le catalogue des composants partagés (primitives et composites, existants et à venir) vit dans `.claude/rules/design-system.md` : le consulter avant de créer.
 
-- **core** : Button (primary / secondary / ghost / danger ; sm 32 · md 40 · lg 48 ; icon, icon-sm), Badge, Card (+ CardHeader eyebrow/title/description/action), Icon, Logo, Separator
-- **forms** : Input, Textarea, Field (label, hint, error), Checkbox, Switch, RadioGroup, Select, SearchInput (raccourci « / »), FilterChip, Slider, Calendar
+- **core** : Button (primary / secondary / ghost / danger ; sm 32 · md 40 · lg 48 ; icon, icon-sm), Badge, Icon, Logo. Une carte et un filet s'écrivent en jetons (`bg-surface border-line rounded-lg`, `border-line`), sans primitive
+- **forms** : Input, Textarea, Field (label, hint, error), Checkbox, Switch, RadioGroup, Select, SearchInput (raccourci « / »), FilterChip, Slider
 - **feedback** : Alert, Toast, Progress, Spinner, Skeleton, EmptyState
-- **navigation** : Tabs (underline = navigation ; segmented = filtre compact), ToggleGroup, SideNav (`admin` = accent orange), Pagination, Breadcrumb, Stepper
+- **navigation** : onglets (segmentés = `SegmentedControl` ; à panneaux = aucune primitive, à créer avec le premier écran), ToggleGroup, SideNav (`admin` = accent orange), Pagination, Breadcrumb, Stepper
 - **overlay** : Dialog, Sheet, DropdownMenu, Popover, Tooltip
 - **data** : Avatar, Table (`dense` en admin), Accordion
 - **quiz** : QuestionCard, AnswerOption (lettres A–E), SessionHeader, QuestionNavigator, Calculator, LabValues

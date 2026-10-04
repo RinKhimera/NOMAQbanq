@@ -33,10 +33,13 @@ reprendre, pas à conserver « en attendant » :
 
 Verrou : `tests/architecture/forbidden-styles.test.ts` échoue sur un dégradé,
 un `backdrop-blur`, une échelle ou une translation au survol, un import de
-`motion` ou une couleur de palette brute dans `app/` ou `components/`. Une
-exception s'y inscrit nommément, fichier et raison (aujourd'hui
-`global-error.tsx`, rendu sans la feuille globale, et la visionneuse d'images).
-Le logo est un SVG : il échappe au verrou sans exception.
+`motion`, une couleur de palette brute (nom de palette, `[#hex]`,
+`--color-<palette>`) ou un alias shadcn retiré, dans `app/`, `components/`,
+`hooks/`, `lib/`, `constants/` et `features/`. Une exception s'y inscrit
+nommément, fichier et raison (aujourd'hui le voile des vignettes de la galerie
+d'images). Le logo est un SVG : il échappe au verrou sans exception.
+`app/global-error.tsx` remplace le layout racine, sans `globals.css` : il porte
+ses propres styles dans une balise `<style>`, pas de classes Tailwind.
 
 ## Jetons sémantiques obligatoires
 

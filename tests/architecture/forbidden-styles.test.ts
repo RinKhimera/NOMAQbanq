@@ -22,18 +22,30 @@ const walk = (dir: string): string[] => {
 const PALETTE =
   "white|black|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose"
 
+const COLOR_UTILITY =
+  "bg|text|border(?:-[trblxyse])?|ring|ring-offset|inset-ring|from|via|to|fill|stroke|outline|divide|decoration|placeholder|caret|accent|shadow"
+
+const SHADCN_ALIASES =
+  "primary|secondary|muted|card|popover|destructive|input|ring|border|chart-\\d"
+
 // Interdits de `.claude/rules/design-system.md`. Une classe Tailwind se reconnaît
-// à sa forme écrite, variantes comprises (`dark:`, `md:hover:`, `group-hover:`).
+// à sa forme écrite, variantes comprises (`dark:`, `md:hover:`,
+// `group-hover/nom:`, variante arbitraire `hover:[&:not(:disabled)]:`).
 const RULES = {
   dégradé:
     /(?<![\w-])bg-(?:linear|radial|conic|gradient)(?:-|\b)|bg-clip-text|(?:linear|radial|conic)-gradient\(/,
   "verre dépoli": /backdrop-blur/,
   "échelle ou translation au survol":
-    /hover:(?:[\w[\]=&>*-]+:)*-?(?:scale|translate)-/,
+    /(?:^|[\s"'`:])(?:[\w-]+-)?hover(?:\/[\w-]+)?:(?:[^\s"'`]+:)*-?(?:scale|translate)-/,
   "import de motion":
     /from\s+["'](?:motion(?:\/[\w-]+)?|framer-motion)["']|import\(\s*["'](?:motion(?:\/[\w-]+)?|framer-motion)["']\s*\)/,
   "couleur de palette brute": new RegExp(
-    `(?<![\\w-])(?:bg|text|border(?:-[trblxy])?|ring|ring-offset|from|via|to|fill|stroke|outline|divide|decoration|placeholder|caret|accent|shadow)-(?:${PALETTE})(?:-\\d{2,3})?(?![\\w-])|var\\(--color-(?:${PALETTE})-`,
+    `(?<![\\w-])(?:${COLOR_UTILITY})-(?:(?:${PALETTE})(?:-\\d{2,3})?(?![\\w-])|\\[#[0-9a-fA-F]{3,8}\\])|(?:var\\(|\\()--color-(?:${PALETTE})-`,
+  ),
+  // Les alias shadcn n'existent plus dans `@theme` : la classe ne produit aucun
+  // style, en silence. Un composant ajouté par `shadcn add` en est plein.
+  "alias shadcn retiré": new RegExp(
+    `(?<![\\w-])(?:${COLOR_UTILITY})-(?:${SHADCN_ALIASES})(?:-foreground)?(?:\\/\\d+)?(?![\\w-])`,
   ),
 } as const
 
@@ -42,14 +54,20 @@ type Rule = keyof typeof RULES
 // Chaque exception dit pourquoi le motif est légitime à cet endroit précis.
 const EXCEPTIONS: Partial<Record<Rule, Record<string, string>>> = {
   "couleur de palette brute": {
-    "app/global-error.tsx":
-      "remplace le layout racine : la feuille globale et ses jetons n'y sont pas garantis",
     "components/shared/question-image-gallery.tsx":
-      "visionneuse d'images : fond noir et texte blanc quel que soit le thème",
+      "voile posé sur une vignette photo : noir translucide et icône blanche, quel que soit le thème",
   },
 }
 
-const FILES = [...walk("app"), ...walk("components")]
+// `lib/` et `features/` portent aussi des tables de classes (`lib/tone.ts`).
+const FILES = [
+  "app",
+  "components",
+  "hooks",
+  "lib",
+  "constants",
+  "features",
+].flatMap((dir) => walk(dir))
 
 const offenders = (rule: Rule) =>
   FILES.filter((file) => !EXCEPTIONS[rule]?.[file]).flatMap((file) =>
@@ -101,6 +119,25 @@ describe("détecteur des styles interdits", () => {
       "couleur de palette brute",
       `className="hover:bg-[color-mix(in_oklab,var(--color-gray-50)_50%,white)]"`,
     ],
+    [
+      "échelle ou translation au survol",
+      `className="group-hover/card:scale-105"`,
+    ],
+    ["échelle ou translation au survol", `className="peer-hover/x:scale-105"`],
+    [
+      "échelle ou translation au survol",
+      `className="hover:[&:not(:disabled)]:scale-105"`,
+    ],
+    ["couleur de palette brute", `className="text-[#2563eb]"`],
+    ["couleur de palette brute", `className="bg-(--color-gray-50)"`],
+    ["couleur de palette brute", `className="border-s-red-500"`],
+    ["couleur de palette brute", `className="inset-ring-red-500"`],
+    ["alias shadcn retiré", `className="bg-muted text-ink"`],
+    ["alias shadcn retiré", `className="text-muted-foreground"`],
+    ["alias shadcn retiré", `className="focus-visible:ring-ring/50"`],
+    ["alias shadcn retiré", `className="border-input bg-popover"`],
+    ["alias shadcn retiré", `className="border-border"`],
+    ["alias shadcn retiré", `className="data-[state=on]:bg-primary"`],
   ]
 
   const spared: [Rule, string][] = [
@@ -119,6 +156,13 @@ describe("détecteur des styles interdits", () => {
       "couleur de palette brute",
       `className="bg-accent text-accent-foreground"`,
     ],
+    ["couleur de palette brute", `className="bg-(--shell-offset) text-[15px]"`],
+    ["alias shadcn retiré", `<Button variant="destructive" />`],
+    [
+      "alias shadcn retiré",
+      `className="border-line bg-accent-soft ring-accent"`,
+    ],
+    ["alias shadcn retiré", `className="text-foreground bg-background"`],
   ]
 
   it.each(caught)("reconnaît un %s : %s", (rule, line) => {
