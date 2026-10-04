@@ -1,4 +1,4 @@
-import { format, formatDistanceToNow } from "date-fns"
+import { format, formatDistanceToNow, isValid, parseISO } from "date-fns"
 import { fr } from "date-fns/locale"
 import { inAppZone } from "@/lib/app-zone"
 
@@ -19,10 +19,33 @@ export const APP_TIME_ZONE_LABEL = "heure de l'Est"
 
 /**
  * Journée civile d'une date issue d'un calendrier, lue dans le fuseau du
- * NAVIGATEUR — seul endroit du module où c'est voulu : la valeur d'un date
- * picker désigne la case que l'admin vient de cliquer, pas un instant.
+ * NAVIGATEUR, comme `formatCalendarDay` et `formatFileTimestamp` : la valeur
+ * d'un date picker désigne la case que l'admin vient de cliquer, pas un
+ * instant ; un nom de fichier d'export suit l'horloge de celui qui l'enregistre.
  */
 export const toCalendarDay = (d: Date): string => format(d, "yyyy-MM-dd")
+
+/** « 3 juil. 2026 » d'une date de calendrier, même lecture que `toCalendarDay`. */
+export const formatCalendarDay = (
+  d: Date,
+  { year = true }: { year?: boolean } = {},
+): string => format(d, year ? "d MMM yyyy" : "d MMM", { locale: fr })
+
+/**
+ * Jour ISO (`yyyy-MM-dd`) d'une série agrégée par jour : « 3 juil. », ou
+ * « vendredi 3 juillet 2026 » en `weekday`. Un jour n'est pas un instant, il
+ * n'a pas de fuseau à ancrer.
+ */
+export const formatIsoDay = (
+  iso: string,
+  style: "short" | "weekday" = "short",
+): string => {
+  const day = parseISO(iso)
+  if (!isValid(day)) return iso
+  return format(day, style === "short" ? "d MMM" : "EEEE d MMMM yyyy", {
+    locale: fr,
+  })
+}
 
 /**
  * Formate un montant en cents vers une devise lisible
@@ -32,13 +55,14 @@ export const toCalendarDay = (d: Date): string => format(d, "yyyy-MM-dd")
 export const formatCurrency = (
   amountCents: number,
   currency = "CAD",
+  { whole = false }: { whole?: boolean } = {},
 ): string => {
   const amount = amountCents / 100
 
   if (currency === "XAF") {
     // XAF n'a pas de sous-unités, affichage avec espace comme séparateur de milliers
     return (
-      new Intl.NumberFormat("fr-FR", {
+      new Intl.NumberFormat("fr-CA", {
         style: "decimal",
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
@@ -50,9 +74,25 @@ export const formatCurrency = (
     style: "currency",
     currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: whole ? 0 : 2,
   }).format(amount)
 }
+
+/**
+ * « 85 % » — pourcentage déjà exprimé sur 100 (score, part, tendance).
+ * `digits` décimales (0 par défaut, arrondi half-up), `signed` pour une
+ * tendance (« +12 % », « -3,2 % »). L'espace avant « % » est insécable (fr-CA).
+ */
+export const formatPercent = (
+  value: number,
+  { digits = 0, signed = false }: { digits?: number; signed?: boolean } = {},
+): string =>
+  new Intl.NumberFormat("fr-CA", {
+    style: "percent",
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    signDisplay: signed ? "always" : "auto",
+  }).format(value / 100)
 
 /**
  * Montant présenté au client par Adaptive Pricing, dans SA devise.
@@ -100,6 +140,33 @@ export const formatTimeRemaining = (timestamp: number): string => {
   })
 }
 
+/** « 4 h 05 », ou « 42 min » sous l'heure : durée courte d'une carte ou d'une alerte. */
+export const formatShortDuration = (ms: number): string => {
+  const minutes = Math.max(0, Math.floor(ms / 60_000))
+  const hours = Math.floor(minutes / 60)
+  return hours > 0
+    ? `${hours} h ${String(minutes % 60).padStart(2, "0")}`
+    : `${minutes} min`
+}
+
+/**
+ * Décompte jusqu'à une échéance : « 2 j 3 h » au-delà d'un jour, « 4 h 05 »
+ * au-delà d'une heure, « 12 min 07 s » en dessous. Jamais négatif.
+ */
+export const formatCountdown = (ms: number): string => {
+  const seconds = Math.max(0, Math.floor(ms / 1000))
+  const days = Math.floor(seconds / 86_400)
+  const hours = Math.floor((seconds % 86_400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (days > 0) return `${days} j ${hours} h`
+  if (hours > 0) return `${hours} h ${String(minutes).padStart(2, "0")}`
+  return `${minutes} min ${String(seconds % 60).padStart(2, "0")} s`
+}
+
+/** « 27-09-2026_09-05 » — suffixe de nom de fichier d'export. */
+export const formatFileTimestamp = (d: Date): string =>
+  format(d, "dd-MM-yyyy_HH-mm")
+
 /**
  * Formate un timestamp en date courte
  */
@@ -126,10 +193,9 @@ export const formatMediumDate = (d: Date | number | string): string => {
   return format(inAppZone(d), "d MMM yyyy", { locale: fr })
 }
 
-/** « 3 juillet 2026 à 14:05 » — panneaux de détail. */
-export const formatLongDateTime = (d: Date | number | string): string => {
-  return format(inAppZone(d), "d MMMM yyyy 'à' HH:mm", { locale: fr })
-}
+/** « 30 septembre 2026 » */
+export const formatLongDate = (d: Date | number | string): string =>
+  format(inAppZone(d), "d MMMM yyyy", { locale: fr })
 
 /** « 3 juillet 2026 à 14:05 » (variante PPP) — détails examen. */
 export const formatFullDateTime = (d: Date | number | string): string => {
@@ -144,17 +210,34 @@ export const formatFullDateTime = (d: Date | number | string): string => {
 export const formatDeadline = (d: Date | number | string): string =>
   `${formatFullDateTime(d)} (${APP_TIME_ZONE_LABEL})`
 
-/** « 03/07/2026, 14:05 » — lignes compactes (leaderboard, tables). */
-export const formatCompactDateTime = (d: Date | number | string): string => {
-  return format(inAppZone(d), "Pp", { locale: fr })
-}
-
-/** « 03 juil. 2026 » (jour zéro-préfixé) — boutons d'ouverture d'examen. */
-export const formatPaddedMediumDate = (d: Date | number | string): string => {
-  return format(inAppZone(d), "dd MMM yyyy", { locale: fr })
-}
-
 /** « vendredi 3 juillet 2026 » — sous-titres de page. */
 export const formatWeekdayLongDate = (d: Date | number | string): string => {
   return format(inAppZone(d), "EEEE d MMMM yyyy", { locale: fr })
 }
+
+/** « 27 sept. » — graduations d'un graphique, dates d'une liste courte. */
+export const formatDayMonth = (d: Date | number | string): string => {
+  return format(inAppZone(d), "d MMM", { locale: fr })
+}
+
+/** « dimanche 27 septembre » — libellé de date du tableau de bord. */
+export const formatWeekdayDayMonth = (d: Date | number | string): string => {
+  return format(inAppZone(d), "EEEE d MMMM", { locale: fr })
+}
+
+/** « mars 2026 » — ancienneté d'un compte. */
+export const formatMonthYear = (d: Date | number | string): string => {
+  return format(inAppZone(d), "MMMM yyyy", { locale: fr })
+}
+
+/** « 11 h 02 » — heure à la française, espaces insécables. */
+export const formatClockTime = (d: Date | number | string): string => {
+  return format(inAppZone(d), "H' h 'mm", { locale: fr })
+}
+
+/** « 27 sept. 2026, 11 h 02 » — horodatage d'une transaction. */
+export const formatMediumDateTime = (d: Date | number | string): string =>
+  `${formatMediumDate(d)}, ${formatClockTime(d)}`
+
+/** Espace insécable : « 15 j », « 30 jours : », « 85 % » (fr-CA). */
+export const NBSP = " "

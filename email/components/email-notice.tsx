@@ -1,13 +1,7 @@
 import type { ReactNode } from "react"
 import { emailTheme } from "../theme"
 
-const TONES = {
-  info: { background: "#eef4ff", rule: emailTheme.colors.accent },
-  warning: { background: "#fef3e2", rule: emailTheme.colors.warning },
-  success: { background: "#e6f7f0", rule: emailTheme.colors.success },
-} as const
-
-export type EmailNoticeVariant = keyof typeof TONES
+export type EmailNoticeVariant = keyof typeof emailTheme.tones
 
 export function EmailNotice({
   variant,
@@ -16,14 +10,14 @@ export function EmailNotice({
   variant: EmailNoticeVariant
   children: ReactNode
 }) {
-  const tone = TONES[variant]
+  const tone = emailTheme.tones[variant]
   return (
     <table
       role="presentation"
       cellPadding={0}
       cellSpacing={0}
       width="100%"
-      style={{ borderCollapse: "separate", margin: "0 0 16px" }}
+      style={{ borderCollapse: "separate", margin: "0 0 20px" }}
     >
       <tbody>
         <tr>
@@ -31,13 +25,13 @@ export function EmailNotice({
             data-variant={variant}
             style={{
               backgroundColor: tone.background,
-              borderLeft: `3px solid ${tone.rule}`,
-              borderRadius: "6px",
+              border: `1px solid ${tone.line}`,
+              borderRadius: emailTheme.radius.control,
               padding: "12px 14px",
-              fontFamily: emailTheme.fontFamily,
-              fontSize: "13.5px",
-              lineHeight: "1.5",
-              color: emailTheme.colors.text,
+              fontFamily: emailTheme.fonts.sans,
+              fontSize: "14px",
+              lineHeight: "22px",
+              color: emailTheme.colors.ink,
             }}
           >
             {children}

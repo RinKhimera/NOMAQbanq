@@ -14,6 +14,7 @@ import {
   lockFor,
 } from "@/features/questions/answer-key-lock"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -60,7 +61,7 @@ beforeAll(async () => {
       question: `LOCK Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj LOCK ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `LOCK-${suffix}`,
     })),
   )
@@ -72,6 +73,7 @@ beforeAll(async () => {
       endDate: new Date("2099-01-01T00:00:00Z"),
       completionTime: 3600,
       createdBy: USER_ID,
+      targetQuestionCount: 10,
     },
     {
       id: CLOSED_EXAM_ID,
@@ -80,6 +82,7 @@ beforeAll(async () => {
       endDate: new Date("2026-01-02T00:00:00Z"),
       completionTime: 3600,
       createdBy: USER_ID,
+      targetQuestionCount: 10,
     },
   ])
   await db.insert(examQuestions).values([

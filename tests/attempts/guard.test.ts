@@ -457,7 +457,7 @@ describe("requireAttempt — examen", () => {
 
 describe("refusalMessage", () => {
   it("NOT_FOUND selon le type de tentative", () => {
-    expect(refusalMessage("NOT_FOUND", "training")).toBe("Session introuvable")
+    expect(refusalMessage("NOT_FOUND", "training")).toBe("Série introuvable")
     expect(refusalMessage("NOT_FOUND", "exam")).toBe(
       "Participation introuvable.",
     )

@@ -5,10 +5,10 @@ import { examParticipations, exams, user } from "@/db/schema"
 import { getMarketingStats } from "@/features/marketing/dal"
 import {
   MIN_COMPLETED_PARTICIPATIONS,
-  SUCCESS_SCORE_THRESHOLD,
   resolveSuccessRate,
 } from "@/features/marketing/lib"
 import { createId } from "@/lib/ids"
+import { PASS_THRESHOLD } from "@/lib/score"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -30,7 +30,7 @@ const baselineAgg = async () => {
           Number,
         ),
       passed:
-        sql<number>`count(*) filter (where status in ('completed','auto_submitted') and score >= ${SUCCESS_SCORE_THRESHOLD})`.mapWith(
+        sql<number>`count(*) filter (where status in ('completed','auto_submitted') and score >= ${PASS_THRESHOLD})`.mapWith(
           Number,
         ),
     })
@@ -52,6 +52,7 @@ beforeAll(async () => {
     endDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
     completionTime: 3600,
     createdBy: creatorId,
+    targetQuestionCount: 10,
   })
   await db.insert(user).values(
     userIds.map((id, i) => ({
@@ -66,7 +67,7 @@ beforeAll(async () => {
       examId,
       userId: uid,
       status: "completed" as const,
-      score: 90, // ≥ SUCCESS_SCORE_THRESHOLD → réussite
+      score: 90, // ≥ PASS_THRESHOLD → réussite
       completedAt: new Date(),
     })),
   )
@@ -81,6 +82,15 @@ describe("getMarketingStats — successRate calculé", () => {
   it("ne renvoie plus le champ rating", async () => {
     const stats = await getMarketingStats()
     expect(stats).not.toHaveProperty("rating")
+  })
+
+  it("ne publie aucun nombre de questions par domaine", async () => {
+    const stats = await getMarketingStats()
+    expect(Object.keys(stats).toSorted()).toEqual([
+      "successRate",
+      "totalQuestions",
+      "totalUsers",
+    ])
   })
 
   it("câble l'agrégat SQL sur resolveSuccessRate (oracle exact, baseline develop quelconque)", async () => {

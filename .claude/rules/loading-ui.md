@@ -16,6 +16,13 @@ justifie dans le code.
 | **Action utilisateur** (bouton, form, upload)   | `<Spinner size="sm">` DANS le déclencheur + `disabled`                                                                                                | Écran d'attente    |
 | **Attente sur un tiers** (Stripe)               | Écran dédié plein cadre, texte explicite                                                                                                              | —                  |
 
+**Une recherche cumule deux lignes de la table.** Le champ est le déclencheur
+de l'attente (la frappe de l'utilisateur) : la ligne « action utilisateur »
+s'applique au champ, d'où le `Spinner size="sm"` à la place de la loupe dans
+`SearchInput` (`isSearching`). La liste qu'elle recharge relève de la ligne
+« rechargement en place » : `<PendingRegion>` sur les résultats, jamais un
+squelette ni un spinner dans la liste. Les deux se montrent ensemble.
+
 ## Invariants
 
 - **Aucun `fixed inset-0` pour un chargement.** Un chargement ne bloque que sa
@@ -78,7 +85,9 @@ justifie dans le code.
   Le Server Component descend l'instant du rendu en prop (`initialNow`, via un
   helper d'horloge au scope module pour `react-hooks/purity`) ; le premier rendu
   s'ancre dessus et seul le premier tick, post-hydratation, reprend l'horloge
-  locale. Câblé ainsi dans `dashboard-hero`, `examen-blanc-client`,
+  locale. Câblé ainsi dans le tableau de bord (date du jour, temps restant
+  de l'alerte « examen en cours », `canReadResults` des examens récents),
+  `examen-blanc-client`,
   `admin-dashboard-client`, `useExamTimer` et `PauseDialog` (rendu au premier
   rendu quand la page se charge en pause). **Ce qui déclenche quelque chose
   (auto-soumission, reprise de pause) ne reprend JAMAIS `Date.now()`, même
@@ -132,6 +141,12 @@ revanche correct — c'est exactement ce qu'on écrirait.
 **À l'ajout d'une route authentifiée, vérifier de quel `loading.tsx` elle
 hérite** avant de conclure qu'elle n'en a pas besoin.
 
+Les pages de passation (`app/(passation)/`, série et examen blanc) vivent hors
+de la coquille : leur `loading.tsx` est `PassationSkeleton` (barre, carte,
+navigateur), pas le squelette de la page de configuration qu'un même URL de
+segment porte dans `(dashboard)`. Les résultats d'une série
+(`entrainement/[sessionId]/resultats`) déclarent le leur pour la même raison.
+
 ## Le garde d'onboarding lit la session du layout, sans la refetcher
 
 `OnboardingGuard` (`components/shared/onboarding-guard.tsx`) reste un composant
@@ -139,8 +154,9 @@ client monté par `app/(dashboard)/layout.tsx`, parce qu'un layout n'a pas accè
 à `pathname` (`node_modules/next/dist/docs/.../layout.md:240`). Mais il ne lit
 PAS la session côté client : le layout la résout déjà et lui passe
 `hasUsername`. Un `useSession()` de plus = un `GET /api/auth/get-session`
-(invocation Vercel + Neon) sur chaque page du dashboard. Même règle pour
-`NavSecondary` (`isUserAdmin` vient de `DashboardShell`).
+(invocation Vercel + Neon) sur chaque page du dashboard. Même règle pour les
+coquilles (`components/shared/shell/`) : l'utilisateur, son rôle compris, leur
+arrive en props par `toSessionUser`.
 
 Conséquence : la prop vient d'un layout qui **ne se re-rend pas à la navigation
 client**. La fin d'onboarding (`onboarding-form.tsx`) fait `router.refresh()`,
@@ -156,10 +172,12 @@ Toutes les routes sous `/tableau-de-bord` et `/admin` sont dynamiques : le
 prefetch par défaut d'un `<Link>` rend le layout côté serveur (→
 `requireSession` → Neon) pour chaque lien entré dans le viewport, et le rejoue
 à l'expiration du cache — une invocation Vercel par lien visible. Les liens
-présents sur chaque page ou en liste — sidebar (logo d'`app-sidebar`,
-`nav-main`, `nav-secondary`) et
-accueil du dashboard (`quick-access-grid`, `next-actions-panel`,
-`recent-activity-feed`, un lien par activité) — sont donc en `prefetch={false}`.
+présents sur chaque page ou en liste — coquilles (logo et `SideNav` de
+`components/shared/shell/`, liens de changement de zone) et
+accueil du dashboard (actions de l'en-tête, maîtrise par domaine, examens
+récents : un lien par ligne) — sont donc en `prefetch={false}`. Le filtre de
+période du tableau de bord ne navigue pas par lien : `router.replace` dans
+une transition, et `<PendingRegion>` sur la zone qu'il recharge.
 
 Le prix, à ne pas oublier : **sans prefetch, le squelette `loading.tsx` de la
 cible n'arrive qu'avec la réponse du serveur** (`loading.md` : « The Fallback UI

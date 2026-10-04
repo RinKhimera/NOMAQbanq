@@ -6,30 +6,80 @@ paths:
 
 # Admin UI Rules
 
-## Master-detail avec panel lateral
+## Utilisateurs et transactions : pas de panneau latéral
 
-Pattern utilise dans `/admin/utilisateurs` et `/admin/examens`. Table cliquable -> panel Sheet (420px) avec details.
+- **Utilisateurs** : une seule vue détaillée, la page `/admin/utilisateurs/[id]`
+  (fil d'Ariane). La liste (`?q=&role=&periode=&suspendus=1&segment=&tri=&page=`)
+  pagine par offset, 20 lignes, parce qu'elle se trie par colonne.
+- **Transactions** : « dossier client ». Liste des clients à gauche (keyset par
+  20, `?q=&filtre=&apres=|avant=`), dossier à droite (`?client=`), transaction
+  dépliée `?tx=` (posée par `history.replaceState`, sans requête serveur).
+  L'historique d'un compte vit dans son dossier, jamais dans la fiche.
+- **Etat derive de l'URL** : la page serveur lit les paramètres, l'écran client
+  les réécrit dans une transition (rechargement en place, contenu conservé).
 
-- URL deep linking: `?user=xxx` ou `?exam=xxx` pour partager un lien direct
-- Composants: `Sheet` de shadcn/ui, animation `motion/react`
-- **Etat derive de l'URL** : Pas de useState+useEffect. Voir `app/(admin)/admin/examens/page.tsx`.
+## Questions : liste et page de détail
 
-## Détail d'une question : modale, pas panneau
+- **Liste** `/admin/questions` : onglets à compteur (Toutes, Clé à vérifier,
+  Sans références, un seul passage SQL : `getQuestionTabCounts`), recherche,
+  domaine, `FilterPanelButton` (images, dernière utilisation, examen précis,
+  objectif dépendant du domaine), 20 lignes par offset. Tout l'état vit dans
+  l'URL (`question-params.ts` :
+  `?q=&onglet=&domaine=&objectif=&images=&depuis=&examen=&tri=&ordre=&page=`).
+- **Détail** `/admin/questions/[id]` : page seule, fil d'Ariane. Elle porte
+  les paramètres de la liste d'où l'on vient : précédent / suivant
+  (`getQuestionNeighbors`, mêmes filtres et même ordre que la liste, à travers
+  les pages), « Retour à la liste », `/modifier` et son retour. Une question
+  ouverte par lien direct est « Hors de la liste filtrée ».
+- **Contenu du détail** : `QuestionDetailContent`
+  (`components/admin/question-detail/`), rendu par la page et, sans actions,
+  par un aperçu en Dialog (`examLinks={false}`). Un nouvel usage le réutilise,
+  il ne recopie pas la répartition ni les alertes.
+- **Constitution d'examen** : le compositeur (voir « Examens blancs »)
+  reprend `QuestionDetailContent` en aperçu et le filtre « dernière
+  utilisation » de la liste.
 
-Le détail d'une question s'ouvre dans `QuestionDetailModal`
-(`components/admin/question-browser/`), partagée par le navigateur de questions
-(`QuestionManageModal` : Modifier / Supprimer) et la constitution d'examen
-(`QuestionSelectModal` : Ajouter / Retirer, sous quota). Plein écran sous
-640 px, pied fixe : les actions restent visibles quelle que soit la longueur
-de la question. Un nouvel usage fournit son pied, il ne recopie pas le contenu.
+## Objectifs du CMC
 
-## Stat cards avec trends
+- **`/admin/questions/objectifs`** (lien « Objectifs du CMC » de la liste) :
+  tout le référentiel arrive avec la page (`getObjectiveEntries`), groupé par
+  `objectivesBoard` (`features/objectives/groups.ts`). « À traiter » : un
+  groupe par clé normalisée (fusionner, ou garder tel quel une valeur seule,
+  rattacher / détacher), puis les valeurs invalides, corrigées question par
+  question dans un volet (chaque choix s'enregistre aussitôt). « Traités » :
+  les objectifs revus, avec renommer, fusionner dans un autre et supprimer ;
+  « Nouvel objectif » dans l'en-tête. Onglet et domaine dans l'URL
+  (`?onglet=traites&domaine=`), posés par `history.replaceState` ; les
+  écritures font `router.refresh()`.
 
-Pattern `users-stats-row.tsx` et `exams-stats-row.tsx`: cartes KPI avec icone, valeur, trend %, subtitle.
+## Examens blancs
 
-- Couleurs: emerald, blue, amber, teal, slate
-- Toujours reserver l'espace subtitle pour hauteur uniforme
+- **Liste `/admin/examens` = vue de pilotage**, sans onglets, bande ni
+  recherche : « En cours » (une carte par examen, participations et
+  fermeture), « À préparer » (à venir et en préparation, vérifications de
+  `lib/exam-readiness.ts`, la même règle que le récapitulatif du formulaire),
+  « Terminés » (tableau, 5 derniers puis le reste). Lecture unique
+  `getExamsOverview`, phase par `adminPhaseOf`. Pas de panneau latéral : la
+  fiche `/admin/examens/[id]` est la seule vue détaillée.
+- **Chiffres d'un examen** (`ExamFigures`) : sur la population du classement
+  d'examen (ni admin ni compte supprimé), même si le classement admin montre
+  toutes les lignes avec leur badge. Absence de score = « — ».
+- **Formulaire** : « Enregistrer » (`saveExam`, titre et visé suffisent),
+  « Finaliser » (`saveExam` puis `finalizePreparedExam`, erreurs par étape),
+  « Enregistrer les modifications » pour un examen finalisé ; retour sur la
+  fiche. Le jeu de questions ne s'y choisit pas.
+- **Compositeur** `/admin/examens/[id]/questions` : plan par domaine, banque
+  (`getExamBank`, état dans l'URL), sélection, « Compléter les N restantes »
+  (`previewExamCompletion` puis `addExamQuestions`). `?retour=fiche|formulaire`
+  fixe où ramène « Terminé ». Modifier le jeu d'un examen finalisé sans
+  participation le remet en préparation : l'écran le confirme avant la
+  première écriture.
+- **Liens** : `constants/exam-routes.ts` (liste, fiche, formulaire,
+  compositeur et son retour, copie, création ou réouverture) ; fil d'Ariane
+  `ExamBreadcrumb` (`examens/_components/`), commun aux écrans d'examen.
 
-## Filtres avances
+## Chiffres clés
 
-Pattern `users-filter-bar.tsx`: recherche debounce + Select filters + DateRange picker avec presets.
+`StatBand` (catalogue de `design-system.md`), pas de cartes à icône et
+tendance. La liste des questions n'a pas de bande : ses compteurs sont ceux des
+onglets ; la liste des examens non plus : ses chiffres vivent dans ses cartes.

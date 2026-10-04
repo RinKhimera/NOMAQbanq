@@ -1,21 +1,33 @@
 "use client"
 
-import { CircleCheckBig, FileText } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
-import { useState } from "react"
+import {
+  Calculator as CalculatorIcon,
+  FlaskConical,
+  WifiOff,
+} from "lucide-react"
+import { type ReactNode, useRef, useState } from "react"
 import { Calculator } from "@/components/quiz/calculator"
 import { LabValues } from "@/components/quiz/lab-values"
+import { passationCells } from "@/components/quiz/navigator/cells"
+import {
+  NavigatorPanel,
+  NavigatorSheet,
+} from "@/components/quiz/navigator/question-navigator"
 import { PauseDialog } from "@/components/quiz/pause-dialog"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { FinishDialog } from "@/components/quiz/session/finish-dialog"
-import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
 import { SessionHeader } from "@/components/quiz/session/session-header"
 import { SessionNavigation } from "@/components/quiz/session/session-navigation"
-import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
+import { TimeUpDialog } from "@/components/quiz/session/time-up-dialog"
+import { StatusPill } from "@/components/shared/status-pill"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
-import { useIsVisible } from "@/hooks/use-is-visible"
+import { useOnline } from "@/hooks/use-online"
 import { CalculatorProvider } from "@/hooks/useCalculator"
+import { formatExamTime, zone } from "@/lib/attempt-clock"
+import { TONE_SOFT } from "@/lib/tone"
+import { cn } from "@/lib/utils"
 import type {
   AnswersMap,
   QuizCallbacks,
@@ -39,6 +51,8 @@ export interface QuizRunnerProps {
   initialRevealed?: Record<string, QuizRevealPayload>
   /** Durée de la pause en minutes (décompte de l'overlay). */
   pauseDurationMinutes?: number
+  /** Alertes de la page au-dessus de la question (reprise d'un examen…). */
+  banners?: ReactNode
   mode: QuizMode
   callbacks: QuizCallbacks
 }
@@ -50,13 +64,13 @@ function QuizRunnerInner({
   initialPause,
   initialRevealed,
   pauseDurationMinutes = DEFAULT_PAUSE_MINUTES,
+  banners,
   mode,
   callbacks,
 }: QuizRunnerProps) {
-  const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
-
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
-  const [isLabValuesOpen, setIsLabValuesOpen] = useState(false)
+  const online = useOnline()
+  const calculatorButtonRef = useRef<HTMLButtonElement>(null)
   const [isResuming, setIsResuming] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
 
@@ -70,39 +84,16 @@ function QuizRunnerInner({
     callbacks,
   })
 
-  const accentColor = mode.accent
+  const isExam = mode.kind === "exam"
+  const tutor = mode.feedback === "immediate"
   const totalQuestions = questions.length
   const currentQuestion = session.currentQuestion
 
-  const sessionConfig = {
-    mode: mode.kind,
-    showTimer: !!mode.timer && session.timer !== null,
-    timeRemaining: session.timer?.remainingMs,
-    isTimeRunningOut: session.timer?.isRunningOut,
-    isTimeCritical: session.timer?.isCritical,
-    showCalculator: true,
-    showLabValues: true,
-    showFlagging: true,
-    accentColor,
-  } as const
-
-  // Pause button visible in header only when exam mode with pause=rest, the
-  // single rest pause hasn't been consumed yet, and not currently paused.
   const canTakePause =
     mode.pause === "rest" &&
     !session.isPaused &&
     !session.pauseAlreadyUsed &&
     !!callbacks.onPause
-
-  const examActions =
-    mode.kind === "exam" && canTakePause
-      ? {
-          canTakePause: true,
-          onTakePause: () => {
-            void session.pause()
-          },
-        }
-      : undefined
 
   // Sur échec (réseau), le hook garde le début de pause : le décompte de
   // l'overlay continue et l'auto-resume reste armé — seule une reprise RÉUSSIE
@@ -116,8 +107,8 @@ function QuizRunnerInner({
     }
   }
 
-  // Valide la réponse en attente (mode tuteur). Garde anti double-clic : empêche
-  // un second saveTrainingAnswer si l'utilisateur clique avant la révélation.
+  // Garde anti double-clic : empêche un second saveTrainingAnswer si
+  // l'utilisateur clique avant la révélation.
   const handleConfirmAnswer = async () => {
     if (isConfirming) return
     setIsConfirming(true)
@@ -128,22 +119,10 @@ function QuizRunnerInner({
     }
   }
 
-  const navigatorAnswers: Record<
-    string,
-    { selectedAnswer: string; isCorrect?: boolean }
-  > = {}
-  for (const [qid, state] of Object.entries(session.answers)) {
-    navigatorAnswers[qid] = {
-      selectedAnswer: state.selected,
-      isCorrect: state.isCorrect,
-    }
-  }
-
-  // Reveal state for current question (immediate feedback mode only)
   const currentReveal = currentQuestion
     ? session.revealed[currentQuestion._id]
     : undefined
-  const isCurrentRevealed = !!currentReveal && mode.feedback === "immediate"
+  const isCurrentRevealed = !!currentReveal && tutor
 
   // La question mappée au montage ne porte pas correctAnswer pour les questions
   // répondues en cours de session (anti-triche DAL) ; on l'injecte depuis le
@@ -158,26 +137,43 @@ function QuizRunnerInner({
   const currentCorrection =
     currentReveal && !currentReveal.keyWithheld ? currentReveal : undefined
 
-  const isFlagged = currentQuestion
-    ? session.flagged.has(currentQuestion._id)
-    : false
-
   const selectedAnswer = currentQuestion
     ? (session.answers[currentQuestion._id]?.selected ??
       session.pendingSelection[currentQuestion._id] ??
       null)
     : null
 
-  const isLastQuestion = session.currentIndex === totalQuestions - 1
+  const hasPendingSelection =
+    tutor &&
+    !!currentQuestion &&
+    !isCurrentRevealed &&
+    session.pendingSelection[currentQuestion._id] !== undefined
 
-  // Pendant une pause repos, seuls le header et l'overlay sont rendus : aucun
-  // contenu de question (QuestionCard, SessionNavigation, navigateurs, toolbar)
-  // ne doit être dans le DOM, sinon il se lit via les devtools.
+  const timer =
+    mode.timer && session.timer
+      ? {
+          label: formatExamTime(session.timer.remainingMs),
+          zone: zone(session.timer.remainingMs),
+        }
+      : undefined
+  const remaining = session.timer?.remainingMs
+  const timeIsUp = !!mode.timer && remaining !== undefined && remaining <= 0
+
+  const cells = passationCells(questions, session.answers, session.flagged)
+  const navigator = {
+    cells,
+    currentIndex: session.currentIndex,
+    columns: isExam ? 8 : 5,
+    kind: "passation",
+  } as const
+
+  // Pendant une pause repos, seuls l'en-tête et l'overlay sont rendus : aucun
+  // contenu de question ne doit être dans le DOM, sinon il se lit via les
+  // devtools.
   const isResting = mode.pause === "rest" && session.isPaused
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
-      {/* Pause overlay — full-screen opaque, shown only during rest pause */}
+    <div className="flex flex-col">
       {isResting && (
         <PauseDialog
           isOpen={true}
@@ -186,152 +182,156 @@ function QuizRunnerInner({
           pauseDurationMinutes={pauseDurationMinutes}
           initialNow={session.serverNow}
           isResuming={isResuming}
+          examTimeLabel={timer?.label}
         />
       )}
 
-      {/* Header — always visible */}
       <SessionHeader
-        config={sessionConfig}
+        title={mode.labels.title}
+        kind={mode.kind}
+        modeLabel={isExam ? "Chronométré" : tutor ? "Mode tuteur" : "Mode test"}
         currentIndex={session.currentIndex}
         totalQuestions={totalQuestions}
         answeredCount={session.answeredCount}
+        timer={timer}
+        onPause={
+          canTakePause
+            ? () => {
+                setIsCalculatorOpen(false)
+                void session.pause()
+              }
+            : undefined
+        }
         onFinish={session.requestFinish}
-        title={mode.labels.title}
-        icon={<FileText className="h-5 w-5 text-white" />}
-        backUrl={mode.backUrl}
-        examActions={examActions}
       />
 
-      {/* Question content — NOT rendered during rest pause (anti-triche) */}
       {!isResting && (
-        <>
-          {/* Main content */}
-          <div className="container mx-auto max-w-7xl px-4 py-6">
-            <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-              {/* Question area */}
-              <div className="space-y-6">
-                <AnimatePresence mode="wait">
-                  {currentQuestion && (
-                    <motion.div
-                      key={currentQuestion._id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <QuestionCard
-                        question={withReveal(currentQuestion)}
-                        variant="exam"
-                        questionNumber={session.currentIndex + 1}
-                        selectedAnswer={selectedAnswer}
-                        onAnswerSelect={async (index) => {
-                          await session.answerSelect(index)
-                        }}
-                        isFlagged={isFlagged}
-                        onFlagToggle={session.toggleFlag}
-                        showImage={true}
-                        showCorrectAnswer={isCurrentRevealed}
-                        showDomainBadge={mode.showMeta}
-                        showObjectifBadge={mode.showMeta}
-                        lazyExplanation={
-                          isCurrentRevealed
-                            ? currentCorrection?.explanation
-                            : undefined
-                        }
-                        lazyReferences={
-                          isCurrentRevealed
-                            ? currentCorrection?.references
-                            : undefined
-                        }
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Mode tuteur : valider sa réponse révèle la correction.
-                    Visible seulement quand une option est choisie et que la
-                    question n'est pas encore révélée. */}
-                {mode.feedback === "immediate" &&
-                  currentQuestion &&
-                  !isCurrentRevealed &&
-                  session.pendingSelection[currentQuestion._id] !==
-                    undefined && (
-                    <Button
-                      onClick={() => void handleConfirmAnswer()}
-                      disabled={isConfirming}
-                      data-testid="btn-validate-answer"
-                      size="lg"
-                      className="w-full gap-2 bg-linear-to-r from-emerald-600 to-teal-600 shadow-md hover:from-emerald-700 hover:to-teal-700"
-                    >
-                      <CircleCheckBig className="h-4 w-4" />
-                      Valider ma réponse
-                    </Button>
-                  )}
-
-                {/* Navigation buttons */}
-                <SessionNavigation
-                  currentIndex={session.currentIndex}
-                  totalQuestions={totalQuestions}
-                  isFlagged={isFlagged}
-                  onPrevious={session.goPrevious}
-                  onNext={
-                    isLastQuestion ? session.requestFinish : session.goNext
-                  }
-                  onToggleFlag={session.toggleFlag}
-                  accentColor={accentColor}
-                />
-              </div>
-
-              {/* Right column — desktop navigator */}
-              <div className="hidden lg:block">
-                <div ref={desktopNavRef} className="h-1" />
-                <QuestionNavigator
-                  questions={questions}
-                  answers={navigatorAnswers}
-                  flaggedQuestions={session.flagged}
-                  currentIndex={session.currentIndex}
-                  onNavigate={session.goTo}
-                  accentColor={accentColor}
-                />
-              </div>
+        <div className="mx-auto flex w-full max-w-290 items-start gap-6 px-4 pt-4 pb-16 sm:px-6 md:pt-6">
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            {!online && (
+              <Alert
+                data-testid="offline-alert"
+                className={cn(TONE_SOFT.warning, "[&>svg]:text-warning-ink")}
+              >
+                <WifiOff aria-hidden />
+                <AlertTitle>Connexion perdue</AlertTitle>
+                <AlertDescription>
+                  Vos réponses ne s&apos;enregistrent pas pour l&apos;instant :
+                  réessayez dès le retour de la connexion.
+                  {mode.timer && " Le chronomètre continue."}
+                </AlertDescription>
+              </Alert>
+            )}
+            {banners}
+            <div className="flex flex-wrap items-center gap-2">
+              {!isExam && (
+                <StatusPill
+                  tone={tutor ? "success" : "info"}
+                  className="mr-auto"
+                >
+                  {tutor
+                    ? "Mode tuteur · correction immédiate"
+                    : "Mode test · correction à la fin"}
+                </StatusPill>
+              )}
+              <NavigatorSheet
+                {...navigator}
+                onSelect={session.goTo}
+                triggerClassName="lg:hidden"
+              />
+              <Button
+                ref={calculatorButtonRef}
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsCalculatorOpen((open) => !open)}
+                aria-expanded={isCalculatorOpen}
+                data-testid="btn-calculator"
+                className="max-md:size-11 max-md:px-0"
+              >
+                <CalculatorIcon aria-hidden />
+                <span className="max-md:sr-only">Calculatrice</span>
+              </Button>
+              <LabValues
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid="btn-lab-values"
+                    className="max-md:size-11 max-md:px-0"
+                  >
+                    <FlaskConical aria-hidden />
+                    <span className="max-md:sr-only">Valeurs labo</span>
+                  </Button>
+                }
+              />
             </div>
+
+            {currentQuestion && (
+              <QuestionCard
+                question={withReveal(currentQuestion)}
+                variant="exam"
+                questionNumber={session.currentIndex + 1}
+                totalQuestions={totalQuestions}
+                selectedAnswer={selectedAnswer}
+                onAnswerSelect={(index) => void session.answerSelect(index)}
+                isFlagged={session.flagged.has(currentQuestion._id)}
+                onFlagToggle={session.toggleFlag}
+                showCorrectAnswer={isCurrentRevealed}
+                showDomainBadge={mode.showMeta}
+                showObjectifBadge={mode.showMeta}
+                lazyExplanation={
+                  isCurrentRevealed ? currentCorrection?.explanation : undefined
+                }
+                lazyReferences={
+                  isCurrentRevealed ? currentCorrection?.references : undefined
+                }
+                footer={
+                  <SessionNavigation
+                    currentIndex={session.currentIndex}
+                    totalQuestions={totalQuestions}
+                    onPrevious={session.goPrevious}
+                    onNext={session.goNext}
+                    onFinish={session.requestFinish}
+                    finishLabel={isExam ? "Soumettre" : "Terminer la série"}
+                    onValidate={
+                      hasPendingSelection
+                        ? () => void handleConfirmAnswer()
+                        : undefined
+                    }
+                    isValidating={isConfirming}
+                  />
+                }
+              />
+            )}
           </div>
 
-          {/* Floating toolbar with mobile nav FAB */}
-          <SessionToolbar
-            showCalculator={true}
-            onOpenCalculator={() => setIsCalculatorOpen(true)}
-            showLabValues={true}
-            onOpenLabValues={() => setIsLabValuesOpen(true)}
-            showScrollTop={true}
-            showNavFab={!isDesktopNavVisible}
-            navFab={
-              <QuestionNavigator
-                questions={questions}
-                answers={navigatorAnswers}
-                flaggedQuestions={session.flagged}
-                currentIndex={session.currentIndex}
-                onNavigate={session.goTo}
-                variant="mobile"
-                accentColor={accentColor}
-              />
-            }
-          />
-        </>
+          <aside className="bg-surface border-line sticky top-[calc(var(--shell-offset,0px)+5rem)] hidden w-75 shrink-0 rounded-lg border p-5 lg:block">
+            <NavigatorPanel
+              {...navigator}
+              title={isExam ? "Navigation" : "Questions"}
+              onSelect={session.goTo}
+            />
+          </aside>
+        </div>
       )}
 
-      {/* Calculator dialog */}
       <Calculator
-        isOpen={isCalculatorOpen}
+        isOpen={isCalculatorOpen && !isResting}
         onOpenChange={setIsCalculatorOpen}
+        returnFocusRef={calculatorButtonRef}
       />
 
-      {/* Lab values dialog */}
-      <LabValues isOpen={isLabValuesOpen} onOpenChange={setIsLabValuesOpen} />
+      {timeIsUp && (
+        <TimeUpDialog
+          answeredCount={session.answeredCount}
+          totalQuestions={totalQuestions}
+          isSubmitting={session.isSubmitting}
+          onRetry={() => void session.confirmFinish({ isAutoSubmit: true })}
+        />
+      )}
 
-      {/* Finish / submit dialog */}
       <FinishDialog
-        isOpen={session.finishDialogOpen}
+        isOpen={session.finishDialogOpen && !timeIsUp}
         onOpenChange={session.setFinishDialogOpen}
         answeredCount={session.answeredCount}
         totalQuestions={totalQuestions}
@@ -340,10 +340,7 @@ function QuizRunnerInner({
         onConfirm={() => {
           void session.confirmFinish()
         }}
-        mode={mode.kind}
-        timeRemaining={session.timer?.remainingMs}
-        confirmText={mode.labels.finishCta}
-        cancelText="Continuer"
+        kind={mode.kind}
       />
     </div>
   )

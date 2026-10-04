@@ -32,11 +32,11 @@ describe("disputeBadge", () => {
     })
     expect(disputeBadge("lost")).toEqual({
       label: "Litige perdu",
-      tone: "muted",
+      tone: "neutral",
     })
     expect(disputeBadge("warning_closed")).toEqual({
       label: "Enquête close",
-      tone: "muted",
+      tone: "neutral",
     })
   })
 

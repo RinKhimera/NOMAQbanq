@@ -1,5 +1,7 @@
-import { DashboardShell } from "@/components/shared/dashboard-shell"
+import { AdminShell } from "@/components/shared/shell/admin-shell"
 import { requireRole } from "@/lib/auth-guards"
+import { deploymentEnvLabel } from "@/lib/deployment-env"
+import { env } from "@/lib/env/server"
 import { toSessionUser } from "@/lib/session-user"
 
 // Garde SERVEUR (la seule barrière de la zone) : redirige tout non-admin avant
@@ -12,8 +14,11 @@ export default async function AdminLayout({
   const session = await requireRole(["admin"])
 
   return (
-    <DashboardShell variant="admin" user={toSessionUser(session)}>
+    <AdminShell
+      user={toSessionUser(session)}
+      envLabel={deploymentEnvLabel(env.VERCEL_ENV)}
+    >
       {children}
-    </DashboardShell>
+    </AdminShell>
   )
 }

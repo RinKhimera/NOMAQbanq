@@ -85,6 +85,8 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
 
 vi.mock("@/db", () => ({ db: fakeDb }))
 vi.mock("@/db/schema", () => ({
+  examQuestions: table("examQuestions"),
+  exams: table("exams"),
   questionExplanations: table("questionExplanations"),
   questionImages: table("questionImages"),
   questions: table("questions"),
@@ -102,13 +104,11 @@ vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   return { ...actual, lockFor: mocks.lockFor }
 })
 vi.mock("@/features/questions/dal", () => ({
-  getAllQuestionIds: vi.fn(async () => []),
   getQuestionById: vi.fn(async () => null),
   getQuestionsForExport: mocks.getQuestionsForExport,
   getQuestionsWithFilters: vi.fn(async () => ({ items: [] })),
   getQuizAnswerKey: mocks.getQuizAnswerKey,
   getRandomQuizQuestions: mocks.getRandomQuizQuestions,
-  getUniqueObjectifsCMC: vi.fn(async () => []),
 }))
 vi.mock("@/features/questions/quiz-token", () => ({
   signQuizToken: mocks.signQuizToken,
@@ -119,7 +119,10 @@ vi.mock("@/lib/aws", () => ({
   copyInS3: vi.fn(async () => undefined),
   createPresignedUpload: vi.fn(async () => ({ url: "", fields: {} })),
 }))
-vi.mock("@/lib/db-errors", () => ({ getPgErrorCode: mocks.getPgErrorCode }))
+vi.mock("@/lib/db-errors", () => ({
+  getPgErrorCode: mocks.getPgErrorCode,
+  isPgUniqueViolation: () => mocks.getPgErrorCode() === "23505",
+}))
 vi.mock("@/lib/observability", () => ({
   captureServerError: mocks.captureServerError,
 }))
@@ -149,10 +152,10 @@ const EMPTY_SCORE = { score: 0, totalQuestions: 0, questionResults: [] }
 
 const questionInput = {
   question: "Quelle est la reponse ?",
-  options: ["A", "B"],
+  options: ["A", "B", "C", "D"],
   correctAnswer: "A",
   explanation: "parce que",
-  objectifCMC: "1-1",
+  objectiveId: "obj-1",
   domain: "Cardiologie",
 }
 
@@ -294,16 +297,17 @@ describe("createQuestion", () => {
     })
     expect(res).toEqual({
       success: false,
-      error: "La bonne réponse doit figurer parmi les options",
+      error: "La clé de réponse doit figurer parmi les choix",
     })
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
-  it("succes : revalide la liste admin et les stats publiques", async () => {
+  it("succes : revalide la liste admin, les stats publiques et les objectifs de la vitrine", async () => {
     const res = await createQuestion(questionInput)
     expect(res).toMatchObject({ success: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/questions")
     expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
+    expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
   })
 
   it("erreur inattendue → capture", async () => {
@@ -333,13 +337,25 @@ describe("updateQuestion", () => {
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
-  it("succes : revalide la liste, la page d'edition et les stats publiques", async () => {
+  it("succes : revalide la liste, le détail et les stats publiques", async () => {
     const res = await updateQuestion(input)
     expect(res).toEqual({ success: true })
-    expect(mocks.revalidatePath).toHaveBeenCalledWith(
-      "/admin/questions/q1/modifier",
-    )
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/questions/q1")
     expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
+  })
+
+  // La transaction rend « domaine ou objectif changé » : seule cette
+  // modification touche ce qu'affiche une page domaine.
+  it("domaine et objectif inchangés : les objectifs de la vitrine gardent leur cache", async () => {
+    mocks.transaction.mockResolvedValueOnce(false)
+    await updateQuestion(input)
+    expect(mocks.revalidateTag).not.toHaveBeenCalledWith("objectives", "max")
+  })
+
+  it("domaine ou objectif changé : les objectifs de la vitrine sont invalidés", async () => {
+    mocks.transaction.mockResolvedValueOnce(true)
+    await updateQuestion(input)
+    expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
   })
 
   it("erreur inattendue → capture", async () => {
@@ -370,6 +386,7 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
       "questions/q1/a.jpg",
     )
     expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
+    expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
   })
 
   it("question inexistante → message metier, aucun soft delete tente", async () => {
@@ -392,6 +409,7 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
       expect(res).toEqual({ success: true, mode: "soft" })
       expect(mocks.tryDeleteFromStorage).not.toHaveBeenCalled()
       expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
+      expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
       expect(mocks.captureServerError).not.toHaveBeenCalled()
     },
   )

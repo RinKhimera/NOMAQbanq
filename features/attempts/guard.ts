@@ -4,6 +4,7 @@ import type { Db } from "@/db"
 import { type AttemptTiming, isExpired } from "@/lib/attempt-clock"
 import { isOpen } from "@/lib/exam-phase"
 import { DEFAULT_PAUSE_MINUTES } from "../exams/schemas"
+import type { ExamAudienceType } from "../exams/schemas"
 import { hasActiveAccess } from "../payments/dal"
 
 /**
@@ -64,7 +65,7 @@ export type ExamAttempt = {
   exam: {
     enablePause: boolean
     pauseDurationMinutes: number | null
-    audienceType: "subscribers" | "restricted"
+    audienceType: ExamAudienceType
   }
 }
 
@@ -111,7 +112,7 @@ type ExamRow = {
   completion_time: number
   pause_duration_minutes: number | null
   enable_pause: boolean
-  audience_type: "subscribers" | "restricted"
+  audience_type: ExamAudienceType
 }
 
 const requireTraining = async (
@@ -270,23 +271,23 @@ export function requireAttempt(
 
 const MESSAGES: Record<RefusalCode, Record<AttemptKind, string>> = {
   NOT_FOUND: {
-    training: "Session introuvable",
+    training: "Série introuvable",
     exam: "Participation introuvable.",
   },
   NOT_IN_PROGRESS: {
-    training: "Cette session n'est plus active",
-    exam: "Cette session d'examen n'est plus active.",
+    training: "Cette série n'est plus active",
+    exam: "Cette participation n'est plus active.",
   },
   NOT_STARTED: {
-    training: "Cette session n'a pas encore été démarrée",
+    training: "Cette série n'a pas encore été commencée",
     exam: "L'examen n'a pas encore été démarré.",
   },
   EXPIRED: {
-    training: "Cette session a expiré",
-    exam: "Cette session d'examen a expiré.",
+    training: "Cette série a expiré",
+    exam: "Cette participation a expiré.",
   },
   OUTSIDE_WINDOW: {
-    training: "Cette session n'est pas disponible à cette période",
+    training: "Cette série n'est pas disponible à cette période",
     exam: "L'examen n'est pas disponible à cette période.",
   },
   ACCESS_EXPIRED: {

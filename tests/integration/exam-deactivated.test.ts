@@ -15,13 +15,13 @@ import {
   startExam,
 } from "@/features/exams/actions"
 import {
-  getExamLeaderboard,
   getExamWithQuestions,
   getExamsWithParticipation,
   getParticipantExamResults,
 } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -59,6 +59,7 @@ const seedExam = async ({ closed = false }: { closed?: boolean } = {}) => {
     completionTime: 3600,
     audienceType: "restricted",
     createdBy: ADMIN_ID,
+    targetQuestionCount: 10,
   })
   await db
     .insert(examQuestions)
@@ -99,7 +100,7 @@ beforeAll(async () => {
       question: `Q désactivé ${i} ${suffix}`,
       correctAnswer: "A",
       options: ["A", "B"],
-      objectifCmc: "Objectif",
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: "Cardiologie",
     })),
   )
@@ -132,12 +133,15 @@ describe("examen désactivé", () => {
     expect(rows).toHaveLength(0)
   })
 
-  it("startExam laisse un admin démarrer", async () => {
+  it("startExam refuse aussi un admin", async () => {
     const examId = await seedExam()
     await deactivate(examId)
     asUser(ADMIN_ID, "admin")
 
-    expect((await startExam({ examId })).success).toBe(true)
+    expect(await startExam({ examId })).toEqual({
+      success: false,
+      error: "Cet examen n'est plus disponible.",
+    })
   })
 
   it("se lit comme introuvable pour un non-admin sans participation", async () => {
@@ -204,23 +208,5 @@ describe("examen désactivé", () => {
     expect(await ids()).not.toContain(examId)
     asUser(ADMIN_ID, "admin")
     expect(await ids()).toContain(examId)
-  })
-
-  it("le classement d'un examen désactivé est vide pour un non-participant", async () => {
-    const examId = await seedExam({ closed: true })
-    await db.insert(examParticipations).values({
-      examId,
-      userId: RUNNER_ID,
-      status: "completed",
-      score: 50,
-      startedAt: new Date(Date.now() - 5 * DAY),
-      completedAt: new Date(Date.now() - 5 * DAY + 1000),
-    })
-    await deactivate(examId)
-
-    asUser(NEWCOMER_ID)
-    expect(await getExamLeaderboard(examId)).toEqual([])
-    asUser(RUNNER_ID)
-    expect(await getExamLeaderboard(examId)).toHaveLength(1)
   })
 })

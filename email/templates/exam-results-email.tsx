@@ -4,6 +4,10 @@ import { EmailParagraph } from "../components/email-paragraph"
 import { EmailRecap } from "../components/email-recap"
 import { EmailLayout } from "./email-layout"
 
+const DETAIL = "Le détail de chaque question est consultable dans votre espace."
+
+export const examResultsTitle = "Vos résultats sont disponibles"
+
 export function ExamResultsEmail({
   examTitle,
   score,
@@ -18,11 +22,12 @@ export function ExamResultsEmail({
   firstName: string | null
   baseUrl: string
 }) {
+  const scoreLabel = score === null ? null : `${score} %`
   return (
     <EmailLayout
       category="transactional"
-      preview={`Vos résultats pour ${examTitle} sont disponibles`}
-      heading="Vos résultats sont disponibles"
+      preview={scoreLabel ? `Score : ${scoreLabel}. ${DETAIL}` : DETAIL}
+      heading={examResultsTitle}
       firstName={firstName}
       baseUrl={baseUrl}
     >
@@ -31,11 +36,22 @@ export function ExamResultsEmail({
         le détail de chaque question.
       </EmailParagraph>
       <EmailRecap
+        tight={!scoreLabel}
         rows={[
           { label: "Examen", value: examTitle },
-          ...(score === null ? [] : [{ label: "Score", value: `${score} %` }]),
+          ...(scoreLabel
+            ? [{ label: "Score", value: scoreLabel, mono: true }]
+            : []),
         ]}
       />
+      {/* Aucune date : le score reste retenu tant qu'une de ses questions
+          figure dans un autre examen encore ouvert. */}
+      {scoreLabel ? null : (
+        <EmailParagraph muted style={{ margin: "0 0 16px" }}>
+          Votre score sera affiché sur la page de résultats dès qu&apos;il sera
+          disponible.
+        </EmailParagraph>
+      )}
       <EmailButton href={resultUrl}>Voir mes résultats</EmailButton>
       <EmailFallbackLink href={resultUrl} />
     </EmailLayout>

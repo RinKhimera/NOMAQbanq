@@ -11,12 +11,14 @@ test.describe("Navigation sidebar — etudiant", () => {
 
     const navLinks = [
       { title: "Tableau de bord", url: "/tableau-de-bord" },
-      { title: "Examen Blanc", url: "/tableau-de-bord/examen-blanc" },
+      { title: "Examens blancs", url: "/tableau-de-bord/examen-blanc" },
       { title: "Entraînement", url: "/tableau-de-bord/entrainement" },
     ]
 
     for (const link of navLinks) {
-      const nav = page.locator('[data-sidebar="content"]')
+      const nav = page.getByRole("navigation", {
+        name: "Navigation de l'espace étudiant",
+      })
       await nav.getByRole("link", { name: link.title }).click()
       await expect(page).toHaveURL(new RegExp(link.url), {
         timeout: 15_000,
@@ -33,7 +35,9 @@ test.describe("Navigation sidebar — etudiant", () => {
     })
 
     // Profil
-    const nav = page.locator('[data-sidebar="content"]')
+    const nav = page.getByRole("navigation", {
+      name: "Navigation de l'espace étudiant",
+    })
     await nav.getByRole("link", { name: "Profil" }).click()
     await expect(page).toHaveURL(/\/tableau-de-bord\/profil/, {
       timeout: 15_000,

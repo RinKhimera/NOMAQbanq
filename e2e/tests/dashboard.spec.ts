@@ -20,7 +20,7 @@ test.describe("Tableau de bord etudiant", () => {
     await dashboard.expectVitalCardsVisible()
   })
 
-  test("la grille d'acces rapides navigue correctement", async ({ page }) => {
+  test("les actions de l'en-tête naviguent correctement", async ({ page }) => {
     // Entrainement
     await dashboard.clickQuickAccess("Entraînement")
     await expect(page).toHaveURL(/\/tableau-de-bord\/entrainement/)
@@ -31,13 +31,6 @@ test.describe("Tableau de bord etudiant", () => {
     // Examens blancs
     await dashboard.clickQuickAccess("Examens blancs")
     await expect(page).toHaveURL(/\/tableau-de-bord\/examen-blanc/)
-
-    await page.goBack()
-    await dashboard.waitForReady()
-
-    // Mon profil
-    await dashboard.clickQuickAccess("Mon profil")
-    await expect(page).toHaveURL(/\/tableau-de-bord\/profil/)
   })
 
   test("les sections de charts sont presentes", async ({ page }) => {
@@ -49,10 +42,17 @@ test.describe("Tableau de bord etudiant", () => {
     })
   })
 
-  test("la section acces rapides est visible", async ({ page }) => {
-    await expect(page.getByText("Accès rapides")).toBeVisible({
-      timeout: 15_000,
-    })
+  test("le filtre de période se reflète dans l'URL", async ({ page }) => {
+    await expect(page.getByTestId("period-30")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    await page.getByTestId("period-7").click()
+    await expect(page).toHaveURL(/periode=7/)
+    await expect(page.getByTestId("period-7")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
   })
 })
 

@@ -1,74 +1,64 @@
-import { ArrowLeft, User } from "lucide-react"
+import { UserX } from "lucide-react"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import {
-  getAccessStatus,
-  getAllTransactions,
-  getAvailableProducts,
-} from "@/features/payments/dal"
-import {
-  getSelectableUsers,
-  getUserBans,
-  getUserForAdmin,
-} from "@/features/users/dal"
+import { EmptyState } from "@/components/ui/empty-state"
+import { getAvailableProducts } from "@/features/payments/dal"
+import { getUserBans, getUserFile } from "@/features/users/dal"
 import { requireRole } from "@/lib/auth-guards"
-import { UserDetailClient } from "./user-detail-client"
+import { currentTimeMs } from "@/lib/clock"
+import { UserFileClient } from "./_components/user-file-client"
+
+export const metadata: Metadata = { title: "Fiche utilisateur" }
 
 export default async function AdminUserDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
-  // H3 (IDOR) : garde admin explicite avant de manipuler un userId arbitraire,
-  // en plus du layout admin et des gardes internes du DAL.
+  // IDOR : garde admin explicite avant de manipuler un userId arbitraire, en
+  // plus du layout admin et des gardes internes du DAL.
   const session = await requireRole(["admin"])
   const { id } = await params
 
-  const user = await getUserForAdmin(id)
-  if (!user) {
-    return (
-      <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="outline" size="icon" className="rounded-xl">
-            <Link href="/admin/utilisateurs">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Utilisateur non trouvé
-          </h1>
-        </div>
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 py-16 dark:border-gray-700">
-          <User className="mb-4 h-12 w-12 text-gray-400" />
-          <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
-            Cet utilisateur n{"'"}existe pas
-          </p>
-          <Button asChild variant="outline" className="mt-4 rounded-xl">
-            <Link href="/admin/utilisateurs">Retour à la liste</Link>
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  const [access, txPage, products, selectableUsers, bans] = await Promise.all([
-    getAccessStatus(id),
-    getAllTransactions({ userId: id, limit: 10 }),
-    getAvailableProducts(),
-    getSelectableUsers(),
+  const [file, bans, products] = await Promise.all([
+    getUserFile(id),
     getUserBans(id),
+    getAvailableProducts(),
   ])
 
   return (
-    <UserDetailClient
-      user={user}
-      currentUserId={session.user.id}
-      initialAccess={access ?? { examAccess: null, trainingAccess: null }}
-      initialTransactions={txPage.items}
-      initialCursor={txPage.nextCursor}
-      products={products}
-      selectableUsers={selectableUsers}
-      bans={bans}
-    />
+    <div className="flex flex-col gap-4 p-4 lg:p-6">
+      {file ? (
+        <UserFileClient
+          file={file}
+          bans={bans}
+          products={products}
+          currentUserId={session.user.id}
+          initialNow={currentTimeMs()}
+        />
+      ) : (
+        <>
+          <nav aria-label="Fil d'Ariane" className="text-ink-3 text-sm">
+            <Link href="/admin/utilisateurs" className="hover:text-ink">
+              Utilisateurs
+            </Link>{" "}
+            › <span className="text-ink">Introuvable</span>
+          </nav>
+          <div className="bg-surface border-line rounded-lg border py-12">
+            <EmptyState
+              size="compact"
+              icons={[UserX]}
+              title="Utilisateur introuvable"
+              description="Ce lien ne correspond à aucun compte. Le compte a peut-être été supprimé par l'étudiant : il est anonymisé après 30 jours et n'apparaît plus dans les listes."
+            >
+              <Button asChild variant="outline">
+                <Link href="/admin/utilisateurs">Retour aux utilisateurs</Link>
+              </Button>
+            </EmptyState>
+          </div>
+        </>
+      )}
+    </div>
   )
 }

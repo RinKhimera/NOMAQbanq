@@ -3,7 +3,6 @@ import { MARKETING_CLAIMS } from "@/constants"
 import {
   MIN_COMPLETED_PARTICIPATIONS,
   MIN_PUBLISHABLE_SUCCESS_RATE,
-  SUCCESS_SCORE_THRESHOLD,
   resolveSuccessRate,
 } from "@/features/marketing/lib"
 
@@ -20,7 +19,7 @@ describe("resolveSuccessRate", () => {
 
   it("publie le taux calculé au seuil exact de volume si ≥ plancher", () => {
     // 50 terminées, 40 réussies → 80 % ≥ 70 % → publié.
-    expect(resolveSuccessRate({ completed: 50, passed: 40 })).toBe("80%")
+    expect(resolveSuccessRate({ completed: 50, passed: 40 })).toBe("80 %")
   })
 
   it("retombe sur l'éditorial quand le taux est sous le plancher de publication", () => {
@@ -29,17 +28,16 @@ describe("resolveSuccessRate", () => {
   })
 
   it("publie exactement au plancher (70 %) mais pas juste en dessous (69 %)", () => {
-    expect(resolveSuccessRate({ completed: 100, passed: 70 })).toBe("70%")
+    expect(resolveSuccessRate({ completed: 100, passed: 70 })).toBe("70 %")
     expect(resolveSuccessRate({ completed: 100, passed: 69 })).toBe(EDITORIAL)
   })
 
   it("arrondit le taux (Math.round)", () => {
     // 60 terminées, 47 réussies → 78,33 % → 78 %.
-    expect(resolveSuccessRate({ completed: 60, passed: 47 })).toBe("78%")
+    expect(resolveSuccessRate({ completed: 60, passed: 47 })).toBe("78 %")
   })
 
   it("expose des seuils cohérents avec la spec", () => {
-    expect(SUCCESS_SCORE_THRESHOLD).toBe(60)
     expect(MIN_COMPLETED_PARTICIPATIONS).toBe(50)
     expect(MIN_PUBLISHABLE_SUCCESS_RATE).toBe(70)
   })

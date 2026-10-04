@@ -1,6 +1,5 @@
+import { StatusPill } from "@/components/shared/status-pill"
 import { EXAM_STATUS_CONFIG, ExamStatus } from "@/lib/exam-status"
-import { cn } from "@/lib/utils"
-import { Badge } from "../ui/badge"
 
 export default function ExamStatusBadge({
   status,
@@ -9,19 +8,10 @@ export default function ExamStatusBadge({
   status: ExamStatus
   className?: string
 }) {
-  const config = EXAM_STATUS_CONFIG[status]
-  const Icon = config.icon
-
+  const { label, tone, icon } = EXAM_STATUS_CONFIG[status]
   return (
-    <Badge
-      className={cn(
-        "rounded-full border-0 text-xs",
-        config.className,
-        className,
-      )}
-    >
-      <Icon className="h-3 w-3" />
-      {config.label}
-    </Badge>
+    <StatusPill tone={tone} icon={icon} className={className}>
+      {label}
+    </StatusPill>
   )
 }

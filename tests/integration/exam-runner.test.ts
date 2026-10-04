@@ -16,7 +16,6 @@ import {
   userAccess,
 } from "@/db/schema"
 import {
-  createExam,
   finalizeExam,
   pauseExam,
   resumeExam,
@@ -27,6 +26,8 @@ import {
 import { getExamSession, getExamWithQuestions } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
+import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -98,24 +99,24 @@ beforeAll(async () => {
       question: `ER Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj ER ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `ER-${suffix}`,
     })),
   )
 
   asAdmin()
   const now = Date.now()
-  const r1 = await createExam({
+  examId = await seedExam({
+    createdBy: ADMIN_ID,
     title: `ER Exam ${suffix}`,
     startDate: now - 3600_000,
     endDate: now + 3600_000,
     questionIds: qIds,
     enablePause: false,
   })
-  if (!r1.success) throw new Error(r1.error)
-  examId = r1.examId
 
-  const r2 = await createExam({
+  pauseExamId = await seedExam({
+    createdBy: ADMIN_ID,
     title: `ER Pause Exam ${suffix}`,
     startDate: now - 3600_000,
     endDate: now + 3600_000,
@@ -123,8 +124,6 @@ beforeAll(async () => {
     enablePause: true,
     pauseDurationMinutes: 15,
   })
-  if (!r2.success) throw new Error(r2.error)
-  pauseExamId = r2.examId
 })
 
 afterAll(async () => {
@@ -292,7 +291,8 @@ describe("pauseExam / resumeExam", () => {
     // Create a separate exam for this test
     asAdmin()
     const now = Date.now()
-    const r = await createExam({
+    const pExamId = await seedExam({
+      createdBy: ADMIN_ID,
       title: `ER Pause2 ${suffix}`,
       startDate: now - 3600_000,
       endDate: now + 3600_000,
@@ -300,8 +300,6 @@ describe("pauseExam / resumeExam", () => {
       enablePause: true,
       pauseDurationMinutes: 15,
     })
-    if (!r.success) throw new Error(r.error)
-    const pExamId = r.examId
 
     asStudent()
     await startExam({ examId: pExamId })
@@ -324,15 +322,14 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
   const makeStartedExam = async (backdateMs: number): Promise<string> => {
     asAdmin()
     const t = Date.now()
-    const r = await createExam({
+    const eId = await seedExam({
+      createdBy: ADMIN_ID,
       title: `ER Budget ${suffix} ${createId().slice(0, 4)}`,
       startDate: t - 3600_000,
       endDate: t + 3600_000,
       questionIds: qIds,
       enablePause: false,
     })
-    if (!r.success) throw new Error(r.error)
-    const eId = r.examId
     asStudent()
     const s = await startExam({ examId: eId })
     if (!s.success) throw new Error(s.error)
@@ -415,7 +412,7 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
     })
     expect(save).toEqual({
       success: false,
-      error: "Cette session d'examen n'est plus active.",
+      error: "Cette participation n'est plus active.",
       code: "NOT_IN_PROGRESS",
     })
   })

@@ -16,6 +16,11 @@ import { requireRole } from "@/lib/auth-guards"
 import { copyInS3 } from "@/lib/aws"
 import { createId } from "@/lib/ids"
 import { tryDeleteFromStorage } from "@/lib/storage"
+import {
+  TEST_OBJECTIVE_ID,
+  TEST_OBJECTIVE_LABEL,
+  objectiveIdFor,
+} from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -56,7 +61,7 @@ const base = {
   correctAnswer: "A",
   explanation: "Exp",
   references: ["R1"],
-  objectifCMC: "obj test",
+  objectiveId: TEST_OBJECTIVE_ID,
   domain: "Autres" as const,
 }
 
@@ -85,12 +90,37 @@ afterAll(async () => {
 })
 
 describe("createQuestion", () => {
-  it("crée la question + son explication ; normalise l'objectif CMC", async () => {
+  it("crée la question + son explication, rattachée à son objectif", async () => {
     const id = await makeOne()
     const q = await getQuestionById(id)
     expect(q?.explanation).toBe("Exp")
     expect(q?.references).toEqual(["R1"])
-    expect(q?.objectifCMC).toBe("Obj test") // normalizeObjectifCMC : majuscule initiale
+    expect(q).toMatchObject({
+      objectiveId: TEST_OBJECTIVE_ID,
+      objectifCMC: TEST_OBJECTIVE_LABEL,
+      objectiveNeedsFix: false,
+    })
+    // Copie lue par la version précédente (build, rollback).
+    const [row] = await db
+      .select({ objectifCmc: questions.objectifCmc })
+      .from(questions)
+      .where(eq(questions.id, id))
+    expect(row?.objectifCmc).toBe(TEST_OBJECTIVE_LABEL)
+  })
+
+  it("refuse un objectif hors du référentiel ou à corriger", async () => {
+    const toFix = await objectiveIdFor(`- ${suffix}`, { needsFix: true })
+    for (const objectiveId of ["inconnu", toFix]) {
+      expect(await createQuestion({ ...base, objectiveId })).toEqual({
+        success: false,
+        error: "Choisissez un objectif du référentiel.",
+      })
+    }
+    const id = await makeOne()
+    expect(await updateQuestion({ ...base, id, objectiveId: toFix })).toEqual({
+      success: false,
+      error: "Choisissez un objectif du référentiel.",
+    })
   })
 
   it("refuse une bonne réponse hors des options", async () => {

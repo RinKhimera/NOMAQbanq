@@ -44,6 +44,13 @@ lisant et dont la violation coûte de l'argent ou un accès non rendu.
   `user_access`. La règle est prouvée une fois,
   `tests/integration/access-ledger.test.ts` ; les tests des appelants ne
   gardent que ce qui leur est propre (idempotence, mapping des événements).
+- **Paiement manuel = toujours complété.** Pas d'état « en attente » ni de
+  « Confirmer le paiement ». Un **accès offert** est un paiement manuel à 0 :
+  sans moyen de paiement, motif obligatoire (5 caractères au moins, règle
+  `manualNoteError` partagée client/serveur). Il ne fait pas un acheteur
+  (`getTransactionStats.buyerCount` ne compte qu'un montant > 0). La
+  confirmation affiche l'expiration que `applyGrant` a écrite
+  (`recordManualPayment` → `grants`), jamais un calcul côté client.
 - **Un admin court-circuite `hasAccess`** : aucun paiement requis pour lui.
   Tester un paywall depuis un compte admin ne prouve donc rien.
 
@@ -203,5 +210,7 @@ rend le travail différé (courriel, rappel de panier) sans jamais appeler
   locale « pour aider », ça désactive la conversion automatique.
 - Les prix, durées et libellés ne sont PAS en dur côté client (la grille lit
   `getAvailableProducts`). Seuls quelques **codes** le sont pour la mise en page
-  (`pricing-grid.tsx` isole `premium_access`, la modale de paiement manuel a
-  `exam_access` par défaut).
+  (la modale de paiement manuel a `exam_access` par défaut). La grille
+  isole le produit `isCombo` et affiche les économies par `savingsOf`
+  (`lib/pricing.ts`), calculées depuis les mensuels du catalogue : aucun
+  montant de référence en dur.

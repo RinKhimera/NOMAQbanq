@@ -57,9 +57,7 @@ test.describe("Examen Blanc — coupure réseau pendant la passation", () => {
 
     await examen.goto()
     await examen.clickStartExamById(examId)
-    const dialog = page.locator('[role="alertdialog"], [role="dialog"]')
-    await dialog.getByRole("button", { name: "Commencer l'examen" }).click()
-    await page.waitForURL(/\/evaluation/, { timeout: 15_000 })
+    await examen.confirmStart()
     await examen.acceptWarningOrResume()
     await examen.waitForQuestion(1)
 

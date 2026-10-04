@@ -27,6 +27,8 @@ vi.mock("@/lib/auth-guards", () => ({
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)
 const uid = createId()
+// Accès offert (montant nul) : ne fait pas un acheteur.
+const freeUid = createId()
 const pid = createId()
 
 // Jeu connu : 4 complétées (CAD old 10000, CAD stripe recent 5000, XAF manual
@@ -72,11 +74,18 @@ beforeAll(async () => {
 
   baseline = await getTransactionStats()
 
-  await db.insert(user).values({
-    id: uid,
-    name: `IT Admin ${suffix}`,
-    email: `admin-${suffix}@test.invalid`,
-  })
+  await db.insert(user).values([
+    {
+      id: uid,
+      name: `IT Admin ${suffix}`,
+      email: `admin-${suffix}@test.invalid`,
+    },
+    {
+      id: freeUid,
+      name: `IT Offert ${suffix}`,
+      email: `offert-${suffix}@test.invalid`,
+    },
+  ])
   await db.insert(products).values({
     id: pid,
     code: "exam_access",
@@ -149,6 +158,22 @@ beforeAll(async () => {
     completedAt: recent,
   })
 
+  await db.insert(transactions).values({
+    id: createId(),
+    userId: freeUid,
+    productId: pid,
+    type: "manual",
+    status: "completed",
+    amountPaid: 0,
+    currency: "CAD",
+    notes: "Accès offert",
+    accessType: "exam",
+    durationDays: 90,
+    accessExpiresAt: new Date(now + 90 * DAY),
+    createdAt: recent,
+    completedAt: recent,
+  })
+
   await db.insert(userAccess).values({
     userId: uid,
     accessType: "exam",
@@ -159,9 +184,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.delete(userAccess).where(eq(userAccess.userId, uid))
-  await db.delete(transactions).where(eq(transactions.userId, uid))
+  await db
+    .delete(transactions)
+    .where(inArray(transactions.userId, [uid, freeUid]))
   await db.delete(products).where(eq(products.id, pid))
-  await db.delete(user).where(eq(user.id, uid))
+  await db.delete(user).where(inArray(user.id, [uid, freeUid]))
 })
 
 describe("getTransactionStats (agrégation SQL FILTER + fenêtre 30j)", () => {
@@ -185,11 +212,14 @@ describe("getTransactionStats (agrégation SQL FILTER + fenêtre 30j)", () => {
       after.revenueByCurrency.XAF.recent -
         baseline.revenueByCurrency.XAF.recent,
     ).toBe(300000)
+  })
 
-    // Compteurs (complétées uniquement).
-    expect(after.totalTransactions - baseline.totalTransactions).toBe(4)
-    expect(after.stripeTransactions - baseline.stripeTransactions).toBe(1)
-    expect(after.manualTransactions - baseline.manualTransactions).toBe(3)
+  it("compte les acheteurs (montant > 0) et toutes les transactions, tous statuts", async () => {
+    const after = await getTransactionStats()
+    // uid a payé ; freeUid n'a reçu qu'un accès offert.
+    expect(after.buyerCount - baseline.buyerCount).toBe(1)
+    // 6 transactions pour uid (remboursée et pending comprises) + 1 offerte.
+    expect(after.transactionCount - baseline.transactionCount).toBe(7)
   })
 })
 
@@ -201,18 +231,6 @@ describe("getAllTransactions (admin : filtres + keyset)", () => {
       page.items.every((t) => t.user?.email === `admin-${suffix}@test.invalid`),
     ).toBe(true)
     expect(page.items.every((t) => t.product?.name === "Exam")).toBe(true)
-  })
-
-  it("filtre par type (stripe = complétée + pending)", async () => {
-    const page = await getAllTransactions({ userId: uid, type: "stripe" })
-    expect(page.items).toHaveLength(2)
-    expect(page.items.every((t) => t.type === "stripe")).toBe(true)
-  })
-
-  it("filtre par statut (completed)", async () => {
-    const page = await getAllTransactions({ userId: uid, status: "completed" })
-    expect(page.items).toHaveLength(4)
-    expect(page.items.every((t) => t.status === "completed")).toBe(true)
   })
 
   it("pagine en keyset sans doublon ni saut", async () => {

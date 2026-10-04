@@ -64,8 +64,7 @@ test.describe("Evaluation gratuite — quiz public", () => {
 
     // Answer all questions (up to 10)
     for (let i = 0; i < 10; i++) {
-      // Scroll the answer into the middle of the viewport first so the sticky
-      // marketing header (fixed, z-50) doesn't intercept the click
+      // La barre de session collante ne doit pas intercepter le clic.
       const answer = page.locator("[data-testid='answer-option-0']")
       await answer.scrollIntoViewIfNeeded()
       await answer.click()
@@ -127,14 +126,15 @@ test.describe("Evaluation gratuite — quiz public", () => {
       )
     }
 
-    // Results page should show score — review cards can also contain percentage
-    // text, so scope to the score summary card via the "Score" label
+    // Le score s'écrit « 72 % » (espace insécable) dans l'anneau du bilan.
+    await expect(page.getByTestId("score-percentage")).toHaveText(/^\d+\s%$/, {
+      timeout: 15_000,
+    })
     await expect(
-      page
-        .locator("div")
-        .filter({ has: page.getByText("Score", { exact: true }) })
-        .getByText(/\d+%/)
-        .first(),
-    ).toBeVisible({ timeout: 15_000 })
+      page.getByRole("heading", {
+        level: 1,
+        name: /^Vous avez obtenu \d+ \/ \d+\.$/,
+      }),
+    ).toBeVisible()
   })
 })

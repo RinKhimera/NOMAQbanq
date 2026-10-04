@@ -1,17 +1,30 @@
 import { z } from "zod"
 
+/** Longueurs des champs du profil : les formulaires (maxLength, compteur) les lisent ici. */
+export const NAME_MIN = 2
+export const NAME_MAX = 50
+export const USERNAME_MIN = 3
+export const USERNAME_MAX = 20
+export const BIO_MAX = 200
+
 // Schémas par champ — réutilisés côté client (édition inline) ET serveur (action).
 export const nameSchema = z
   .string()
   .trim()
-  .min(2, "Le nom doit contenir au moins 2 caractères")
-  .max(50, "Le nom ne peut pas dépasser 50 caractères")
+  .min(NAME_MIN, `Le nom doit contenir au moins ${NAME_MIN} caractères`)
+  .max(NAME_MAX, `Le nom ne peut pas dépasser ${NAME_MAX} caractères`)
 
 export const usernameSchema = z
   .string()
   .trim()
-  .min(3, "Le nom d'utilisateur doit contenir au moins 3 caractères")
-  .max(20, "Le nom d'utilisateur ne peut pas dépasser 20 caractères")
+  .min(
+    USERNAME_MIN,
+    `Le nom d'utilisateur doit contenir au moins ${USERNAME_MIN} caractères`,
+  )
+  .max(
+    USERNAME_MAX,
+    `Le nom d'utilisateur ne peut pas dépasser ${USERNAME_MAX} caractères`,
+  )
   // On accepte la saisie mixte ; l'action normalise en minuscules avant sauvegarde.
   .regex(
     /^[a-zA-Z0-9_]+$/,
@@ -21,15 +34,13 @@ export const usernameSchema = z
 export const bioSchema = z
   .string()
   .trim()
-  .max(200, "La biographie ne peut pas dépasser 200 caractères")
+  .max(BIO_MAX, `La biographie ne peut pas dépasser ${BIO_MAX} caractères`)
 
 export const profileSchema = z.object({
   name: nameSchema,
   username: usernameSchema,
   bio: bioSchema.optional(),
 })
-
-export type ProfileFormValues = z.infer<typeof profileSchema>
 
 export const updateUserRoleSchema = z.object({
   userId: z.string().min(1, "Utilisateur requis"),
@@ -52,4 +63,16 @@ export const unbanUserSchema = z.object({
     .trim()
     .max(500, "Le motif ne peut pas dépasser 500 caractères")
     .optional(),
+})
+
+const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+/** Filtres de la liste des utilisateurs, reçus du client (export). */
+export const usersFiltersSchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  role: z.enum(["admin", "user"]).optional(),
+  segment: z.enum(["all", "active", "expiring", "expired", "never"]).optional(),
+  suspended: z.boolean().optional(),
+  dateFrom: calendarDay.optional(),
+  dateTo: calendarDay.optional(),
 })

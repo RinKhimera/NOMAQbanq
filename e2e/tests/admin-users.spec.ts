@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test"
 import { AdminUsersPage } from "../pages/admin-users.page"
 
-test.describe("Admin — Gestion des utilisateurs", () => {
+// Lecture seule : aucune écriture sur develop.
+test.describe("Admin — Utilisateurs", () => {
   let usersPage: AdminUsersPage
 
   test.beforeEach(async ({ page }) => {
@@ -10,85 +11,70 @@ test.describe("Admin — Gestion des utilisateurs", () => {
     await usersPage.waitForReady()
   })
 
-  test("la liste des utilisateurs charge correctement", async ({ page }) => {
-    // Stats row should be visible
+  test("la liste charge : comptes, segments, colonnes", async ({ page }) => {
     const main = page.locator("main")
-    await expect(main.getByText(/Total|Utilisateurs/).first()).toBeVisible({
+    await expect(
+      main.getByText(/comptes · \d+ nouveaux sur 30 jours/),
+    ).toBeVisible()
+    await expect(page.getByTestId("segment-all")).toBeVisible()
+    await expect(
+      main.getByRole("columnheader", { name: /Dernière connexion/ }),
+    ).toBeVisible()
+    await expect(main.locator("tbody tr").first()).toBeVisible({
       timeout: 15_000,
     })
+  })
 
-    // At least one user row should be visible
-    await expect(main.locator("tr, [role='row']").first()).toBeVisible({
+  test("recherche, segment et suspendus vivent dans l'URL", async ({
+    page,
+  }) => {
+    await usersPage.searchUser("e2e")
+    await page.getByTestId("segment-active").click()
+    await expect(page).toHaveURL(/segment=actif/)
+    await expect(page).toHaveURL(/q=e2e/)
+
+    await page.getByTestId("filter-suspended").click()
+    await expect(page).toHaveURL(/suspendus=1/)
+
+    await page.getByRole("button", { name: "Effacer" }).first().click()
+    await expect(page).not.toHaveURL(/segment=|suspendus=|q=/)
+  })
+
+  test("un clic ouvre la fiche : accès, paiements, compte", async ({
+    page,
+  }) => {
+    await usersPage.openFirstUser()
+    await expect(
+      page.getByRole("navigation", { name: "Fil d'Ariane" }),
+    ).toContainText("Utilisateurs")
+    for (const title of [
+      "Abonnements",
+      "Résumé",
+      "Examens blancs et séries",
+      "Identité, rôle et suspension",
+      "Préférences et courriels envoyés",
+    ])
+      await expect(page.getByRole("heading", { name: title })).toBeVisible()
+  })
+
+  test("l'export résume les filtres appliqués", async ({ page }) => {
+    await page.getByTestId("segment-never").click()
+    await expect(page).toHaveURL(/segment=jamais/)
+    await page.getByRole("button", { name: /^Exporter/ }).click()
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toContainText("jamais eu d'accès")
+    await expect(
+      dialog.getByRole("button", { name: /Exporter en XLSX/ }),
+    ).toBeVisible()
+    await page.keyboard.press("Escape")
+  })
+
+  test("un lien vers un compte inconnu affiche « Utilisateur introuvable »", async ({
+    page,
+  }) => {
+    await usersPage.goto("/inconnu-e2e")
+    await expect(page.getByText("Utilisateur introuvable")).toBeVisible({
       timeout: 15_000,
     })
-  })
-
-  test("la recherche par nom ou email fonctionne", async ({ page }) => {
-    await usersPage.searchUser("test")
-
-    // Results should update (or show no results message)
-    await expect(page.getByPlaceholder(/Rechercher/).first()).toHaveValue(
-      "test",
-    )
-  })
-
-  test("le filtre par role fonctionne", async ({ page }) => {
-    const main = page.locator("main")
-
-    // Look for role filter buttons/tabs
-    const roleFilter = main
-      .getByRole("button", { name: /Admin|Étudiant/i })
-      .first()
-    const hasRoleFilter = await roleFilter
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false)
-
-    if (hasRoleFilter) {
-      await roleFilter.click()
-      // Results should update
-      await page.waitForTimeout(500)
-    }
-  })
-
-  test("le panneau lateral s'ouvre au clic sur un utilisateur", async ({
-    page,
-  }) => {
-    const main = page.locator("main")
-
-    // Click first user row
-    const firstRow = main.locator("tr, [role='row']").nth(1)
-    const hasRow = await firstRow
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false)
-
-    if (hasRow) {
-      await firstRow.click()
-
-      // Side panel should open
-      await expect(page.getByTestId("user-side-panel")).toBeVisible({
-        timeout: 10_000,
-      })
-    }
-  })
-
-  test("les details de l'utilisateur s'affichent dans le panel", async ({
-    page,
-  }) => {
-    const main = page.locator("main")
-
-    const firstRow = main.locator("tr, [role='row']").nth(1)
-    const hasRow = await firstRow
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false)
-
-    if (hasRow) {
-      await firstRow.click()
-
-      const panel = page.getByTestId("user-side-panel")
-      await expect(panel).toBeVisible({ timeout: 10_000 })
-
-      // Panel should show user info (l'email contient @)
-      await expect(panel.getByText(/@/).first()).toBeVisible({ timeout: 5_000 })
-    }
   })
 })

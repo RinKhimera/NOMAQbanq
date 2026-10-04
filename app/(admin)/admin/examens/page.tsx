@@ -1,19 +1,16 @@
-import { getAllExamsAdmin, getExamsStats } from "@/features/exams/dal"
+import type { Metadata } from "next"
+import { getExamsOverview } from "@/features/exams/dal"
 import { currentTimeMs } from "@/lib/clock"
-import { AdminExamsClient } from "./_components/admin-exams-client"
+import { ExamsOverview } from "./_components/exams-overview"
+
+export const metadata: Metadata = { title: "Examens blancs" }
 
 export default async function AdminExamsPage() {
-  const [stats, exams] = await Promise.all([
-    getExamsStats(),
-    getAllExamsAdmin(),
-  ])
+  const exams = await getExamsOverview()
 
   return (
-    <AdminExamsClient
-      stats={stats}
-      exams={exams}
-      eligibleCount={stats.eligibleCandidates}
-      initialNow={currentTimeMs()}
-    />
+    <div className="flex flex-col gap-8 p-4 lg:p-6">
+      <ExamsOverview exams={exams} initialNow={currentTimeMs()} />
+    </div>
   )
 }

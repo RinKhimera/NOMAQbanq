@@ -1,22 +1,41 @@
-import { Suspense } from "react"
+import type { Metadata } from "next"
 import { getExamsForPicker } from "@/features/exams/dal"
-import { getQuestionStatsEnriched } from "@/features/questions/dal"
-import { QuestionsManager } from "./_components/questions-manager"
+import { getObjectiveOptions } from "@/features/objectives/dal"
+import { getQuestionList } from "@/features/questions/dal"
+import { currentTimeMs } from "@/lib/clock"
+import {
+  parseQuestionList,
+  toQuestionFilters,
+  toSearchParams,
+} from "./_components/question-params"
+import { QuestionsClient } from "./_components/questions-client"
 
-// Stats chargées côté serveur (DAL admin) ; le QuestionBrowser (client) gère
-// la liste paginée + filtres via Server Actions.
-export default async function AdminQuestionsPage() {
-  const [stats, examOptions] = await Promise.all([
-    getQuestionStatsEnriched(),
+export const metadata: Metadata = { title: "Questions" }
+
+// L'état de la liste (onglet, recherche, filtres, tri, page) vit dans l'URL :
+// chaque changement recharge la page serveur, 20 lignes par page.
+export default async function AdminQuestionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const state = parseQuestionList(toSearchParams(await searchParams))
+
+  const [list, objectives, exams] = await Promise.all([
+    getQuestionList(toQuestionFilters(state)),
+    getObjectiveOptions(),
     getExamsForPicker(),
   ])
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* useSearchParams (deep-link ?question=) → borné par Suspense. */}
-      <Suspense fallback={null}>
-        <QuestionsManager stats={stats} examOptions={examOptions} />
-      </Suspense>
+    <div className="flex flex-col gap-5 p-4 lg:p-6">
+      <QuestionsClient
+        state={state}
+        list={list}
+        objectives={objectives}
+        exams={exams}
+        initialNow={currentTimeMs()}
+      />
     </div>
   )
 }

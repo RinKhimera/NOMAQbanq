@@ -14,6 +14,18 @@ export const REVISION_CRITERION_LABELS: Record<RevisionCriterion, string> = {
   bookmarked: "Marquées",
 }
 
+/** Plafond d'objectifs du CMC par série. */
+export const MAX_OBJECTIFS = 10
+
+/**
+ * Refus « pas assez de questions », même phrase côté formulaire (anticipée
+ * sur les compteurs) et côté serveur (recomptée sous verrou).
+ */
+export const notEnoughQuestions = (available: number): string =>
+  available === 0
+    ? "Aucune question ne correspond à ces filtres. Élargissez la sélection."
+    : `Seulement ${available} question${available > 1 ? "s" : ""} disponible${available > 1 ? "s" : ""} avec ces filtres. Élargissez la sélection.`
+
 export const createTrainingSessionSchema = z
   .object({
     questionCount: z
@@ -22,7 +34,7 @@ export const createTrainingSessionSchema = z
       .min(1, "Au moins une question")
       .max(MAX_QUESTIONS, `Au plus ${MAX_QUESTIONS} questions`),
     domain: z.string().trim().min(1).optional(),
-    objectifsCMCs: z.array(z.string().trim().min(1)).max(50).optional(),
+    objectiveIds: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
     mode: z.enum(["tutor", "test"]).optional().default("test"),
     revisionFilters: z.array(revisionCriterionSchema).max(3).optional(),
   })
@@ -44,7 +56,7 @@ export type CreateTrainingSessionInput = z.infer<
 
 export const revisionCountsScopeSchema = z.object({
   domain: z.string().trim().min(1).optional(),
-  objectifsCMCs: z.array(z.string().trim().min(1)).max(50).optional(),
+  objectiveIds: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
 })
 export type RevisionCountsScopeInput = z.infer<typeof revisionCountsScopeSchema>
 
@@ -60,3 +72,9 @@ export const saveTrainingAnswerSchema = z.object({
   selectedAnswer: z.string().min(1),
 })
 export type SaveTrainingAnswerInput = z.infer<typeof saveTrainingAnswerSchema>
+
+/** Libellé étudiant d'un mode ; en minuscule dans une phrase (« mode tuteur »). */
+export const TRAINING_MODE_LABEL: Record<"tutor" | "test", string> = {
+  tutor: "Tuteur",
+  test: "Test",
+}

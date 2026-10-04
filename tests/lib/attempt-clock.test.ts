@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
+  EVALUATION_ZONES,
   GRACE_MS,
   formatExamTime,
+  formatMinutesSeconds,
   formatPauseTime,
   isExpired,
   pauseCredit,
@@ -142,6 +144,16 @@ describe("AttemptClock — zone", () => {
   ])("$ms ms → $expected", ({ ms, expected }) => {
     expect(zone(ms)).toBe(expected)
   })
+
+  it.each([
+    { ms: 31_000, expected: "normal" },
+    { ms: 30_000, expected: "normal" },
+    { ms: 29_999, expected: "warning" },
+    { ms: 10_000, expected: "warning" },
+    { ms: 9_999, expected: "critical" },
+  ])("évaluation gratuite : $ms ms → $expected", ({ ms, expected }) => {
+    expect(zone(ms, EVALUATION_ZONES)).toBe(expected)
+  })
 })
 
 describe("AttemptClock — formats", () => {
@@ -162,5 +174,15 @@ describe("AttemptClock — formats", () => {
     { ms: 60 * MIN, expected: "60:00" },
   ])("formatPauseTime($ms) → $expected", ({ ms, expected }) => {
     expect(formatPauseTime(ms)).toBe(expected)
+  })
+})
+
+describe("formatMinutesSeconds", () => {
+  it.each([
+    { seconds: 0, expected: "0:00" },
+    { seconds: 65, expected: "1:05" },
+    { seconds: 200, expected: "3:20" },
+  ])("formatMinutesSeconds($seconds) → $expected", ({ seconds, expected }) => {
+    expect(formatMinutesSeconds(seconds)).toBe(expected)
   })
 })

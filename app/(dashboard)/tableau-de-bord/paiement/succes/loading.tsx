@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/ui/skeleton-patterns"
+import { PaymentStatusSkeleton } from "../_components/payment-status-skeleton"
 
 export default function Loading() {
-  return <PageSkeleton />
+  return <PaymentStatusSkeleton />
 }

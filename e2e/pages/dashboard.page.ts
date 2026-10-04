@@ -42,7 +42,11 @@ export class DashboardPage extends BasePage {
    * À appeler AVANT `waitForReady`, sinon l'assertion ne prouve plus rien.
    */
   async expectNoBlockingOverlay() {
-    await expect(this.page.locator('[data-sidebar="content"]')).toBeVisible({
+    await expect(
+      this.page.getByRole("navigation", {
+        name: "Navigation de l'espace étudiant",
+      }),
+    ).toBeVisible({
       timeout: 5_000,
     })
     await expect(
@@ -52,8 +56,8 @@ export class DashboardPage extends BasePage {
   }
 
   async clickQuickAccess(title: string) {
-    // testid stable : le lien de la carte ET un CTA pointent vers la même URL
-    // (ex. /entrainement) → getByRole("link", { name }) est ambigu.
+    // testid stable sur les actions de l'en-tête : un état vide peut porter un
+    // lien vers la même URL → getByRole("link", { name }) serait ambigu.
     await this.page.getByTestId(`quick-access-${title}`).click()
     // Pas de "networkidle" (jamais atteint en dev Next.js → hang). L'appelant
     // asserte l'URL cible (qui a son propre retry).

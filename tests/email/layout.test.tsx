@@ -1,5 +1,6 @@
 import { render } from "@react-email/render"
 import { describe, expect, it } from "vitest"
+import { plainTextOptions } from "@/email/plain-text"
 import { EmailLayout } from "@/email/templates/email-layout"
 
 const baseUrl = "https://nomaqbanq.ca"
@@ -25,11 +26,55 @@ describe("EmailLayout", () => {
     expect(html).toContain("Merci pour votre achat")
     expect(html).toContain("Bonjour Samuel,")
     expect(html).toContain("Corps")
-    expect(html).toContain("114 rue Isabelle, Gatineau (Québec) J8Y 5H3")
+    expect(html).toContain("114 rue Isabelle, Gatineau (Québec) J8Y 5H3")
     expect(html).toContain('href="https://nomaqbanq.ca/faq"')
     expect(html).toContain('href="https://nomaqbanq.ca/conditions"')
     expect(html).toContain('href="https://nomaqbanq.ca/confidentialite"')
     expect(html).not.toContain("Ne plus recevoir ces rappels")
+  })
+
+  it("style Manuel : marque aux couleurs du site, titre serif, aucun dégradé ni police web", async () => {
+    const html = await render(
+      <EmailLayout
+        category="transactional"
+        preview="Aperçu"
+        heading="Titre"
+        firstName={null}
+        baseUrl={baseUrl}
+      >
+        <p>Corps</p>
+      </EmailLayout>,
+    )
+    expect(html).toMatch(/NOMAQ<span style="color:#2563eb[^"]*">banq<\/span>/)
+    expect(html).toContain("Préparation à l&#x27;EACMC Partie I")
+    expect(html).toMatch(/<h1[^>]*font-family:Georgia/)
+    expect(html).toContain("background-color:#fbfbfa")
+    expect(html).toContain("border:1px solid #e6e4df")
+    expect(html).toContain("border-radius:6px")
+    // Un arrondi posé sur une cellule n'est rendu que si sa table garde des
+    // bordures séparées : en `collapse`, les coins restent carrés.
+    expect(html).toMatch(
+      /<table[^>]*max-width:480px[^"]*border-collapse:separate/,
+    )
+    expect(html).not.toMatch(/gradient/i)
+    expect(html).not.toMatch(/Plus Jakarta|IBM Plex|Source Serif/)
+    expect(html).not.toMatch(/@import|@font-face|<link/)
+  })
+
+  it("règle @media : le bouton passe en pleine largeur sous 480 px", async () => {
+    const html = await render(
+      <EmailLayout
+        category="transactional"
+        preview="Aperçu"
+        heading="Titre"
+        baseUrl={baseUrl}
+      >
+        <p>Corps</p>
+      </EmailLayout>,
+    )
+    expect(html).toMatch(
+      /@media only screen and \(max-width: ?479px\)\s*\{[^<]*\.nq-btn\s*\{[^}]*width:\s*100%\s*!important/,
+    )
   })
 
   it("sans prénom : aucune salutation", async () => {
@@ -107,10 +152,27 @@ describe("EmailLayout", () => {
       >
         <p>Corps</p>
       </EmailLayout>,
-      { plainText: true },
+      plainTextOptions,
     )
     expect(text).toContain("Bonjour Samuel,")
     expect(text).toContain("Corps")
     expect(text).toContain("https://nomaqbanq.ca/faq")
+  })
+
+  // html-to-text met un h1 en capitales par défaut : « NOMAQBANQ » déformerait la marque.
+  it("texte brut : le titre garde sa casse", async () => {
+    const text = await render(
+      <EmailLayout
+        category="transactional"
+        preview="Aperçu"
+        heading="Bienvenue sur NOMAQbanq"
+        baseUrl={baseUrl}
+      >
+        <p>Corps</p>
+      </EmailLayout>,
+      plainTextOptions,
+    )
+    expect(text).toContain("Bienvenue sur NOMAQbanq")
+    expect(text).not.toContain("BIENVENUE")
   })
 })

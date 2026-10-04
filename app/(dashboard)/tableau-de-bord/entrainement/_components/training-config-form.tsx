@@ -1,13 +1,21 @@
 "use client"
 
-import { IconTargetArrow } from "@tabler/icons-react"
-import { BookOpen, GraduationCap, Layers, Play, Target } from "lucide-react"
-import { motion } from "motion/react"
+import { Check, GraduationCap, ListChecks, Play } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useActionState, useEffect, useState, useTransition } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 import { toast } from "sonner"
+import { MultiChecklist } from "@/components/shared/multi-checklist"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { PendingRegion } from "@/components/ui/pending-region"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Select,
@@ -23,458 +31,595 @@ import {
   loadAvailableObjectifsCMC,
   loadRevisionCounts,
 } from "@/features/training/actions"
+import type { ObjectifsView } from "@/features/training/dal"
 import {
+  EMPTY_REVISION_COUNTS,
+  type RevisionCounts,
+  revisionPoolSize,
+} from "@/features/training/revision-pool"
+import {
+  MAX_OBJECTIFS,
+  MAX_QUESTIONS,
+  MIN_QUESTIONS,
   REVISION_CRITERIA,
   REVISION_CRITERION_LABELS,
   type RevisionCriterion,
+  TRAINING_MODE_LABEL,
+  notEnoughQuestions,
 } from "@/features/training/schemas"
 import { callAction } from "@/lib/safe-action"
+import { foldForSearch } from "@/lib/search"
+import { TONE_SOFT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
-import { ObjectifsCMCMultiSelect } from "./objectifs-cmc-multi-select"
+
+type Objectif = ObjectifsView["objectifs"][number]
 
 interface TrainingConfigFormProps {
   domains: { domain: string; count: number }[]
   totalQuestions: number
-  objectifs: Array<{ objectif: string; count: number }>
-  /** Domaine demandé par l'URL ; ignoré s'il n'est pas dans `domains`. */
-  initialDomain?: string
+  /** Domaine demandé par l'URL, déjà validé ; `null` = tous les domaines. */
+  initialDomain: string | null
+  /** Objectifs du domaine demandé, chargés par la page (vide pour « tous »). */
+  initialObjectifs: Objectif[]
+  /** Une série en cours bloque « Commencer la série ». */
+  hasActiveSeries: boolean
 }
 
+const ALL_DOMAINS = "all"
 const QUESTION_MARKS = [5, 10, 15, 20]
+const DEFAULT_COUNT = 10
+
+const fmt = (n: number) => n.toLocaleString("fr-CA")
+
+const Field = ({
+  label,
+  hint,
+  trailing,
+  children,
+}: {
+  label: string
+  hint?: string
+  trailing?: ReactNode
+  children: ReactNode
+}) => (
+  <div className="flex flex-col gap-2.5">
+    <span className="text-ink flex items-baseline justify-between gap-3 text-sm font-medium">
+      <span>
+        {label}
+        {hint && <span className="text-ink-3 font-normal"> · {hint}</span>}
+      </span>
+      {trailing}
+    </span>
+    {children}
+  </div>
+)
+
+const ModeCard = ({
+  value,
+  title,
+  description,
+  icon: Icon,
+  checked,
+}: {
+  value: "test" | "tutor"
+  title: string
+  description: string
+  icon: typeof Check
+  checked: boolean
+}) => (
+  <Label
+    htmlFor={`mode-${value}`}
+    className={cn(
+      "border-line-strong bg-surface hover:bg-surface-2 flex cursor-pointer flex-col items-stretch gap-1.5 rounded-md border px-4 py-3.5 leading-normal transition-[border-color,background-color] duration-(--duration-base) max-md:min-h-11",
+      checked && "border-accent bg-accent-soft hover:bg-accent-soft",
+    )}
+  >
+    <span className="flex items-center justify-between gap-2">
+      <span className="text-ink flex items-center gap-2 text-base font-semibold">
+        <Icon
+          aria-hidden
+          className={cn("size-4", checked ? "text-accent-ink" : "text-ink-3")}
+        />
+        {title}
+      </span>
+      <RadioGroupItem id={`mode-${value}`} value={value} />
+    </span>
+    <span className="text-ink-2 text-sm leading-normal font-normal">
+      {description}
+    </span>
+  </Label>
+)
+
+const Recap = ({ label, value }: { label: string; value: ReactNode }) => (
+  <div className="border-line flex items-center justify-between gap-3 border-b pb-2.5 text-sm">
+    <span className="text-ink-3">{label}</span>
+    <span className="text-ink text-right">{value}</span>
+  </div>
+)
 
 export const TrainingConfigForm = ({
   domains,
   totalQuestions,
-  objectifs,
   initialDomain,
+  initialObjectifs,
+  hasActiveSeries,
 }: TrainingConfigFormProps) => {
   const router = useRouter()
-  const [questionCount, setQuestionCount] = useState(10)
-  const domainFromUrl =
-    initialDomain && domains.some((d) => d.domain === initialDomain)
-      ? initialDomain
-      : "all"
-  const [selectedDomain, setSelectedDomain] = useState<string>(domainFromUrl)
-  const [selectedObjectifs, setSelectedObjectifs] = useState<string[]>([])
+  const domainFromUrl = initialDomain ?? ALL_DOMAINS
+
+  const [domain, setDomain] = useState(domainFromUrl)
+  const [objectifs, setObjectifs] = useState<Objectif[]>([])
+  const [objectifSearch, setObjectifSearch] = useState("")
+  const [count, setCount] = useState(DEFAULT_COUNT)
+  const [mode, setMode] = useState<"test" | "tutor">("test")
+  const [revision, setRevision] = useState<RevisionCriterion[]>([])
+  const [serverError, setServerError] = useState<string | null>(null)
+
   // Une navigation client vers la même page avec un autre `?domaine=` ne
   // remonte pas le formulaire : on réaligne l'état pendant le rendu.
   const [appliedDomainFromUrl, setAppliedDomainFromUrl] =
     useState(domainFromUrl)
   if (domainFromUrl !== appliedDomainFromUrl) {
     setAppliedDomainFromUrl(domainFromUrl)
-    setSelectedDomain(domainFromUrl)
-    setSelectedObjectifs([])
+    setDomain(domainFromUrl)
+    setObjectifs([])
   }
-  const [trainingMode, setTrainingMode] = useState<"tutor" | "test">("test")
-  const [revisionFilters, setRevisionFilters] = useState<RevisionCriterion[]>(
-    [],
+
+  // Objectifs du domaine choisi : ceux de la page pour le domaine demandé,
+  // rechargés par action pour tout autre. Suivis par domaine pour ne pas
+  // remonter ceux d'un domaine précédent pendant le chargement ; un échec est
+  // un état à part (relance proposée), jamais un spinner sans fin.
+  const [objectifsFor, setObjectifsFor] = useState<{
+    domain: string
+    list: Objectif[]
+    failed: boolean
+  }>({ domain: domainFromUrl, list: initialObjectifs, failed: false })
+  const [, startObjLoad] = useTransition()
+  // Dernier domaine demandé : la réponse d'un domaine quitté entre-temps est
+  // ignorée, sinon elle remplacerait la liste du domaine courant.
+  const latestObjDomain = useRef(domainFromUrl)
+  const loadObjectifs = useCallback(
+    (forDomain: string) => {
+      latestObjDomain.current = forDomain
+      startObjLoad(async () => {
+        let next: { list: Objectif[]; failed: boolean }
+        try {
+          const res = await loadAvailableObjectifsCMC(forDomain)
+          next = { list: res.objectifs, failed: false }
+        } catch {
+          next = { list: [], failed: true }
+        }
+        if (latestObjDomain.current === forDomain) {
+          setObjectifsFor({ domain: forDomain, ...next })
+        }
+      })
+    },
+    [startObjLoad],
   )
-  const [revisionCounts, setRevisionCounts] = useState<
-    Record<RevisionCriterion, number>
-  >({ failed: 0, unseen: 0, bookmarked: 0 })
-  const [isCountsLoading, startCountsLoad] = useTransition()
-
-  // Objectifs filtrés par domaine via Server Action (remplace useQuery réactif).
-  // Initialisés avec la prop (tous domaines = état initial). setState seulement
-  // dans le callback de transition → pas de set-state-in-effect synchrone.
-  const [filteredObjectifs, setFilteredObjectifs] = useState<{
-    objectifs: { objectif: string; count: number }[]
-  }>({ objectifs })
-  const [isObjLoading, startObjLoad] = useTransition()
-
   useEffect(() => {
-    startObjLoad(async () => {
-      try {
-        const res = await loadAvailableObjectifsCMC(
-          selectedDomain === "all" ? undefined : selectedDomain,
-        )
-        setFilteredObjectifs(res)
-      } catch {
-        // rejet réseau : la liste affichée reste celle de l'ANCIEN domaine —
-        // signaler, sinon l'UX ment sans aucun indice
-        toast.error(
-          "Impossible de charger les objectifs du domaine. Vérifiez votre réseau.",
-        )
-      }
-    })
-  }, [selectedDomain])
+    if (domain === ALL_DOMAINS || objectifsFor.domain === domain) return
+    loadObjectifs(domain)
+  }, [domain, objectifsFor.domain, loadObjectifs])
+  const objectifsReady =
+    domain !== ALL_DOMAINS && objectifsFor.domain === domain
+  const objectifList = objectifsReady ? objectifsFor.list : []
 
-  // Clé stable : `selectedObjectifs` change d'identité à chaque `setState`, et
-  // chaque exécution coûte un balayage complet de la banque de questions.
-  // Sérialisation JSON et non `join("|")` : un objectif CMC est un champ libre
-  // côté admin, un `|` dedans découperait la liste au mauvais endroit.
-  const objectifsKey = JSON.stringify(selectedObjectifs)
-
+  // Compteurs de révision : recalculés au changement de domaine ou
+  // d'objectifs. Clé sérialisée : `objectifs` change d'identité à chaque
+  // setState, et chaque exécution balaie la banque de questions.
+  const objectifsKey = JSON.stringify(objectifs.map((o) => o.id))
+  const [counts, setCounts] = useState<{
+    key: string
+    value: RevisionCounts
+  } | null>(null)
+  const [, startCountsLoad] = useTransition()
+  const countsKey = `${domain}|${objectifsKey}`
+  // Dernière portée demandée : une réponse arrivée après un nouveau changement
+  // (domaine A puis B, A répond en dernier) est ignorée, sinon le formulaire
+  // attendrait une réponse qui ne viendra plus.
+  const latestCountsKey = useRef(countsKey)
   useEffect(() => {
+    latestCountsKey.current = countsKey
     startCountsLoad(async () => {
       try {
-        const objectifsCMCs = JSON.parse(objectifsKey) as string[]
-        const counts = await loadRevisionCounts({
-          domain: selectedDomain === "all" ? undefined : selectedDomain,
-          objectifsCMCs: objectifsCMCs.length > 0 ? objectifsCMCs : undefined,
+        const objectiveIds = JSON.parse(objectifsKey) as string[]
+        const value = await loadRevisionCounts({
+          domain: domain === ALL_DOMAINS ? undefined : domain,
+          objectiveIds: objectiveIds.length > 0 ? objectiveIds : undefined,
         })
-        setRevisionCounts(counts)
+        if (latestCountsKey.current === countsKey)
+          setCounts({ key: countsKey, value })
       } catch {
-        // Sans ça, les puces resteraient à 0 en silence — l'étudiant croirait
-        // n'avoir aucun historique.
+        // Sans ça, les pastilles resteraient à 0 en silence — l'étudiant
+        // croirait n'avoir aucun historique. Le formulaire repart sur des
+        // compteurs vides : la révision ciblée se ferme, le reste s'utilise.
         toast.error(
           "Impossible de charger vos compteurs de révision. Vérifiez votre réseau.",
         )
+        if (latestCountsKey.current === countsKey) {
+          setCounts({ key: countsKey, value: EMPTY_REVISION_COUNTS })
+        }
       }
     })
-  }, [selectedDomain, objectifsKey])
+  }, [domain, objectifsKey, countsKey])
+  const countsReady = counts?.key === countsKey
+  const revisionCounts = countsReady ? counts.value : EMPTY_REVISION_COUNTS
+  // « Prêt » se lit sur les données de la portée courante, pas sur l'attente
+  // d'une transition : une requête d'une portée quittée qui traîne ne bloque
+  // rien.
+  const loading = !countsReady || (domain !== ALL_DOMAINS && !objectifsReady)
 
-  const toggleRevisionFilter = (criterion: RevisionCriterion) =>
-    setRevisionFilters((current) =>
+  // ---- Dérivés ----
+  const domainCount =
+    domain === ALL_DOMAINS
+      ? totalQuestions
+      : (domains.find((d) => d.domain === domain)?.count ?? 0)
+  const available =
+    objectifs.length > 0
+      ? objectifs.reduce((sum, o) => sum + o.count, 0)
+      : domainCount
+
+  // Un critère coché dont le compteur tombe à 0 (changement de domaine) ne
+  // compte plus, sans qu'on ait à le décocher.
+  const activeCriteria = revision.filter(
+    (c) => !countsReady || revisionCounts[c] > 0,
+  )
+  const isRevision = activeCriteria.length > 0
+  const pool = isRevision
+    ? Math.min(available, revisionPoolSize(revisionCounts, activeCriteria))
+    : available
+  const minCount = isRevision ? 1 : MIN_QUESTIONS
+  const maxCount = Math.min(MAX_QUESTIONS, pool)
+  const tooFew = !isRevision && available < MIN_QUESTIONS
+  const effectiveCount = Math.max(
+    minCount,
+    Math.min(count, Math.max(maxCount, minCount)),
+  )
+  const sliderDisabled = tooFew || maxCount <= minCount || loading
+  const marks = [
+    ...new Set([
+      minCount,
+      ...QUESTION_MARKS.filter((m) => m > minCount && m < maxCount),
+      Math.max(maxCount, minCount),
+    ]),
+  ]
+
+  const objectifOptions = objectifSearch
+    ? objectifList.filter((o) =>
+        foldForSearch(o.objectif).includes(foldForSearch(objectifSearch)),
+      )
+    : objectifList
+
+  const chooseDomain = (next: string) => {
+    setDomain(next)
+    setObjectifs([])
+    setObjectifSearch("")
+    setServerError(null)
+  }
+  const chooseObjectifs = (next: Objectif[]) => {
+    setObjectifs(next)
+    setServerError(null)
+  }
+  const toggleRevision = (criterion: RevisionCriterion) => {
+    setRevision((current) =>
       current.includes(criterion)
         ? current.filter((c) => c !== criterion)
         : [...current, criterion],
     )
-
-  const selectedDomainQuestions =
-    selectedDomain === "all"
-      ? totalQuestions
-      : (domains.find((d) => d.domain === selectedDomain)?.count ?? 0)
-
-  // Si objectifs sélectionnés, compter les questions filtrées
-  let availableQuestions = selectedDomainQuestions
-  if (selectedObjectifs.length > 0 && filteredObjectifs) {
-    availableQuestions = filteredObjectifs.objectifs
-      .filter((obj) => selectedObjectifs.includes(obj.objectif))
-      .reduce((sum, obj) => sum + obj.count, 0)
+    setServerError(null)
   }
 
-  const maxQuestions = Math.min(20, availableQuestions)
-  const isValidCount = questionCount <= availableQuestions
-
-  const handleDomainChange = (domain: string) => {
-    setSelectedDomain(domain)
-    setSelectedObjectifs([])
-  }
-
-  const [, startTransition] = useTransition()
-  const [, submitAction, isPending] = useActionState(async () => {
-    if (!isValidCount) return null
-
-    // `callAction` ne throw jamais : un rejet réseau devient `success: false` au
-    // lieu de contourner le garde ci-dessous.
-    const result = await callAction(() =>
-      createTrainingSession({
-        questionCount,
-        domain: selectedDomain === "all" ? undefined : selectedDomain,
-        objectifsCMCs:
-          selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
-        mode: trainingMode,
-        revisionFilters:
-          revisionFilters.length > 0 ? revisionFilters : undefined,
-      }),
-    )
-
-    if (!result.success) {
-      toast.error("Erreur", { description: result.error })
-      return null
-    }
-
-    // Le nombre annoncé est celui RETENU par le serveur : en révision, le corpus
-    // peut être plus court que la demande.
-    toast.success("Session créée !", {
-      description: `${result.questionCount} questions sélectionnées`,
+  const [isPending, startSubmit] = useTransition()
+  const blocked = hasActiveSeries || tooFew || loading || isPending
+  const submit = () => {
+    if (blocked) return
+    startSubmit(async () => {
+      // `callAction` ne throw jamais : un rejet réseau devient `success: false`
+      // au lieu de contourner le garde ci-dessous.
+      const result = await callAction(() =>
+        createTrainingSession({
+          questionCount: effectiveCount,
+          domain: domain === ALL_DOMAINS ? undefined : domain,
+          objectiveIds:
+            objectifs.length > 0 ? objectifs.map((o) => o.id) : undefined,
+          mode,
+          revisionFilters: isRevision ? activeCriteria : undefined,
+        }),
+      )
+      if (!result.success) {
+        setServerError(result.error)
+        return
+      }
+      // Le nombre annoncé est celui RETENU par le serveur : en révision, le
+      // corpus peut être plus court que la demande.
+      toast.success("Série créée !", {
+        description: `${result.questionCount} ${result.questionCount > 1 ? "questions sélectionnées" : "question sélectionnée"}`,
+      })
+      router.push(`/tableau-de-bord/entrainement/${result.sessionId}`)
     })
-
-    router.push(`/tableau-de-bord/entrainement/${result.sessionId}`)
-
-    return null
-  }, null)
+  }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 shadow-lg backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
-      {/* Header with gradient */}
-      <div className="border-b border-gray-200/60 bg-linear-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 px-6 py-4 dark:border-gray-700/60">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-md">
-            <Target className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h2 className="font-display text-lg font-semibold text-gray-900 dark:text-white">
-              Nouvelle session
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Configurez votre entraînement
-            </p>
-          </div>
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start">
+      <section
+        aria-labelledby="training-config-title"
+        className="bg-surface border-line shadow-1 flex flex-col gap-6 rounded-lg border p-5 md:p-6"
+      >
+        <div className="flex flex-col gap-1">
+          <p className="type-label">Nouvelle série</p>
+          <h2 id="training-config-title" className="type-h4 text-ink">
+            Configurer
+          </h2>
         </div>
-      </div>
 
-      <div className="space-y-8 p-6">
-        {/* Question count slider */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Nombre de questions
-            </label>
-            <motion.div
-              key={questionCount}
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="font-display flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 text-lg font-bold text-white shadow-md"
+        <Field label="Domaine">
+          <Select value={domain} onValueChange={chooseDomain}>
+            <SelectTrigger
+              className="h-10 w-full"
+              aria-label="Domaine"
+              data-testid="training-domain"
             >
-              {questionCount}
-            </motion.div>
-          </div>
-
-          {/* Custom slider track with marks */}
-          <div className="relative pt-2 pb-6">
-            <Slider
-              value={[questionCount]}
-              onValueChange={([value]) => setQuestionCount(value)}
-              min={5}
-              max={maxQuestions}
-              step={1}
-              className="**:data-[slot=slider-range]:bg-linear-to-r **:data-[slot=slider-range]:from-emerald-500 **:data-[slot=slider-range]:to-teal-500 **:data-[slot=slider-thumb]:h-6 **:data-[slot=slider-thumb]:w-6 **:data-[slot=slider-thumb]:border-2 **:data-[slot=slider-thumb]:border-emerald-500 **:data-[slot=slider-thumb]:shadow-lg **:data-[slot=slider-thumb]:shadow-emerald-500/20 **:data-[slot=slider-track]:h-3 **:data-[slot=slider-track]:bg-linear-to-r **:data-[slot=slider-track]:from-gray-100 **:data-[slot=slider-track]:to-gray-200 **:data-[slot=slider-track]:dark:from-gray-800 **:data-[slot=slider-track]:dark:to-gray-700"
-            />
-
-            {/* Marks */}
-            <div className="absolute inset-x-0 bottom-0 flex justify-between px-1">
-              {QUESTION_MARKS.filter((m) => m <= maxQuestions).map((mark) => (
-                <button
-                  key={mark}
-                  type="button"
-                  onClick={() => setQuestionCount(mark)}
-                  className={cn(
-                    "flex h-6 w-8 items-center justify-center rounded-md text-xs font-medium transition-all",
-                    questionCount === mark
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300",
-                  )}
-                >
-                  {mark}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Domain selector */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-gray-500" />
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Domaine
-            </label>
-          </div>
-
-          <Select value={selectedDomain} onValueChange={handleDomainChange}>
-            <SelectTrigger className="h-12 rounded-xl border-gray-200 bg-white/60 text-base shadow-sm transition-all hover:border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:border-emerald-700">
-              <SelectValue placeholder="Sélectionnez un domaine" />
+              <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="all" className="rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span>Tous les domaines</span>
-                  <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                    {totalQuestions}
-                  </span>
-                </div>
+            <SelectContent>
+              <SelectItem value={ALL_DOMAINS}>
+                Tous les domaines
+                <span className="text-ink-3 font-mono text-xs">
+                  · {fmt(totalQuestions)}
+                </span>
               </SelectItem>
-              {domains.map((domain) => (
-                <SelectItem
-                  key={domain.domain}
-                  value={domain.domain}
-                  className="rounded-lg"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{domain.domain}</span>
-                    <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                      {domain.count}
-                    </span>
-                  </div>
+              {domains.map((d) => (
+                <SelectItem key={d.domain} value={d.domain}>
+                  {d.domain}
+                  <span className="text-ink-3 font-mono text-xs">
+                    · {fmt(d.count)}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+        </Field>
 
-          {/* Warning if not enough questions */}
-          {!isValidCount && (
-            <motion.p
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-sm text-amber-600 dark:text-amber-400"
-            >
-              Seulement {availableQuestions} question
-              {availableQuestions > 1 ? "s" : ""} disponible
-              {availableQuestions > 1 ? "s" : ""} avec ces filtres. Réduisez le
-              nombre ou modifiez les filtres.
-            </motion.p>
+        <Field
+          label="Objectifs du CMC"
+          hint={`optionnel, ${MAX_OBJECTIFS} au plus`}
+        >
+          {domain === ALL_DOMAINS ? (
+            <p className="text-ink-3 text-sm">
+              Choisissez un domaine pour cibler ses objectifs.
+            </p>
+          ) : !objectifsReady ? (
+            <p className="text-ink-3 text-sm" aria-busy="true">
+              Chargement des objectifs…
+            </p>
+          ) : objectifsFor.failed ? (
+            <p className="text-ink-2 flex flex-wrap items-center gap-2 text-sm">
+              Impossible de charger les objectifs de ce domaine.
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto px-0 text-sm"
+                onClick={() => loadObjectifs(domain)}
+              >
+                Réessayer
+              </Button>
+            </p>
+          ) : (
+            <MultiChecklist<Objectif>
+              options={objectifOptions}
+              selected={objectifs}
+              onChange={chooseObjectifs}
+              getKey={(o) => o.id}
+              getLabel={(o) => o.objectif}
+              renderMeta={(o) => fmt(o.count)}
+              search={objectifSearch}
+              onSearchChange={setObjectifSearch}
+              searchPlaceholder="Rechercher un objectif"
+              emptyText={(q) => `Aucun objectif ne correspond à « ${q} ».`}
+              label="Objectifs du CMC"
+              maxSelections={MAX_OBJECTIFS}
+              maxSelectionsLabel={(max) =>
+                `Maximum de ${max} objectifs atteint`
+              }
+              footer={(n, total) =>
+                `${n} / ${MAX_OBJECTIFS} sélectionné${n > 1 ? "s" : ""} · ${total} objectif${total > 1 ? "s" : ""}`
+              }
+            />
           )}
-        </div>
+        </Field>
 
-        {/* Objectifs CMC multi-selector */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <IconTargetArrow className="h-4 w-4 text-gray-500" />
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Objectifs CMC (optionnel)
-            </label>
-          </div>
-
-          <ObjectifsCMCMultiSelect
-            objectifs={filteredObjectifs.objectifs}
-            selectedObjectifs={selectedObjectifs}
-            onChange={setSelectedObjectifs}
-            isLoading={isObjLoading}
-            maxSelections={10}
+        <Field
+          label="Nombre de questions"
+          trailing={
+            <span className="text-ink font-mono text-sm tabular-nums">
+              {isRevision ? `jusqu'à ${effectiveCount}` : effectiveCount}
+            </span>
+          }
+        >
+          <Slider
+            value={[effectiveCount]}
+            onValueChange={([value]) => setCount(value)}
+            min={minCount}
+            max={sliderDisabled ? minCount + 1 : maxCount}
+            step={1}
+            disabled={sliderDisabled}
+            aria-label="Nombre de questions"
           />
-
-          {/* Info dynamique sur les questions disponibles */}
-          {selectedObjectifs.length > 0 && filteredObjectifs && (
-            <motion.p
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-sm text-emerald-600 dark:text-emerald-400"
-            >
-              {availableQuestions} question{availableQuestions > 1 ? "s" : ""}{" "}
-              disponible{availableQuestions > 1 ? "s" : ""} pour ces objectifs
-            </motion.p>
-          )}
-        </div>
-
-        {/* Filtres de révision */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-gray-500" />
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Réviser (optionnel)
-            </label>
+          <div className="flex flex-wrap gap-1.5">
+            {marks.map((mark) => (
+              <button
+                key={mark}
+                type="button"
+                onClick={() => setCount(mark)}
+                disabled={sliderDisabled}
+                aria-pressed={effectiveCount === mark}
+                className={cn(
+                  "focus-ring text-ink-3 hover:bg-surface-2 hover:text-ink aria-pressed:bg-accent-soft aria-pressed:text-accent-ink inline-flex h-7 min-w-9 cursor-pointer items-center justify-center rounded-xs px-2 font-mono text-xs transition-colors disabled:pointer-events-none disabled:opacity-50 max-lg:h-11 max-lg:min-w-11",
+                )}
+              >
+                {mark}
+              </button>
+            ))}
           </div>
+          {isRevision && (
+            <p className="text-ink-3 text-sm">
+              Avec la révision ciblée, une série peut compter dès 1 question.
+            </p>
+          )}
+        </Field>
 
-          <div className="flex flex-wrap gap-2">
+        <Field label="Mode">
+          <RadioGroup
+            value={mode}
+            onValueChange={(v) => setMode(v as "test" | "tutor")}
+            className="grid grid-cols-1 gap-2.5 sm:grid-cols-2"
+          >
+            <ModeCard
+              value="test"
+              title="Test"
+              description="Correction seulement à la fin de la série."
+              icon={ListChecks}
+              checked={mode === "test"}
+            />
+            <ModeCard
+              value="tutor"
+              title="Tuteur"
+              description="Correction immédiate : bonne réponse, explication et références. La réponse ne peut plus être modifiée."
+              icon={GraduationCap}
+              checked={mode === "tutor"}
+            />
+          </RadioGroup>
+        </Field>
+
+        <Field label="Révision ciblée" hint="optionnel, critères cumulables">
+          <PendingRegion isPending={loading} className="flex flex-wrap gap-2">
             {REVISION_CRITERIA.map((criterion) => {
-              const isActive = revisionFilters.includes(criterion)
+              const isActive = activeCriteria.includes(criterion)
+              const value = revisionCounts[criterion]
               return (
                 <button
                   key={criterion}
                   type="button"
                   data-testid={`revision-${criterion}`}
                   aria-pressed={isActive}
-                  onClick={() => toggleRevisionFilter(criterion)}
+                  disabled={countsReady && value === 0}
+                  onClick={() => toggleRevision(criterion)}
                   className={cn(
-                    "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all",
-                    isActive
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300"
-                      : "border-gray-200 bg-white/60 text-gray-700 hover:border-emerald-300 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300",
+                    "focus-ring border-line-strong bg-surface text-ink-2 hover:bg-surface-2 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-xs border px-2.5 text-sm font-medium transition-[background-color,border-color] disabled:cursor-not-allowed disabled:opacity-50 max-lg:h-11",
+                    isActive &&
+                      "border-accent bg-accent-soft text-accent-ink hover:bg-accent-soft",
                   )}
                 >
-                  <span>{REVISION_CRITERION_LABELS[criterion]}</span>
-                  <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                    {isCountsLoading ? "…" : revisionCounts[criterion]}
+                  {isActive && <Check aria-hidden className="size-3.5" />}
+                  {REVISION_CRITERION_LABELS[criterion]}
+                  <span
+                    className={cn(
+                      "font-mono text-xs tabular-nums",
+                      isActive ? "text-accent-ink" : "text-ink-3",
+                    )}
+                  >
+                    {countsReady ? fmt(value) : "—"}
                   </span>
                 </button>
               )
             })}
-          </div>
+          </PendingRegion>
+          <p className="text-ink-3 text-sm leading-normal">
+            Ratées : dernière réponse fausse, en série comme en examen blanc.
+            Non vues : jamais répondues. Marquées : y compris pendant un examen
+            blanc.
+          </p>
+        </Field>
+      </section>
 
-          {revisionFilters.length > 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {/* Phrase en littéral : en texte JSX, la coupure de ligne après
-                  l'interpolation supprime l'espace au rendu Turbopack (« 20questions »),
-                  et Prettier réécrit le {" "} qui la corrigerait. */}
-              {`La session prendra jusqu'à ${questionCount} questions parmi celles qui correspondent — moins s'il y en a moins.`}
-            </p>
-          )}
-        </div>
-
-        {/* Mode d'entraînement */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4 text-gray-500" />
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Mode d&apos;entraînement
-            </label>
-          </div>
-
-          <RadioGroup
-            value={trainingMode}
-            onValueChange={(v) => setTrainingMode(v as "tutor" | "test")}
-            className="grid grid-cols-1 gap-3 sm:grid-cols-2"
-          >
-            {/* Mode test */}
-            <Label
-              htmlFor="mode-test"
-              className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all",
-                trainingMode === "test"
-                  ? "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-900/20"
-                  : "border-gray-200 bg-white/60 hover:border-emerald-300 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:border-emerald-700",
+      <aside className="bg-surface-2 border-line flex flex-col gap-3.5 rounded-lg border p-5 lg:sticky lg:top-[calc(var(--shell-offset,0px)+1rem)]">
+        <p className="type-label">Récapitulatif</p>
+        <Recap
+          label="Domaine"
+          value={domain === ALL_DOMAINS ? "Tous les domaines" : domain}
+        />
+        <Recap
+          label="Objectifs"
+          value={
+            objectifs.length > 0
+              ? `${objectifs.length} sélectionné${objectifs.length > 1 ? "s" : ""}`
+              : "Tous"
+          }
+        />
+        <Recap
+          label="Disponibles"
+          value={
+            <PendingRegion isPending={loading} className="inline-flex">
+              {loading ? (
+                <span className="text-ink-3">—</span>
+              ) : (
+                <span
+                  className="font-mono tabular-nums"
+                  data-testid="training-pool"
+                >
+                  {fmt(pool)} question{pool > 1 ? "s" : ""}
+                </span>
               )}
-            >
-              <RadioGroupItem
-                id="mode-test"
-                value="test"
-                className="mt-0.5 shrink-0 border-emerald-500 text-emerald-600"
-              />
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Mode test
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Correction seulement à la fin de la session
-                </p>
-              </div>
-            </Label>
-
-            {/* Mode tuteur */}
-            <Label
-              htmlFor="mode-tutor"
-              className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all",
-                trainingMode === "tutor"
-                  ? "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-900/20"
-                  : "border-gray-200 bg-white/60 hover:border-emerald-300 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:border-emerald-700",
-              )}
-            >
-              <RadioGroupItem
-                id="mode-tutor"
-                value="tutor"
-                className="mt-0.5 shrink-0 border-emerald-500 text-emerald-600"
-              />
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Mode tuteur
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Correction et explication révélées après chaque réponse
-                </p>
-              </div>
-            </Label>
-          </RadioGroup>
-        </div>
-
-        {/* Submit button */}
+            </PendingRegion>
+          }
+        />
+        <Recap
+          label="Questions"
+          value={
+            tooFew
+              ? "—"
+              : isRevision
+                ? `Jusqu'à ${effectiveCount}`
+                : effectiveCount
+          }
+        />
+        <Recap label="Mode" value={TRAINING_MODE_LABEL[mode]} />
+        <Recap
+          label="Révision"
+          value={
+            isRevision
+              ? activeCriteria
+                  .map((c) => REVISION_CRITERION_LABELS[c])
+                  .join(", ")
+              : "Aucune"
+          }
+        />
+        <Recap label="Chronomètre" value="Aucun" />
+        {isRevision && !tooFew && (
+          <p className="text-ink-3 -mt-1 text-sm leading-normal">
+            Moins s&apos;il y en a moins parmi les questions retenues.
+          </p>
+        )}
         <Button
-          onClick={() => startTransition(submitAction)}
-          disabled={isPending || !isValidCount}
           size="lg"
-          className="h-14 w-full rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-base font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30 disabled:opacity-50"
+          onClick={submit}
+          disabled={blocked}
+          data-testid="btn-start-training"
+          className="w-full"
         >
-          {isPending ? (
-            <>
-              <Spinner className="mr-2" />
-              Création en cours...
-            </>
-          ) : (
-            <>
-              <Play className="mr-2 h-5 w-5" />
-              Commencer l&apos;entraînement
-            </>
-          )}
+          {isPending ? <Spinner size="sm" /> : <Play aria-hidden />}
+          Commencer la série
         </Button>
-      </div>
+        {tooFew && !loading && (
+          <Alert className={TONE_SOFT.warning}>
+            <AlertDescription className="text-warning-ink">
+              {notEnoughQuestions(available)}
+            </AlertDescription>
+          </Alert>
+        )}
+        {hasActiveSeries && (
+          <p className="text-ink-2 text-sm leading-normal">
+            Terminez ou abandonnez votre série en cours pour en commencer une
+            autre.
+          </p>
+        )}
+        {serverError && (
+          <Alert variant="destructive" data-testid="training-refusal">
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        )}
+      </aside>
     </div>
   )
 }

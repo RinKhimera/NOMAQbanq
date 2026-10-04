@@ -1,22 +1,28 @@
 "use client"
 
-import { CircleAlert, PackageX, Sparkles, Zap } from "lucide-react"
-import { motion } from "motion/react"
+import { PackageX } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { toast } from "sonner"
+import { Eyebrow } from "@/components/marketing/marketing-hero"
 import {
   AccessBadge,
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
-import { PremiumPricingCard } from "@/components/shared/payments/premium-pricing-card"
 import { PricingCard } from "@/components/shared/payments/pricing-card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createStripeCheckout } from "@/features/payments/actions"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { AccessStatus, ProductView } from "@/features/payments/dal"
+import { useCheckout } from "@/hooks/use-checkout"
+import { MONTH_DAYS, savingsOf } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 
 type AccessFilter = "all" | "exam" | "training"
+
+const FILTERS: { value: AccessFilter; label: string }[] = [
+  { value: "all", label: "Toutes" },
+  { value: "exam", label: "Examens" },
+  { value: "training", label: "Entraînement" },
+]
 
 interface PricingGridProps {
   products: ProductView[]
@@ -30,7 +36,7 @@ export const PricingGrid = ({
   isAuthenticated,
 }: PricingGridProps) => {
   const [filter, setFilter] = useState<AccessFilter>("all")
-  const [loadingProduct, setLoadingProduct] = useState<string | null>(null)
+  const { checkout, pendingProduct } = useCheckout()
   const router = useRouter()
 
   const handlePurchase = async (productCode: string) => {
@@ -38,235 +44,133 @@ export const PricingGrid = ({
       router.push("/inscription")
       return
     }
-
-    setLoadingProduct(productCode)
-    try {
-      const res = await createStripeCheckout({
-        productCode,
-        successPath: "/tableau-de-bord/paiement/succes",
-        cancelPath: "/tarifs",
-      })
-      if ("error" in res) {
-        toast.error(res.error)
-        return
-      }
-      window.location.href = res.checkoutUrl
-    } catch {
-      if (!navigator.onLine) {
-        toast.error("Pas de connexion internet. Vérifiez votre réseau.")
-      } else {
-        toast.error("Une erreur est survenue. Veuillez réessayer.")
-      }
-    } finally {
-      setLoadingProduct(null)
-    }
-  }
-
-  const premiumProduct = products?.find((p) => p.code === "premium_access")
-  const regularProducts = products?.filter((p) => p.code !== "premium_access")
-
-  // Filtrer les produits réguliers (le premium apparaît toujours au-dessus)
-  const filteredProducts = regularProducts?.filter((p) => {
-    if (filter === "all") return true
-    return p.accessType === filter
-  })
-
-  // Sort products: promo (6 months) first for each type
-  const sortedProducts = filteredProducts?.toSorted((a, b) => {
-    if (a.accessType !== b.accessType) {
-      return a.accessType === "exam" ? -1 : 1
-    }
-    return b.durationDays - a.durationDays // Longer duration first
-  })
-
-  const isPopular = (code: string) => code.includes("promo")
-
-  const getCurrentAccess = (accessType: "exam" | "training") => {
-    if (!accessStatus) return null
-    return accessType === "exam"
-      ? accessStatus.examAccess
-      : accessStatus.trainingAccess
+    await checkout(productCode, {
+      successPath: "/tableau-de-bord/paiement/succes",
+      cancelPath: "/tarifs?annule=1",
+    })
   }
 
   if (products.length === 0) {
     return (
-      <section className="py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-300 py-20 dark:border-gray-700"
-          >
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-              <PackageX className="h-10 w-10 text-gray-400" />
-            </div>
-            <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
-              Aucune offre disponible
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Les offres seront bientôt disponibles. Revenez plus tard.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+      <EmptyState
+        icons={[PackageX]}
+        title="Aucune offre disponible"
+        description="Les offres seront bientôt disponibles. Revenez plus tard."
+        className="mx-auto"
+      />
     )
   }
 
+  const premium = products.find((p) => p.isCombo)
+  const separate = products
+    .filter((p) => !p.isCombo)
+    .filter((p) => filter === "all" || p.accessType === filter)
+    .toSorted((a, b) =>
+      a.accessType !== b.accessType
+        ? a.accessType === "exam"
+          ? -1
+          : 1
+        : b.durationDays - a.durationDays,
+    )
+
+  const currentAccess = {
+    exam: accessStatus?.examAccess ?? null,
+    training: accessStatus?.trainingAccess ?? null,
+  }
+  const hasAnyAccess =
+    isAuthenticated && !!(currentAccess.exam || currentAccess.training)
+
   return (
-    <section className="py-16">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Current access status banner */}
-        {isAuthenticated &&
-          accessStatus &&
-          (accessStatus.examAccess || accessStatus.trainingAccess) && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-12 rounded-2xl bg-linear-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/30 dark:to-indigo-950/30"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <CircleAlert className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    Vos accès actuels
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {accessStatus.examAccess && (
+    <div className="flex flex-col gap-14">
+      {hasAnyAccess && (
+        <div className="bg-surface border-line flex flex-col gap-3 rounded-lg border p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-ink text-[15px] font-semibold">
+              Vos accès actuels
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(["exam", "training"] as const).map((type) => {
+                const access = currentAccess[type]
+                return (
+                  access && (
                     <AccessBadge
-                      accessType="exam"
+                      key={type}
+                      accessType={type}
                       status={getAccessStatus(
-                        accessStatus.examAccess.expiresAt,
-                        accessStatus.examAccess.daysRemaining,
+                        access.expiresAt,
+                        access.daysRemaining,
                       )}
-                      daysRemaining={accessStatus.examAccess.daysRemaining}
+                      daysRemaining={access.daysRemaining}
                       showDetails
-                      size="md"
                     />
-                  )}
-                  {accessStatus.trainingAccess && (
-                    <AccessBadge
-                      accessType="training"
-                      status={getAccessStatus(
-                        accessStatus.trainingAccess.expiresAt,
-                        accessStatus.trainingAccess.daysRemaining,
-                      )}
-                      daysRemaining={accessStatus.trainingAccess.daysRemaining}
-                      showDetails
-                      size="md"
-                    />
-                  )}
-                </div>
-              </div>
-              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                Prolongez votre accès avant expiration pour cumuler le temps
-                restant avec le nouvel achat.
-              </p>
-            </motion.div>
-          )}
-
-        {/* Premium product featured section */}
-        {premiumProduct && (
-          <div className="mb-16">
-            <PremiumPricingCard
-              product={premiumProduct}
-              examAccess={accessStatus?.examAccess}
-              trainingAccess={accessStatus?.trainingAccess}
-              onPurchase={() => handlePurchase(premiumProduct.code)}
-              isLoading={loadingProduct === premiumProduct.code}
-            />
+                  )
+                )
+              })}
+            </div>
           </div>
-        )}
+          <p className="text-ink-3 text-sm">
+            Prolongez votre accès avant expiration pour cumuler le temps restant
+            avec le nouvel achat.
+          </p>
+        </div>
+      )}
 
-        {/* Filter tabs */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-12 flex justify-center"
-        >
-          <Tabs
+      {premium && (
+        <PricingCard
+          variant="featured"
+          product={premium}
+          savings={savingsOf(products, premium)}
+          currentAccess={currentAccess}
+          onPurchase={() => handlePurchase(premium.code)}
+          isLoading={pendingProduct === premium.code}
+        />
+      )}
+
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-2.5">
+            <Eyebrow>Accès séparés</Eyebrow>
+            <h2 className="type-h3 text-ink">
+              Examens ou entraînement, à la carte
+            </h2>
+          </div>
+          <ToggleGroup
+            type="single"
+            variant="outline"
             value={filter}
-            onValueChange={(v) => setFilter(v as AccessFilter)}
-            aria-label="Filtrer les offres par type"
+            onValueChange={(v) => v && setFilter(v as AccessFilter)}
+            aria-label="Filtrer les offres par type d'accès"
           >
-            <TabsList className="h-14 rounded-full bg-gray-100 p-1.5 dark:bg-gray-800">
-              <TabsTrigger
-                value="all"
-                aria-label="Afficher toutes les offres"
-                className={cn(
-                  "cursor-pointer rounded-full px-6 py-2.5 text-sm font-medium transition-all",
-                  filter === "all" && "bg-white shadow-md dark:bg-gray-700",
-                )}
+            {FILTERS.map((f) => (
+              <ToggleGroupItem
+                key={f.value}
+                value={f.value}
+                className="px-3.5 whitespace-nowrap max-md:h-11"
               >
-                Toutes les offres
-              </TabsTrigger>
-              <TabsTrigger
-                value="exam"
-                aria-label="Filtrer par examens simulés"
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all",
-                  filter === "exam" && "bg-white shadow-md dark:bg-gray-700",
-                )}
-              >
-                <Zap className="h-4 w-4" aria-hidden="true" />
-                Examens
-              </TabsTrigger>
-              <TabsTrigger
-                value="training"
-                aria-label="Filtrer par banque d'entraînement"
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all",
-                  filter === "training" &&
-                    "bg-white shadow-md dark:bg-gray-700",
-                )}
-              >
-                <Sparkles className="h-4 w-4" aria-hidden="true" />
-                Entraînement
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </motion.div>
-
-        {/* Products grid */}
+                {f.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
         <div
           className={cn(
-            "grid gap-8",
-            filter === "all"
-              ? "md:grid-cols-2 lg:grid-cols-4"
-              : "mx-auto max-w-3xl md:grid-cols-2",
+            "grid gap-4 md:grid-cols-2",
+            separate.length > 2 ? "lg:grid-cols-4" : "max-w-190",
           )}
         >
-          {sortedProducts?.map((product, index) => (
+          {separate.map((product) => (
             <PricingCard
               key={product.id}
               product={product}
-              isPopular={isPopular(product.code)}
-              currentAccess={getCurrentAccess(product.accessType)}
+              popular={product.durationDays > MONTH_DAYS}
+              savings={savingsOf(products, product)}
+              currentAccess={currentAccess}
               onPurchase={() => handlePurchase(product.code)}
-              isLoading={loadingProduct === product.code}
-              index={index}
+              isLoading={pendingProduct === product.code}
             />
           ))}
         </div>
-
-        {/* FAQ teaser */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-16 text-center"
-        >
-          <p className="text-gray-600 dark:text-gray-400">
-            Des questions ?{" "}
-            <a
-              href="/faq"
-              className="font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
-            >
-              Consultez notre FAQ
-            </a>
-          </p>
-        </motion.div>
       </div>
-    </section>
+    </div>
   )
 }

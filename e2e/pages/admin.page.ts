@@ -11,35 +11,31 @@ export class AdminPage extends BasePage {
   }
 
   async waitForReady() {
-    // "Tableau de bord" apparaît 3× (lien sidebar + h1 header + h1 page) → cibler
-    // un heading (le premier = h1 du header sticky).
+    // "Tableau de bord" apparaît dans la SideNav, la barre du haut et le h1 de
+    // la page → cibler le heading.
     await expect(
       this.page.getByRole("heading", { name: "Tableau de bord" }).first(),
     ).toBeVisible({ timeout: 15_000 })
   }
 
-  async expectVitalCardsVisible() {
-    // exact + first : "Utilisateurs" matche aussi le lien "Gérer les utilisateurs".
+  async expectStatBandVisible() {
     const main = this.page.locator("main")
-    await expect(
-      main.getByText("Revenus CAD (30j)", { exact: true }).first(),
-    ).toBeVisible({
-      timeout: 15_000,
-    })
-    await expect(
-      main.getByText("Utilisateurs", { exact: true }).first(),
-    ).toBeVisible()
-    await expect(
-      main.getByText("Examens actifs", { exact: true }).first(),
-    ).toBeVisible()
-    await expect(
-      main.getByText("Accès expirant", { exact: true }).first(),
-    ).toBeVisible()
+    for (const label of [
+      "Revenus 30 jours",
+      "Utilisateurs",
+      "Examens actifs",
+      "Accès expirant",
+    ])
+      await expect(main.getByText(label, { exact: true }).first()).toBeVisible({
+        timeout: 15_000,
+      })
   }
 
   async clickQuickAction(label: string) {
+    // « Enregistrer un paiement » est aussi l'action de l'en-tête : le
+    // raccourci est le dernier de la page.
     const main = this.page.locator("main")
-    await main.getByText(label, { exact: true }).click()
+    await main.getByText(label, { exact: true }).last().click()
     // Pas de "networkidle" (jamais atteint en dev Next.js → hang). L'appelant
     // asserte l'URL/élément cible (qui a son propre retry).
     await this.page.waitForLoadState("domcontentloaded")

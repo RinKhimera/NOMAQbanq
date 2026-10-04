@@ -17,6 +17,7 @@ import {
 } from "@/features/questions/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -40,7 +41,7 @@ const newQuestion = async () => {
     question: `Réussite ${suffix} ${id}`,
     correctAnswer: "A",
     options: ["A", "B", "C"],
-    objectifCmc: "Objectif",
+    objectiveId: TEST_OBJECTIVE_ID,
     domain: "Cardiologie",
   })
   return id
@@ -110,6 +111,7 @@ const answerInExam = async (
     endDate: at(59),
     completionTime: 3600,
     createdBy: userId,
+    targetQuestionCount: 10,
   })
   const participationId = createId()
   await db.insert(examParticipations).values({
@@ -341,6 +343,7 @@ describe("répartition des réponses d'une question", () => {
         { option: "C", count: 0, share: 0, isKey: false },
       ],
       formerWording: { count: 0, share: 0 },
+      keySuspect: false,
     })
     expect((await rowOf(q))?.successRate).toBe(breakdown.successRate)
   })
@@ -390,6 +393,7 @@ describe("clé corrigée et option reformulée", () => {
         { option: "C", count: 0, share: 0, isKey: false },
       ],
       formerWording: { count: 7, share: 70 },
+      keySuspect: false,
     })
   })
 

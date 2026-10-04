@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { parseAmountToCents } from "@/lib/currency"
+import {
+  amountInputError,
+  centsToInputAmount,
+  parseAmountToCents,
+} from "@/lib/currency"
 
 describe("parseAmountToCents", () => {
   describe("CAD", () => {
@@ -74,10 +78,10 @@ describe("parseAmountToCents", () => {
       expect(parseAmountToCents("   ", "XAF")).toBeNull()
     })
 
-    it("retourne null pour zéro", () => {
-      expect(parseAmountToCents("0", "CAD")).toBeNull()
-      expect(parseAmountToCents("0.00", "CAD")).toBeNull()
-      expect(parseAmountToCents("0", "XAF")).toBeNull()
+    it("accepte zéro : un accès offert se saisit à 0", () => {
+      expect(parseAmountToCents("0", "CAD")).toBe(0)
+      expect(parseAmountToCents("0,00", "CAD")).toBe(0)
+      expect(parseAmountToCents("0", "XAF")).toBe(0)
     })
 
     it("retourne null pour un montant négatif", () => {
@@ -88,8 +92,8 @@ describe("parseAmountToCents", () => {
     it("retourne null pour du texte non numérique", () => {
       expect(parseAmountToCents("abc", "CAD")).toBeNull()
       expect(parseAmountToCents("$50", "CAD")).toBeNull()
-      // Note: parseFloat("50$") retourne 50 en JS, donc ce cas n'est pas rejeté
-      // C'est acceptable car le champ input est de type text avec inputMode="decimal"
+      expect(parseAmountToCents("50$", "CAD")).toBeNull()
+      expect(parseAmountToCents("1e3", "CAD")).toBeNull()
       expect(parseAmountToCents("cinquante", "XAF")).toBeNull()
     })
 
@@ -97,5 +101,56 @@ describe("parseAmountToCents", () => {
       expect(parseAmountToCents("NaN", "CAD")).toBeNull()
       expect(parseAmountToCents("Infinity", "CAD")).toBeNull()
     })
+  })
+})
+
+describe("centsToInputAmount", () => {
+  it("CAD : deux décimales, relisibles par parseAmountToCents", () => {
+    expect(centsToInputAmount(5050, "CAD")).toBe("50.50")
+    expect(parseAmountToCents(centsToInputAmount(5050, "CAD"), "CAD")).toBe(
+      5050,
+    )
+  })
+
+  it("XAF : entier, sans centimes", () => {
+    expect(centsToInputAmount(2_280_000, "XAF")).toBe("22800")
+  })
+})
+
+describe("amountInputError", () => {
+  it("rien à signaler pour un montant valide, zéro compris", () => {
+    expect(amountInputError("50", "CAD")).toBeNull()
+    expect(amountInputError("49,99", "CAD")).toBeNull()
+    expect(amountInputError("0", "CAD")).toBeNull()
+    expect(amountInputError("25000", "XAF")).toBeNull()
+  })
+
+  it("montant vide : rappelle qu'un accès offert se saisit à 0", () => {
+    expect(amountInputError("  ", "CAD")).toBe(
+      "Indiquez un montant (0 pour un accès offert).",
+    )
+  })
+
+  it("montant négatif ou non numérique", () => {
+    expect(amountInputError("-5", "CAD")).toBe(
+      "Le montant doit être positif ou nul.",
+    )
+    expect(amountInputError("abc", "XAF")).toBe(
+      "Le montant doit être positif ou nul.",
+    )
+  })
+
+  it("règle de la devise : entier en XAF, deux décimales au plus en CAD", () => {
+    expect(amountInputError("100,5", "XAF")).toBe(
+      "En XAF, le montant est un nombre entier.",
+    )
+    expect(amountInputError("10.123", "CAD")).toBe(
+      "Deux décimales au plus en CAD.",
+    )
+  })
+
+  it("montant hors de la colonne integer : trop élevé", () => {
+    expect(amountInputError("25000000", "XAF")).toBe("Montant trop élevé.")
+    expect(amountInputError("10000000", "CAD")).toBeNull()
   })
 })

@@ -2,13 +2,12 @@ import { type SQL, sql } from "drizzle-orm"
 import "server-only"
 import { type Db, db } from "@/db"
 import { type LockUser, excludeLocked } from "../questions/answer-key-lock"
+import type { RevisionCounts } from "./revision-pool"
 import type { RevisionCriterion } from "./schemas"
 
 // `db` ou une transaction : le tirage doit pouvoir vivre dans la transaction qui
 // insère la session.
 type Executor = Pick<Db, "execute">
-
-export type RevisionCounts = Record<RevisionCriterion, number>
 
 export type RevisionScope = {
   /**
@@ -17,7 +16,8 @@ export type RevisionScope = {
    */
   viewer: LockUser
   domain?: string
-  objectifsCMCs?: string[]
+  /** Objectifs du référentiel. */
+  objectiveIds?: string[]
 }
 
 // Historique unifié entraînement + examens de l'utilisateur, réduit à sa
@@ -69,16 +69,14 @@ const CRITERION_PREDICATE: Record<RevisionCriterion, SQL> = {
   unseen: sql`not exists (select 1 from attempts a2 where a2.question_id = q.id)`,
 }
 
-const corpusWhere = ({ viewer, domain, objectifsCMCs }: RevisionScope): SQL => {
+const corpusWhere = ({ viewer, domain, objectiveIds }: RevisionScope): SQL => {
   const parts: SQL[] = [sql`q.deleted_at is null`]
   if (domain && domain !== "all") parts.push(sql`q.domain = ${domain}`)
 
-  const objectifs =
-    objectifsCMCs?.map((o) => o.trim().toLowerCase()).filter(Boolean) ?? []
-  if (objectifs.length > 0) {
+  if (objectiveIds?.length) {
     parts.push(
-      sql`lower(q.objectif_cmc) in (${sql.join(
-        objectifs.map((o) => sql`${o}`),
+      sql`q.objective_id in (${sql.join(
+        objectiveIds.map((id) => sql`${id}`),
         sql`, `,
       )})`,
     )
@@ -91,27 +89,37 @@ const corpusWhere = ({ viewer, domain, objectifsCMCs }: RevisionScope): SQL => {
   return sql.join(parts, sql` and `)
 }
 
-/** Compteur par critère, sur le corpus filtré (domaine + objectifs). */
+/**
+ * Compteur par critère, sur le corpus filtré (domaine + objectifs), plus les
+ * recoupements de « marquées » avec les deux autres : le formulaire en déduit
+ * le nombre de questions distinctes de toute combinaison (`revisionPoolSize`).
+ */
 export const getRevisionCounts = async (
   viewer: LockUser,
   scope: Omit<RevisionScope, "viewer"> = {},
 ): Promise<RevisionCounts> => {
+  const { failed, unseen, bookmarked } = CRITERION_PREDICATE
   const res = await db.execute(sql`
     with ${historyCte(viewer.id)}
     select
-      (count(*) filter (where ${CRITERION_PREDICATE.failed}))::int as failed,
-      (count(*) filter (where ${CRITERION_PREDICATE.unseen}))::int as unseen,
-      (count(*) filter (where ${CRITERION_PREDICATE.bookmarked}))::int as bookmarked
+      (count(*) filter (where ${failed}))::int as failed,
+      (count(*) filter (where ${unseen}))::int as unseen,
+      (count(*) filter (where ${bookmarked}))::int as bookmarked,
+      (count(*) filter (where ${bookmarked} and ${failed}))::int as bookmarked_failed,
+      (count(*) filter (where ${bookmarked} and ${unseen}))::int as bookmarked_unseen
       from questions q
      where ${corpusWhere({ viewer, ...scope })}
   `)
   // Le cast `::int` est indispensable : sans lui, `count(*)` remonte en bigint,
   // que le driver pg rend en `string`.
-  const row = res.rows[0] as Partial<RevisionCounts> | undefined
+  const row = res.rows[0] as Record<string, unknown> | undefined
+  const n = (key: string) => Number(row?.[key] ?? 0)
   return {
-    failed: Number(row?.failed ?? 0),
-    unseen: Number(row?.unseen ?? 0),
-    bookmarked: Number(row?.bookmarked ?? 0),
+    failed: n("failed"),
+    unseen: n("unseen"),
+    bookmarked: n("bookmarked"),
+    bookmarkedFailed: n("bookmarked_failed"),
+    bookmarkedUnseen: n("bookmarked_unseen"),
   }
 }
 

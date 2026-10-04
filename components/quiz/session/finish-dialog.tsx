@@ -1,21 +1,30 @@
 "use client"
 
-import { Clock, Flag, TriangleAlert } from "lucide-react"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Spinner } from "@/components/ui/spinner"
-import { formatExamTime, zone } from "@/lib/attempt-clock"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { cn } from "@/lib/utils"
-import type { FinishDialogProps } from "./types"
+import type { FinishDialogProps, SessionKind } from "./types"
 
+const COPY: Record<
+  SessionKind,
+  Record<"title" | "description" | "confirm" | "pending" | "cancel", string>
+> = {
+  exam: {
+    title: "Soumettre l'examen ?",
+    description: "Une fois soumis, vous ne pourrez plus modifier vos réponses.",
+    confirm: "Soumettre",
+    pending: "Soumission…",
+    cancel: "Revenir à l'examen",
+  },
+  training: {
+    title: "Terminer la série ?",
+    description: "Vous pourrez revoir chaque question et son explication.",
+    confirm: "Voir les résultats",
+    pending: "Calcul du score…",
+    cancel: "Continuer",
+  },
+}
+
+/** Récapitulatif avant la soumission d'un examen ou la fin d'une série. */
 export const FinishDialog = ({
   isOpen,
   onOpenChange,
@@ -24,132 +33,51 @@ export const FinishDialog = ({
   flaggedCount,
   isSubmitting,
   onConfirm,
-  mode,
-  timeRemaining,
-  confirmText = "Terminer",
-  cancelText = "Continuer",
+  kind,
 }: FinishDialogProps) => {
-  const unansweredCount = totalQuestions - answeredCount
-  const hasUnanswered = unansweredCount > 0
-  const hasFlagged = flaggedCount > 0
+  const unanswered = totalQuestions - answeredCount
+  const copy = COPY[kind]
+  const cells = [
+    { label: "Répondues", value: answeredCount },
+    { label: "Sans réponse", value: unanswered, alert: unanswered > 0 },
+    { label: "Marquées", value: flaggedCount },
+  ]
 
   return (
-    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-md">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="font-display flex items-center gap-2 text-xl">
-            {mode === "exam" ? "Soumettre l'examen ?" : "Terminer la session ?"}
-          </AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div className="space-y-4">
-              {/* Stats summary */}
-              <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Répondues
-                    </span>
-                    <span className="font-semibold text-green-600 dark:text-green-400">
-                      {answeredCount}/{totalQuestions}
-                    </span>
-                  </div>
-                  {hasFlagged && (
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
-                        <Flag className="h-3.5 w-3.5" />
-                        Marquées
-                      </span>
-                      <span className="font-semibold text-amber-600 dark:text-amber-400">
-                        {flaggedCount}
-                      </span>
-                    </div>
-                  )}
-                  {mode === "exam" && timeRemaining !== undefined && (
-                    <div className="col-span-2 flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-700">
-                      <span className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
-                        <Clock className="h-3.5 w-3.5" />
-                        Temps restant
-                      </span>
-                      <span
-                        className={cn(
-                          "font-mono font-semibold",
-                          zone(timeRemaining) === "critical"
-                            ? "text-red-600 dark:text-red-400"
-                            : zone(timeRemaining) === "warning"
-                              ? "text-amber-600 dark:text-amber-400"
-                              : "text-gray-700 dark:text-gray-300",
-                        )}
-                      >
-                        {formatExamTime(timeRemaining)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Warnings */}
-              {(hasUnanswered || hasFlagged) && (
-                <div className="space-y-2">
-                  {hasUnanswered && (
-                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
-                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                      <p className="text-sm text-amber-800 dark:text-amber-200">
-                        <strong>
-                          {unansweredCount} question
-                          {unansweredCount > 1 ? "s" : ""}
-                        </strong>{" "}
-                        non répondue{unansweredCount > 1 ? "s" : ""} sera
-                        {unansweredCount > 1 ? "ont" : ""} comptée
-                        {unansweredCount > 1 ? "s" : ""} comme incorrecte
-                        {unansweredCount > 1 ? "s" : ""}.
-                      </p>
-                    </div>
-                  )}
-                  {hasFlagged && (
-                    <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
-                      <Flag className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                      <p className="text-sm text-blue-800 dark:text-blue-200">
-                        Vous avez{" "}
-                        <strong>
-                          {flaggedCount} question{flaggedCount > 1 ? "s" : ""}{" "}
-                          marquée{flaggedCount > 1 ? "s" : ""}
-                        </strong>{" "}
-                        pour révision.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isSubmitting}>
-            {cancelText}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(e) => {
-              e.preventDefault()
-              onConfirm()
-            }}
-            disabled={isSubmitting}
-            className={cn(
-              mode === "exam"
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-emerald-600 hover:bg-emerald-700",
-            )}
+    <ConfirmDialog
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      title={copy.title}
+      description={copy.description}
+      confirmLabel={copy.confirm}
+      pendingLabel={copy.pending}
+      cancelLabel={copy.cancel}
+      isPending={isSubmitting}
+      // La page redirige au succès ; un échec laisse le dialogue ouvert,
+      // pour réessayer.
+      onConfirm={() => {
+        onConfirm()
+        return false
+      }}
+    >
+      <dl className="border-line bg-line grid grid-cols-3 gap-px overflow-hidden rounded-md border">
+        {cells.map((cell) => (
+          <div
+            key={cell.label}
+            className="bg-surface-2 flex flex-col-reverse px-3.5 py-3"
           >
-            {isSubmitting ? (
-              <>
-                <Spinner size="sm" className="mr-2" />
-                {mode === "exam" ? "Soumission..." : "Calcul du score..."}
-              </>
-            ) : (
-              confirmText
-            )}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+            <dt className="text-ink-3 text-xs">{cell.label}</dt>
+            <dd
+              className={cn(
+                "font-mono text-xl tabular-nums",
+                cell.alert ? "text-danger-ink" : "text-ink",
+              )}
+            >
+              {cell.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </ConfirmDialog>
   )
 }

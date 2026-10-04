@@ -1,24 +1,33 @@
-import { Link, Text } from "@react-email/components"
 import { emailTheme } from "../theme"
+
+const { colors, fonts } = emailTheme
 
 export function EmailFallbackLink({ href }: { href: string }) {
   return (
-    <Text
+    <p
       style={{
-        fontFamily: emailTheme.fontFamily,
+        margin: "0 0 16px",
+        fontFamily: fonts.sans,
         fontSize: "13px",
-        lineHeight: "1.5",
-        color: emailTheme.colors.muted,
-        margin: "12px 0 16px",
+        lineHeight: "20px",
+        color: colors.ink3,
       }}
     >
-      Ou copiez ce lien dans votre navigateur :{" "}
-      <Link
+      {"Ou copiez ce lien dans votre navigateur :"}
+      <br />
+      <a
         href={href}
-        style={{ color: emailTheme.colors.accent, wordBreak: "break-all" }}
+        target="_blank"
+        style={{
+          fontFamily: fonts.mono,
+          fontSize: "12px",
+          color: colors.accent,
+          wordBreak: "break-all",
+          overflowWrap: "anywhere",
+        }}
       >
         {href}
-      </Link>
-    </Text>
+      </a>
+    </p>
   )
 }

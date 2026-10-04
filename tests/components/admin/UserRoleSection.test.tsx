@@ -18,16 +18,12 @@ vi.mock("next/navigation", () => ({
 vi.mock("sonner", () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError },
 }))
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
-
 const baseUser = {
   id: "user-1",
   name: "Marie Curie",
   email: "marie@exemple.com",
   role: "user" as const,
+  banned: false,
 }
 
 beforeEach(() => {
@@ -58,11 +54,24 @@ describe("UserRoleSection", () => {
     )
   })
 
-  it("masque le bouton sur sa propre fiche et affiche la note", () => {
+  it("sa propre fiche : bouton indisponible, avec son explication", () => {
     render(<UserRoleSection user={baseUser} currentUserId={baseUser.id} />)
-    expect(screen.queryByTestId("role-toggle-open")).toBeNull()
+    expect(screen.getByTestId("role-toggle-open")).toBeDisabled()
     expect(screen.getByTestId("role-self-note")).toHaveTextContent(
       "Vous ne pouvez pas modifier votre propre rôle",
+    )
+  })
+
+  it("compte suspendu : promotion indisponible tant que la suspension dure", () => {
+    render(
+      <UserRoleSection
+        user={{ ...baseUser, banned: true }}
+        currentUserId="viewer-1"
+      />,
+    )
+    expect(screen.getByTestId("role-toggle-open")).toBeDisabled()
+    expect(screen.getByTestId("role-banned-note")).toHaveTextContent(
+      "Levez d'abord la suspension de ce compte.",
     )
   })
 
@@ -82,7 +91,7 @@ describe("UserRoleSection", () => {
     )
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalled())
     expect(mocks.toastSuccess).toHaveBeenCalledWith(
-      "Utilisateur promu administrateur.",
+      "Rôle administrateur accordé",
     )
   })
 

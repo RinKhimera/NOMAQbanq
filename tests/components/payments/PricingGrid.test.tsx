@@ -2,17 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PricingGrid } from "@/app/(marketing)/tarifs/_components/pricing-grid"
-
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
-
-vi.mock("next/image", () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => (
-    <img src={src} alt={alt} data-testid="next-image" />
-  ),
-}))
+import { NETWORK_ERROR_MESSAGE } from "@/lib/safe-action"
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
@@ -23,6 +13,7 @@ vi.mock("next/link", () => ({
 const push = vi.fn()
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, refresh: vi.fn() }),
+  unstable_isUnrecognizedActionError: () => false,
 }))
 
 const createStripeCheckout = vi.fn()
@@ -114,7 +105,7 @@ describe("PricingGrid", () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Choisir" }))
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/inscription"))
     expect(createStripeCheckout).not.toHaveBeenCalled()
@@ -129,13 +120,13 @@ describe("PricingGrid", () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Choisir" }))
 
     await waitFor(() =>
       expect(createStripeCheckout).toHaveBeenCalledWith({
         productCode: "exam_access",
         successPath: "/tableau-de-bord/paiement/succes",
-        cancelPath: "/tarifs",
+        cancelPath: "/tarifs?annule=1",
       }),
     )
     expect(push).not.toHaveBeenCalled()
@@ -147,37 +138,21 @@ describe("PricingGrid", () => {
       <PricingGrid products={products} accessStatus={null} isAuthenticated />,
     )
 
-    fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Choisir" }))
 
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith("Produit mal configuré"),
     )
   })
 
-  it("distingue une panne réseau d'une erreur générique", async () => {
+  it("annonce une panne réseau, sans rediriger", async () => {
     createStripeCheckout.mockRejectedValue(new Error("Failed to fetch"))
-    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false)
-
-    const { unmount } = render(
-      <PricingGrid products={products} accessStatus={null} isAuthenticated />,
-    )
-    fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
-    await waitFor(() =>
-      expect(toastError).toHaveBeenCalledWith(
-        "Pas de connexion internet. Vérifiez votre réseau.",
-      ),
-    )
-    unmount()
-
-    onLine.mockReturnValue(true)
     render(
       <PricingGrid products={products} accessStatus={null} isAuthenticated />,
     )
-    fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Choisir" }))
     await waitFor(() =>
-      expect(toastError).toHaveBeenCalledWith(
-        "Une erreur est survenue. Veuillez réessayer.",
-      ),
+      expect(toastError).toHaveBeenCalledWith(NETWORK_ERROR_MESSAGE),
     )
   })
 
@@ -198,8 +173,37 @@ describe("PricingGrid", () => {
       />,
     )
 
-    expect(screen.getByText("Accès Premium")).toBeInTheDocument()
-    expect(screen.getByText("Accès Examens 30 jours")).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Accès Premium" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Accès Examens 30 jours" }),
+    ).toBeInTheDocument()
+  })
+
+  it("annonce l'économie du 6 mois par rapport au mensuel du catalogue", () => {
+    render(
+      <PricingGrid
+        products={[
+          ...products,
+          {
+            ...products[0],
+            id: "prod_4",
+            code: "exam_access_promo" as const,
+            name: "Accès Examens 6 mois",
+            priceCAD: 20000,
+            durationDays: 180,
+          },
+        ]}
+        accessStatus={null}
+        isAuthenticated={false}
+      />,
+    )
+
+    expect(
+      screen.getByText(/^Économisez 33\s% par rapport au mensuel$/),
+    ).toBeInTheDocument()
+    expect(screen.getByText("Sans engagement")).toBeInTheDocument()
   })
 
   it("filtre la grille par type d'accès", () => {
@@ -213,10 +217,7 @@ describe("PricingGrid", () => {
 
     expect(screen.getByText("Accès Entraînement 30 jours")).toBeInTheDocument()
 
-    // Radix TabsTrigger commute sur mousedown, pas sur un click synthétique.
-    fireEvent.mouseDown(
-      screen.getByRole("tab", { name: /Filtrer par examens/ }),
-    )
+    fireEvent.click(screen.getByRole("radio", { name: "Examens" }))
 
     expect(
       screen.queryByText("Accès Entraînement 30 jours"),

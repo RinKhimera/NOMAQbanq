@@ -4,10 +4,6 @@ import {
   getExamQuestionExplanations,
   getExamSession,
   getExamWithQuestions,
-  getMyAvailableExams,
-  getMyDashboardStats,
-  getMyRecentExams,
-  getMyScoreHistory,
   getParticipantExamResults,
 } from "@/features/exams/dal.student"
 import { lockFor } from "@/features/questions/answer-key-lock"
@@ -88,7 +84,8 @@ vi.mock("@/lib/dal", () => ({
   getCurrentSession: vi.fn(async () => mocks.session.current),
 }))
 vi.mock("@/features/payments/dal", () => ({ hasAccess: mocks.hasAccess }))
-vi.mock("@/features/exams/dal.shared", () => ({
+vi.mock("@/features/exams/dal.shared", async (orig) => ({
+  ...(await orig<typeof import("@/features/exams/dal.shared")>()),
   countQuestionsByExam: mocks.countQuestionsByExam,
 }))
 // Seule la lecture des images est doublée : le mappeur testé est le vrai.
@@ -145,14 +142,6 @@ describe("gardes de session", () => {
   it("getExamQuestionExplanations renvoie []", async () => {
     anonymous()
     expect(await getExamQuestionExplanations(["q1"])).toEqual([])
-  })
-
-  it("les vues du tableau de bord renvoient leur valeur vide", async () => {
-    anonymous()
-    expect(await getMyRecentExams()).toEqual([])
-    expect(await getMyScoreHistory()).toEqual([])
-    expect(await getMyAvailableExams()).toEqual([])
-    expect(await getMyDashboardStats()).toBeNull()
   })
 })
 
@@ -264,6 +253,36 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
     expect(await getParticipantExamResults("e1", "u1")).not.toBeNull()
   })
 
+  // Jumeaux : même participation terminée, seul l'accès change. Le score reste
+  // lisible dans la liste ; la correction est le service payant.
+  it("sans accès Examens, la correction d'un examen `subscribers` est refusée", async () => {
+    asUser("u1")
+    mocks.hasAccess.mockResolvedValue(false)
+    mocks.rows.current = {
+      exams: [{ ...closedExam, audienceType: "subscribers" }],
+      user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
+      exam_participations: completedParticipation,
+    }
+    expect(await getParticipantExamResults("e1", "u1")).toMatchObject({
+      error: "ACCESS_REQUIRED",
+    })
+  })
+
+  it("sans accès Examens, un examen sur invitation reste corrigé (l'audience vaut accès)", async () => {
+    asUser("u1")
+    mocks.hasAccess.mockResolvedValue(false)
+    mocks.rows.current = {
+      exams: [{ ...closedExam, audienceType: "restricted" }],
+      user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
+      exam_participations: completedParticipation,
+      exam_questions: [],
+      exam_answers: [],
+    }
+    const view = await getParticipantExamResults("e1", "u1")
+    expect(view).not.toBeNull()
+    expect(view && "error" in view).toBe(false)
+  })
+
   it("retient la cle d'une question verrouillee par un autre examen ouvert", async () => {
     asUser("u1")
     mocks.lockedIds.current = new Set(["q1"])
@@ -299,8 +318,18 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
     expect(q2).toMatchObject({ correctAnswer: "A" })
     expect(q2).not.toHaveProperty("keyWithheld")
     expect(view.participant.answers).toEqual([
-      { questionId: "q1", selectedAnswer: "A", isCorrect: null },
-      { questionId: "q2", selectedAnswer: "B", isCorrect: false },
+      {
+        questionId: "q1",
+        selectedAnswer: "A",
+        isCorrect: null,
+        isFlagged: false,
+      },
+      {
+        questionId: "q2",
+        selectedAnswer: "B",
+        isCorrect: false,
+        isFlagged: false,
+      },
     ])
   })
 
@@ -374,18 +403,6 @@ describe("getExamQuestionExplanations", () => {
   })
 })
 
-describe("acces payant du tableau de bord", () => {
-  it("getMyRecentExams renvoie [] sans acces examen", async () => {
-    mocks.hasAccess.mockResolvedValueOnce(false)
-    expect(await getMyRecentExams()).toEqual([])
-  })
-
-  it("getMyRecentExams renvoie [] quand aucun examen actif", async () => {
-    mocks.rows.current = { exams: [] }
-    expect(await getMyRecentExams()).toEqual([])
-  })
-})
-
 describe("getExamWithQuestions — clé de réponse", () => {
   // Trois cas JUMEAUX sur la même ligne de question : seule la combinaison
   // (rôle, revealKey) change. Retirer `&& isAdmin` ou `opts?.revealKey` de la
@@ -397,6 +414,7 @@ describe("getExamWithQuestions — clé de réponse", () => {
     startDate: new Date(Date.now() - HOUR),
     endDate: new Date(Date.now() + HOUR),
     completionTime: 60,
+    finalizedAt: new Date(Date.now() - 2 * HOUR),
     isActive: true,
     enablePause: false,
     pauseDurationMinutes: null,

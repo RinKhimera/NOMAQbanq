@@ -23,6 +23,7 @@ import {
 import { signQuizToken, verifyQuizToken } from "@/features/questions/quiz-token"
 import { createId } from "@/lib/ids"
 import { getClientIpKey } from "@/lib/quiz-rate-limit"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -77,7 +78,7 @@ const mkQuestion = (id: string, correct: string) =>
     question: `Question ${id.slice(0, 6)} ${suffix} ?`,
     correctAnswer: correct,
     options: ["A", "B", "C", "D"],
-    objectifCmc: `OBJ-${suffix}`,
+    objectiveId: TEST_OBJECTIVE_ID,
     domain: DOMAIN,
   })
 
@@ -110,6 +111,7 @@ beforeAll(async () => {
       endDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
       completionTime: 3600,
       createdBy: examCreatorId,
+      targetQuestionCount: 10,
     },
     {
       id: examClosedId,
@@ -118,6 +120,7 @@ beforeAll(async () => {
       endDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
       completionTime: 3600,
       createdBy: examCreatorId,
+      targetQuestionCount: 10,
     },
   ])
   await db.insert(examQuestions).values([

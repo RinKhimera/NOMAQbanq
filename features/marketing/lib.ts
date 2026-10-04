@@ -1,7 +1,5 @@
 import { MARKETING_CLAIMS } from "@/constants"
 
-// Score (%) minimal d'une participation « réussie ».
-export const SUCCESS_SCORE_THRESHOLD = 60
 // Volume minimal de participations terminées pour publier un taux calculé.
 export const MIN_COMPLETED_PARTICIPATIONS = 50
 // Plancher marketing : sous ce taux, on garde le claim éditorial (page de vente).
@@ -25,5 +23,6 @@ export const resolveSuccessRate = ({
   if (rate < MIN_PUBLISHABLE_SUCCESS_RATE) {
     return MARKETING_CLAIMS.successRate
   }
-  return `${rate}%`
+  // Espace insécable avant « % » (fr-CA), comme MARKETING_CLAIMS.
+  return `${rate} %`
 }

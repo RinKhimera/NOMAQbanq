@@ -6,7 +6,9 @@ export class BasePage {
 
   constructor(page: Page) {
     this.page = page
-    this.navSidebar = page.locator("nav")
+    this.navSidebar = page.getByRole("navigation", {
+      name: /^Navigation de l/,
+    })
   }
 
   async goto(path: string) {

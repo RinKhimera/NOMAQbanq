@@ -6,7 +6,7 @@
  *  - les lectures d'ÉNONCÉ ne remontent QUE `kind='statement'`
  *    (`getRandomQuizQuestions`, `getQuestionById.images`) — anti-fuite ;
  *  - les compteurs/filtres ADMIN ne comptent QUE les images d'énoncé
- *    (`getQuestionsWithFilters.imageCount`, `getQuestionStatsEnriched`) ;
+ *    (`getQuestionsWithFilters.imageCount`) ;
  *  - le canal d'EXPLICATION est peuplé à la correction
  *    (`getQuestionById.explanationImages`, `getQuizAnswerKey`,
  *    `getExamQuestionExplanations`, `getTrainingSessionResults`).
@@ -30,12 +30,10 @@ import {
   trainingSessions,
   user,
 } from "@/db/schema"
-import { createExam } from "@/features/exams/actions"
 import { getExamQuestionExplanations } from "@/features/exams/dal"
 import { setQuestionImages } from "@/features/questions/actions"
 import {
   getQuestionById,
-  getQuestionStatsEnriched,
   getQuestionsWithFilters,
   getQuizAnswerKey,
   getRandomQuizQuestions,
@@ -43,6 +41,8 @@ import {
 import { getTrainingSessionResults } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
+import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -59,7 +59,6 @@ const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 const STUDENT_ID = createId()
 const DOMAIN = `EXPL-${suffix}`
-const OBJ = `Obj EXPL ${suffix}`
 
 // qBoth : statement + explanation ; qStmtOnly : statement seul ;
 // qExplOnly : explanation seul ; qExam : pour la participation examen complétée ;
@@ -100,7 +99,7 @@ beforeAll(async () => {
       question: `EX Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: OBJ,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: DOMAIN,
     })),
   )
@@ -154,15 +153,14 @@ beforeAll(async () => {
 
   // Examen + participation complétée (qExam) → autorise getExamQuestionExplanations.
   const now = Date.now()
-  const r1 = await createExam({
+  examId = await seedExam({
+    createdBy: ADMIN_ID,
     title: `EX Exam ${suffix}`,
     startDate: now - 3 * DAY,
     endDate: now - DAY,
     questionIds: [qExam],
     enablePause: false,
   })
-  if (!r1.success) throw new Error(r1.error)
-  examId = r1.examId
 
   const partId = createId()
   await db.insert(examParticipations).values({
@@ -343,17 +341,6 @@ describe("compteurs/filtres admin = images d'énoncé seulement", () => {
     expect(idsNo).toContain(qExplOnly)
     expect(idsNo).not.toContain(qBoth)
     expect(idsNo).not.toContain(qStmtOnly)
-  })
-
-  it("getQuestionStatsEnriched.withImagesCount = questions à images d'énoncé", async () => {
-    asAdmin()
-    const stats = await getQuestionStatsEnriched()
-    // qBoth + qStmtOnly comptent (statement) ; qExplOnly/qExam/qTrain NON.
-    // On vérifie via les filtres plutôt que des nombres globaux : la cohérence
-    // avec hasImages a déjà été asserée ; ici on s'assure juste que le compteur
-    // reste >= 2 (au moins nos 2 questions d'énoncé) et reste numérique fini.
-    expect(Number.isFinite(stats.withImagesCount)).toBe(true)
-    expect(stats.withImagesCount).toBeGreaterThanOrEqual(2)
   })
 })
 

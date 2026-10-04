@@ -6,11 +6,6 @@ import {
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
 
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
-
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />
@@ -47,35 +42,6 @@ describe("AccessBadge", () => {
     it("affiche 'Aucun accès' pour le statut none", () => {
       render(<AccessBadge accessType="exam" status="none" />)
       expect(screen.getByText("Aucun accès")).toBeInTheDocument()
-    })
-  })
-
-  describe("tailles", () => {
-    it("utilise la taille sm", () => {
-      const { container } = render(
-        <AccessBadge accessType="exam" status="active" size="sm" />,
-      )
-      const badge = container.firstChild as HTMLElement
-      expect(badge.className).toContain("px-2.5")
-      expect(badge.className).toContain("gap-1.5")
-    })
-
-    it("utilise la taille md par défaut", () => {
-      const { container } = render(
-        <AccessBadge accessType="exam" status="active" />,
-      )
-      const badge = container.firstChild as HTMLElement
-      expect(badge.className).toContain("px-3.5")
-      expect(badge.className).toContain("gap-2")
-    })
-
-    it("utilise la taille lg", () => {
-      const { container } = render(
-        <AccessBadge accessType="exam" status="active" size="lg" />,
-      )
-      const badge = container.firstChild as HTMLElement
-      expect(badge.className).toContain("px-4")
-      expect(badge.className).toContain("gap-2.5")
     })
   })
 

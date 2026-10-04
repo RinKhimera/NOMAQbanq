@@ -1,351 +1,245 @@
 "use client"
 
-import { EllipsisVertical, Eye, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { toast } from "sonner"
-import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
+import {
+  countLabel,
+  formatCount,
+} from "@/components/admin/question-detail/labels"
+import {
+  DataTable,
+  type DataTableColumn,
+} from "@/components/shared/data-table/data-table"
+import { SearchInput } from "@/components/shared/search-input"
+import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { deleteParticipation } from "@/features/exams/actions"
+import { examCopyHref } from "@/constants/exam-routes"
 import type { LeaderboardEntry, LeaderboardFlag } from "@/features/exams/dal"
-import { formatCompactDateTime } from "@/lib/format"
-import { callAction } from "@/lib/safe-action"
-import { formatScore } from "@/lib/score"
+import { formatScore, scoreTextClass } from "@/lib/score"
+import { foldForSearch } from "@/lib/search"
+import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
+import { populationRanks } from "./exam-detail-model"
 
-const foldForSearch = (text: string) =>
-  text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
+/** Lignes montrées avant « Afficher tout ». */
+export const LEADERBOARD_PREVIEW = 10
 
 const matchesSearch = (entry: LeaderboardEntry, query: string) =>
   [entry.user?.name, entry.user?.username].some(
     (field) => field && foldForSearch(field).includes(query),
   )
 
-const FLAG_LABELS: Record<LeaderboardFlag, string> = {
-  admin: "Admin",
-  deleted: "Supprimé",
-}
+const FLAG_PILLS: Record<LeaderboardFlag, { label: string; tone: StatusTone }> =
+  {
+    admin: { label: "Admin", tone: "admin" },
+    deleted: { label: "Supprimé", tone: "neutral" },
+  }
 
-interface ParticipantToDelete {
-  participationId: string
-  userName: string
-  score: number | null
-}
+type RankedEntry = { entry: LeaderboardEntry; rank: number | null }
 
 interface ExamLeaderboardProps {
   examId: string
   leaderboard: LeaderboardEntry[]
-  isAdmin?: boolean
-  currentUserId?: string
+  /** Examen encore ouvert : le classement peut encore bouger. */
+  provisional?: boolean
 }
 
+/**
+ * Classement admin d'un examen : toutes les copies soumises, rang sur la
+ * population du classement (une recherche ne le change pas), « 10 premiers »
+ * puis « Afficher tout », et la copie de chacun.
+ */
 export function ExamLeaderboard({
   examId,
   leaderboard,
-  isAdmin = false,
-  currentUserId,
+  provisional = false,
 }: ExamLeaderboardProps) {
-  const router = useRouter()
-
-  const [participantToDelete, setParticipantToDelete] =
-    useState<ParticipantToDelete | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [search, setSearch] = useState("")
+  const [showAll, setShowAll] = useState(false)
 
   const query = foldForSearch(search.trim())
-  // Le rang se calcule sur le classement complet : filtrer ne le change pas.
-  const rankedEntries = leaderboard
-    .map((entry, index) => ({ entry, rank: index + 1 }))
-    .filter(({ entry }) => query === "" || matchesSearch(entry, query))
+  const ranks = populationRanks(leaderboard)
+  const ranked: RankedEntry[] = leaderboard.map((entry, index) => ({
+    entry,
+    rank: ranks[index],
+  }))
+  const matches =
+    query === ""
+      ? ranked
+      : ranked.filter(({ entry }) => matchesSearch(entry, query))
+  const truncated =
+    query === "" && !showAll && matches.length > LEADERBOARD_PREVIEW
+  const rows = truncated ? matches.slice(0, LEADERBOARD_PREVIEW) : matches
 
-  const handleDeleteClick = (participant: ParticipantToDelete) => {
-    setParticipantToDelete(participant)
-  }
+  const copyHref = (entry: LeaderboardEntry) =>
+    entry.user ? examCopyHref(examId, entry.user.id) : null
 
-  const handleConfirmDelete = async () => {
-    if (!participantToDelete) return
-
-    setIsDeleting(true)
-    const res = await callAction(() =>
-      deleteParticipation({
-        participationId: participantToDelete.participationId,
-      }),
-    )
-    setIsDeleting(false)
-    if (res.success) {
-      toast.success("Participation supprimée avec succès")
-      setParticipantToDelete(null)
-      router.refresh()
-    } else {
-      toast.error(
-        res.error ?? "Erreur lors de la suppression de la participation",
-      )
-    }
-  }
-
-  if (leaderboard.length === 0) return null
+  const columns: DataTableColumn<RankedEntry>[] = [
+    {
+      id: "rank",
+      label: "Rang",
+      className: "w-16",
+      cellClassName: "font-mono text-ink-2 tabular-nums",
+      cell: ({ rank }) =>
+        rank === null ? (
+          <span title="Hors classement : compte admin ou supprimé">—</span>
+        ) : (
+          rank
+        ),
+    },
+    {
+      id: "participant",
+      label: "Participant",
+      cell: ({ entry }) => (
+        <div
+          data-testid={`leaderboard-row-${entry.participationId}`}
+          className="flex min-w-0 items-center gap-3"
+        >
+          <UserAvatar
+            name={entry.user?.name}
+            image={entry.user?.image}
+            className="size-8 shrink-0"
+          />
+          <div className="flex min-w-0 flex-col">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="text-ink truncate font-medium">
+                {entry.user?.name ?? "Compte introuvable"}
+              </span>
+              {entry.user?.flag && (
+                <StatusPill tone={FLAG_PILLS[entry.user.flag].tone}>
+                  {FLAG_PILLS[entry.user.flag].label}
+                </StatusPill>
+              )}
+            </span>
+            {entry.user?.username && (
+              <span className="text-ink-3 truncate text-xs">
+                @{entry.user.username}
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "score",
+      label: "Score",
+      className: "text-right",
+      cellClassName: "font-mono tabular-nums",
+      cell: ({ entry }) => (
+        <span className={scoreTextClass(entry.score)}>
+          {formatScore(entry.score)}
+        </span>
+      ),
+    },
+    {
+      id: "submission",
+      label: "Soumission",
+      visibleFrom: "medium",
+      cell: ({ entry }) =>
+        entry.status === "auto_submitted" ? (
+          <StatusPill tone="warning">Automatique</StatusPill>
+        ) : (
+          <span className="text-ink-3">Manuelle</span>
+        ),
+    },
+  ]
 
   return (
-    <Card className="@container">
-      <CardHeader>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <CardTitle className="text-blue-600 dark:text-white">
-              Classement
-            </CardTitle>
-            <CardDescription>
-              Les participants classés par score décroissant
-            </CardDescription>
-          </div>
-          <Input
-            type="search"
-            placeholder="Rechercher un participant..."
+    <section
+      data-testid="exam-leaderboard"
+      aria-labelledby="leaderboard-title"
+      className="flex flex-col gap-3"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-auto flex flex-wrap items-center gap-2.5">
+          <h2 id="leaderboard-title" className="type-label">
+            Classement
+          </h2>
+          {provisional && (
+            <StatusPill tone="warning" data-testid="leaderboard-provisional">
+              Provisoire : l&apos;examen est encore ouvert
+            </StatusPill>
+          )}
+        </span>
+        {leaderboard.length > 0 && (
+          <SearchInput
+            placeholder="Rechercher un participant…"
             aria-label="Rechercher un participant"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="w-full md:w-72"
+            onValueChange={setSearch}
+            containerClassName="w-full sm:w-70"
+            data-testid="leaderboard-search"
           />
-        </div>
-      </CardHeader>
-      <CardContent>
-        {rankedEntries.length === 0 && (
-          <p className="text-muted-foreground py-6 text-center text-sm">
-            Aucun participant ne correspond à « {search.trim()} ».
-          </p>
         )}
-        <ul className="space-y-3">
-          {rankedEntries.map(({ entry, rank }) => {
-            return (
-              <li
-                key={entry.participationId}
-                className="flex items-center gap-2 rounded-lg border p-3 @sm:gap-3"
-              >
-                {/* Left side: Rank + Avatar + Name */}
-                <div className="flex min-w-0 flex-1 items-center gap-2 @sm:gap-3">
-                  <div
-                    title={
-                      entry.score === null ? SCORE_WITHHELD_MESSAGE : undefined
-                    }
-                    className={cn(
-                      "flex h-7 w-7 shrink-0 items-center justify-center rounded text-xs font-bold text-white @sm:h-8 @sm:w-8",
-                      entry.score === null
-                        ? "bg-gray-400 dark:bg-gray-600"
-                        : "bg-blue-600 dark:bg-blue-500",
-                    )}
+      </div>
+
+      {leaderboard.length === 0 ? (
+        <p
+          data-testid="leaderboard-empty"
+          className="bg-surface border-line text-ink-3 rounded-lg border px-5 py-6 text-sm"
+        >
+          Aucune participation pour l&apos;instant.
+        </p>
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowId={({ entry }) => entry.participationId}
+          action={{
+            label: "Voir la copie",
+            cell: ({ entry }) => {
+              const href = copyHref(entry)
+              if (!href) return null
+              return (
+                <Button
+                  asChild
+                  size="sm"
+                  variant="ghost"
+                  className={cn("whitespace-nowrap", TOUCH_HEIGHT)}
+                >
+                  <Link
+                    href={href}
+                    data-testid={`btn-view-copy-${entry.participationId}`}
                   >
-                    {entry.score === null ? "—" : rank}
-                  </div>
-                  <UserAvatar
-                    name={entry.user?.name}
-                    image={entry.user?.image}
-                    className="size-9 shrink-0 @sm:size-10"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <p className="truncate text-sm font-medium @sm:text-base">
-                        {entry.user?.name}
-                      </p>
-                      {entry.user?.flag && (
-                        <Badge variant="secondary">
-                          {FLAG_LABELS[entry.user.flag]}
-                        </Badge>
-                      )}
-                    </div>
-                    {entry.user?.username && (
-                      <p className="text-muted-foreground truncate text-xs @sm:text-sm">
-                        @{entry.user.username}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                    Voir la copie
+                  </Link>
+                </Button>
+              )
+            },
+          }}
+          empty={
+            <p className="bg-surface border-line text-ink-3 rounded-lg border px-5 py-6 text-sm">
+              Aucun participant ne correspond à « {search.trim()} ».
+            </p>
+          }
+        />
+      )}
 
-                {/* Right side: Score + Actions */}
-                <div className="flex shrink-0 items-center gap-2">
-                  <div className="text-right">
-                    <p className="text-sm font-bold @sm:text-base">
-                      {formatScore(entry.score)}
-                    </p>
-                    <p className="text-muted-foreground hidden text-xs @md:block">
-                      {entry.completedAt &&
-                        formatCompactDateTime(entry.completedAt)}
-                    </p>
-                  </div>
-
-                  {/* Desktop: Separate buttons */}
-                  {entry.user && (
-                    <>
-                      <div className="hidden items-center gap-1 @md:flex">
-                        {(isAdmin || entry.user.id === currentUserId) && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                            className="h-8 w-8"
-                          >
-                            <Link
-                              href={
-                                isAdmin
-                                  ? `/admin/examens/${examId}/resultats/${entry.user.id}`
-                                  : `/tableau-de-bord/examen-blanc/${examId}/resultats`
-                              }
-                              title={`Voir les résultats de ${entry.user.name}`}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        )}
-                        {isAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/20"
-                            onClick={() =>
-                              handleDeleteClick({
-                                participationId: entry.participationId,
-                                userName: entry.user?.name || "ce participant",
-                                score: entry.score,
-                              })
-                            }
-                            title={`Supprimer la participation de ${entry.user.name}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-
-                      {/* Mobile: Dropdown menu */}
-                      <div className="@md:hidden">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
-                              <EllipsisVertical className="h-4 w-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {(isAdmin || entry.user.id === currentUserId) && (
-                              <DropdownMenuItem asChild>
-                                <Link
-                                  href={
-                                    isAdmin
-                                      ? `/admin/examens/${examId}/resultats/${entry.user.id}`
-                                      : `/tableau-de-bord/examen-blanc/${examId}/resultats`
-                                  }
-                                  className="flex items-center gap-2"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                  Voir les résultats
-                                </Link>
-                              </DropdownMenuItem>
-                            )}
-                            {isAdmin && (
-                              <>
-                                {(isAdmin ||
-                                  entry.user.id === currentUserId) && (
-                                  <DropdownMenuSeparator />
-                                )}
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleDeleteClick({
-                                      participationId: entry.participationId,
-                                      userName:
-                                        entry.user?.name || "ce participant",
-                                      score: entry.score,
-                                    })
-                                  }
-                                  className="flex items-center gap-2 text-red-600 focus:text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Supprimer
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      </CardContent>
-
-      {/* AlertDialog de confirmation de suppression */}
-      <AlertDialog
-        open={participantToDelete !== null}
-        onOpenChange={(open) => !open && setParticipantToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la participation</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2">
-                <p>
-                  Êtes-vous sûr de vouloir supprimer la participation de{" "}
-                  <strong>{participantToDelete?.userName}</strong> ?
-                </p>
-                <p>
-                  Score obtenu :{" "}
-                  <strong>
-                    {formatScore(participantToDelete?.score ?? null)}
-                  </strong>
-                </p>
-                <p className="text-red-600 dark:text-red-400">
-                  ⚠️ Cette action est irréversible. Toutes les réponses de ce
-                  participant seront définitivement supprimées.
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={isDeleting}
-              className="bg-red-600 text-white hover:bg-red-700"
+      {leaderboard.length > 0 && query === "" && (
+        <div className="text-ink-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem]">
+          <span data-testid="leaderboard-summary">
+            {truncated
+              ? `${LEADERBOARD_PREVIEW} premiers sur ${formatCount(leaderboard.length)}.`
+              : `${countLabel(leaderboard.length, "copie soumise", "copies soumises")}.`}
+            {
+              " Supprimer une participation, depuis sa copie, permet à l'étudiant de repasser l'examen."
+            }
+          </span>
+          {truncated && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={TOUCH_HEIGHT}
+              onClick={() => setShowAll(true)}
+              data-testid="btn-leaderboard-show-all"
             >
-              {isDeleting ? "Suppression..." : "Supprimer définitivement"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Card>
+              Afficher tout
+            </Button>
+          )}
+        </div>
+      )}
+    </section>
   )
 }

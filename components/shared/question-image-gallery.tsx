@@ -1,6 +1,6 @@
 "use client"
 
-import { IconPhoto, IconZoomIn } from "@tabler/icons-react"
+import { IconZoomIn } from "@tabler/icons-react"
 import Image from "next/image"
 import { useState } from "react"
 import Lightbox from "yet-another-react-lightbox"
@@ -72,7 +72,7 @@ export const QuestionImageGallery = ({
           type="button"
           onClick={() => openLightbox(0)}
           className={cn(
-            "group bg-muted relative cursor-pointer overflow-hidden rounded-lg border transition-all hover:ring-2 hover:ring-blue-500",
+            "group bg-surface-2 hover:ring-accent relative cursor-pointer overflow-hidden rounded-lg border transition-all hover:ring-2",
             sizeClasses[size],
             className,
           )}
@@ -113,7 +113,7 @@ export const QuestionImageGallery = ({
             type="button"
             onClick={() => openLightbox(index)}
             className={cn(
-              "group bg-muted relative cursor-pointer overflow-hidden rounded-lg border transition-all hover:ring-2 hover:ring-blue-500",
+              "group bg-surface-2 hover:ring-accent relative cursor-pointer overflow-hidden rounded-lg border transition-all hover:ring-2",
               size === "sm"
                 ? "h-16 w-16"
                 : size === "md"
@@ -158,26 +158,5 @@ export const QuestionImageGallery = ({
         counter={{ container: { style: { top: "unset", bottom: 0 } } }}
       />
     </>
-  )
-}
-
-// ============================================
-// COMPACT VARIANT (for lists)
-// ============================================
-
-export const QuestionImageIndicator = ({
-  images,
-}: {
-  images?: QuestionImage[]
-}) => {
-  const count = images?.length || 0
-
-  if (count === 0) return null
-
-  return (
-    <span className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-      <IconPhoto className="h-3 w-3" />
-      {count}
-    </span>
   )
 }

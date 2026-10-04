@@ -5,17 +5,18 @@ import { describe, expect, it, vi } from "vitest"
 import { ExamLeaderboard } from "@/app/(admin)/admin/examens/[id]/_components/exam-leaderboard"
 import type { LeaderboardEntry } from "@/features/exams/dal"
 
-const { deleteParticipation } = vi.hoisted(() => ({
-  deleteParticipation: vi.fn(),
-}))
-
-vi.mock("@/features/exams/actions", () => ({ deleteParticipation }))
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
-}))
 vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: ReactNode
+    href: string
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }))
 
@@ -23,76 +24,124 @@ const entry = (
   participationId: string,
   name: string,
   username: string | null,
-  score: number | null,
-  flag: "admin" | "deleted" | null = null,
+  score: number,
+  {
+    flag = null,
+    status = "completed",
+  }: {
+    flag?: "admin" | "deleted" | null
+    status?: LeaderboardEntry["status"]
+  } = {},
 ): LeaderboardEntry => ({
   participationId,
   user: { id: `user-${participationId}`, name, username, image: null, flag },
   score,
   completedAt: 1700000000000,
+  status,
 })
 
 const leaderboard = [
   entry("p1", "Hélène Martin", "helene", 92),
-  entry("p2", "Paul Durand", "pdurand", 85),
+  entry("p2", "Paul Durand", "pdurand", 85, { status: "auto_submitted" }),
   entry("p3", "Amine Kaci", "zorro", 71),
 ]
 
-function renderLeaderboard() {
-  render(<ExamLeaderboard examId="exam-1" leaderboard={leaderboard} isAdmin />)
+const renderLeaderboard = (rows = leaderboard) => {
+  render(<ExamLeaderboard examId="exam-1" leaderboard={rows} />)
   return userEvent.setup()
 }
 
-const search = () => screen.getByPlaceholderText("Rechercher un participant...")
-const visibleNames = () =>
+const search = () => screen.getByPlaceholderText("Rechercher un participant…")
+const row = (participationId: string) =>
+  screen.getByTestId(`leaderboard-row-${participationId}`).closest("tr")!
+const shownIds = () =>
   screen
-    .getAllByRole("listitem")
-    .map((item) => within(item).getAllByRole("paragraph")[0].textContent)
+    .queryAllByTestId(/^leaderboard-row-/)
+    .map((el) => el.dataset.testid?.replace("leaderboard-row-", ""))
 
-describe("ExamLeaderboard — comptes hors classement étudiant", () => {
+describe("ExamLeaderboard — lignes", () => {
   it("signale un compte admin et un compte supprimé", () => {
+    renderLeaderboard([
+      entry("p1", "Équipe NOMAQbanq", null, 98, { flag: "admin" }),
+      entry("p2", "Utilisateur supprimé", null, 90, { flag: "deleted" }),
+      entry("p3", "Paul Durand", "pdurand", 85),
+    ])
+
+    expect(within(row("p1")).getByText("Admin")).toBeInTheDocument()
+    expect(within(row("p2")).getByText("Supprimé")).toBeInTheDocument()
+    expect(within(row("p3")).queryByText(/^(Admin|Supprimé)$/)).toBeNull()
+  })
+
+  it("distingue une soumission automatique d'une soumission manuelle", () => {
+    renderLeaderboard()
+
+    expect(within(row("p2")).getByText("Automatique")).toBeInTheDocument()
+    expect(within(row("p1")).getByText("Manuelle")).toBeInTheDocument()
+  })
+
+  it("« Voir la copie » mène à la copie de l'étudiant", () => {
+    renderLeaderboard()
+
+    expect(screen.getByTestId("btn-view-copy-p3").getAttribute("href")).toBe(
+      "/admin/examens/exam-1/resultats/user-p3",
+    )
+  })
+
+  it("annonce un classement provisoire", () => {
     render(
-      <ExamLeaderboard
-        examId="exam-1"
-        leaderboard={[
-          entry("p1", "Équipe NOMAQbanq", null, 98, "admin"),
-          entry("p2", "Utilisateur supprimé", null, 90, "deleted"),
-          entry("p3", "Paul Durand", "pdurand", 85),
-        ]}
-        isAdmin
-      />,
+      <ExamLeaderboard examId="exam-1" leaderboard={leaderboard} provisional />,
     )
 
-    const [admin, deleted, student] = screen.getAllByRole("listitem")
-    expect(within(admin!).getByText("Admin")).toBeInTheDocument()
-    expect(within(deleted!).getByText("Supprimé")).toBeInTheDocument()
-    expect(within(student!).queryByText(/^(Admin|Supprimé)$/)).toBeNull()
+    expect(screen.getByTestId("leaderboard-provisional")).toBeInTheDocument()
+  })
+
+  it("dit qu'il n'y a pas encore de participation", () => {
+    renderLeaderboard([])
+
+    expect(screen.getByTestId("leaderboard-empty")).toHaveTextContent(
+      "Aucune participation pour l'instant.",
+    )
+  })
+})
+
+describe("ExamLeaderboard — dix premiers", () => {
+  const many = Array.from({ length: 12 }, (_, i) =>
+    entry(`p${i + 1}`, `Étudiant ${i + 1}`, null, 90 - i),
+  )
+
+  it("montre les dix premiers puis le reste à la demande", async () => {
+    const user = renderLeaderboard(many)
+
+    expect(shownIds()).toHaveLength(10)
+    expect(screen.getByTestId("leaderboard-summary")).toHaveTextContent(
+      "10 premiers sur 12.",
+    )
+
+    await user.click(screen.getByTestId("btn-leaderboard-show-all"))
+
+    expect(shownIds()).toHaveLength(12)
+  })
+
+  it("cherche dans tout le classement, au-delà des dix premiers", async () => {
+    const user = renderLeaderboard(many)
+
+    await user.type(search(), "Étudiant 12")
+
+    expect(shownIds()).toEqual(["p12"])
+    expect(within(row("p12")).getByText("12")).toBeInTheDocument()
   })
 })
 
 describe("ExamLeaderboard — recherche", () => {
-  it("filtre les participants par nom", async () => {
-    const user = renderLeaderboard()
-
-    await user.type(search(), "paul")
-
-    expect(visibleNames()).toEqual(["Paul Durand"])
-  })
-
-  it("filtre aussi par @username", async () => {
-    const user = renderLeaderboard()
-
-    await user.type(search(), "zorro")
-
-    expect(visibleNames()).toEqual(["Amine Kaci"])
-  })
-
-  it("ignore la casse et les accents", async () => {
+  it("filtre par nom et par @username, sans casse ni accents", async () => {
     const user = renderLeaderboard()
 
     await user.type(search(), "HELENE")
+    expect(shownIds()).toEqual(["p1"])
 
-    expect(visibleNames()).toEqual(["Hélène Martin"])
+    await user.clear(search())
+    await user.type(search(), "zorro")
+    expect(shownIds()).toEqual(["p3"])
   })
 
   it("chaque participant garde son rang dans le classement complet", async () => {
@@ -100,8 +149,7 @@ describe("ExamLeaderboard — recherche", () => {
 
     await user.type(search(), "amine")
 
-    const [row] = screen.getAllByRole("listitem")
-    expect(within(row).getByText("3")).toBeInTheDocument()
+    expect(within(row("p3")).getByText("3")).toBeInTheDocument()
   })
 
   it("annonce qu'aucun participant ne correspond", async () => {
@@ -109,24 +157,9 @@ describe("ExamLeaderboard — recherche", () => {
 
     await user.type(search(), "inconnu")
 
-    expect(screen.queryAllByRole("listitem")).toHaveLength(0)
+    expect(shownIds()).toHaveLength(0)
     expect(
       screen.getByText("Aucun participant ne correspond à « inconnu »."),
     ).toBeInTheDocument()
-  })
-
-  it("« Supprimer » vise la participation de la ligne filtrée", async () => {
-    deleteParticipation.mockResolvedValue({ success: true, data: null })
-    const user = renderLeaderboard()
-
-    await user.type(search(), "paul")
-    await user.click(
-      screen.getByTitle("Supprimer la participation de Paul Durand"),
-    )
-    await user.click(
-      await screen.findByRole("button", { name: "Supprimer définitivement" }),
-    )
-
-    expect(deleteParticipation).toHaveBeenCalledWith({ participationId: "p2" })
   })
 })

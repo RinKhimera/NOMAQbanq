@@ -28,10 +28,10 @@ describe("domaines médicaux", () => {
 describe("domaine d'une question côté serveur", () => {
   const question = {
     question: "Quel est le traitement de première intention ?",
-    options: ["A", "B"],
+    options: ["A", "B", "C", "D"],
     correctAnswer: "A",
     explanation: "Parce que.",
-    objectifCMC: "Objectif",
+    objectiveId: "obj-1",
   }
 
   it("accepte un domaine de la liste", () => {

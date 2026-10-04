@@ -3,6 +3,7 @@ import type {
   AnswersMap,
   QuizQuestion,
 } from "@/components/quiz/runner/types"
+import { TONE_SOFT, TONE_TEXT } from "@/lib/tone"
 
 /**
  * AttemptScore — le score d'une tentative et sa lecture. Module pur, partagé
@@ -18,9 +19,41 @@ import type {
 export const computeScorePercent = (correct: number, total: number): number =>
   total > 0 ? Math.floor((200 * correct + total) / (2 * total)) : 0
 
-/** Score affichable, ou « — » quand il est retenu (`null`, voir `scoreWithheldFor`). */
+/** Seuil de réussite d'un examen blanc comme d'une série. */
+export const PASS_THRESHOLD = 60
+const EXCELLENT_THRESHOLD = 80
+
+export type ScoreTone = "success" | "warning" | "danger"
+
+/** Échelle unique des scores : ≥ 80 réussite nette, ≥ 60 réussite juste, sinon échec. */
+export const scoreTone = (score: number): ScoreTone => {
+  if (score >= EXCELLENT_THRESHOLD) return "success"
+  if (score >= PASS_THRESHOLD) return "warning"
+  return "danger"
+}
+
+export const isPassing = (score: number): boolean => score >= PASS_THRESHOLD
+
+export const SCORE_TONE_TEXT: Record<ScoreTone, string> = {
+  success: TONE_TEXT.success,
+  warning: TONE_TEXT.warning,
+  danger: TONE_TEXT.danger,
+}
+
+/** Couleur d'un score lisible ; neutre quand il est retenu : la tranche le trahirait. */
+export const scoreTextClass = (score: number | null): string =>
+  score === null ? "text-ink-3" : SCORE_TONE_TEXT[scoreTone(score)]
+
+/** Fond doux et filet d'une cellule de score ; neutre quand il est retenu. */
+export const scoreSoftClass = (score: number | null): string =>
+  score === null ? TONE_SOFT.neutral : TONE_SOFT[scoreTone(score)]
+
+/**
+ * Score affichable (« 72 % », espace insécable comme `formatPercent`), ou « — »
+ * quand il est retenu (`null`, voir `scoreWithheldFor`).
+ */
 export const formatScore = (score: number | null): string =>
-  score === null ? "—" : `${score}%`
+  score === null ? "—" : `${score} %`
 
 /**
  * Percentile d'examen en phrase, pour un percentile disponible. `participant` :

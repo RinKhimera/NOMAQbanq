@@ -1,420 +1,284 @@
 "use client"
 
-import {
-  ArrowRight,
-  Calendar,
-  ChevronRight,
-  Clock,
-  CreditCard,
-  Crown,
-  ExternalLink,
-  Receipt,
-  Sparkles,
-  Zap,
-} from "lucide-react"
-import { motion } from "motion/react"
+import { ArrowRight, Clock, ExternalLink, Receipt } from "lucide-react"
 import Link from "next/link"
-import { useActionState, useState, useTransition } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import {
-  AccessBadge,
-  getAccessStatus,
-} from "@/components/shared/payments/access-badge"
-import {
-  type Transaction,
-  TransactionTable,
-} from "@/components/shared/payments/transaction-table"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { KeysetPagination } from "@/components/shared/data-table/keyset-pagination"
+import { PageIntro } from "@/components/shared/page-intro"
+import { ACCESS_TYPE_LABEL } from "@/components/shared/payments/access-badge"
+import { AccessCard } from "@/components/shared/payments/access-card"
+import { TransactionTable } from "@/components/shared/payments/transaction-table"
+import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Spinner } from "@/components/ui/spinner"
-import {
-  createCustomerPortal,
-  loadMoreMyTransactions,
-} from "@/features/payments/actions"
+import type { AccessType } from "@/features/payments/access-ledger"
+import { createCustomerPortal } from "@/features/payments/actions"
 import type {
   AccessStatus,
-  MyTransactionView,
+  LapsedAccess,
   MyTransactionsPage,
   ProductView,
 } from "@/features/payments/dal"
-import { formatExpiration } from "@/lib/format"
+import { MY_TRANSACTIONS_PAGE_SIZE } from "@/features/payments/page-sizes"
+import { formatCurrency, formatExpiration } from "@/lib/format"
+import { cheapestMonthly, monthsOf, savingsOf } from "@/lib/pricing"
 import { callAction } from "@/lib/safe-action"
-import { cn } from "@/lib/utils"
 
-const accessTypeConfig = {
-  exam: {
-    icon: Zap,
-    label: "Examens Simulés",
-    gradient: "from-blue-600 to-indigo-600",
-    lightGradient:
-      "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30",
-    accentColor: "text-blue-600 dark:text-blue-400",
-    description: "Accès aux examens blancs chronométrés",
-  },
-  training: {
-    icon: Sparkles,
-    label: "Banque d'Entraînement",
-    gradient: "from-emerald-600 to-teal-600",
-    lightGradient:
-      "from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30",
-    accentColor: "text-emerald-600 dark:text-emerald-400",
-    description: "Accès à 5000+ questions d'entraînement",
-  },
-}
+const cad = (cents: number) => formatCurrency(cents, "CAD", { whole: true })
 
-const AccessCard = ({
+const AccessAction = ({
   type,
-  access,
+  active,
+  lapsed,
 }: {
-  type: "exam" | "training"
-  access: { expiresAt: number; daysRemaining: number } | null
-}) => {
-  const config = accessTypeConfig[type]
-  const Icon = config.icon
-  const status = getAccessStatus(access?.expiresAt, access?.daysRemaining)
-  const isActive = status === "active" || status === "expiring"
-  const progressPercent = access
-    ? Math.min((access.daysRemaining / 180) * 100, 100)
-    : 0
+  type: AccessType
+  active: boolean
+  lapsed: boolean
+}) =>
+  active ? (
+    <div className="flex flex-col gap-2">
+      <Button asChild variant="outline" className="w-full max-md:h-11">
+        <Link href="/tarifs">
+          <Clock aria-hidden="true" />
+          Prolonger l&apos;accès
+        </Link>
+      </Button>
+      {/* Le Pack Premium ouvre une période neuve (registre d'accès) : seul
+          un accès simple prolonge le temps restant. */}
+      <p className="text-ink-3 text-xs">
+        Le temps restant s&apos;ajoute à un nouvel accès{" "}
+        {ACCESS_TYPE_LABEL[type]} ; le Pack Premium ne se cumule pas.
+      </p>
+    </div>
+  ) : (
+    <Button asChild className="w-full max-md:h-11">
+      <Link href="/tarifs">
+        {lapsed ? "Réactiver l'accès" : "Activer l'accès"}
+        <ArrowRight aria-hidden="true" />
+      </Link>
+    </Button>
+  )
 
+const PremiumBanner = ({ products }: { products: ProductView[] }) => {
+  const combo = products.find((p) => p.isCombo)
+  if (!combo) return null
+  const savings = savingsOf(products, combo)
+  const months = monthsOf(combo)
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={cn(
-        "group relative overflow-hidden rounded-2xl border-2 p-6 transition-all duration-300",
-        isActive
-          ? "border-transparent bg-white shadow-xl dark:bg-gray-900"
-          : "border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30",
-      )}
-    >
-      {/* Gradient accent for active */}
-      {isActive && (
-        <div
-          className={cn(
-            "absolute inset-x-0 top-0 h-1 bg-linear-to-r",
-            config.gradient,
-          )}
-        />
-      )}
-
-      {/* Header */}
-      <div className="mb-4 flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className={cn(
-              "flex h-12 w-12 items-center justify-center rounded-xl",
-              isActive
-                ? cn("bg-linear-to-br shadow-lg", config.gradient)
-                : "bg-gray-200 dark:bg-gray-700",
-            )}
-          >
-            <Icon
-              className={cn(
-                "h-6 w-6",
-                isActive ? "text-white" : "text-gray-400 dark:text-gray-500",
-              )}
-            />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">
-              {config.label}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {config.description}
-            </p>
-          </div>
-        </div>
-        <AccessBadge
-          accessType={type}
-          status={status}
-          daysRemaining={access?.daysRemaining}
-          size="sm"
-        />
+    <div className="bg-surface-2 border-line flex flex-wrap items-center justify-between gap-4 rounded-lg border px-6 py-5 max-md:px-5">
+      <div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5">
+        <span className="flex flex-wrap gap-2">
+          <StatusPill tone="warning" className="font-mono uppercase">
+            Premium
+          </StatusPill>
+          <StatusPill tone="neutral" className="font-mono uppercase">
+            Examens + Entraînement
+          </StatusPill>
+        </span>
+        <p className="text-ink text-[1.0625rem] font-semibold">
+          Pack Premium : les deux accès pendant {months} mois
+        </p>
+        {savings && (
+          <p className="text-ink-2 text-sm">
+            <span className="text-ink font-mono">{cad(combo.priceCAD)}</span> au
+            lieu de{" "}
+            <span className="line-through">{cad(savings.referenceCAD)}</span> en
+            achetant séparément, soit {cad(savings.savedCAD)} d&apos;économie.
+          </p>
+        )}
       </div>
-
-      {/* Active state details */}
-      {isActive && access && (
-        <div className="space-y-4">
-          {/* Progress bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">
-                Temps restant
-              </span>
-              <span className="font-medium text-gray-900 dark:text-white">
-                {access.daysRemaining} jours
-              </span>
-            </div>
-            <Progress
-              value={progressPercent}
-              className="h-2"
-              aria-label={`${access.daysRemaining} jours restants sur votre accès`}
-            />
-          </div>
-
-          {/* Expiration date */}
-          <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3 dark:bg-gray-800/50">
-            <span className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <Calendar className="h-4 w-4" />
-              Expire le
-            </span>
-            <span className="font-medium text-gray-900 dark:text-white">
-              {formatExpiration(access.expiresAt)}
-            </span>
-          </div>
-
-          {/* Extend button */}
-          <Button asChild variant="outline" className="w-full rounded-xl">
-            <Link href="/tarifs">
-              <Clock className="mr-2 h-4 w-4" />
-              Prolonger l{"'"}accès
-            </Link>
-          </Button>
-        </div>
-      )}
-
-      {/* Inactive state */}
-      {!isActive && (
-        <div className="mt-4">
-          <Button
-            asChild
-            className={cn(
-              "w-full rounded-xl bg-linear-to-r text-white hover:opacity-90",
-              config.gradient,
-            )}
-          >
-            <Link href="/tarifs">
-              Activer l{"'"}accès
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
-      )}
-    </motion.div>
+      <Button asChild className="max-[480px]:w-full max-md:h-11">
+        <Link href="/tarifs">
+          Voir les tarifs
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </Button>
+    </div>
   )
 }
-
-// Adapte le modèle DAL au contrat (numérique) attendu par TransactionTable.
-const toTableTransaction = (tx: MyTransactionView): Transaction => ({
-  _id: tx.id,
-  type: tx.type,
-  status: tx.status,
-  amountPaid: tx.amountPaid,
-  currency: tx.currency,
-  accessType: tx.accessType,
-  durationDays: tx.durationDays,
-  createdAt: tx.createdAt,
-  completedAt: tx.completedAt ?? undefined,
-  paymentMethod: tx.paymentMethod ?? undefined,
-  notes: tx.notes ?? undefined,
-  product: tx.product ? { _id: tx.product.id, name: tx.product.name } : null,
-})
 
 export const AbonnementsClient = ({
   accessStatus,
-  initialTransactions,
+  lapsed,
+  transactions,
   products,
 }: {
   accessStatus: AccessStatus
-  initialTransactions: MyTransactionsPage
+  lapsed: LapsedAccess
+  transactions: MyTransactionsPage
   products: ProductView[]
 }) => {
-  const [items, setItems] = useState<MyTransactionView[]>(
-    initialTransactions.items,
-  )
-  const [cursor, setCursor] = useState<string | null>(
-    initialTransactions.nextCursor,
-  )
-  const [isLoadingMore, startLoadMore] = useTransition()
+  const router = useRouter()
+  const pathname = usePathname()
+  const [isPaging, startPaging] = useTransition()
+  const [portalOpen, setPortalOpen] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
 
-  const handleLoadMore = () => {
-    if (!cursor) return
-    startLoadMore(async () => {
-      try {
-        const next = await loadMoreMyTransactions(cursor)
-        setItems((prev) => [...prev, ...next.items])
-        setCursor(next.nextCursor)
-      } catch {
-        toast.error("Impossible de charger plus de transactions")
-      }
+  const goTo = (param: "apres" | "avant", cursor: string) =>
+    startPaging(() => {
+      router.push(`${pathname}?${new URLSearchParams({ [param]: cursor })}`, {
+        scroll: false,
+      })
     })
+
+  // Le portail Stripe ne s'ouvre qu'ici, après confirmation dans le Dialog.
+  const openPortal = async () => {
+    const res = await callAction(() =>
+      createCustomerPortal("/tableau-de-bord/abonnements"),
+    )
+    if ("error" in res) {
+      if (res.error.includes("Aucun historique")) {
+        toast.error(
+          "Aucun achat effectué. Effectuez un premier achat pour accéder à vos factures.",
+        )
+        return
+      }
+      toast.error(
+        navigator.onLine
+          ? res.error
+          : "Pas de connexion internet. Vérifiez votre réseau.",
+      )
+      // Échec passager : le Dialog reste ouvert pour réessayer.
+      return false
+    }
+    setRedirecting(true)
+    window.location.href = res.portalUrl
   }
 
-  const [, startTransition] = useTransition()
-
-  const [, openPortalAction, isLoadingPortal] = useActionState(
-    async () => {
-      // callAction : sans lui, un rejet fetch dans une action useActionState
-      // remonte à l'error boundary au rendu (React 19) — ActionFailure porte
-      // `error`, le garde ci-dessous l'attrape aussi
-      const res = await callAction(() =>
-        createCustomerPortal("/tableau-de-bord/abonnements"),
+  const inactiveNote = (type: AccessType) => {
+    const lapsedAt = lapsed[type]
+    if (lapsedAt !== null)
+      return (
+        <>
+          Expiré le{" "}
+          <span className="text-ink font-medium">
+            {formatExpiration(lapsedAt)}
+          </span>
+          . Vos résultats restent consultables.
+        </>
       )
-      if ("error" in res) {
-        if (!navigator.onLine) {
-          toast.error("Pas de connexion internet. Vérifiez votre réseau.")
-        } else if (res.error.includes("Aucun historique")) {
-          toast.error(
-            "Aucun achat effectué. Effectuez un premier achat pour accéder à vos factures.",
-          )
-        } else {
-          toast.error(res.error)
-        }
-        return { success: false }
-      }
-      window.location.href = res.portalUrl
-      return { success: true }
-    },
-    { success: false },
-  )
+    const monthly = cheapestMonthly(products, type)
+    return monthly
+      ? `Aucun accès actif. À partir de ${cad(monthly.priceCAD)} pour 1 mois.`
+      : "Aucun accès actif."
+  }
 
-  const hasProductsToUpsell = products.length > 0
-  const showUpgradeBanner =
-    hasProductsToUpsell &&
-    (!accessStatus.examAccess || !accessStatus.trainingAccess)
-
-  const tableTransactions = items.map(toTableTransaction)
+  const missingAccess = !accessStatus.examAccess || !accessStatus.trainingAccess
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
-      {/* Header */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-blue-600">Mon Abonnement</h1>
-          <p className="text-muted-foreground">
-            Gérez vos accès et consultez votre historique de paiements
+    <>
+      <PageIntro
+        eyebrow="Compte"
+        title="Abonnements et accès"
+        description="Gérez vos accès et consultez votre historique de paiements."
+        actions={
+          <Button
+            variant="outline"
+            aria-disabled={redirecting}
+            onClick={() => {
+              if (!redirecting) setPortalOpen(true)
+            }}
+            data-testid="billing-portal-open"
+            className="max-md:h-11"
+          >
+            {redirecting ? (
+              <>
+                <Spinner size="sm" />
+                Redirection vers Stripe…
+              </>
+            ) : (
+              <>
+                <Receipt aria-hidden="true" />
+                Gérer mes factures
+                <ExternalLink aria-hidden="true" />
+              </>
+            )}
+          </Button>
+        }
+      />
+
+      <ConfirmDialog
+        open={portalOpen}
+        onOpenChange={setPortalOpen}
+        title="Ouvrir le portail de facturation"
+        description="Vous allez être redirigé vers le portail Stripe pour gérer vos factures et vos moyens de paiement."
+        confirmLabel={
+          <>
+            Continuer vers Stripe
+            <ExternalLink aria-hidden="true" />
+          </>
+        }
+        confirmTestId="billing-portal-confirm"
+        onConfirm={openPortal}
+      />
+
+      <section
+        aria-labelledby="acces-title"
+        className="grid grid-cols-2 gap-3 max-md:grid-cols-1"
+      >
+        <h2 id="acces-title" className="sr-only">
+          Vos accès
+        </h2>
+        {(["exam", "training"] as const).map((type) => (
+          <AccessCard
+            key={type}
+            type={type}
+            access={
+              type === "exam"
+                ? accessStatus.examAccess
+                : accessStatus.trainingAccess
+            }
+            inactiveNote={inactiveNote(type)}
+            action={(active) => (
+              <AccessAction
+                type={type}
+                active={active}
+                lapsed={lapsed[type] !== null}
+              />
+            )}
+          />
+        ))}
+      </section>
+
+      {missingAccess && <PremiumBanner products={products} />}
+
+      <section className="bg-surface border-line shadow-1 flex min-w-0 flex-col rounded-lg border">
+        <div className="flex flex-col gap-1 px-6 pt-5 pb-4 max-md:px-5">
+          <p className="type-label">Paiements</p>
+          <h2 className="type-h4 text-ink">Historique des transactions</h2>
+          <p className="text-ink-3 text-sm">
+            Vos achats et paiements, du plus récent au plus ancien.
           </p>
         </div>
-        <div className="flex gap-3">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="outline"
-                disabled={isLoadingPortal}
-                className="rounded-xl"
-              >
-                {isLoadingPortal ? (
-                  <span className="flex items-center gap-2">
-                    <Spinner size="sm" />
-                    Chargement...
-                  </span>
-                ) : (
-                  <>
-                    <Receipt className="mr-2 h-4 w-4" />
-                    Gérer mes factures
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-2xl">
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Ouvrir le portail de facturation
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  Vous allez être redirigé vers le portail Stripe pour gérer vos
-                  factures et méthodes de paiement.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel className="rounded-xl">
-                  Annuler
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => startTransition(() => openPortalAction())}
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700"
-                >
-                  Continuer vers Stripe
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
-
-      {/* Access cards */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <AccessCard type="exam" access={accessStatus.examAccess} />
-        <AccessCard type="training" access={accessStatus.trainingAccess} />
-      </div>
-
-      {/* Upgrade banner */}
-      {showUpgradeBanner && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-2xl bg-linear-to-r from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-xl"
-        >
-          <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-          <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-
-          <div className="relative flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur">
-                <Crown className="h-7 w-7" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">
-                  Débloquez l{"'"}accès complet
-                </h3>
-                <p className="text-sm text-blue-100">
-                  Économisez avec nos offres 6 mois
-                </p>
-              </div>
-            </div>
-            <Button
-              asChild
-              size="lg"
-              className="rounded-xl bg-white px-6 font-bold text-blue-600 hover:bg-blue-50"
-            >
-              <Link href="/tarifs">
-                Voir les tarifs
-                <ChevronRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Transaction history */}
-      <Card className="rounded-2xl border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-blue-600" />
-            Historique des transactions
-          </CardTitle>
-          <CardDescription>Vos achats et paiements récents</CardDescription>
-        </CardHeader>
-        <CardContent>
+        <div className="border-line border-t px-6 py-4 max-md:px-5">
           <TransactionTable
-            transactions={tableTransactions}
-            isPending={isLoadingMore}
-            onLoadMore={handleLoadMore}
-            hasMore={cursor !== null}
-            emptyMessage="Aucune transaction pour le moment"
+            transactions={transactions.items}
+            isPending={isPaging}
+            emptyMessage="Aucune transaction pour le moment."
+            footer={
+              <KeysetPagination
+                firstIndex={transactions.firstIndex}
+                count={transactions.items.length}
+                pageSize={MY_TRANSACTIONS_PAGE_SIZE}
+                isPending={isPaging}
+                onPrevious={
+                  transactions.prevCursor
+                    ? () => goTo("avant", transactions.prevCursor!)
+                    : undefined
+                }
+                onNext={
+                  transactions.nextCursor
+                    ? () => goTo("apres", transactions.nextCursor!)
+                    : undefined
+                }
+              />
+            }
           />
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </section>
+    </>
   )
 }

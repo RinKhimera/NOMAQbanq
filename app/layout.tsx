@@ -1,24 +1,30 @@
 import type { Metadata, Viewport } from "next"
-import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google"
+import { IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google"
 import { JsonLd } from "@/components/seo/json-ld"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// Direction « Manuel » : serif pour les titres et vignettes, sans pour
+// l'interface, mono pour les données. Les variables sont posées sur <html> et
+// reprises par `@theme inline` (app/globals.css) en `font-serif` / `font-sans`
+// / `font-mono`.
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
+  subsets: ["latin", "latin-ext"],
+  axes: ["opsz"],
 })
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
+  subsets: ["latin", "latin-ext"],
 })
 
-const plusJakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-display",
-  weight: ["400", "500", "600", "700", "800"],
-  subsets: ["latin"],
+// IBM Plex Mono n'existe pas en police variable : graisses explicites.
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  weight: ["400", "500", "600"],
+  subsets: ["latin", "latin-ext"],
 })
 
 const baseUrl = "https://nomaqbanq.ca"
@@ -132,13 +138,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html
+      lang="fr"
+      className={`${sourceSerif.variable} ${plexSans.variable} ${plexMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <link rel="preconnect" href="https://cdn.nomaqbanq.ca" />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${plusJakartaSans.variable} antialiased`}
-      >
+      <body className="antialiased">
         <JsonLd data={organizationSchema} />
         <JsonLd data={websiteSchema} />
         <ThemeProvider

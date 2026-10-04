@@ -9,11 +9,7 @@ import {
   user,
   userAccess,
 } from "@/db/schema"
-import {
-  getDashboardTrends,
-  getFailedPaymentsCount,
-  getRecentActivity,
-} from "@/features/analytics/dal"
+import { getDashboardTrends, getRecentActivity } from "@/features/analytics/dal"
 import { getExpiringAccess, getRevenueByDay } from "@/features/payments/dal"
 import { getAdminStats } from "@/features/users/dal"
 import {
@@ -66,7 +62,6 @@ const INSTANT_SOIR =
 let baseAdmin: Awaited<ReturnType<typeof getAdminStats>>
 let baseTrends: Awaited<ReturnType<typeof getDashboardTrends>>
 let baseRevenue: Awaited<ReturnType<typeof getRevenueByDay>>
-let baseFailed: number
 
 const name = (id: string) => `Adm ${suffix} ${id.slice(0, 4)}`
 const email = (id: string) => `${id.slice(0, 6)}-${suffix}@test.invalid`
@@ -79,7 +74,6 @@ beforeAll(async () => {
   baseAdmin = await getAdminStats()
   baseTrends = await getDashboardTrends()
   baseRevenue = await getRevenueByDay()
-  baseFailed = await getFailedPaymentsCount()
 
   const now = Date.now()
   await db.insert(user).values([
@@ -118,6 +112,7 @@ beforeAll(async () => {
     completionTime: 3600,
     isActive: true,
     createdBy: A,
+    targetQuestionCount: 10,
   })
   await db.insert(examParticipations).values({
     id: createId(),
@@ -322,11 +317,5 @@ describe("getDashboardTrends", () => {
       t.recentParticipationsCount - baseTrends.recentParticipationsCount,
     ).toBe(1)
     expect(typeof t.usersTrend).toBe("number")
-  })
-})
-
-describe("getFailedPaymentsCount", () => {
-  it("compte les transactions échouées des 7 derniers jours (delta)", async () => {
-    expect((await getFailedPaymentsCount()) - baseFailed).toBe(1)
   })
 })

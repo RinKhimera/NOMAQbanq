@@ -8,5 +8,3 @@ import type { auth } from "@/lib/auth"
 export const authClient = createAuthClient({
   plugins: [adminClient(), inferAdditionalFields<typeof auth>()],
 })
-
-export const { signIn, signOut, signUp, useSession } = authClient

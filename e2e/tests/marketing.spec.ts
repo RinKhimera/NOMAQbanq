@@ -1,114 +1,146 @@
 import { expect, test } from "@playwright/test"
 
 test.describe("Pages marketing (publiques)", () => {
-  test("la page d'accueil affiche le hero et les CTAs", async ({ page }) => {
+  test("la page d'accueil affiche le héros, les CTAs et la carte de question", async ({
+    page,
+  }) => {
     await page.goto("/")
 
-    // Hero heading
     await expect(
-      page.locator("h1").filter({ hasText: "PRÉPAREZ-VOUS" }),
+      page.getByRole("heading", {
+        level: 1,
+        name: "Préparez l'EACMC Partie I avec méthode.",
+      }),
     ).toBeVisible({ timeout: 15_000 })
 
-    // CTAs
+    const main = page.locator("main")
     await expect(
-      page.getByRole("link", { name: "Inscrivez-vous gratuitement" }),
-    ).toBeVisible()
-    await expect(
-      page.getByRole("link", { name: "Essayez NOMAQbanq" }),
-    ).toBeVisible()
+      main.getByRole("link", { name: "Essayer l'évaluation gratuite" }).first(),
+    ).toHaveAttribute("href", "/evaluation")
 
-    // Trust indicator — stats are dynamic (fallback "200+"),
-    // so match the suffix instead of a hardcoded number
-    await expect(page.getByText(/candidats satisfaits/).first()).toBeVisible()
+    // Stats dynamiques : on matche le libellé, pas le nombre.
+    await expect(main.getByText(/candidats inscrits/).first()).toBeVisible()
+
+    // La carte de démonstration corrige le choix, sans explication.
+    await page.getByTestId("answer-option-2").click()
+    await expect(page.getByTestId("answer-option-2")).toHaveAttribute(
+      "data-state",
+      "correct",
+    )
+    await expect(page.getByTestId("panel-explanation")).toHaveCount(0)
   })
 
-  test("la page d'accueil affiche les features", async ({ page }) => {
+  test("la page d'accueil affiche les fonctionnalités", async ({ page }) => {
     await page.goto("/")
 
-    // At least 4 feature titles visible
-    const featureTitles = [
+    for (const title of [
       "Démarrage instantané",
       "Points de synthèse",
-      "Modes chronométré / tuteur",
+      "Modes chronométré et tuteur",
       "Disciplines",
-    ]
-
-    for (const title of featureTitles) {
-      await expect(page.getByText(title).first()).toBeVisible({
+    ]) {
+      await expect(page.getByRole("heading", { name: title })).toBeVisible({
         timeout: 15_000,
       })
     }
   })
 
-  test("la page tarifs affiche les plans et les garanties", async ({
+  test("la page tarifs affiche les offres et les garanties", async ({
     page,
   }) => {
     await page.goto("/tarifs")
 
     await expect(
-      page.getByText("Choisissez votre plan de préparation").first(),
+      page.getByRole("heading", { level: 1, name: "Choisissez votre accès." }),
     ).toBeVisible({ timeout: 15_000 })
-
     await expect(
-      page
-        .getByRole("button", { name: /Acheter maintenant|Prolonger/ })
-        .first(),
+      page.getByRole("button", { name: /^(Choisir|Prolonger)/ }).first(),
     ).toBeVisible()
-
     await expect(page.getByText(/Paiement sécurisé/).first()).toBeVisible()
   })
 
-  test("la page FAQ affiche les accordeons et la recherche", async ({
+  test("la page FAQ affiche les accordéons et la recherche", async ({
     page,
   }) => {
     await page.goto("/faq")
 
-    await expect(page.getByText("Foire Aux Questions")).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Questions fréquentes" }),
+    ).toBeVisible({ timeout: 15_000 })
 
-    // Search input
-    const searchInput = page.getByPlaceholder("Rechercher une question...")
+    const searchInput = page.getByPlaceholder("Rechercher une question")
     await expect(searchInput).toBeVisible()
 
-    // Open an accordion
-    const firstTrigger = page.locator('[data-state="closed"]').first()
-    await firstTrigger.click()
-    await expect(page.locator('[data-state="open"]').first()).toBeVisible()
+    const trigger = page.getByRole("button", {
+      name: "Qu'est-ce que NOMAQbanq ?",
+    })
+    await trigger.click()
+    await expect(trigger).toHaveAttribute("aria-expanded", "true")
 
-    // Search with nonsense → no results
     await searchInput.fill("xyznonexistent999")
-    await expect(page.getByText("Aucun résultat trouvé")).toBeVisible()
+    await expect(page.getByText("Aucune question ne correspond.")).toBeVisible()
   })
 
-  test("la page domaines affiche la grille des domaines", async ({ page }) => {
+  test("la page domaines mène aux pages domaine, sans nombre de questions", async ({
+    page,
+  }) => {
     await page.goto("/domaines")
 
-    await expect(page.getByText("Domaines d'évaluation")).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "22 domaines, organisés selon les objectifs du CMC.",
+      }),
+    ).toBeVisible({ timeout: 15_000 })
 
-    // Multiple domain cards should be visible
-    await expect(page.getByText("Cardiologie")).toBeVisible()
+    await page.getByRole("link", { name: /^Cardiologie/ }).click()
+    await expect(page).toHaveURL(/\/domaines\/cardiologie$/)
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Cardiologie" }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Ce que couvre ce domaine" }),
+    ).toBeVisible()
+    await expect(page.locator("main")).not.toContainText(/\d+ questions?\b/)
   })
 
-  test("la page a propos affiche la mission", async ({ page }) => {
+  test("la page à propos affiche les valeurs", async ({ page }) => {
     await page.goto("/a-propos")
 
     await expect(
-      page.getByText("Notre mission et nos engagements"),
+      page.getByRole("heading", { name: "Ce qui nous anime" }),
     ).toBeVisible({ timeout: 15_000 })
   })
 
-  test("la page evaluation affiche le CTA du quiz", async ({ page }) => {
+  test("la page Comment ça marche présente les quatre étapes", async ({
+    page,
+  }) => {
+    await page.goto("/fonctionnement")
+
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Une méthode en quatre temps.",
+      }),
+    ).toBeVisible({ timeout: 15_000 })
+    await expect(
+      page.getByRole("heading", { name: "Quel mode choisir ?" }),
+    ).toBeVisible()
+  })
+
+  test("la page évaluation mène au quiz", async ({ page }) => {
     await page.goto("/evaluation")
 
-    await expect(page.getByText("Testez vos connaissances")).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Testez vos connaissances en conditions réelles.",
+      }),
+    ).toBeVisible({ timeout: 15_000 })
 
-    const quizLink = page.getByRole("link", { name: "Commencer le Quiz" })
-    await expect(quizLink).toBeVisible()
+    const quizLink = page
+      .getByRole("link", { name: "Commencer l'évaluation" })
+      .first()
     await expect(quizLink).toHaveAttribute("href", "/evaluation/quiz")
   })
 
@@ -125,9 +157,9 @@ test.describe("Pages marketing (publiques)", () => {
 
     for (const { url, heading } of legalPages) {
       await page.goto(url)
-      await expect(page.getByRole("heading", { name: heading })).toBeVisible({
-        timeout: 15_000,
-      })
+      await expect(
+        page.getByRole("heading", { level: 1, name: heading }),
+      ).toBeVisible({ timeout: 15_000 })
     }
   })
 })

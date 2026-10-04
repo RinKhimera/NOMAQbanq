@@ -8,6 +8,7 @@ import {
   repairCorrections,
   writeCorrection,
 } from "@/scripts/reprise-corrections"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 const BLOCK =
   "1.\nSource A. Journal A. 2020.\n\n\n2.\nSource B. Journal B. 2021."
@@ -53,7 +54,7 @@ beforeAll(async () => {
       question: `Q reprise ${id}`,
       correctAnswer: "A",
       options: ["A", "B"],
-      objectifCmc: "obj test",
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: "Autres",
       deletedAt: id === ids.deleted ? new Date() : null,
     })),

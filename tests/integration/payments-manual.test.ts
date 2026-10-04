@@ -33,18 +33,20 @@ const pCombo: ProductForGrant = {
 const users = { first: createId(), combo: createId(), admin: createId() }
 
 const grant = (userId: string, product: ProductForGrant) =>
-  db.transaction((tx) =>
-    grantManualAccess(tx, {
-      userId,
-      product,
-      amountPaid: 5000,
-      currency: "CAD",
-      paymentMethod: "interac",
-      notes: "reçu papier",
-      recordedBy: users.admin,
-      now: NOW,
-    }),
-  )
+  db
+    .transaction((tx) =>
+      grantManualAccess(tx, {
+        userId,
+        product,
+        amountPaid: 5000,
+        currency: "CAD",
+        paymentMethod: "interac",
+        notes: "reçu papier",
+        recordedBy: users.admin,
+        now: NOW,
+      }),
+    )
+    .then((r) => r.transactionId)
 
 const readExpiry = async (userId: string, accessType: "exam" | "training") => {
   const [row] = await db

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { canReadResults, isOpen, partition, phaseOf } from "@/lib/exam-phase"
+import {
+  adminPhaseOf,
+  canReadResults,
+  isOpen,
+  partition,
+  phaseOf,
+} from "@/lib/exam-phase"
 
 const NOW = 1_700_000_000_000
 
@@ -38,6 +44,53 @@ describe("ExamPhase — phaseOf", () => {
     },
   ])("$label → $expected", ({ exam, expected }) => {
     expect(phaseOf(exam, NOW)).toBe(expected)
+  })
+})
+
+describe("ExamPhase — adminPhaseOf (préparation comprise)", () => {
+  it.each([
+    {
+      label: "en préparation sans dates",
+      exam: {
+        isActive: true,
+        finalizedAt: null,
+        startDate: null,
+        endDate: null,
+      },
+      expected: "preparation",
+    },
+    {
+      label: "en préparation même daté et ouvert par les dates",
+      exam: {
+        isActive: true,
+        finalizedAt: null,
+        startDate: NOW - 1000,
+        endDate: NOW + 1000,
+      },
+      expected: "preparation",
+    },
+    {
+      label: "désactivé prime sur la préparation",
+      exam: {
+        isActive: false,
+        finalizedAt: null,
+        startDate: null,
+        endDate: null,
+      },
+      expected: "inactive",
+    },
+    {
+      label: "finalisé : phase par les dates",
+      exam: {
+        isActive: true,
+        finalizedAt: NOW - 5000,
+        startDate: NOW - 1000,
+        endDate: NOW + 1000,
+      },
+      expected: "active",
+    },
+  ])("$label → $expected", ({ exam, expected }) => {
+    expect(adminPhaseOf(exam, NOW)).toBe(expected)
   })
 })
 

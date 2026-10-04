@@ -13,6 +13,7 @@ import {
 } from "@/db/schema"
 import { closeAttempts } from "@/features/attempts/close"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 // Le module possède la règle du score de clôture (`CONTEXT.md`) : compte des
 // justes, dénominateur par type, garde « encore ouverte ». Elle est prouvée ici
@@ -55,7 +56,7 @@ const newQuestions = async (n: number) => {
       question: `Q ${i} ${suffix} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `CLOSE-${suffix}`,
     })),
   )
@@ -73,6 +74,7 @@ const newExam = async (questionIds: string[], endDate = ENDED) => {
     completionTime: 3600,
     isActive: true,
     createdBy: OWNER,
+    targetQuestionCount: 10,
   })
   await db.insert(examQuestions).values(
     questionIds.map((questionId, position) => ({

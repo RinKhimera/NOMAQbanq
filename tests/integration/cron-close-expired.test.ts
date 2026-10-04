@@ -14,6 +14,7 @@ import {
 import { closeExpiredExamParticipations } from "@/features/exams/cron"
 import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -57,7 +58,7 @@ beforeAll(async () => {
       question: `Q ${i} ${suffix} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `CRON-${suffix}`,
     })),
   )
@@ -70,6 +71,7 @@ beforeAll(async () => {
     completionTime: 3600,
     isActive: true,
     createdBy: U1,
+    targetQuestionCount: 10,
   })
   await db
     .insert(exams)

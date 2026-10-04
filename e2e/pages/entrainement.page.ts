@@ -8,39 +8,40 @@ export class EntrainementPage extends BasePage {
 
   async goto() {
     await super.goto("/tableau-de-bord/entrainement")
-    // Wait for main content to load — either the form, paywall, or resume card
+    // Contenu principal : le formulaire, le paywall ou la carte « Série en cours ».
     await this.page
-      .getByText("Nouvelle session")
-      .or(this.page.getByText("Débloquez l'Entraînement"))
-      .or(this.page.getByText("Session en cours"))
+      .getByText("Nouvelle série", { exact: true })
+      .or(this.page.getByTestId("access-paywall"))
+      .or(this.page.getByTestId("active-series-card"))
       .first()
       .waitFor({ state: "visible", timeout: 15_000 })
   }
 
-  /** Returns true if the user has training access (no paywall) */
+  /** Vrai si l'étudiant a l'accès Entraînement (pas de paywall). */
   async hasAccess(): Promise<boolean> {
-    const paywall = this.page.getByText("Débloquez l'Entraînement")
+    const paywall = this.page.getByTestId("access-paywall")
     return !(await paywall.isVisible().catch(() => false))
   }
 
-  /** Returns true if there's an in-progress session to resume */
+  /** Vrai s'il y a une série en cours à reprendre. */
   async hasActiveSession(): Promise<boolean> {
     return this.page
-      .getByText("Session en cours")
+      .getByTestId("active-series-card")
       .isVisible()
       .catch(() => false)
   }
 
-  /** Abandon the current in-progress session so we can start fresh */
+  /** Abandonne la série en cours pour repartir d'un formulaire libre. */
   async abandonActiveSession() {
     await this.page
-      .getByRole("button", { name: "Abandonner la session" })
+      .getByTestId("active-series-card")
+      .getByRole("button", { name: "Abandonner" })
       .click()
 
     const dialog = this.page.locator('[role="alertdialog"]')
-    await dialog.getByRole("button", { name: "Abandonner" }).click()
+    await dialog.getByRole("button", { name: "Abandonner la série" }).click()
 
-    await expect(this.page.getByText("Session en cours")).toBeHidden({
+    await expect(this.page.getByTestId("active-series-card")).toBeHidden({
       timeout: 10_000,
     })
   }
@@ -50,8 +51,12 @@ export class EntrainementPage extends BasePage {
       await this.abandonActiveSession()
     }
     await expect(
-      this.page.getByRole("heading", { name: "Nouvelle session" }),
+      this.page.getByRole("heading", { name: "Configurer" }),
     ).toBeVisible({ timeout: 15_000 })
+    // Les compteurs de révision chargés : le bouton de départ n'est plus grisé.
+    await expect(this.page.getByTestId("btn-start-training")).toBeEnabled({
+      timeout: 15_000,
+    })
   }
 
   async setQuestionCount(count: number) {
@@ -65,9 +70,7 @@ export class EntrainementPage extends BasePage {
       await this.abandonActiveSession()
     }
 
-    await this.page
-      .getByRole("button", { name: "Commencer l'entraînement" })
-      .click()
+    await this.page.getByTestId("btn-start-training").click()
     await this.page.waitForURL(/\/tableau-de-bord\/entrainement\//, {
       timeout: 15_000,
     })
@@ -75,7 +78,9 @@ export class EntrainementPage extends BasePage {
 
   async waitForQuestion(questionNum: number, total: number) {
     await expect(
-      this.page.getByText(`Question ${questionNum} / ${total}`),
+      this.page.getByRole("heading", {
+        name: `Question ${questionNum} / ${total}`,
+      }),
     ).toBeVisible({ timeout: 10_000 })
   }
 
@@ -83,7 +88,7 @@ export class EntrainementPage extends BasePage {
     await this.page.getByTestId(`answer-option-${index}`).click()
   }
 
-  /** Sélectionne le mode d'entraînement dans le formulaire de config. */
+  /** Sélectionne le mode (carte radio du formulaire de configuration). */
   async selectMode(mode: "tutor" | "test") {
     await this.page.locator(`label[for="mode-${mode}"]`).click()
   }
@@ -106,33 +111,36 @@ export class EntrainementPage extends BasePage {
   }
 
   async finishSession() {
-    // Click finish — could be in header or session-navigation
     await this.page.getByTestId("btn-finish").click()
 
-    await expect(this.page.getByText("Terminer la session ?")).toBeVisible()
+    await expect(this.page.getByText("Terminer la série ?")).toBeVisible()
 
     const dialog = this.page.locator('[role="alertdialog"], [role="dialog"]')
-    await dialog.getByRole("button", { name: "Terminer" }).click()
+    await dialog.getByRole("button", { name: "Voir les résultats" }).click()
 
     await this.page.waitForURL(/\/resultats/, { timeout: 15_000 })
   }
 
+  /** Score de la page de résultats (« 72 % », espace insécable). */
   async getScore(): Promise<string> {
-    const scoreElement = this.page.locator("text=/\\d+%/").first()
-    return (await scoreElement.textContent()) ?? ""
+    return (await this.page.getByTestId("score-percentage").textContent()) ?? ""
   }
 
-  /** Navigate to results page; assumes finishSession has already redirected */
+  /** Page de résultats atteinte : score affiché, ou retenu. */
   async gotoResultsFromCurrentUrl() {
     await expect(this.page).toHaveURL(/\/resultats/, { timeout: 15_000 })
     await expect(
-      this.page.getByRole("heading", { name: "Résultats" }),
+      this.page
+        .getByTestId("score-percentage")
+        .or(this.page.getByTestId("score-withheld")),
     ).toBeVisible({ timeout: 15_000 })
   }
 
-  /** Click a navigator item (shared ResultsQuestionNavigator testid) */
+  /** Clique une case du navigateur de correction. */
   async clickNavItem(index: number) {
-    await this.page.getByTestId(`results-nav-item-${index}`).first().click()
+    await this.page
+      .locator(`[data-testid="results-nav-item-${index}"]:visible`)
+      .click()
   }
 
   /**

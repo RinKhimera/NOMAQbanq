@@ -94,19 +94,54 @@ cliquable, rendu partagé `components/shared/correction.tsx`), `citation-popover
 `score-status` (`data-status="passing|failing|withheld"` sur l'en-tête),
 `btn-filter-errors`, `btn-expand-all`, `btn-collapse-all`, `results-nav-item-{i}`.
 Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-access-{titre}`
-(grille dashboard), `exam-side-panel`/`user-side-panel` (panels admin master-détail),
-`question-detail-modal`/`question-detail-footer` (modale de question admin),
-`explanation-input`, `reference-input-{i}`, `btn-split-reference-{i}`,
-`format-undo-banner`/`btn-format-undo`, `format-warning-explanation`,
-`format-warning-reference-{i}` (correction du formulaire de question admin),
+(grille dashboard), `client-{userId}`,
+`client-filter-{all|failed|dispute|manual}`, `client-verdict`,
+`timeline-{transactionId}` (dossier client des transactions),
+`transactions-summary`, `segment-{all|active|expiring|expired|never}`,
+`filter-suspended`, `access-{exam|training}`, `grant-access`,
+`participation-{id}` (liste et fiche utilisateurs),
+`exams-section-{live|prepare|finished}`, `btn-create-exam`,
+`prep-exam-card-{id}`, `live-exam-card-{id}` (vue de pilotage des examens),
+`exam-title-input`, `exam-target-input`, `btn-save-exam`, `btn-finalize-exam`,
+`btn-compose-questions` (formulaire et fiche d'examen), `exam-badges`,
+`btn-delete-exam`/`-confirm` (fiche), `composer-count`,
+`btn-composer-complete`, `composer-completion-dialog`,
+`btn-composer-apply-completion`, `btn-composer-done` (compositeur),
+`btn-view-copy-{participationId}`, `leaderboard-empty`, `copy-rank`,
+`copy-filter-{all|wrong|flagged}`, `copy-row-{n}`,
+`btn-delete-participation`/`-confirm` (copie), `btn-deactivate-exam`/`-confirm`,
+`btn-reactivate-exam` (fiche), `tab-{all|toVerify|noReferences}`, `question-row-link`,
+`sort-{createdAt|updatedAt|successRate|answerCount}`, `btn-filter-panel`
+(liste des questions), `question-position`, `btn-edit-question`,
+`btn-delete-question`/`-confirm`, `btn-confirm-key`/`-submit`, `key-to-verify-alert`
+(détail), `question-input`, `option-input-{i}`, `btn-key-{i}`,
+`btn-save-question`, `btn-save-and-new`, `form-checks`, `frozen-choices`,
+`key-corrected`, `explanation-input`, `reference-input-{i}`,
+`btn-split-reference-{i}`, `format-undo-banner`/`btn-format-undo`,
+`explanation-format-warnings`, `reference-format-warnings-{i}` (formulaire de
+question admin),
 `{testId}-edit`/`-input`/`-save` (InlineEditField profil), `btn-pause` (bouton
 pause repos du header d'examen), `pause-overlay`/`pause-timer`/`btn-resume-exam`.
-États : `data-selected="true"`, `data-flagged="true"`. Tout nouveau composant
+États : `data-selected="true"`, `data-flagged="true"`, et `data-state` sur
+chaque choix (`default|selected|correct|incorrect|muted`) et chaque case du
+navigateur (`answered|unanswered|correct|incorrect|withheld`) : un état se lit
+par attribut, jamais par une classe de couleur. Tout nouveau composant
 interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
 
-- **Sidebar = aucun `<nav>`** : la sidebar shadcn ne rend PAS d'élément `<nav>` →
-  `page.locator("nav")` ne matche rien et **timeout** (30 s). Scoper les liens de
-  navigation via `[data-sidebar="content"]` (puis `getByRole("link", { name })`).
+- **Passation** : « Question 3 / 10 » figure dans la barre ET dans la carte →
+  `getByRole("heading", { name: "Question 3 / 10" })` (la carte). Le titre de la
+  série ou de l'examen est le `h1` de la page. Sous 1024 px, le navigateur de
+  questions vit dans le Sheet ouvert par `btn-questions` ; la colonne masquée
+  reste dans le DOM, d'où des cases en double quand le Sheet est ouvert → viser
+  `[data-testid="results-nav-item-{i}"]:visible` (passation : `nav-item-{i}`).
+  Panneaux de correction : `panel-explanation`, `panel-references`
+  (`aria-expanded`).
+
+- **Navigation des coquilles par rôle et nom** :
+  `getByRole("navigation", { name: "Navigation de l'espace étudiant" })` (ou
+  `"Navigation de l'administration"`), puis `getByRole("link", { name })`. Sous
+  1024 px la SideNav est masquée et vit dans le Sheet ouvert par « Ouvrir le
+  menu » ; `page.locator("nav")` seul matche aussi les `<nav>` de la page.
 
 ## Gotchas Playwright (à jour)
 
@@ -118,14 +153,19 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
 - **Strict mode / texte dupliqué** : après la refonte F1, beaucoup de libellés
   apparaissent 2-3× (sidebar **et** contenu, carte **et** graphe, heading **et**
   description). Préférer `getByRole("heading", { name })`, `{ exact: true }`, ou
-  scoper (`page.locator("main")` = le `<main>` du `SidebarInset`). `.first()` en
+  scoper (`page.locator("main")` = le contenu de la page, sans la barre du haut ni la SideNav). `.first()` en
   dernier recours.
 - **Texte responsive** (`hidden sm:inline`) : le texte des boutons nav n'existe pas
   sous 640px → utiliser `getByTestId`.
-- **Header sticky `fixed z-50`** : intercepte les clics près du bord →
-  `.scrollIntoViewIfNeeded()` avant le click (ex. `answer-option-0` sur `/evaluation/quiz`).
+- **Évaluation gratuite** : `/evaluation/quiz` vit dans le groupe `(evaluation)`,
+  plein écran, sans en-tête vitrine ; sa barre de session est collante en haut →
+  `.scrollIntoViewIfNeeded()` avant de cliquer un choix. Les résultats reviennent
+  dans l'en-tête et le pied de la vitrine : score dans `score-percentage`
+  (« 72 % », espace insécable → `/^\d+\s%$/`), `h1` « Vous avez obtenu n / N. »,
+  correction de `SessionResults` sans son résumé (pas de `score-badge` ni de
+  `stat-*`).
 - **Pages légales** (`/confidentialite`, `/conditions`, `/cookies`) : titre en h1
-  ET paragraphe → `getByRole("heading", { name })`.
+  ET pastille de navigation → `getByRole("heading", { level: 1, name })`.
 - **Stats marketing dynamiques** : matcher le suffixe par regex, ne pas hardcoder
   les nombres.
 - **Simuler l'offline** : `context.setOffline(true)` PEND indéfiniment en dev
@@ -133,12 +173,18 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   ciblés à la place.
 - **Formulaire question admin** (`/admin/questions/nouvelle`) : le Select de domaine
   (shadcn/Radix) garde un `<select>` natif caché → `getByText(domaine)` matche 2×
-  (l'`<option>` native + l'item Radix) → scoper `getByRole("listbox").getByText(...)`.
-  L'objectif CMC est un combobox Popover+cmdk : le trigger affiche le placeholder
-  comme texte mais N'A PAS de nom accessible (label non associé via `htmlFor`) →
-  le cibler par `getByText("Sélectionner ou créer...")` ; l'input de recherche a un
-  placeholder DIFFÉRENT (« Rechercher ou créer... ») et les items sont `role="option"`.
-  Voir POM `fillObjectifCMC`.
+  (l'`<option>` native + l'item Radix) → ouvrir `#qf-domain` puis scoper
+  `getByRole("listbox").getByText(...)`. L'objectif CMC est un `SearchableSelect`
+  (`#qf-objective`, recherche « Rechercher un objectif », items `role="option"`,
+  « Créer « … » » si absent). Voir POM `fillQuestionForm`.
+
+## Tests de composants (Vitest, happy-dom) — pièges voisins
+
+- happy-dom ne retire pas le focus d'un bouton qui passe à `disabled` : un test
+  « le focus reste » y passe à tort. Asserter l'attribut (`aria-disabled`,
+  `not.toBeDisabled()`) pendant l'attente, puis le focus.
+- `toHaveTextContent` normalise l'espace insécable, `getByRole({ name })` ne le
+  fait pas : « 70 % » s'écrit `"70\u00a0%"` dans un nom accessible.
 
 ## Concurrence & état partagé
 

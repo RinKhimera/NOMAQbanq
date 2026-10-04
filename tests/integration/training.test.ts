@@ -36,14 +36,13 @@ import {
   getActiveTrainingSession,
   getAvailableDomains,
   getAvailableObjectifsCMC,
-  getMyTrainingScoreHistory,
   getTrainingHistory,
   getTrainingSessionById,
   getTrainingSessionResults,
-  getTrainingStats,
 } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { objectiveIdFor } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -72,13 +71,14 @@ beforeAll(async () => {
     name: "IT training",
     email: `training-${suffix}@test.invalid`,
   })
+  const objectiveId = await objectiveIdFor(OBJ)
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
       question: `Q ${i} ${suffix} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: OBJ,
+      objectiveId,
       domain: DOMAIN,
     })),
   )
@@ -275,13 +275,19 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
     expect(results.answers[sessionQuestionIds[0]]?.isCorrect).toBe(true)
   })
 
-  it("getTrainingHistory + getTrainingStats : reflètent la session complétée", async () => {
-    const history = await getTrainingHistory({ limit: 10 })
-    expect(history.items.some((s) => s.id === activeSessionId)).toBe(true)
+  it("getTrainingHistory : reflète la session complétée, son mode et le total", async () => {
+    const history = await getTrainingHistory({ page: 1 })
+    const row = history.items.find((s) => s.id === activeSessionId)
+    expect(row).toMatchObject({ mode: "test", score: 20 })
+    expect(history.total).toBeGreaterThanOrEqual(1)
+    expect(history.total).toBeGreaterThanOrEqual(history.items.length)
+  })
 
-    const stats = await getTrainingStats()
-    expect(stats?.totalSessions).toBeGreaterThanOrEqual(1)
-    expect(stats?.averageScore).toBe(20)
+  it("getTrainingHistory : une page hors bornes est vide, le total inchangé", async () => {
+    const first = await getTrainingHistory({ page: 1, pageSize: 1 })
+    const beyond = await getTrainingHistory({ page: 99, pageSize: 1 })
+    expect(beyond.items).toEqual([])
+    expect(beyond.total).toBe(first.total)
   })
 })
 
@@ -316,7 +322,7 @@ describe("gardes", () => {
   it("filtre objectif CMC inexistant → 0 disponible", async () => {
     const res = await createTrainingSession({
       questionCount: 5,
-      objectifsCMCs: [`ghost-${suffix}`],
+      objectiveIds: [`ghost-${suffix}`],
       mode: "test",
     })
     expect(res.success).toBe(false)
@@ -340,65 +346,6 @@ describe("domaines + objectifs (config form)", () => {
   it("getAvailableObjectifsCMC filtre par domaine", async () => {
     const { objectifs } = await getAvailableObjectifsCMC(DOMAIN)
     expect(objectifs.find((o) => o.objectif === OBJ)?.count).toBe(8)
-  })
-})
-
-describe("getMyTrainingScoreHistory (graphique dashboard)", () => {
-  const DASH_DOM = `DASHTRAIN-${suffix}`
-  const ts1 = createId()
-  const ts2 = createId()
-  const ts3 = createId()
-
-  beforeAll(async () => {
-    const now = Date.now()
-    const at = (days: number) => new Date(now - days * 24 * 3600_000)
-    await db.insert(trainingSessions).values([
-      {
-        id: ts1,
-        userId: USER_ID,
-        status: "completed",
-        domain: DASH_DOM,
-        questionCount: 5,
-        score: 60,
-        startedAt: at(10),
-        completedAt: at(10),
-        expiresAt: new Date(now),
-      },
-      {
-        id: ts2,
-        userId: USER_ID,
-        status: "completed",
-        domain: DASH_DOM,
-        questionCount: 5,
-        score: 90,
-        startedAt: at(9),
-        completedAt: at(9),
-        expiresAt: new Date(now),
-      },
-      {
-        id: ts3,
-        userId: USER_ID,
-        status: "completed",
-        domain: null, // → « Tous domaines »
-        questionCount: 5,
-        score: 30,
-        startedAt: at(8),
-        completedAt: at(8),
-        expiresAt: new Date(now),
-      },
-    ])
-  })
-
-  it("sessions en ordre chronologique ASC + domaine null → « Tous domaines »", async () => {
-    asAdmin()
-    const { sessions } = await getMyTrainingScoreHistory()
-    const i1 = sessions.findIndex((s) => s.sessionId === ts1)
-    const i2 = sessions.findIndex((s) => s.sessionId === ts2)
-    const i3 = sessions.findIndex((s) => s.sessionId === ts3)
-    expect(i1).toBeGreaterThanOrEqual(0)
-    expect(i1).toBeLessThan(i2)
-    expect(i2).toBeLessThan(i3)
-    expect(sessions[i3]).toMatchObject({ domain: "Tous domaines", score: 30 })
   })
 })
 
@@ -445,7 +392,7 @@ describe("IDOR / propriété", () => {
     } as never)
     expect(await deleteTrainingSession({ sessionId: sid })).toEqual({
       success: false,
-      error: "Session introuvable",
+      error: "Série introuvable",
     })
     const [row] = await db
       .select({ id: trainingSessions.id })
@@ -477,6 +424,7 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
       endDate,
       completionTime: 3600,
       createdBy: STUDENT2_ID,
+      targetQuestionCount: 10,
     })
     await db.insert(examQuestions).values({ examId, questionId, position: 0 })
     await db.insert(examParticipations).values({

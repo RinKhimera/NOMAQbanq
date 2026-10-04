@@ -1,264 +1,158 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
-import { PricingCard } from "@/components/shared/payments/pricing-card"
+import {
+  PricingCard,
+  type PricingCardProduct,
+} from "@/components/shared/payments/pricing-card"
 
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
-
-vi.mock("next/image", () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => (
-    <img src={src} alt={alt} data-testid="next-image" />
-  ),
-}))
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
-
-vi.mock("@/lib/format", () => ({
-  formatCurrency: (amount: number) => `${(amount / 100).toFixed(0)} $`,
-  formatExpiration: (ts: number) => `exp-${ts}`,
-}))
-
-const baseProduct = {
-  id: "prod_1",
-  code: "exam-30",
+const examMonthly: PricingCardProduct = {
+  id: "prod_exam",
+  code: "exam_access",
   name: "Accès Examens 30 jours",
   description: "Accès complet aux examens simulés pendant 30 jours",
   priceCAD: 5000,
   durationDays: 30,
-  accessType: "exam" as const,
+  accessType: "exam",
+  isCombo: false,
 }
 
-const trainingProduct = {
-  id: "prod_2",
-  code: "training-30",
+const trainingMonthly: PricingCardProduct = {
+  ...examMonthly,
+  id: "prod_training",
+  code: "training_access",
   name: "Accès Entraînement 30 jours",
-  description: "Accès complet à la banque d'entraînement",
-  priceCAD: 5000,
-  durationDays: 30,
-  accessType: "training" as const,
+  accessType: "training",
 }
+
+const premium: PricingCardProduct = {
+  ...examMonthly,
+  id: "prod_premium",
+  code: "premium_access",
+  name: "Pack Premium",
+  description: "Les deux accès pendant 6 mois",
+  priceCAD: 35000,
+  durationDays: 180,
+  isCombo: true,
+}
+
+const access = { expiresAt: 1_800_000_000_000, daysRemaining: 12 }
 
 describe("PricingCard", () => {
-  it("affiche le nom du produit et le prix", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={baseProduct} onPurchase={onPurchase} />)
-
-    expect(screen.getByText("Accès Examens 30 jours")).toBeInTheDocument()
-    expect(screen.getByText("50 $")).toBeInTheDocument()
-  })
-
-  it("affiche la description du produit", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={baseProduct} onPurchase={onPurchase} />)
+  it("affiche le nom, le prix du catalogue et la durée", () => {
+    render(<PricingCard product={examMonthly} onPurchase={vi.fn()} />)
 
     expect(
-      screen.getByText("Accès complet aux examens simulés pendant 30 jours"),
+      screen.getByRole("heading", { name: "Accès Examens 30 jours" }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/^50\s\$$/)).toBeInTheDocument()
+    expect(screen.getByText("CAD · 30j")).toBeInTheDocument()
+    expect(screen.getByText("Sans engagement")).toBeInTheDocument()
+  })
+
+  it("annonce 3000+ questions pour l'accès Entraînement", () => {
+    render(<PricingCard product={trainingMonthly} onPurchase={vi.fn()} />)
+
+    expect(screen.getByText("Banque d'entraînement")).toBeInTheDocument()
+    expect(
+      screen.getByText("3000+ questions d'entraînement"),
     ).toBeInTheDocument()
   })
 
-  it("affiche la durée en jours", () => {
+  it("lance l'achat au clic, une seule fois même sur un double-clic", () => {
     const onPurchase = vi.fn()
-    render(<PricingCard product={baseProduct} onPurchase={onPurchase} />)
+    render(<PricingCard product={examMonthly} onPurchase={onPurchase} />)
 
-    expect(screen.getByText("30 jours")).toBeInTheDocument()
-  })
-
-  it("affiche les fonctionnalités pour le type exam", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={baseProduct} onPurchase={onPurchase} />)
-
-    expect(
-      screen.getByText("Accès aux examens blancs complets"),
-    ).toBeInTheDocument()
-    expect(screen.getByText("Mode chronométré réaliste")).toBeInTheDocument()
-    expect(screen.getByText("Correction détaillée")).toBeInTheDocument()
-    expect(screen.getByText("Statistiques de performance")).toBeInTheDocument()
-  })
-
-  it("affiche les fonctionnalités pour le type training", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={trainingProduct} onPurchase={onPurchase} />)
-
-    expect(
-      screen.getByText("5000+ questions d'entraînement"),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText("Mode tuteur avec explications"),
-    ).toBeInTheDocument()
-    expect(screen.getByText("Filtrage par domaine médical")).toBeInTheDocument()
-    expect(screen.getByText("Suivi de progression")).toBeInTheDocument()
-  })
-
-  it("affiche le label Examens Simulés pour le type exam", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={baseProduct} onPurchase={onPurchase} />)
-
-    expect(screen.getByText("Examens Simulés")).toBeInTheDocument()
-  })
-
-  it("affiche le label Banque d'Entraînement pour le type training", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={trainingProduct} onPurchase={onPurchase} />)
-
-    expect(screen.getByText("Banque d'Entraînement")).toBeInTheDocument()
-  })
-
-  it("appelle onPurchase au clic sur le bouton d'achat", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={baseProduct} onPurchase={onPurchase} />)
-
-    const button = screen.getByRole("button", { name: /acheter maintenant/i })
+    const button = screen.getByRole("button", { name: "Choisir" })
+    fireEvent.click(button)
     fireEvent.click(button)
 
-    expect(onPurchase).toHaveBeenCalledTimes(1)
+    expect(onPurchase).toHaveBeenCalledOnce()
   })
 
-  it("affiche le texte 'Acheter maintenant' sans accès existant", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={baseProduct} onPurchase={onPurchase} />)
-
-    expect(screen.getByText("Acheter maintenant")).toBeInTheDocument()
-  })
-
-  it("affiche 'Chargement...' quand isLoading est true", () => {
+  it("désactive le bouton pendant la création de la session Stripe", () => {
     const onPurchase = vi.fn()
     render(
-      <PricingCard
-        product={baseProduct}
-        onPurchase={onPurchase}
-        isLoading={true}
-      />,
+      <PricingCard product={examMonthly} onPurchase={onPurchase} isLoading />,
     )
 
-    expect(screen.getByText("Chargement...")).toBeInTheDocument()
-  })
-
-  it("désactive le bouton quand isLoading est true", () => {
-    const onPurchase = vi.fn()
-    render(
-      <PricingCard
-        product={baseProduct}
-        onPurchase={onPurchase}
-        isLoading={true}
-      />,
-    )
-
-    const button = screen.getByRole("button")
+    const button = screen.getByRole("button", { name: /Chargement/ })
     expect(button).toBeDisabled()
-  })
-
-  it("n'appelle pas onPurchase quand isLoading est true", () => {
-    const onPurchase = vi.fn()
-    render(
-      <PricingCard
-        product={baseProduct}
-        onPurchase={onPurchase}
-        isLoading={true}
-      />,
-    )
-
-    const button = screen.getByRole("button")
     fireEvent.click(button)
-
     expect(onPurchase).not.toHaveBeenCalled()
   })
 
-  it("affiche le badge Populaire quand isPopular est true", () => {
-    const onPurchase = vi.fn()
+  it("propose de prolonger l'accès en cours du même type", () => {
     render(
       <PricingCard
-        product={baseProduct}
-        onPurchase={onPurchase}
-        isPopular={true}
-      />,
-    )
-
-    expect(screen.getByText("Populaire")).toBeInTheDocument()
-  })
-
-  it("n'affiche pas le badge Populaire par défaut", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={baseProduct} onPurchase={onPurchase} />)
-
-    expect(screen.queryByText("Populaire")).not.toBeInTheDocument()
-  })
-
-  it("affiche l'accès actuel quand currentAccess est fourni", () => {
-    const onPurchase = vi.fn()
-    const currentAccess = {
-      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
-      daysRemaining: 30,
-    }
-
-    render(
-      <PricingCard
-        product={baseProduct}
-        onPurchase={onPurchase}
-        currentAccess={currentAccess}
+        product={examMonthly}
+        currentAccess={{ exam: access, training: null }}
+        onPurchase={vi.fn()}
       />,
     )
 
     expect(screen.getByText("Votre accès actuel")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Prolonger l'accès" }),
+    ).toBeInTheDocument()
   })
 
-  it("affiche 'Prolonger l'accès' quand l'utilisateur a un accès existant", () => {
-    const onPurchase = vi.fn()
-    const currentAccess = {
-      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
-      daysRemaining: 30,
-    }
-
+  it("ignore l'accès en cours d'un autre type", () => {
     render(
       <PricingCard
-        product={baseProduct}
-        onPurchase={onPurchase}
-        currentAccess={currentAccess}
-      />,
-    )
-
-    expect(screen.getByText("Prolonger l'accès")).toBeInTheDocument()
-  })
-
-  it("n'affiche pas la section d'accès actuel quand currentAccess est null", () => {
-    const onPurchase = vi.fn()
-    render(
-      <PricingCard
-        product={baseProduct}
-        onPurchase={onPurchase}
-        currentAccess={null}
+        product={trainingMonthly}
+        currentAccess={{ exam: access, training: null }}
+        onPurchase={vi.fn()}
       />,
     )
 
     expect(screen.queryByText("Votre accès actuel")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Choisir" })).toBeInTheDocument()
   })
 
-  it("affiche le badge de réduction pour un produit promo", () => {
-    const promoProduct = {
-      ...baseProduct,
-      code: "exam-promo-180",
-      priceCAD: 20000,
-      durationDays: 180,
-    }
-    const onPurchase = vi.fn()
-    render(<PricingCard product={promoProduct} onPurchase={onPurchase} />)
-
-    // La réduction est calculée comme Math.round((1 - 20000 / (50 * 100 * 6)) * 100) = 33%
-    expect(screen.getByText(/-33%/)).toBeInTheDocument()
+  it("marque la formule populaire", () => {
+    render(<PricingCard product={examMonthly} popular onPurchase={vi.fn()} />)
+    expect(screen.getByText("Populaire")).toBeInTheDocument()
   })
 
-  it("affiche le texte de confiance en bas de la carte", () => {
-    const onPurchase = vi.fn()
-    render(<PricingCard product={baseProduct} onPurchase={onPurchase} />)
+  describe("variante mise en avant (Pack Premium)", () => {
+    it("barre le prix des mensuels équivalents et chiffre l'économie", () => {
+      render(
+        <PricingCard
+          variant="featured"
+          product={premium}
+          savings={{ referenceCAD: 60000, savedCAD: 25000, percent: 42 }}
+          onPurchase={vi.fn()}
+        />,
+      )
 
-    expect(
-      screen.getByText("Paiement sécurisé par Stripe · Accès instantané"),
-    ).toBeInTheDocument()
+      expect(
+        screen.getByRole("heading", { level: 2, name: "Pack Premium" }),
+      ).toBeInTheDocument()
+      expect(screen.getByText(/^600\s\$$/)).toBeInTheDocument()
+      expect(screen.getByText(/vous économisez 250\s\$/)).toBeInTheDocument()
+      expect(
+        screen.getByRole("button", { name: "Choisir Premium" }),
+      ).toBeInTheDocument()
+    })
+
+    it("ne promet pas de prolongation : le Pack Premium ouvre une période neuve", () => {
+      render(
+        <PricingCard
+          variant="featured"
+          product={premium}
+          currentAccess={{ exam: access, training: null }}
+          onPurchase={vi.fn()}
+        />,
+      )
+
+      expect(screen.getByText("Vos accès actuels")).toBeInTheDocument()
+      expect(screen.getByText("Entraînement : aucun")).toBeInTheDocument()
+      expect(
+        screen.getByRole("button", { name: "Choisir Premium" }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText("Ne s'ajoute pas au temps restant de vos accès."),
+      ).toBeInTheDocument()
+    })
   })
 })

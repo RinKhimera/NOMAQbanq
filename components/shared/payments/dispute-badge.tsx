@@ -1,6 +1,8 @@
+import type { Tone } from "@/lib/tone"
+
 export type DisputeBadge = {
   label: string
-  tone: "danger" | "success" | "muted"
+  tone: Extract<Tone, "danger" | "success" | "neutral">
 }
 
 /**
@@ -18,9 +20,9 @@ export const disputeBadge = (
     case "prevented":
       return { label: "Litige évité", tone: "success" }
     case "lost":
-      return { label: "Litige perdu", tone: "muted" }
+      return { label: "Litige perdu", tone: "neutral" }
     case "warning_closed":
-      return { label: "Enquête close", tone: "muted" }
+      return { label: "Enquête close", tone: "neutral" }
     default:
       return { label: "Litige en cours", tone: "danger" }
   }

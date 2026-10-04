@@ -1,60 +1,29 @@
-"use client"
-
-import {
-  IconAlertTriangle,
-  IconArrowLeft,
-  IconLayoutDashboard,
-} from "@tabler/icons-react"
+import { Compass, LayoutDashboard } from "lucide-react"
 import Link from "next/link"
+import { BackButton } from "@/components/shared/back-button"
+import { StatusCard } from "@/components/shared/status-card"
 import { Button } from "@/components/ui/button"
 
 export default function AdminNotFound() {
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4">
-      <div className="w-full max-w-lg">
-        {/* Geometric accent block */}
-        <div className="mb-8 flex items-start gap-5">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/40">
-            <IconAlertTriangle className="h-7 w-7 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div>
-            <p className="text-sm font-medium tracking-widest text-amber-600 uppercase dark:text-amber-400">
-              Erreur 404
-            </p>
-            <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
-              Page admin introuvable
-            </h1>
-          </div>
-        </div>
-
-        {/* Separator */}
-        <div className="mb-6 h-px bg-gray-200 dark:bg-gray-800" />
-
-        {/* Message */}
-        <p className="mb-8 text-[15px] leading-relaxed text-gray-600 dark:text-gray-400">
-          Cette page d&apos;administration n&apos;existe pas ou a été déplacée.
-          Vérifiez l&apos;URL ou retournez au tableau de bord.
-        </p>
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <Button asChild size="sm">
-            <Link href="/admin">
-              <IconLayoutDashboard className="mr-2 h-4 w-4" />
-              Tableau de bord
-            </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-500"
-            onClick={() => window.history.back()}
-          >
-            <IconArrowLeft className="mr-2 h-4 w-4" />
-            Retour
-          </Button>
-        </div>
-      </div>
+    <div className="grid place-items-center py-8 md:py-12">
+      <StatusCard
+        icon={Compass}
+        label="Erreur 404"
+        title="Page admin introuvable"
+        description="Cette page d'administration n'existe pas ou a été déplacée. Vérifiez l'adresse ou retournez au tableau de bord."
+        actions={
+          <>
+            <Button asChild className="max-md:h-11">
+              <Link href="/admin">
+                <LayoutDashboard aria-hidden />
+                Tableau de bord
+              </Link>
+            </Button>
+            <BackButton />
+          </>
+        }
+      />
     </div>
   )
 }

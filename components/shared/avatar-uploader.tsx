@@ -1,9 +1,10 @@
 "use client"
 
-import { IconCamera, IconCheck, IconUpload, IconX } from "@tabler/icons-react"
+import { IconCheck, IconUpload, IconX } from "@tabler/icons-react"
+import { Camera } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { useCallback, useState } from "react"
+import { type ReactNode, useCallback, useState } from "react"
 import { useDropzone } from "react-dropzone"
 import Cropper, { Area, Point } from "react-easy-crop"
 import { toast } from "sonner"
@@ -25,7 +26,7 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { cdnUrl, resolveAvatarUrl } from "@/lib/cdn"
 import { getCroppedImageBlob } from "@/lib/crop-image"
-import { cn } from "@/lib/utils"
+import { cn, getInitials } from "@/lib/utils"
 
 // ============================================
 // TYPES
@@ -34,8 +35,15 @@ import { cn } from "@/lib/utils"
 type AvatarUploaderProps = {
   currentAvatarUrl?: string | null
   onAvatarChange?: (newUrl: string) => void
-  size?: "sm" | "md" | "lg"
+  size?: "xs" | "sm" | "md" | "lg"
   disabled?: boolean
+  /** Initiales affichées sans photo. */
+  name?: string
+  /**
+   * En-tête de profil : ce contenu (nom, courriel…) se pose à droite de
+   * l'avatar, suivi du bouton « Changer la photo ».
+   */
+  children?: ReactNode
 }
 
 // ============================================
@@ -47,6 +55,8 @@ export const AvatarUploader = ({
   onAvatarChange,
   size = "md",
   disabled = false,
+  name,
+  children,
 }: AvatarUploaderProps) => {
   const router = useRouter()
   const { refetch } = useCurrentUser()
@@ -64,6 +74,7 @@ export const AvatarUploader = ({
   const shownAvatarUrl = uploadedUrl ?? resolveAvatarUrl(currentAvatarUrl)
 
   const sizeClasses = {
+    xs: "size-14",
     sm: "h-16 w-16",
     md: "h-24 w-24",
     lg: "h-32 w-32",
@@ -85,7 +96,7 @@ export const AvatarUploader = ({
     [disabled],
   )
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: {
       "image/jpeg": [".jpg", ".jpeg"],
@@ -165,49 +176,84 @@ export const AvatarUploader = ({
     setZoom(1)
   }
 
+  const avatar = (
+    <div
+      {...getRootProps({
+        role: "button",
+        "aria-label": "Changer la photo de profil",
+      })}
+      className={cn(
+        "group focus-ring hover:ring-accent relative shrink-0 cursor-pointer overflow-hidden rounded-full ring-2 ring-transparent transition-opacity",
+        sizeClasses[size],
+        isDragActive && "ring-accent",
+        (disabled || isUploading) && "cursor-not-allowed opacity-50",
+      )}
+    >
+      <input {...getInputProps()} />
+
+      {/* Current avatar or placeholder */}
+      {shownAvatarUrl ? (
+        <Image
+          src={shownAvatarUrl}
+          alt="Avatar"
+          fill
+          className="object-cover"
+          sizes={`(max-width: 768px) ${size === "lg" ? "128px" : size === "md" ? "96px" : "64px"}`}
+        />
+      ) : name ? (
+        <div className="bg-accent-soft text-accent-ink flex h-full w-full items-center justify-center font-semibold">
+          {getInitials(name)}
+        </div>
+      ) : (
+        <div className="bg-surface-2 flex h-full w-full items-center justify-center">
+          <Camera className="text-ink-3 h-1/3 w-1/3" aria-hidden="true" />
+        </div>
+      )}
+
+      {/* Hover overlay */}
+      {!disabled && !isUploading && (
+        <div className="bg-ink/50 absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+          <IconUpload className="text-surface h-1/3 w-1/3" />
+        </div>
+      )}
+
+      {/* Loading overlay */}
+      {isUploading && (
+        <div className="bg-ink/50 absolute inset-0 flex items-center justify-center">
+          <Spinner size="lg" className="text-surface" />
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <>
-      {/* Avatar display with upload trigger */}
-      <div
-        {...getRootProps()}
-        className={cn(
-          "group relative cursor-pointer overflow-hidden rounded-full ring-2 ring-transparent transition-all hover:ring-blue-500",
-          sizeClasses[size],
-          isDragActive && "ring-blue-500",
-          (disabled || isUploading) && "cursor-not-allowed opacity-50",
-        )}
-      >
-        <input {...getInputProps()} />
-
-        {/* Current avatar or placeholder */}
-        {shownAvatarUrl ? (
-          <Image
-            src={shownAvatarUrl}
-            alt="Avatar"
-            fill
-            className="object-cover"
-            sizes={`(max-width: 768px) ${size === "lg" ? "128px" : size === "md" ? "96px" : "64px"}`}
-          />
-        ) : (
-          <div className="bg-muted flex h-full w-full items-center justify-center">
-            <IconCamera className="text-muted-foreground h-1/3 w-1/3" />
+      {children ? (
+        <div className="flex items-center gap-4 max-md:items-start">
+          {avatar}
+          <div className="flex min-w-0 flex-col gap-1">
+            {children}
+            <span className="flex flex-wrap items-center gap-2 pt-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={open}
+                aria-disabled={disabled || isUploading}
+                className="max-md:h-11"
+              >
+                <Camera aria-hidden="true" />
+                Changer la photo
+              </Button>
+              <span className="text-ink-3 text-xs">
+                JPEG, PNG ou WebP · 5 Mo max
+              </span>
+            </span>
           </div>
-        )}
-
-        {/* Hover overlay */}
-        {!disabled && !isUploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-            <IconUpload className="h-1/3 w-1/3 text-white" />
-          </div>
-        )}
-
-        {/* Loading overlay */}
-        {isUploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <Spinner size="lg" className="text-white" />
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        avatar
+      )}
 
       {/* Crop dialog */}
       <Dialog open={cropDialogOpen} onOpenChange={handleCancel}>
@@ -222,7 +268,7 @@ export const AvatarUploader = ({
           {imageSrc && (
             <div className="space-y-4">
               {/* Crop area */}
-              <div className="bg-muted relative h-64 w-full overflow-hidden rounded-lg">
+              <div className="bg-surface-2 relative h-64 w-full overflow-hidden rounded-lg">
                 <Cropper
                   image={imageSrc}
                   crop={crop}

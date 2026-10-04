@@ -14,6 +14,7 @@ import {
 import { getMyDomainMastery } from "@/features/analytics/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -54,7 +55,7 @@ const newQuestion = async (
     question: `Q ${suffix}`,
     correctAnswer: "A",
     options: ["A", "B"],
-    objectifCmc: "Objectif",
+    objectiveId: TEST_OBJECTIVE_ID,
     domain,
     deletedAt: deleted ? new Date() : null,
   })
@@ -112,6 +113,7 @@ const sitExam = async (
     endDate: open ? new Date(now + DAY) : new Date(now - DAY),
     completionTime: 3600,
     createdBy: userId,
+    targetQuestionCount: 10,
   })
   await db.insert(examQuestions).values(
     answers.map((a, position) => ({

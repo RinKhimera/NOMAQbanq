@@ -1,4 +1,13 @@
-import { and, eq, gt, ilike, inArray, lte, notExists } from "drizzle-orm"
+import {
+  and,
+  eq,
+  gt,
+  ilike,
+  inArray,
+  isNotNull,
+  lte,
+  notExists,
+} from "drizzle-orm"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -70,6 +79,7 @@ async function resetExam(userEmail: string) {
     .where(
       and(
         eq(exams.isActive, true),
+        isNotNull(exams.finalizedAt),
         lte(exams.startDate, now),
         gt(exams.endDate, now),
       ),
@@ -319,6 +329,8 @@ async function seedRestrictedExam(opts: {
     isActive: true,
     audienceType: "restricted",
     createdBy: admin.id,
+    targetQuestionCount: count,
+    finalizedAt: now,
   })
   await db
     .insert(examQuestions)
@@ -413,6 +425,8 @@ async function seedExam(opts: {
     isActive: true,
     audienceType: "subscribers",
     createdBy: admin.id,
+    targetQuestionCount: count,
+    finalizedAt: new Date(now),
   })
   await db
     .insert(examQuestions)

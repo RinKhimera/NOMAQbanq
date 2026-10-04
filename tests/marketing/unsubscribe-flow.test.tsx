@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { UnsubscribeFlow } from "@/app/(marketing)/desabonnement/_components/unsubscribe-flow"
 
@@ -36,6 +37,33 @@ describe("UnsubscribeFlow", () => {
     expect(
       await screen.findByText(/rappels sont réactivés/),
     ).toBeInTheDocument()
+  })
+
+  it("rend le focus au titre de la confirmation, le bouton cliqué ayant disparu", async () => {
+    const user = userEvent.setup()
+    render(<UnsubscribeFlow token="tok" />)
+    await user.click(screen.getByRole("button", { name: /Me désabonner/ }))
+
+    const title = await screen.findByRole("heading", {
+      level: 1,
+      name: /ne recevrez plus nos rappels/,
+    })
+    await waitFor(() => expect(title).toHaveFocus())
+  })
+
+  it("rend aussi le focus au titre après la réactivation", async () => {
+    const user = userEvent.setup()
+    render(<UnsubscribeFlow token="tok" />)
+    await user.click(screen.getByRole("button", { name: /Me désabonner/ }))
+    await user.click(
+      await screen.findByRole("button", { name: /Réactiver les rappels/ }),
+    )
+
+    const title = await screen.findByRole("heading", {
+      level: 1,
+      name: /rappels sont réactivés/,
+    })
+    await waitFor(() => expect(title).toHaveFocus())
   })
 
   it("action refusée : message, état inchangé", async () => {

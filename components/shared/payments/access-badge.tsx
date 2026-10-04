@@ -1,13 +1,12 @@
-"use client"
-
-import { CircleCheckBig, CircleX, Clock, Sparkles } from "lucide-react"
+import type { AccessType } from "@/features/payments/access-ledger"
 import { formatExpiration } from "@/lib/format"
+import { TONE_COLOR, TONE_SOFT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
 type AccessStatus = "active" | "expiring" | "expired" | "none"
 
 interface AccessBadgeProps {
-  accessType: "exam" | "training"
+  accessType: AccessType
   status: AccessStatus
   expiresAt?: number
   daysRemaining?: number
@@ -16,75 +15,26 @@ interface AccessBadgeProps {
   className?: string
 }
 
-const statusConfig = {
-  active: {
-    icon: CircleCheckBig,
-    label: "Actif",
-    bgClass:
-      "bg-linear-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20",
-    borderClass: "border-emerald-500/30 dark:border-emerald-400/30",
-    textClass: "text-emerald-700 dark:text-emerald-300",
-    iconClass: "text-emerald-500 dark:text-emerald-400",
-    glowClass: "shadow-emerald-500/20",
-  },
-  expiring: {
-    icon: Clock,
-    label: "Expire bientôt",
-    bgClass:
-      "bg-linear-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
-    borderClass: "border-amber-500/30 dark:border-amber-400/30",
-    textClass: "text-amber-700 dark:text-amber-300",
-    iconClass: "text-amber-500 dark:text-amber-400 animate-pulse",
-    glowClass: "shadow-amber-500/20",
-  },
-  expired: {
-    icon: CircleX,
-    label: "Expiré",
-    bgClass:
-      "bg-linear-to-r from-red-500/10 to-rose-500/10 dark:from-red-500/20 dark:to-rose-500/20",
-    borderClass: "border-red-500/30 dark:border-red-400/30",
-    textClass: "text-red-700 dark:text-red-300",
-    iconClass: "text-red-500 dark:text-red-400",
-    glowClass: "shadow-red-500/20",
-  },
-  none: {
-    icon: Sparkles,
-    label: "Aucun accès",
-    bgClass:
-      "bg-linear-to-r from-slate-500/10 to-gray-500/10 dark:from-slate-500/20 dark:to-gray-500/20",
-    borderClass: "border-slate-500/30 dark:border-slate-400/30",
-    textClass: "text-slate-600 dark:text-slate-400",
-    iconClass: "text-slate-400 dark:text-slate-500",
-    glowClass: "",
-  },
+const STATUS: Record<AccessStatus, { tone: Tone; label: string }> = {
+  active: { tone: "success", label: "Actif" },
+  expiring: { tone: "warning", label: "Expire bientôt" },
+  expired: { tone: "danger", label: "Expiré" },
+  none: { tone: "neutral", label: "Aucun accès" },
 }
 
-const sizeConfig = {
-  sm: {
-    padding: "px-2.5 py-1",
-    iconSize: "h-3.5 w-3.5",
-    textSize: "text-xs",
-    gap: "gap-1.5",
-  },
-  md: {
-    padding: "px-3.5 py-1.5",
-    iconSize: "h-4 w-4",
-    textSize: "text-sm",
-    gap: "gap-2",
-  },
-  lg: {
-    padding: "px-4 py-2",
-    iconSize: "h-5 w-5",
-    textSize: "text-base",
-    gap: "gap-2.5",
-  },
+const SIZE = {
+  sm: "h-6 px-2 text-xs",
+  md: "h-7 px-2.5 text-sm",
+  lg: "h-8 px-3 text-sm",
 }
 
-const accessTypeLabels = {
+/** Nom court d'un accès, tel qu'il s'écrit dans une phrase (« accès Examens »). */
+export const ACCESS_TYPE_LABEL: Record<AccessType, string> = {
   exam: "Examens",
   training: "Entraînement",
 }
 
+/** Statut d'un accès : pastille à point coloré, jours restants en mono. */
 export const AccessBadge = ({
   accessType,
   status,
@@ -94,53 +44,46 @@ export const AccessBadge = ({
   showDetails = false,
   className,
 }: AccessBadgeProps) => {
-  const config = statusConfig[status]
-  const sizes = sizeConfig[size]
-  const Icon = config.icon
-
-  const getStatusLabel = () => {
-    if (status === "none") return config.label
-    if (status === "expired") return config.label
-    if (status === "expiring" && daysRemaining !== undefined) {
-      return `${daysRemaining}j restants`
-    }
-    if (status === "active" && daysRemaining !== undefined) {
-      return `${daysRemaining}j restants`
-    }
-    return config.label
-  }
+  const { tone, label } = STATUS[status]
+  const statusLabel =
+    (status === "active" || status === "expiring") &&
+    daysRemaining !== undefined
+      ? `${daysRemaining}j restants`
+      : label
 
   return (
-    <div
+    <span
       className={cn(
-        "inline-flex items-center rounded-full border font-medium transition-all duration-300",
-        config.bgClass,
-        config.borderClass,
-        config.textClass,
-        sizes.padding,
-        sizes.gap,
-        status === "active" && "shadow-lg",
-        config.glowClass,
+        "inline-flex shrink-0 items-center gap-1.5 rounded-xs border font-medium whitespace-nowrap",
+        TONE_SOFT[tone],
+        SIZE[size],
         className,
       )}
     >
-      <Icon className={cn(sizes.iconSize, config.iconClass)} />
-      <span className={sizes.textSize}>
-        {showDetails
-          ? `${accessTypeLabels[accessType]} · ${getStatusLabel()}`
-          : getStatusLabel()}
-      </span>
+      <span
+        aria-hidden="true"
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: TONE_COLOR[tone] }}
+      />
+      {showDetails && (
+        <span className="text-ink font-semibold">
+          {ACCESS_TYPE_LABEL[accessType]}
+        </span>
+      )}
+      <span className="font-mono text-[0.92em]">{statusLabel}</span>
       {showDetails &&
         expiresAt &&
         status !== "none" &&
         status !== "expired" && (
-          <span className={cn(sizes.textSize, "opacity-70")}>
-            · {formatExpiration(expiresAt)}
-          </span>
+          <span className="text-ink-3">· {formatExpiration(expiresAt)}</span>
         )}
-    </div>
+    </span>
   )
 }
+
+/** Jours entiers restants avant `expiresAt`, arrondis au jour supérieur. */
+export const daysUntil = (expiresAt: number, now: number): number =>
+  Math.ceil((expiresAt - now) / (24 * 60 * 60 * 1000))
 
 /**
  * Statut dérivé de `daysRemaining` seul, jamais de l'horloge : ce helper est

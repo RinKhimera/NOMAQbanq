@@ -3,3 +3,4 @@
 // de `next/cache`.
 export const MARKETING_STATS_TAG = "marketing-stats"
 export const PRODUCTS_TAG = "products"
+export const OBJECTIVES_TAG = "objectives"

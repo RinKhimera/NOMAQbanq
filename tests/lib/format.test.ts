@@ -9,19 +9,25 @@ import {
   toAppZoneCalendarDay,
 } from "@/lib/app-zone"
 import {
-  formatCompactDateTime,
+  formatCalendarDay,
+  formatCountdown,
   formatCurrency,
   formatDateTime,
+  formatDayMonth,
   formatDeadline,
   formatExpiration,
+  formatFileTimestamp,
   formatFullDateTime,
-  formatLongDateTime,
+  formatIsoDay,
   formatMediumDate,
-  formatPaddedMediumDate,
+  formatMonthYear,
+  formatPercent,
   formatPresentmentAmount,
   formatShortDate,
+  formatShortDuration,
   formatTimeOnly,
   formatTimeRemaining,
+  formatWeekdayDayMonth,
   formatWeekdayLongDate,
   toCalendarDay,
 } from "@/lib/format"
@@ -30,6 +36,28 @@ import {
 // heure de Toronto : un formateur qui retomberait sur le fuseau du runtime
 // rendrait de l'UTC et échouerait ici. C'est le filet contre les mismatchs
 // d'hydratation (SSR en UTC vs navigateur en heure locale).
+
+describe("formatPercent", () => {
+  const normalizeSpaces = (str: string) => str.replace(/[  ]/g, " ")
+
+  it("rend un pourcentage fr-CA, espace insécable avant le signe", () => {
+    expect(normalizeSpaces(formatPercent(85))).toBe("85 %")
+    expect(normalizeSpaces(formatPercent(0))).toBe("0 %")
+  })
+
+  it("arrondit à l'entier par défaut, ou au nombre de décimales demandé", () => {
+    expect(normalizeSpaces(formatPercent(57.5))).toBe("58 %")
+    expect(normalizeSpaces(formatPercent(12.34, { digits: 1 }))).toBe("12,3 %")
+  })
+
+  it("préfixe le signe d'une tendance quand on le demande", () => {
+    expect(normalizeSpaces(formatPercent(12, { signed: true }))).toBe("+12 %")
+    expect(
+      normalizeSpaces(formatPercent(-3.2, { signed: true, digits: 1 })),
+    ).toBe("-3,2 %")
+    expect(normalizeSpaces(formatPercent(0, { signed: true }))).toBe("+0 %")
+  })
+})
 
 describe("formatCurrency", () => {
   // Note: Intl.NumberFormat utilise des espaces insécables (\u00A0) dans le formatage
@@ -65,6 +93,15 @@ describe("formatCurrency", () => {
 
     it("gère explicitement la devise CAD", () => {
       expect(normalizeSpaces(formatCurrency(5000, "CAD"))).toBe("50 $")
+    })
+
+    it("arrondit au dollar quand le montant est un total (whole)", () => {
+      expect(
+        normalizeSpaces(formatCurrency(5050, "CAD", { whole: true })),
+      ).toBe("51 $")
+      expect(
+        normalizeSpaces(formatCurrency(5050, "XAF", { whole: true })),
+      ).toBe("51 XAF")
     })
   })
 
@@ -179,6 +216,23 @@ describe("formatTimeRemaining", () => {
   })
 })
 
+describe("formatShortDuration", () => {
+  it("heures et minutes sur deux chiffres, ou minutes seules", () => {
+    expect(formatShortDuration(4 * 3_600_000 + 5 * 60_000)).toBe("4 h 05")
+    expect(formatShortDuration(42 * 60_000)).toBe("42 min")
+    expect(formatShortDuration(-5_000)).toBe("0 min")
+  })
+})
+
+describe("formatCountdown", () => {
+  it("jours, heures ou minutes selon l'échéance, jamais négatif", () => {
+    expect(formatCountdown(2 * 86_400_000 + 3 * 3_600_000)).toBe("2 j 3 h")
+    expect(formatCountdown(4 * 3_600_000 + 5 * 60_000)).toBe("4 h 05")
+    expect(formatCountdown(12 * 60_000 + 7_000)).toBe("12 min 07 s")
+    expect(formatCountdown(-1)).toBe("0 min 00 s")
+  })
+})
+
 describe("formatShortDate", () => {
   it("formate en dd/MM/yyyy", () => {
     const timestamp = new Date("2024-03-15T12:00:00Z").getTime()
@@ -236,13 +290,6 @@ describe("formatMediumDate", () => {
   })
 })
 
-describe("formatLongDateTime", () => {
-  it("formate en « d MMMM yyyy à HH:mm »", () => {
-    const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
-    expect(formatLongDateTime(timestamp)).toBe("15 mars 2024 à 10:05")
-  })
-})
-
 describe("formatFullDateTime", () => {
   it("formate la variante PPP avec l'heure", () => {
     const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
@@ -261,27 +308,34 @@ describe("formatDeadline", () => {
   })
 })
 
-describe("formatCompactDateTime", () => {
-  it("formate en date + heure compactes", () => {
-    const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
-    const result = formatCompactDateTime(timestamp)
-    expect(result).toContain("15/03/2024")
-    expect(result).toContain("10:05")
-  })
-})
-
-describe("formatPaddedMediumDate", () => {
-  it("préfixe le jour d'un zéro", () => {
-    expect(formatPaddedMediumDate(new Date("2024-07-03T12:00:00Z"))).toBe(
-      "03 juil. 2024",
-    )
-  })
-})
-
 describe("formatWeekdayLongDate", () => {
   it("inclut le jour de la semaine en français", () => {
     expect(formatWeekdayLongDate(new Date("2024-03-15T12:00:00Z"))).toBe(
       "vendredi 15 mars 2024",
+    )
+  })
+})
+
+describe("formatDayMonth", () => {
+  it("jour et mois abrégé, dans la journée de l'Est", () => {
+    // 1 h UTC le 28 = 21 h le 27 à Toronto.
+    expect(formatDayMonth(Date.parse("2026-09-28T01:00:00Z"))).toBe("27 sept.")
+  })
+})
+
+describe("formatMonthYear", () => {
+  it("mois et année, dans le fuseau de l'Est", () => {
+    // 1er avril 2 h UTC = 31 mars 22 h à Toronto.
+    expect(formatMonthYear(Date.parse("2026-04-01T02:00:00Z"))).toBe(
+      "mars 2026",
+    )
+  })
+})
+
+describe("formatWeekdayDayMonth", () => {
+  it("jour de la semaine, quantième et mois, sans l'année", () => {
+    expect(formatWeekdayDayMonth(Date.parse("2026-09-27T15:00:00Z"))).toBe(
+      "dimanche 27 septembre",
     )
   })
 })
@@ -502,5 +556,34 @@ describe("mois civils et décalages de jours (agrégats admin)", () => {
     expect(
       startOfAppZoneMonth(new Date("2026-08-01T01:00:00Z")).toISOString(),
     ).toBe("2026-07-01T04:00:00.000Z")
+  })
+})
+
+describe("formatCalendarDay", () => {
+  it("formate le jour cliqué dans un calendrier, sans décalage de fuseau", () => {
+    const picked = new Date(2026, 6, 3)
+    expect(formatCalendarDay(picked)).toBe("3 juil. 2026")
+    expect(formatCalendarDay(picked, { year: false })).toBe("3 juil.")
+  })
+})
+
+describe("formatIsoDay", () => {
+  it("formate un jour ISO en libellé court ou long", () => {
+    expect(formatIsoDay("2026-07-03")).toBe("3 juil.")
+    expect(formatIsoDay("2026-07-03", "weekday")).toBe(
+      "vendredi 3 juillet 2026",
+    )
+  })
+
+  it("rend l'entrée telle quelle quand elle n'est pas un jour ISO", () => {
+    expect(formatIsoDay("pas une date")).toBe("pas une date")
+  })
+})
+
+describe("formatFileTimestamp", () => {
+  it("horodatage sans caractère interdit dans un nom de fichier", () => {
+    expect(formatFileTimestamp(new Date(2026, 8, 27, 9, 5))).toBe(
+      "27-09-2026_09-05",
+    )
   })
 })

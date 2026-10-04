@@ -3,14 +3,13 @@ import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
 import { examParticipations, questions, user } from "@/db/schema"
-import { SUCCESS_SCORE_THRESHOLD, resolveSuccessRate } from "./lib"
+import { PASS_THRESHOLD } from "@/lib/score"
+import { resolveSuccessRate } from "./lib"
 
 export type MarketingStats = {
   totalQuestions: string
   totalUsers: string
-  totalDomains: number
   successRate: string
-  topDomains: { domain: string; count: number }[]
 }
 
 // Arrondit un nombre brut vers un palier marketing supérieur + suffixe "+".
@@ -26,22 +25,14 @@ const formatMarketingStat = (n: number): string => {
 }
 
 /**
- * Stats publiques pour les pages marketing (aucune auth requise). Comptes SQL
- * live par domaine (remplace la table d'agrégat `questionStats` droppée).
- * Remplace `marketing.getMarketingStats`.
+ * Stats publiques pour les pages marketing (aucune auth requise). Aucun compte
+ * par domaine : la vitrine ne publie pas le nombre de questions d'un domaine.
  */
 export const getMarketingStats = cache(async (): Promise<MarketingStats> => {
-  const domainRows = await db
-    .select({
-      domain: questions.domain,
-      count: sql<number>`count(*)`.mapWith(Number),
-    })
+  const [bank] = await db
+    .select({ n: sql<number>`count(*)`.mapWith(Number) })
     .from(questions)
     .where(isNull(questions.deletedAt))
-    .groupBy(questions.domain)
-    .orderBy(sql`count(*) desc`)
-
-  const totalQuestions = domainRows.reduce((sum, r) => sum + r.count, 0)
 
   const [users] = await db
     .select({ n: sql<number>`count(*)`.mapWith(Number) })
@@ -60,23 +51,18 @@ export const getMarketingStats = cache(async (): Promise<MarketingStats> => {
           Number,
         ),
       passed:
-        sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted') and ${examParticipations.score} >= ${SUCCESS_SCORE_THRESHOLD})`.mapWith(
+        sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted') and ${examParticipations.score} >= ${PASS_THRESHOLD})`.mapWith(
           Number,
         ),
     })
     .from(examParticipations)
 
   return {
-    totalQuestions: formatMarketingStat(totalQuestions),
+    totalQuestions: formatMarketingStat(bank?.n ?? 0),
     totalUsers: formatMarketingStat(users?.n ?? 0),
-    totalDomains: domainRows.length,
     successRate: resolveSuccessRate({
       completed: participationAgg?.completed ?? 0,
       passed: participationAgg?.passed ?? 0,
     }),
-    topDomains: domainRows.slice(0, 10).map((r) => ({
-      domain: r.domain,
-      count: r.count,
-    })),
   }
 })

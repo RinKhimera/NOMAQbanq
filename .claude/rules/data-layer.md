@@ -85,8 +85,9 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   d'ordre en commentaire à côté ; ni la route ni son test ne changent.
 - **Passation d'examen — invariante d'accès** : le contenu des questions n'est
   livré/écrit que pour une participation `in_progress` (créée par `startExam`,
-  seul à vérifier audience + fenêtre + accès + examen actif à la création).
-  Désactiver un examen ferme les NOUVELLES participations et le rend
+  seul à vérifier finalisation + audience + fenêtre + accès + examen actif à
+  la création ; seuls l'audience et l'accès sont levés pour un admin).
+  Désactiver un examen ferme les NOUVELLES participations, admin compris, et le rend
   introuvable à qui n'y a pas participé (page, liste, classement), sans couper
   une épreuve en cours : `requireAttempt` ne lit pas `isActive`,
   volontairement, et la liste garde l'examen pour son participant. La page evaluation
@@ -97,8 +98,8 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   reçoit le 404, il n'a rien à acheter). Budget-temps anti-triche
   gardé À L'ÉCRITURE (verbe `answer` de `requireAttempt`, au-delà de
   `startedAt + completionTime + grâce`), pas seulement à la finalisation.
-  `updateExam` et `startExam` prennent un `FOR UPDATE` commun sur la ligne
-  `exams` ; `requireAttempt` ne verrouille QUE la participation (`OF p`).
+  Toute écriture du jeu de questions et `startExam` prennent un `FOR UPDATE`
+  commun sur la ligne `exams` ; `requireAttempt` ne verrouille QUE la participation (`OF p`).
 - **Verrou de clé de réponse = un seul module**,
   `features/questions/answer-key-lock.ts` (voir `CONTEXT.md`). Tant qu'un
   examen contenant une question est ouvert, sa clé est retenue pour tout
@@ -140,6 +141,97 @@ colonne)` dans le WHERE des canaux de
   `getTrainingSessionById`) ne le portent pas. Corollaire :
   `completeTrainingSession`/`finalizeExam` ne renvoient plus le décompte des
   justes au navigateur.
+- **Tableau de bord étudiant** (`features/analytics/dal.dashboard.ts`) :
+  `getMyDashboard(period)` porte la période (`lib/dashboard-period.ts`,
+  journées civiles de l'Est, aujourd'hui compris) et la tendance contre la
+  période précédente de même durée. Filtrés : score moyen, séries, courbes ;
+  toujours sur « Tout » : examens complétés, disponibles, anneau N / M. Une
+  participation soumise à un examen encore ouvert COMPTE comme complétée (le
+  compte ne révèle rien) mais son score retenu sort de toute moyenne, de la
+  courbe et du « N / M réussis ». Le taux de complétion divise par les examens
+  disponibles (actifs, dans l'audience) les participations à CES examens :
+  jamais celles d'un examen désactivé depuis. Moyennes et tendance au
+  PLANCHER (`floor`, tendance calculée sur les moyennes brutes) : 59,67 ne
+  s'affiche jamais 60 % « réussite », un recul de 1,7 s'affiche −2. La
+  courbe d'entraînement est une moyenne par semaine civile
+  (`date_trunc('week', … at time zone …)`), bornée strictement par la
+  période : une semaine entamée avant ne compte que ses jours dans la
+  période (`startDay`, libellé « Depuis le … ») ; une semaine sans série
+  lisible n'a pas de point, jamais un point à 0.
+- **Clé à vérifier / clé confirmée = une règle, deux formes** :
+  `keyReview` (`features/questions/key-review.ts`, pure : fiche, formulaire)
+  et `keyToVerifySql` (`features/questions/dal.ts` : onglet, compteur, export),
+  sur les mêmes constantes. Une confirmation tient tant que les réponses n'ont
+  pas doublé (10 nouvelles au moins) ; `updateQuestion` l'efface quand
+  l'énoncé, les options ou la clé changent. **Choix figés** : `updateQuestion`
+  refuse, sous verrou de la ligne, un changement de clé ou d'options tant
+  qu'un examen ouvert (`end_date > now()`) et finalisé contient la question.
+- **Dernière utilisation** : `notUsedInLastExams(n, colonne)`
+  (`features/questions/last-use.ts`), prédicat corrélé (examens par date
+  d'ouverture, désactivés compris, examens en préparation exclus) ; sa
+  lecture par question est `getLastUses` (même ordre), et une question est
+  récente quand cet examen est l'un des `RECENT_EXAMS_DEFAULT` derniers.
+- **Compositeur d'examen** : la règle de complétion est pure
+  (`planCompletion`, `features/exams/completion.ts` : prorata des questions
+  disponibles par domaine, anciennes puis récentes du même domaine, report
+  sur les autres domaines, jamais une clé à vérifier) ; la DAL fournit l'offre
+  (`getBankSupply`) et tire au hasard (`drawFromBank`). Les écritures
+  (`addExamQuestions`, `removeExamQuestions`) passent par `composeTx`, sous le
+  verrou de l'examen, avec les gardes de `saveExam` (participation, visé) ;
+  l'aperçu n'écrit rien.
+- **Examen en préparation** (`exams.finalized_at IS NULL`, `CONTEXT.md`) :
+  dates et durée nullables, exigées par la contrainte
+  `exams_finalized_complete` dès la finalisation. Toute lecture étudiante
+  filtre `finalized_at IS NOT NULL` (liste, page, classement, résultats,
+  tableau de bord) et lit les dates par `finalizedDates`/`finalizedDate`
+  (`features/exams/dal.shared.ts`), qui affirment l'invariant ; une lecture
+  qui part d'une participation n'a pas à filtrer (`startExam` refuse un examen
+  non finalisé, admin compris, et le jeu ne repasse en préparation qu'avant
+  la première participation). Côté admin, `getAdminExam` et `adminPhaseOf`.
+  Un compteur par phase filtre `finalized_at` en plus des dates : un examen
+  remis en préparation garde les siennes. Écritures : `saveExam`
+  (« Enregistrer » : titre et visé suffisent à le rendre valide, mais dates,
+  pause et audience sont toujours envoyées, un champ omis est refusé, jamais
+  lu comme « effacer » ; seul `questionIds` absent conserve le jeu) et
+  `finalizePreparedExam` partagent avec les écritures du compositeur les
+  étapes de `features/exams/actions.ts`, sous le verrou `exams FOR UPDATE` ; changer
+  le jeu ou le visé d'un examen finalisé le remet en préparation (un visé
+  ramené à la taille du jeu n'est pas un changement). Tout écrivain pose
+  `finalized_at` explicitement ; les défauts de `finalized_at` et
+  `target_question_count` sont provisoires (expand/contract : code antérieur
+  aux colonnes pendant le build et après un rollback) : leur retrait est la
+  migration « contract » de la première PR qui touche `exams` après la mise en
+  production de l'examen en préparation. Le verrou
+  de clé anonyme couvre aussi un examen en préparation, dates ou non.
+- **Référentiel des objectifs du CMC** (`features/objectives/`, vocabulaire
+  dans `CONTEXT.md`) : toute question porte `objective_id`, jamais un libellé
+  libre. `questions.objectif_cmc` n'est plus lu, mais chaque écriture
+  (création, modification, fusion, renommage, correction) y recopie le
+  libellé : la version précédente le lit encore pendant le build et après un
+  rollback, jusqu'à son `DROP COLUMN`. Les règles d'un libellé et la clé normalisée vivent dans
+  `label.ts` (pur, partagé avec le formulaire ; la migration 0023 les recopie
+  en SQL). L'unicité sur la clé n'est PAS en base tant que des variantes
+  restent à fusionner : chaque écriture qui pose un libellé la vérifie sous
+  `pg_advisory_xact_lock`. Ordre des verrous : objectif(s), puis question —
+  partout (`updateQuestion`, fusion, correction), sinon une fusion
+  concurrente interbloque. Une entrée `needs_fix` (valeur invalide) n'est
+  proposée nulle part et refusée par `createQuestion`/`updateQuestion`. La
+  fusion et la correction ne changent que `objective_id` (date de
+  modification comprise). Lecture du libellé : `objectiveLabelSql`, corrélée
+  sur `"questions"`. La vitrine passe par `getCachedDomainObjectives`
+  (étiquette `objectives`, 14 j), que toute écriture du référentiel invalide,
+  comme les écritures de question qui changent domaine, objectif ou
+  existence.
+- **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
+  sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
+  renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou
+  passer par une jointure.
+- **Helper pur dans un module `"use client"`** : appelé depuis un Server
+  Component, il devient une référence client et casse au rendu
+  (`getAccessStatus`). Un module de helpers purs ne porte pas `"use client"`.
+- **Une participation `in_progress` survit à son budget** : le cron ne la clôt
+  qu'à la fermeture de l'examen. Une lecture « examen en cours » teste le
+  budget (`remainingMs`) avant d'afficher un temps restant.
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
   transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une
@@ -229,13 +321,13 @@ colonne)` dans le WHERE des canaux de
   s'affiche via `formatDeadline`, qui suffixe « (heure de l'Est) » — sans ça un
   étudiant hors Québec se trompe de plusieurs heures sur la fermeture.
   Exceptions assumées, à ne pas « corriger » sans réfléchir :
-  - date pickers admin (`exam-form`, `users-filter-bar`) : ils formatent la valeur
-    locale du calendrier, cohérente avec ce que l'admin vient de cliquer ;
+  - date pickers admin : `formatCalendarDay` lit la valeur dans le fuseau du
+    navigateur, cohérente avec ce que l'admin vient de cliquer ;
   - `SESSION_DATE_FMT` (`features/users/dal.ts`) : formatage côté DAL, antérieur
     au module et volontairement autonome ;
-  - `getRevenueByDay` : `parseISO` sur du date-only (`YYYY-MM-DD`) rend bien le même
-    jour partout — le bucket SQL est lui aussi un jour de l'Est depuis la
-    correction de #132.
+  - `formatIsoDay` (séries de `getRevenueByDay`) : `parseISO` sur du date-only
+    (`YYYY-MM-DD`) rend bien le même jour partout — le bucket SQL est lui aussi
+    un jour de l'Est depuis la correction de #132.
 - **Filtres et agrégats « par jour » : transporter une journée civile, pas un
   instant.** Un instant ne désigne pas un jour (minuit local à Paris tombe la
   veille à Toronto), et une borne de fin posée sur le minuit du dernier jour
@@ -286,6 +378,9 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   (`prices`, `seedCheckoutSession`, `customers`, `nextEvent`) /
   `stripeBox.reset()`. Même raison que le Mailer : un verbe Stripe ajouté au
   port sans son faux ne compile plus, un faux partiel ne masque plus un appel.
+- Les fichiers d'intégration tournent en série (`fileParallelism: false`) : un
+  test jumeau qui compare deux comptes sur une table globale (`count(*)`) est
+  déterministe. Cibler un fichier : `bun run test:integration -- <fichier>`.
 - Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants
@@ -309,7 +404,12 @@ repose sur la **modélisation** (recommandation officielle Next), à maintenir :
   JAMAIS `token`, `password`, ni les tokens OAuth. Afficher à l'utilisateur ses
   propres appareils/méthodes de connexion est un affichage volontaire (comme
   l'activity feed). Hors ce cas, les tables `account`/`session` ne sont lues par
-  aucun DAL métier.
+  aucun DAL métier, avec UNE exception admin : la fiche d'un compte
+  (`getUserFile`) lit les `account.provider_id` distincts d'un autre
+  utilisateur (« Mot de passe », « Google ») et l'absence de ligne `account`
+  (compte importé, jamais reconnecté depuis la migration ; la liste lit la même
+  existence pour masquer la dernière connexion remplie d'office). Rien d'autre :
+  jamais `session`, adresse IP, user agent, jetons ni mot de passe d'autrui.
 - **Session brute jamais propagée au client** : `getCurrentSession`/
   `requireSession`/`requireRole` renvoient l'objet session Better Auth (qui porte
   `session.token`) — l'utiliser comme garde ou en extraire `session.user.id`/

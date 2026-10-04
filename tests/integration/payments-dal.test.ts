@@ -160,24 +160,43 @@ describe("getMyTransactions (pagination keyset)", () => {
     } as never)
   })
 
-  it("masque les pending et pagine sans doublon ni saut (tie-break même timestamp)", async () => {
+  it("masque les pending ; page suivante, fin de liste, page précédente (tie-break même timestamp)", async () => {
     const page1 = await getMyTransactions({ limit: 2 })
     expect(page1.items).toHaveLength(2)
+    expect(page1.firstIndex).toBe(0)
+    expect(page1.prevCursor).toBeNull()
     expect(page1.nextCursor).not.toBeNull()
 
     const page2 = await getMyTransactions({
-      cursor: page1.nextCursor,
+      after: page1.nextCursor,
       limit: 2,
     })
+    expect(page2.firstIndex).toBe(2)
+    // Fin de liste : 4 transactions non pending.
+    expect(page2.nextCursor).toBeNull()
+    expect(page2.prevCursor).not.toBeNull()
 
     const all = [...page1.items, ...page2.items]
     const ids = all.map((t) => t.id)
-    // 4 transactions non-pending → 2 + 2, aucun doublon, pending exclue.
     expect(new Set(ids).size).toBe(4)
     expect(ids).not.toContain(pendingTxId)
     expect(all.every((t) => t.status !== "pending")).toBe(true)
     // Ordre décroissant strict par createdAt (la plus récente d'abord).
     expect(all[0]?.id).toBe(accessTxId)
+
+    const back = await getMyTransactions({
+      before: page2.prevCursor,
+      limit: 2,
+    })
+    expect(back.items.map((t) => t.id)).toEqual(page1.items.map((t) => t.id))
+    expect(back.firstIndex).toBe(0)
+    expect(back.prevCursor).toBeNull()
+    expect(back.nextCursor).toBe(page1.nextCursor)
+  })
+
+  it("10 lignes par page par défaut", async () => {
+    const page = await getMyTransactions()
+    expect(page.items.length).toBeLessThanOrEqual(10)
   })
 })
 

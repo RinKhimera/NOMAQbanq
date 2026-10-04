@@ -13,13 +13,15 @@ test.describe("Navigation sidebar — admin", () => {
 
     const navLinks = [
       { title: "Questions", url: "/admin/questions" },
-      { title: "Examens", url: "/admin/examens" },
+      { title: "Examens blancs", url: "/admin/examens" },
       { title: "Utilisateurs", url: "/admin/utilisateurs" },
       { title: "Transactions", url: "/admin/transactions" },
     ]
 
     for (const link of navLinks) {
-      const nav = page.locator('[data-sidebar="content"]')
+      const nav = page.getByRole("navigation", {
+        name: "Navigation de l'administration",
+      })
       await nav.getByRole("link", { name: link.title }).click()
       await expect(page).toHaveURL(new RegExp(link.url), {
         timeout: 15_000,
@@ -35,7 +37,9 @@ test.describe("Navigation sidebar — admin", () => {
       timeout: 15_000,
     })
 
-    const nav = page.locator('[data-sidebar="content"]')
+    const nav = page.getByRole("navigation", {
+      name: "Navigation de l'administration",
+    })
     await nav.getByRole("link", { name: "Profil" }).click()
     await expect(page).toHaveURL(/\/admin\/profil/, {
       timeout: 15_000,

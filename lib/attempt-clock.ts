@@ -60,9 +60,25 @@ export const pauseRemainingMs = (
 
 export type TimeZone = "normal" | "warning" | "critical"
 
-export const zone = (remaining: number): TimeZone => {
-  if (remaining < 5 * MINUTE) return "critical"
-  if (remaining < 10 * MINUTE) return "warning"
+export type ZoneThresholds = { warningMs: number; criticalMs: number }
+
+export const EXAM_ZONES: ZoneThresholds = {
+  warningMs: 10 * MINUTE,
+  criticalMs: 5 * MINUTE,
+}
+
+/** Évaluation gratuite : 200 s au total, des paliers en minutes n'auraient pas de sens. */
+export const EVALUATION_ZONES: ZoneThresholds = {
+  warningMs: 30 * SECOND,
+  criticalMs: 10 * SECOND,
+}
+
+export const zone = (
+  remaining: number,
+  thresholds: ZoneThresholds = EXAM_ZONES,
+): TimeZone => {
+  if (remaining < thresholds.criticalMs) return "critical"
+  if (remaining < thresholds.warningMs) return "warning"
   return "normal"
 }
 
@@ -82,3 +98,7 @@ export const formatPauseTime = (ms: number): string => {
   const seconds = Math.floor((ms % MINUTE) / SECOND)
   return `${pad(minutes)}:${pad(seconds)}`
 }
+
+/** M:SS à partir de secondes (évaluation gratuite). */
+export const formatMinutesSeconds = (seconds: number): string =>
+  `${Math.floor(seconds / 60)}:${pad(seconds % 60)}`

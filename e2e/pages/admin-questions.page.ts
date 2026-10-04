@@ -6,106 +6,80 @@ export class AdminQuestionsPage extends BasePage {
     super(page)
   }
 
-  async goto() {
-    await super.goto("/admin/questions")
+  async goto(query = "") {
+    await super.goto(`/admin/questions${query}`)
   }
 
   async waitForReady() {
-    await expect(this.page.getByText("Gestion des Questions")).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(
+      this.page.getByRole("heading", { level: 1, name: "Questions" }),
+    ).toBeVisible({ timeout: 15_000 })
   }
 
   async gotoNewQuestion() {
     await this.page.getByRole("link", { name: "Nouvelle question" }).click()
     await this.page.waitForURL(/\/admin\/questions\/nouvelle/)
-    // "Nouvelle question" = h1 + description → cibler le heading.
     await expect(
       this.page.getByRole("heading", { name: "Nouvelle question" }),
-    ).toBeVisible({
-      timeout: 15_000,
-    })
+    ).toBeVisible({ timeout: 15_000 })
   }
 
   async searchQuestion(query: string) {
-    const searchInput = this.page.getByPlaceholder(/Rechercher/)
-    await searchInput.fill(query)
-    // Wait for debounce (300ms) + refetch
-    await this.page.waitForTimeout(500)
+    await this.page
+      .getByPlaceholder("Énoncé, choix de réponse, objectif ou identifiant")
+      .fill(query)
+    // Recherche débouncée (300 ms) puis rechargement de la page serveur.
+    await this.page.waitForURL(
+      (url) => url.searchParams.get("q") === query.trim(),
+    )
+  }
+
+  /** Ouvre la page de détail de la n-ième ligne (lien de l'énoncé). */
+  async openRow(index = 0) {
+    await this.page.getByTestId("question-row-link").nth(index).click()
+    await this.page.waitForURL(/\/admin\/questions\/[^/?]+(\?|$)/)
   }
 
   async fillQuestionForm(data: {
     question: string
     options: string[]
-    correctAnswer: string
+    keyIndex: number
     domain: string
+    objective: string
     explanation: string
   }) {
     const main = this.page.locator("main")
 
-    // Fill question text
-    await main
-      .getByPlaceholder("Saisissez votre question ici...")
-      .fill(data.question)
-
-    // Fill options
-    for (let i = 0; i < data.options.length; i++) {
-      const letter = String.fromCharCode(65 + i) // A, B, C, D
-      await main.getByPlaceholder(`Option ${letter}`).fill(data.options[i])
-    }
-
-    // Select correct answer (click the letter button)
-    await main
-      .getByRole("button", { name: data.correctAnswer, exact: true })
-      .click()
-
-    // Select domain — le Select shadcn/Radix monte son contenu dans un portail
-    // (role="listbox" hors `main`) ET garde un <select> natif caché pour le form.
-    // Scoper au listbox évite la collision strict-mode avec l'<option> native.
-    await main.getByText("Sélectionnez un domaine").click()
+    // Domaine : Select Radix, contenu dans un portail (listbox hors `main`).
+    await main.locator("#qf-domain").click()
     await this.page
       .getByRole("listbox")
       .getByText(data.domain, { exact: true })
       .click()
 
-    // Fill explanation
-    await main
-      .getByPlaceholder("Explication détaillée de la réponse...")
-      .fill(data.explanation)
-  }
-
-  /**
-   * Renseigne l'objectif CMC. Ce champ est un combobox Popover + cmdk (PAS un
-   * input) : le trigger `role="combobox"` affiche « Sélectionner ou créer... »,
-   * et c'est seulement à l'ouverture qu'un `CommandInput` (placeholder réel
-   * « Rechercher ou créer... », dans un portail) apparaît. On tape puis on
-   * clique le 1er item (objectif existant OU « Créer "x" »), tous `role="option"`.
-   */
-  async fillObjectifCMC(value: string) {
-    // Le trigger n'a pas de nom accessible (label « Objectif CMC » non associé
-    // via htmlFor) → on le cible par son texte, comme le trigger domaine.
+    // Objectif : combobox à recherche ; « Créer » passe par le serveur, qui
+    // refuse un doublon du référentiel.
+    await main.locator("#qf-objective").click()
     await this.page
-      .locator("main")
-      .getByText("Sélectionner ou créer...")
-      .click()
-    await this.page.getByPlaceholder("Rechercher ou créer...").fill(value)
-    // Préférer l'objectif EXISTANT au nom exact ; sinon l'item « Créer "x" ».
-    // Évite l'ambiguïté de `.first()` quand les deux items coexistent (ordre cmdk).
-    const exact = this.page.getByRole("option", { name: value, exact: true })
-    const createNew = this.page.getByRole("option").filter({ hasText: "Créer" })
-    await exact.or(createNew).first().waitFor({ state: "visible" })
-    if ((await exact.count()) > 0) {
-      await exact.first().click()
-    } else {
-      await createNew.first().click()
-    }
+      .getByPlaceholder("Rechercher un objectif")
+      .fill(data.objective)
+    const exact = this.page.getByRole("option", {
+      name: data.objective,
+      exact: true,
+    })
+    const create = this.page.getByRole("option").filter({ hasText: "Créer" })
+    await exact.or(create).first().waitFor({ state: "visible" })
+    await ((await exact.count()) > 0 ? exact : create).first().click()
+    await expect(main.locator("#qf-objective")).toContainText(data.objective)
+
+    await main.getByTestId("question-input").fill(data.question)
+    for (const [i, option] of data.options.entries())
+      await main.getByTestId(`option-input-${i}`).fill(option)
+    await main.getByTestId(`btn-key-${data.keyIndex}`).click()
+    await main.getByTestId("explanation-input").fill(data.explanation)
   }
 
-  async submitQuestion() {
-    await this.page.getByRole("button", { name: "Créer la question" }).click()
-  }
-
-  async expectSuccessToast() {
-    await this.expectToast("Question créée avec succès !")
+  async save() {
+    await this.page.getByTestId("btn-save-question").click()
   }
 }

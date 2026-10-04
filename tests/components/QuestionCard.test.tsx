@@ -1,54 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { ComponentPropsWithoutRef } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { QuestionCard } from "@/components/quiz/question-card"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
-
-// Props Framer Motion à exclure du DOM (hoisted pour être disponible dans vi.mock)
-const { filterMotionProps } = vi.hoisted(() => {
-  const motionPropsToFilter = new Set([
-    "initial",
-    "animate",
-    "exit",
-    "variants",
-    "transition",
-    "layout",
-    "layoutId",
-    "layoutDependency",
-    "layoutScroll",
-    "whileHover",
-    "whileTap",
-    "whileFocus",
-    "whileDrag",
-    "whileInView",
-    "onAnimationStart",
-    "onAnimationComplete",
-    "onUpdate",
-    "inherit",
-    "custom",
-  ])
-
-  return {
-    filterMotionProps: <T extends Record<string, unknown>>(props: T) =>
-      Object.fromEntries(
-        Object.entries(props).filter(([key]) => !motionPropsToFilter.has(key)),
-      ),
-  }
-})
-
-vi.mock("motion/react", () => ({
-  motion: {
-    div: ({ children, ...props }: ComponentPropsWithoutRef<"div">) => (
-      <div {...filterMotionProps(props)}>{children}</div>
-    ),
-    button: ({ children, ...props }: ComponentPropsWithoutRef<"button">) => (
-      <button {...filterMotionProps(props)}>{children}</button>
-    ),
-  },
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-}))
 
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
@@ -68,42 +21,51 @@ const mockQuestion: QuizQuestion = {
   domain: "Général",
 }
 
+const option = (text: string) =>
+  screen.getByText(text).closest("[data-testid^='answer-option-']")
+
 describe("QuestionCard", () => {
   describe("Variant: default", () => {
-    it("affiche la question et les options", () => {
+    it("affiche la question, les options et le domaine", () => {
       render(<QuestionCard variant="default" question={mockQuestion} />)
 
       expect(screen.getByText(mockQuestion.question)).toBeInTheDocument()
-      mockQuestion.options.forEach((option) => {
-        expect(screen.getByText(option)).toBeInTheDocument()
+      mockQuestion.options.forEach((o) => {
+        expect(screen.getByText(o)).toBeInTheDocument()
       })
-    })
-
-    it("affiche le badge de domaine si demandé", () => {
-      render(
-        <QuestionCard
-          variant="default"
-          question={mockQuestion}
-          showDomainBadge
-        />,
-      )
       expect(screen.getByText(mockQuestion.domain)).toBeInTheDocument()
     })
   })
 
   describe("Variant: exam", () => {
+    it("numérote la question sur le total de la série", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={mockQuestion}
+          questionNumber={3}
+          totalQuestions={10}
+        />,
+      )
+
+      expect(
+        screen.getByRole("heading", { name: "Question 3 / 10" }),
+      ).toBeInTheDocument()
+    })
+
     it("appelle onAnswerSelect lors du clic sur une option", () => {
       const onAnswerSelect = vi.fn()
       render(
         <QuestionCard
           variant="exam"
           question={mockQuestion}
+          showCorrectAnswer={false}
           onAnswerSelect={onAnswerSelect}
         />,
       )
 
       fireEvent.click(screen.getByText("Lyon"))
-      expect(onAnswerSelect).toHaveBeenCalledWith(1) // Index of "Lyon"
+      expect(onAnswerSelect).toHaveBeenCalledWith(1)
     })
 
     it("affiche l'état sélectionné", () => {
@@ -117,14 +79,13 @@ describe("QuestionCard", () => {
         />,
       )
 
-      // L'option sélectionnée doit avoir le style "selected" (bg-blue-50, border-blue-400)
-      const lyonContainer = screen.getByText("Lyon").closest("div")
-      expect(lyonContainer).toHaveClass("bg-blue-50", "border-blue-400")
+      expect(option("Lyon")).toHaveAttribute("data-state", "selected")
+      expect(option("Paris")).toHaveAttribute("data-state", "default")
     })
 
-    it("appelle onFlagToggle lors du clic sur le drapeau", () => {
+    it("marque et démarque la question", () => {
       const onFlagToggle = vi.fn()
-      render(
+      const { rerender } = render(
         <QuestionCard
           variant="exam"
           question={mockQuestion}
@@ -132,9 +93,39 @@ describe("QuestionCard", () => {
         />,
       )
 
-      const flagButton = screen.getByRole("button", { name: /Marquer/i })
-      fireEvent.click(flagButton)
+      const flag = screen.getByTestId("btn-flag")
+      expect(flag).toHaveAccessibleName("Marquer")
+      expect(flag).toHaveAttribute("aria-pressed", "false")
+      fireEvent.click(flag)
       expect(onFlagToggle).toHaveBeenCalled()
+
+      rerender(
+        <QuestionCard
+          variant="exam"
+          question={mockQuestion}
+          onFlagToggle={onFlagToggle}
+          isFlagged
+        />,
+      )
+      expect(screen.getByTestId("btn-flag")).toHaveAttribute(
+        "data-flagged",
+        "true",
+      )
+      expect(screen.getByTestId("btn-flag")).toHaveAccessibleName("Marquée")
+    })
+
+    it("rend le pied de carte fourni", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={mockQuestion}
+          footer={<button type="button">Suivante</button>}
+        />,
+      )
+
+      expect(
+        screen.getByRole("button", { name: "Suivante" }),
+      ).toBeInTheDocument()
     })
 
     it("ne révèle JAMAIS les images d'explication en passation (anti-triche)", () => {
@@ -147,16 +138,18 @@ describe("QuestionCard", () => {
               { url: "https://cdn/expl-1.jpg", storagePath: "p1", order: 0 },
             ],
           }}
+          selectedAnswer="Lyon"
         />,
       )
 
+      expect(screen.getByTestId("explanation-content")).toBeInTheDocument()
       expect(screen.queryByTestId("explanation-images")).not.toBeInTheDocument()
       expect(
         screen.queryByAltText("Image d'explication"),
       ).not.toBeInTheDocument()
     })
 
-    it("mode tuteur : révèle la bonne réponse ET l'explication après réponse (showCorrectAnswer + lazyExplanation)", () => {
+    it("mode tuteur révélé : explication ouverte, références repliées", () => {
       render(
         <QuestionCard
           variant="exam"
@@ -168,17 +161,24 @@ describe("QuestionCard", () => {
         />,
       )
 
-      // La bonne réponse est mise en évidence (état "user-correct")
-      const parisContainer = screen.getByText("Paris").closest("div")
-      expect(parisContainer).toHaveClass("bg-green-100", "border-green-500")
-
-      // L'explication + références doivent apparaître IMMÉDIATEMENT en passation
-      // tuteur (pas seulement en variant review) — cœur du mode tuteur.
-      expect(screen.getByTestId("explanation-content")).toBeInTheDocument()
       expect(
         screen.getByText("Paris est la capitale de la France."),
       ).toBeInTheDocument()
+      expect(
+        screen.queryByText("Atlas géographique, p.12"),
+      ).not.toBeInTheDocument()
+
+      const references = screen.getByRole("button", { name: /Références/ })
+      expect(references).toHaveAttribute("aria-expanded", "false")
+      fireEvent.click(references)
       expect(screen.getByText("Atlas géographique, p.12")).toBeInTheDocument()
+
+      const explanation = screen.getByRole("button", { name: /Explication/ })
+      expect(explanation).toHaveAttribute("aria-expanded", "true")
+      fireEvent.click(explanation)
+      expect(
+        screen.queryByText("Paris est la capitale de la France."),
+      ).not.toBeInTheDocument()
     })
 
     it("mode tuteur révélé : un appel de citation ouvre la référence visée", () => {
@@ -201,39 +201,42 @@ describe("QuestionCard", () => {
       ).toBeInTheDocument()
     })
 
-    it("mode tuteur révélé : bonne réponse en vert (✓), mauvais choix en rouge (✗)", () => {
-      render(
-        <QuestionCard
-          variant="exam"
-          question={mockQuestion} // correctAnswer = "Paris"
-          selectedAnswer="Lyon" // l'utilisateur s'est trompé
-          showCorrectAnswer={true}
-          lazyExplanation="Paris est la capitale de la France."
-        />,
-      )
-
-      // Bonne réponse (Paris) → état user-correct (vert)
-      const paris = screen.getByText("Paris").closest("div")
-      expect(paris).toHaveClass("bg-green-100", "border-green-500")
-
-      // Choix de l'utilisateur, faux (Lyon) → état user-incorrect (rouge)
-      const lyon = screen.getByText("Lyon").closest("div")
-      expect(lyon).toHaveClass("bg-red-100", "border-red-500")
-    })
-
-    it("mode tuteur révélé : choix correct → la bonne réponse choisie est en vert", () => {
+    it("mode tuteur révélé : bonne réponse juste, mauvais choix faux, les autres atténués, réponse verrouillée", () => {
+      const onAnswerSelect = vi.fn()
       render(
         <QuestionCard
           variant="exam"
           question={mockQuestion}
-          selectedAnswer="Paris" // bonne réponse choisie
+          selectedAnswer="Lyon"
+          showCorrectAnswer={true}
+          lazyExplanation="Paris est la capitale de la France."
+          onAnswerSelect={onAnswerSelect}
+        />,
+      )
+
+      expect(option("Paris")).toHaveAttribute("data-state", "correct")
+      expect(option("Lyon")).toHaveAttribute("data-state", "incorrect")
+      expect(option("Marseille")).toHaveAttribute("data-state", "muted")
+      expect(
+        within(
+          screen.getByRole("group", { name: "Choix de réponse" }),
+        ).queryByRole("button"),
+      ).not.toBeInTheDocument()
+    })
+
+    it("mode tuteur révélé : choix correct → la réponse choisie est juste", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={mockQuestion}
+          selectedAnswer="Paris"
           showCorrectAnswer={true}
           lazyExplanation="Paris est la capitale de la France."
         />,
       )
 
-      const paris = screen.getByText("Paris").closest("div")
-      expect(paris).toHaveClass("bg-green-100", "border-green-500")
+      expect(option("Paris")).toHaveAttribute("data-state", "correct")
+      expect(screen.queryByText("Votre réponse")).not.toBeInTheDocument()
     })
 
     it("variant exam SANS correctAnswer (vitrine) : aucune révélation malgré showCorrectAnswer par défaut", () => {
@@ -242,20 +245,16 @@ describe("QuestionCard", () => {
           variant="exam"
           question={{ ...mockQuestion, correctAnswer: "" }}
           selectedAnswer="Lyon"
-          // showCorrectAnswer omis → défaut true ; sans correctAnswer, PAS de révélation
         />,
       )
 
-      // Aucune explication, et le choix reste "selected" (bleu), pas "user-incorrect" (rouge)
       expect(
         screen.queryByTestId("explanation-content"),
       ).not.toBeInTheDocument()
-      const lyon = screen.getByText("Lyon").closest("div")
-      expect(lyon).toHaveClass("bg-blue-50", "border-blue-400")
-      expect(lyon).not.toHaveClass("bg-red-100")
+      expect(option("Lyon")).toHaveAttribute("data-state", "selected")
     })
 
-    it("clé retenue, validée en tuteur : notice « correction différée », choix ni vert ni rouge", () => {
+    it("clé retenue, validée en tuteur : notice « correction différée », choix ni juste ni faux", () => {
       render(
         <QuestionCard
           variant="exam"
@@ -268,9 +267,7 @@ describe("QuestionCard", () => {
       expect(
         screen.queryByTestId("explanation-content"),
       ).not.toBeInTheDocument()
-      const lyon = screen.getByText("Lyon").closest("div")
-      expect(lyon).toHaveClass("bg-blue-50", "border-blue-400")
-      expect(lyon).not.toHaveClass("bg-red-100")
+      expect(option("Lyon")).toHaveAttribute("data-state", "selected")
     })
 
     it("clé retenue, pas encore validée : aucune notice", () => {
@@ -297,16 +294,15 @@ describe("QuestionCard", () => {
         />,
       )
 
-      // Feedback différé (examen / entraînement test) → aucune correction visible
-      // pendant la passation, même si la question porte une explication.
       expect(
         screen.queryByTestId("explanation-content"),
       ).not.toBeInTheDocument()
+      expect(option("Paris")).toHaveAttribute("data-state", "default")
     })
   })
 
   describe("Variant: review", () => {
-    it("clé retenue : statut « Correction différée », notice à la place de l'explication, réponse sans ✗", () => {
+    it("clé retenue : statut « Correction différée », notice à la place de l'explication, réponse ni juste ni fausse", () => {
       render(
         <QuestionCard
           variant="review"
@@ -321,11 +317,33 @@ describe("QuestionCard", () => {
       expect(
         screen.queryByTestId("explanation-content"),
       ).not.toBeInTheDocument()
-      const lyon = screen.getByText("Lyon").closest("div")
-      expect(lyon).not.toHaveClass("bg-red-100")
+      expect(option("Lyon")).toHaveAttribute("data-state", "selected")
     })
 
-    it("affiche l'explication si étendu", () => {
+    it("repliée : ni choix ni explication ; le bouton déplie", () => {
+      const onToggleExpand = vi.fn()
+      render(
+        <QuestionCard
+          variant="review"
+          question={mockQuestion}
+          userAnswer="Lyon"
+          onToggleExpand={onToggleExpand}
+        />,
+      )
+
+      expect(screen.queryByText("Paris")).not.toBeInTheDocument()
+      expect(
+        screen.queryByTestId("explanation-content"),
+      ).not.toBeInTheDocument()
+      const toggle = screen.getByRole("button", {
+        name: "Développer la question",
+      })
+      expect(toggle).toHaveAttribute("aria-expanded", "false")
+      fireEvent.click(toggle)
+      expect(onToggleExpand).toHaveBeenCalled()
+    })
+
+    it("affiche l'explication si étendue", () => {
       render(
         <QuestionCard
           variant="review"
@@ -335,11 +353,11 @@ describe("QuestionCard", () => {
         />,
       )
 
-      expect(screen.getByText(/Explication :/i)).toBeInTheDocument()
+      expect(screen.getByTestId("explanation-content")).toBeInTheDocument()
       expect(screen.getByText(mockQuestion.explanation!)).toBeInTheDocument()
     })
 
-    it("affiche les indicateurs de correction quand étendu", () => {
+    it("affiche le verdict et la correction des choix quand étendue", () => {
       render(
         <QuestionCard
           variant="review"
@@ -350,10 +368,24 @@ describe("QuestionCard", () => {
         />,
       )
 
-      // Lyon est incorrect, Paris est correct
-      expect(screen.getByText("Paris")).toBeInTheDocument()
-      expect(screen.getByText("Lyon")).toBeInTheDocument()
-      expect(screen.getByText(/Incorrect/i)).toBeInTheDocument()
+      expect(screen.getByText("Incorrect")).toBeInTheDocument()
+      expect(option("Paris")).toHaveAttribute("data-state", "correct")
+      expect(option("Lyon")).toHaveAttribute("data-state", "incorrect")
+      expect(screen.queryAllByRole("button", { name: /Paris|Lyon/ })).toEqual(
+        [],
+      )
+    })
+
+    it("sans réponse : « Non répondu »", () => {
+      render(
+        <QuestionCard
+          variant="review"
+          question={mockQuestion}
+          userAnswer={null}
+        />,
+      )
+
+      expect(screen.getByText("Non répondu")).toBeInTheDocument()
     })
 
     it("affiche les images d'explication sous l'explication (correction)", () => {
@@ -363,8 +395,8 @@ describe("QuestionCard", () => {
           question={{
             ...mockQuestion,
             explanationImages: [
-              { url: "https://cdn/expl-1.jpg", storagePath: "p1", order: 0 },
               { url: "https://cdn/expl-2.jpg", storagePath: "p2", order: 1 },
+              { url: "https://cdn/expl-1.jpg", storagePath: "p1", order: 0 },
             ],
           }}
           isExpanded={true}

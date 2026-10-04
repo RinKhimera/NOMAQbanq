@@ -10,32 +10,40 @@ export class AdminExamsPage extends BasePage {
     await super.goto("/admin/examens")
   }
 
+  /** Vue de pilotage : ses trois sections. */
   async waitForReady() {
-    await expect(this.page.getByText("Gestion des Examens")).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(
+      this.page.getByRole("heading", { level: 1, name: "Examens blancs" }),
+    ).toBeVisible({ timeout: 15_000 })
+    for (const section of ["live", "prepare", "finished"]) {
+      await expect(
+        this.page.getByTestId(`exams-section-${section}`),
+      ).toBeVisible()
+    }
   }
 
   async gotoCreateExam() {
-    await this.page.getByRole("link", { name: "Créer un examen" }).click()
+    await this.page.getByTestId("btn-create-exam").click()
     await this.page.waitForURL(/\/admin\/examens\/creer/)
-    await expect(this.page.getByText("Créer un examen").first()).toBeVisible({
-      timeout: 15_000,
-    })
+    await this.expectCreateFormFields()
   }
 
   async expectCreateFormFields() {
-    const main = this.page.locator("main")
-    await expect(main.getByText("Informations générales")).toBeVisible({
+    await expect(this.page.getByTestId("exam-title-input")).toBeVisible({
       timeout: 15_000,
     })
-    await expect(
-      main.getByPlaceholder("Ex: Examen de Cardiologie - Session 2025"),
-    ).toBeVisible()
-    await expect(
-      main.getByText("Nombre de questions", { exact: true }),
-    ).toBeVisible()
-    await expect(main.getByText("Période de disponibilité")).toBeVisible()
-    await expect(main.getByText("Pause pendant l'examen")).toBeVisible()
+    for (const id of [
+      "exam-description-input",
+      "exam-start-input",
+      "exam-end-input",
+      "exam-target-input",
+      "exam-pause-switch",
+      "btn-finalize-exam",
+      "btn-save-exam",
+    ]) {
+      await expect(this.page.getByTestId(id)).toBeVisible()
+    }
+    // Rien à composer avant le premier enregistrement.
+    await expect(this.page.getByTestId("btn-compose-questions")).toBeDisabled()
   }
 }

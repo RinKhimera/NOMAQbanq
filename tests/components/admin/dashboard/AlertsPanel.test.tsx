@@ -3,11 +3,6 @@ import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { AlertsPanel } from "@/components/admin/dashboard/alerts-panel"
 
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../../helpers/motion-mock")
-  return motionMockFactory
-})
-
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />
@@ -40,22 +35,22 @@ const createExpiringAccess = (
 
 describe("AlertsPanel", () => {
   it("affiche l'état vide quand il n'y a pas d'alertes", () => {
-    render(<AlertsPanel expiringAccess={[]} failedPaymentsCount={0} />)
+    render(<AlertsPanel expiringAccess={[]} failedClientsCount={0} />)
 
     expect(screen.getByText("Tout va bien")).toBeInTheDocument()
-    expect(screen.getByText("Aucune alerte à signaler")).toBeInTheDocument()
+    expect(screen.getByText(/Aucune alerte à signaler/)).toBeInTheDocument()
   })
 
   it("affiche le titre 'Alertes' dans les deux cas", () => {
     const { rerender } = render(
-      <AlertsPanel expiringAccess={[]} failedPaymentsCount={0} />,
+      <AlertsPanel expiringAccess={[]} failedClientsCount={0} />,
     )
     expect(screen.getByText("Alertes")).toBeInTheDocument()
 
     rerender(
       <AlertsPanel
         expiringAccess={[createExpiringAccess()]}
-        failedPaymentsCount={0}
+        failedClientsCount={0}
       />,
     )
     expect(screen.getByText("Alertes")).toBeInTheDocument()
@@ -65,7 +60,7 @@ describe("AlertsPanel", () => {
     render(
       <AlertsPanel
         expiringAccess={[createExpiringAccess({ accessType: "exam" })]}
-        failedPaymentsCount={0}
+        failedClientsCount={0}
       />,
     )
 
@@ -76,7 +71,7 @@ describe("AlertsPanel", () => {
     render(
       <AlertsPanel
         expiringAccess={[createExpiringAccess({ accessType: "training" })]}
-        failedPaymentsCount={0}
+        failedClientsCount={0}
       />,
     )
 
@@ -93,7 +88,7 @@ describe("AlertsPanel", () => {
             name: "Marie Martin",
           }),
         ]}
-        failedPaymentsCount={0}
+        failedClientsCount={0}
       />,
     )
 
@@ -110,7 +105,7 @@ describe("AlertsPanel", () => {
             name: "Paul Tremblay",
           }),
         ]}
-        failedPaymentsCount={0}
+        failedClientsCount={0}
       />,
     )
 
@@ -134,7 +129,7 @@ describe("AlertsPanel", () => {
             daysRemaining: 7,
           }),
         ]}
-        failedPaymentsCount={0}
+        failedClientsCount={0}
       />,
     )
 
@@ -142,19 +137,19 @@ describe("AlertsPanel", () => {
   })
 
   it("affiche l'alerte de paiements échoués au singulier", () => {
-    render(<AlertsPanel expiringAccess={[]} failedPaymentsCount={1} />)
+    render(<AlertsPanel expiringAccess={[]} failedClientsCount={1} />)
 
     expect(screen.getByText("Paiements échoués")).toBeInTheDocument()
     expect(
-      screen.getByText("1 paiement ces 7 derniers jours"),
+      screen.getByText("1 client dont la dernière tentative a échoué"),
     ).toBeInTheDocument()
   })
 
   it("affiche l'alerte de paiements échoués au pluriel", () => {
-    render(<AlertsPanel expiringAccess={[]} failedPaymentsCount={4} />)
+    render(<AlertsPanel expiringAccess={[]} failedClientsCount={4} />)
 
     expect(
-      screen.getByText("4 paiements ces 7 derniers jours"),
+      screen.getByText("4 clients dont la dernière tentative a échoué"),
     ).toBeInTheDocument()
   })
 
@@ -165,7 +160,7 @@ describe("AlertsPanel", () => {
           createExpiringAccess({ accessType: "exam" }),
           createExpiringAccess({ accessType: "exam" }),
         ]}
-        failedPaymentsCount={3}
+        failedClientsCount={3}
       />,
     )
 
@@ -179,15 +174,15 @@ describe("AlertsPanel", () => {
     const { container } = render(
       <AlertsPanel
         expiringAccess={[createExpiringAccess({ accessType: "exam" })]}
-        failedPaymentsCount={2}
+        failedClientsCount={2}
       />,
     )
 
     const links = container.querySelectorAll("a")
     const hrefs = Array.from(links).map((a) => a.getAttribute("href"))
 
-    expect(hrefs).toContain("/admin/utilisateurs")
-    expect(hrefs).toContain("/admin/transactions?status=failed")
+    expect(hrefs).toContain("/admin/utilisateurs?segment=bientot")
+    expect(hrefs).toContain("/admin/transactions?filtre=echec")
   })
 
   it("utilise le fallback quand le nom de l'utilisateur est null", () => {
@@ -200,7 +195,7 @@ describe("AlertsPanel", () => {
             name: null,
           }),
         ]}
-        failedPaymentsCount={0}
+        failedClientsCount={0}
       />,
     )
 

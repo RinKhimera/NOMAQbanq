@@ -16,21 +16,23 @@ import {
   retrieveCheckoutSession,
 } from "@/lib/stripe"
 import { isStripeConfigurationError } from "@/lib/stripe-errors"
-import { type Tx, lockUser, rebuildFromTransactions } from "./access-ledger"
+import {
+  type AccessType,
+  type Tx,
+  lockUser,
+  rebuildFromTransactions,
+} from "./access-ledger"
 import { describePriceDrift, resolveStripePrice } from "./catalog"
 import {
   type AccessImpact,
-  type AccessStatus,
   type AdminTransactionsPage,
-  type MyTransactionsPage,
-  type TransactionStatsView,
-  getAccessStatus,
+  type CheckoutPurchase,
   getAllTransactions,
-  getMyTransactions,
+  getCheckoutPurchase,
   getTransactionAccessImpact,
-  getTransactionStats,
 } from "./dal"
 import { grantManualAccess } from "./lib"
+import { TIMELINE_MORE } from "./page-sizes"
 import {
   type RecordManualPaymentInput,
   type UpdateManualTransactionInput,
@@ -60,36 +62,15 @@ const isStripeConsentConfigError = (error: unknown): boolean => {
 }
 
 /**
- * Charge la page suivante de l'historique des transactions de l'utilisateur
- * courant (pagination keyset). Appelée dans un `startTransition` côté client.
+ * [Admin] Transactions plus anciennes de la chronologie d'un client
+ * (« Afficher … plus anciennes » du dossier), à partir du curseur keyset.
  */
-export const loadMoreMyTransactions = async (
+export const loadClientTimeline = async (
+  userId: string,
   cursor: string,
-): Promise<MyTransactionsPage> => {
-  await requireSession()
-  return getMyTransactions({ cursor })
-}
-
-/**
- * [Admin] Charge une page de l'historique global (filtres + pagination keyset).
- * Appelée côté client au changement de filtre et au « charger plus ». La garde
- * admin est dans `getAllTransactions`, redoublée ici par cohérence avec les
- * mutations.
- */
-export const loadAdminTransactions = async (params: {
-  cursor?: string | null
-  type?: "stripe" | "manual"
-  status?: "pending" | "completed" | "failed" | "refunded"
-  userId?: string
-}): Promise<AdminTransactionsPage> => {
+): Promise<AdminTransactionsPage> => {
   await requireRole(["admin"])
-  return getAllTransactions(params)
-}
-
-/** [Admin] Statistiques transactions — rafraîchies après une mutation. */
-export const loadTransactionStats = async (): Promise<TransactionStatsView> => {
-  await requireRole(["admin"])
-  return getTransactionStats()
+  return getAllTransactions({ userId, cursor, limit: TIMELINE_MORE })
 }
 
 /**
@@ -103,26 +84,26 @@ export const loadTransactionAccessImpact = async (
   return getTransactionAccessImpact(transactionId)
 }
 
-/**
- * [Admin] Statut d'accès (exam/training) d'un utilisateur donné — rechargé après
- * un octroi manuel sur la page détail. Garde admin (IDOR : userId arbitraire).
- */
-export const loadUserAccessStatus = async (
-  userId: string,
-): Promise<AccessStatus> => {
-  await requireRole(["admin"])
-  const status = await getAccessStatus(userId)
-  return status ?? { examAccess: null, trainingAccess: null }
-}
-
 const revalidatePaymentsAdmin = () => {
   revalidatePath("/admin/transactions")
   revalidatePath("/admin/utilisateurs")
 }
 
+export type ManualGrant = {
+  accessType: AccessType
+  /** Epoch ms : expiration écrite par le registre. */
+  expiresAt: number
+  /** Epoch ms : échéance remplacée, passée comprise ; null = jamais eu. */
+  previousExpiresAt: number | null
+}
+
 export type ManualPaymentResult = {
   success: boolean
   transactionId?: string
+  /** Un élément par accès touché (deux pour le Pack Premium). */
+  grants?: ManualGrant[]
+  /** Epoch ms : instant de l'octroi, pris sous le verrou. */
+  recordedAt?: number
   error?: string
 }
 
@@ -145,36 +126,47 @@ export const recordManualPayment = async (
   const data = parsed.data
 
   try {
-    const transactionId = await db.transaction(async (tx) => {
-      // `products.code` n'a pas (encore) de contrainte UNIQUE → `ORDER BY id`
-      // rend le choix déterministe en cas de doublon (contrainte ajoutée à la
-      // bascule, une fois les tests d'intégration rendus upsert-safe).
-      const [product] = await tx
-        .select({
-          id: products.id,
-          accessType: products.accessType,
-          durationDays: products.durationDays,
-          isCombo: products.isCombo,
-        })
-        .from(products)
-        .where(eq(products.code, data.productCode))
-        .orderBy(asc(products.id))
-        .limit(1)
-      if (!product) throw new Error("PRODUCT_NOT_FOUND")
+    const { transactionId, granted, recordedAt } = await db.transaction(
+      async (tx) => {
+        // `products.code` n'a pas (encore) de contrainte UNIQUE → `ORDER BY id`
+        // rend le choix déterministe en cas de doublon (contrainte ajoutée à la
+        // bascule, une fois les tests d'intégration rendus upsert-safe).
+        const [product] = await tx
+          .select({
+            id: products.id,
+            accessType: products.accessType,
+            durationDays: products.durationDays,
+            isCombo: products.isCombo,
+          })
+          .from(products)
+          .where(eq(products.code, data.productCode))
+          .orderBy(asc(products.id))
+          .limit(1)
+        if (!product) throw new Error("PRODUCT_NOT_FOUND")
 
-      return grantManualAccess(tx, {
-        userId: data.userId,
-        product,
-        amountPaid: data.amountPaid,
-        currency: data.currency,
-        paymentMethod: data.paymentMethod,
-        notes: data.notes ?? null,
-        recordedBy: session.user.id,
-      })
-    })
+        return grantManualAccess(tx, {
+          userId: data.userId,
+          product,
+          amountPaid: data.amountPaid,
+          currency: data.currency,
+          paymentMethod: data.paymentMethod,
+          notes: data.notes ?? null,
+          recordedBy: session.user.id,
+        })
+      },
+    )
 
     revalidatePaymentsAdmin()
-    return { success: true, transactionId }
+    return {
+      success: true,
+      transactionId,
+      recordedAt: recordedAt.getTime(),
+      grants: granted.map((g) => ({
+        accessType: g.accessType,
+        expiresAt: g.expiresAt.getTime(),
+        previousExpiresAt: g.previousExpiresAt?.getTime() ?? null,
+      })),
+    }
   } catch (error) {
     if (error instanceof Error && error.message === "PRODUCT_NOT_FOUND") {
       return { success: false, error: "Produit introuvable" }
@@ -242,6 +234,14 @@ export const updateManualTransaction = async (
 
       const statusChange =
         data.status && data.status !== transaction.status ? data.status : null
+      // Seul un paiement complété ou remboursé bascule de l'un à l'autre : un
+      // paiement en attente ou échoué ne se complète pas par une modification.
+      if (
+        statusChange &&
+        transaction.status !== "completed" &&
+        transaction.status !== "refunded"
+      )
+        throw new Error("TX_STATUS_LOCKED")
       await tx
         .update(transactions)
         .set({
@@ -275,6 +275,12 @@ export const updateManualTransaction = async (
       return {
         success: false,
         error: "Seules les transactions manuelles peuvent être modifiées",
+      }
+    }
+    if (error instanceof Error && error.message === "TX_STATUS_LOCKED") {
+      return {
+        success: false,
+        error: "Seul un paiement complété ou remboursé change de statut",
       }
     }
     captureServerError("[updateManualTransaction]", error, {
@@ -552,6 +558,7 @@ export type VerifyCheckoutResult =
       amountTotal: number | null
       currency: string | null
       customerEmail: string | null
+      purchase: CheckoutPurchase | null
     }
   | { success: false; error: string }
 
@@ -579,12 +586,29 @@ export const verifyStripeCheckout = async (
       amountTotal: checkout.amount_total,
       currency: checkout.currency,
       customerEmail: checkout.customer_email,
+      purchase: await readCheckoutPurchase(sessionId, session.user.id),
     }
   } catch (error) {
     captureServerError("[verifyStripeCheckout]", error, {
       userId: session.user.id,
     })
     return { success: false, error: "Session non trouvée ou invalide" }
+  }
+}
+
+// Stripe a déjà confirmé le paiement : une panne de lecture en base (réveil
+// Neon) ne doit pas le transformer en erreur. Sans achat, la page relit.
+const readCheckoutPurchase = async (
+  sessionId: string,
+  userId: string,
+): Promise<CheckoutPurchase | null> => {
+  try {
+    return await getCheckoutPurchase(sessionId)
+  } catch (error) {
+    captureServerError("[verifyStripeCheckout] lecture de l'achat", error, {
+      userId,
+    })
+    return null
   }
 }
 

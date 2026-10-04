@@ -1,54 +1,94 @@
-"use client"
+import type { Metadata } from "next"
+import { questionTitle } from "@/components/admin/question-detail/labels"
+import { getQuestionAnswerBreakdown } from "@/features/analytics/dal"
+import { getObjectiveOptions } from "@/features/objectives/dal"
+import {
+  type QuestionImageView,
+  getQuestionById,
+  getQuestionExams,
+} from "@/features/questions/dal"
+import { requireRole } from "@/lib/auth-guards"
+import { cdnUrl } from "@/lib/cdn"
+import { currentTimeMs } from "@/lib/clock"
+import { QuestionForm } from "../../_components/question-form"
+import { QuestionNotFound } from "../../_components/question-not-found"
+import { lockingExamOf, reviewOf } from "../../_components/question-page-data"
+import {
+  parseQuestionList,
+  questionListHref,
+  toSearchParams,
+} from "../../_components/question-params"
 
-import { ArrowLeft, Pencil } from "lucide-react"
-import Link from "next/link"
-import { use } from "react"
-import { Button } from "@/components/ui/button"
-import { QuestionFormPage } from "../../_components/question-form-page"
+export const metadata: Metadata = { title: "Modifier la question" }
 
-interface EditQuestionPageProps {
-  params: Promise<{
-    questionId: string
-  }>
-}
+const toFormImages = (images: QuestionImageView[]) =>
+  images.map((img) => ({
+    url: cdnUrl(img.storagePath),
+    storagePath: img.storagePath,
+    order: img.position,
+  }))
 
-export default function EditQuestionPage({ params }: EditQuestionPageProps) {
-  const { questionId } = use(params)
+export default async function EditQuestionPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ questionId: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  await requireRole(["admin"])
+  const { questionId } = await params
+  const list = parseQuestionList(toSearchParams(await searchParams))
+
+  const [question, breakdown, exams, objectives] = await Promise.all([
+    getQuestionById(questionId),
+    getQuestionAnswerBreakdown(questionId),
+    getQuestionExams(questionId),
+    getObjectiveOptions(),
+  ])
+
+  if (!question) return <QuestionNotFound listHref={questionListHref(list)} />
+
+  const now = currentTimeMs()
+  const lockingExam = lockingExamOf(exams, now)
+  const review = reviewOf(question, breakdown)
 
   return (
-    <div className="@container flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 @md:flex-row @md:items-center @md:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-600 to-teal-600 shadow-lg shadow-emerald-500/25">
-              <Pencil className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                Modifier la question
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Modifiez les détails de cette question
-              </p>
-            </div>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-fit border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-          asChild
-        >
-          <Link href="/admin/questions">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Retour aux questions
-          </Link>
-        </Button>
-      </div>
-
-      {/* Form */}
-      <QuestionFormPage mode="edit" questionId={questionId} />
+    <div className="flex flex-col gap-4 p-4 lg:p-6">
+      <QuestionForm
+        mode="edit"
+        initialQuestionId={question.id}
+        initial={{
+          domain: question.domain,
+          // Une valeur invalide ne se garde pas : l'admin choisit un objectif.
+          objective: question.objectiveNeedsFix ? "" : question.objectiveId,
+          question: question.question,
+          options: question.options,
+          sources: question.options.map((_, i) => i),
+          // Une clé absente des choix (donnée héritée) n'en désigne aucun.
+          keyIndex: question.options.includes(question.correctAnswer)
+            ? question.options.indexOf(question.correctAnswer)
+            : null,
+          explanation: question.explanation,
+          references: question.references?.length ? question.references : [""],
+          statementImages: toFormImages(question.images),
+          explanationImages: toFormImages(question.explanationImages),
+        }}
+        objectives={objectives}
+        list={list}
+        edit={{
+          title: questionTitle(question.createdAt),
+          pastCounts: breakdown.options.map((o) => o.count),
+          originalOptions: question.options,
+          originalKeyIndex: question.options.indexOf(question.correctAnswer),
+          confirmation: review.confirmation,
+          lockingExam: lockingExam
+            ? { title: lockingExam.title, endDate: lockingExam.endDate }
+            : null,
+          invalidObjective: question.objectiveNeedsFix
+            ? question.objectifCMC
+            : null,
+        }}
+      />
     </div>
   )
 }

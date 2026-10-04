@@ -1,7 +1,8 @@
 import { unstable_cache } from "next/cache"
 import "server-only"
+import { getPublicDomainObjectives } from "@/features/objectives/dal"
 import { getAvailableProducts } from "@/features/payments/dal"
-import { MARKETING_STATS_TAG, PRODUCTS_TAG } from "./cache-tags"
+import { MARKETING_STATS_TAG, OBJECTIVES_TAG, PRODUCTS_TAG } from "./cache-tags"
 import { getMarketingStats } from "./dal"
 
 // Lectures des pages publiques, servies depuis le cache de données Vercel :
@@ -30,4 +31,13 @@ export const getCachedAvailableProducts = unstable_cache(
   getAvailableProducts,
   ["available-products", DEPLOYMENT],
   { tags: [PRODUCTS_TAG], revalidate: 86_400 },
+)
+
+// Quatorze jours : le référentiel ne change que par les actions, qui
+// invalident l'étiquette (fusion, renommage, création, correction, et les
+// écritures de question qui changent ce qu'affiche une page domaine).
+export const getCachedDomainObjectives = unstable_cache(
+  getPublicDomainObjectives,
+  ["domain-objectives", DEPLOYMENT],
+  { tags: [OBJECTIVES_TAG], revalidate: 1_209_600 },
 )

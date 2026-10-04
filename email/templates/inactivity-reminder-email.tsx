@@ -17,7 +17,7 @@ export function InactivityReminderEmail({
     <EmailLayout
       category="commercial"
       unsubscribeUrl={unsubscribeUrl}
-      preview="Nous ne vous avons pas vu depuis quelques semaines"
+      preview="Votre progression est intacte. Quelques questions suffisent pour reprendre."
       heading="Votre préparation vous attend"
       firstName={firstName}
       baseUrl={baseUrl}
@@ -27,9 +27,9 @@ export function InactivityReminderEmail({
         toujours là, avec votre progression intacte.
       </EmailParagraph>
       <EmailParagraph>
-        Quelques questions par jour suffisent pour garder le rythme : la banque
-        de questions par domaine pour cibler vos points faibles, et les examens
-        blancs chronométrés pour vous mettre dans les conditions de
+        Quelques questions par jour suffisent pour garder le rythme&nbsp;: la
+        banque de questions par domaine pour cibler vos points faibles, et les
+        examens blancs chronométrés pour vous mettre dans les conditions de
         l&apos;EACMC.
       </EmailParagraph>
       <EmailButton href={trainingUrl}>

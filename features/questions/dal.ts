@@ -1,4 +1,5 @@
 import {
+  type SQL,
   and,
   asc,
   desc,
@@ -6,24 +7,40 @@ import {
   exists,
   ilike,
   inArray,
+  isNotNull,
   isNull,
+  ne,
+  not,
   notExists,
   or,
   sql,
 } from "drizzle-orm"
+import { cache } from "react"
 import "server-only"
 import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
+  cmcObjectives,
   examQuestions,
+  exams,
   questionExplanations,
   questionImages,
   questions,
+  user,
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
 import { questionSuccessStats } from "../analytics/answers-sql"
+import type { DomainDraw, DomainSupply } from "../exams/completion"
+import { objectiveLabelSql } from "../objectives/sql"
 import { AnswerKeyLock, excludeLocked } from "./answer-key-lock"
+import {
+  KEY_CONFIRMATION_MIN_NEW_ANSWERS,
+  type KeyConfirmation,
+  keyReview,
+} from "./key-review"
+import { notUsedInLastExams } from "./last-use"
 import { fetchImages, toQuizQuestion } from "./quiz-bridge"
+import { RECENT_EXAMS_DEFAULT } from "./recent-exams"
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
@@ -58,7 +75,7 @@ const noImagesSubquery = notExists(
 )
 
 // EXISTS / NOT EXISTS corrélé sur `examQuestions` : filtre « déjà utilisée dans
-// un examen » (badge + filtre d'usage du QuestionBrowser).
+// un examen ».
 const usedSubquery = exists(
   db
     .select({ x: sql`1` })
@@ -84,8 +101,57 @@ const usedInExamSubquery = (examId: string) =>
       ),
   )
 
+// Corrélation écrite qualifiée : dans un select mono-table, `${questions.id}`
+// serait rendu `"id"` et viserait la table de la sous-requête.
+const QUESTION_ID = sql`"questions"."id"`
+
+// Une explication sans ligne, sans tableau ou avec un tableau vide n'a pas de
+// références.
+const noReferencesSubquery = sql`not exists (
+  select 1
+    from question_explanations nr
+   where nr.question_id = ${QUESTION_ID}
+     and jsonb_typeof(nr.references) = 'array'
+     and jsonb_array_length(nr.references) > 0
+)`
+
+type BankStats = ReturnType<typeof questionSuccessStats>
+
+/** Dernière confirmation de clé d'une ligne `questions`, ou `null`. */
+const toKeyConfirmation = (row: {
+  keyConfirmedAt: Date | null
+  keyConfirmedAnswerCount: number | null
+  keyConfirmedByName?: string | null
+  keyConfirmedNote?: string | null
+}): KeyConfirmation | null =>
+  row.keyConfirmedAt && row.keyConfirmedAnswerCount !== null
+    ? {
+        at: row.keyConfirmedAt.getTime(),
+        byName: row.keyConfirmedByName ?? null,
+        answerCount: row.keyConfirmedAnswerCount,
+        note: row.keyConfirmedNote ?? null,
+      }
+    : null
+
+/**
+ * Clé à vérifier, forme SQL de `keyReview` (`./key-review`) : clé suspecte
+ * sans confirmation en vigueur. Les statistiques sont jointes en LEFT JOIN :
+ * une question sans réponse n'est pas suspecte.
+ */
+const keyToVerifySql = (stats: BankStats) => sql<boolean>`(
+  coalesce(${stats.keySuspect}, false)
+  and (
+    ${questions.keyConfirmedAt} is null
+    or (
+      ${stats.answerCount} >= 2 * ${questions.keyConfirmedAnswerCount}
+      and ${stats.answerCount} - ${questions.keyConfirmedAnswerCount}
+        >= ${KEY_CONFIRMATION_MIN_NEW_ANSWERS}
+    )
+  )
+)`
+
 // ============================================
-// [Admin] Liste paginée (keyset) + filtres
+// [Admin] Liste paginée + filtres
 // ============================================
 
 export type QuestionListItem = {
@@ -96,6 +162,8 @@ export type QuestionListItem = {
   options: string[]
   /** Epoch ms. */
   createdAt: number
+  /** Epoch ms. */
+  updatedAt: number
   imageCount: number
   /** Nombre d'examens référençant cette question. */
   usageCount: number
@@ -103,6 +171,8 @@ export type QuestionListItem = {
   answerCount: number
   /** Taux de réussite en % ; `null` sous le seuil de signification. */
   successRate: number | null
+  /** Clé à vérifier, confirmations en vigueur comprises. */
+  keyToVerify: boolean
 }
 
 export type QuestionsPage = {
@@ -111,18 +181,34 @@ export type QuestionsPage = {
   total: number
 }
 
-/** Tris de la liste de questions : seuls ceux que la requête sait faire. */
-export type QuestionSortBy = "createdAt" | "successRate"
+export type QuestionSortBy =
+  "createdAt" | "updatedAt" | "successRate" | "answerCount"
+
+/** Tris de la banque du compositeur d'examen, en plus de ceux de la liste. */
+export type BankSortBy =
+  | QuestionSortBy
+  /** Dernière utilisation, les plus anciennes (et jamais utilisées) d'abord. */
+  | "lastUse"
+  /** Domaine, puis dernière utilisation. */
+  | "domain"
 
 /** Les questions retenues par les filtres de la liste, que l'export reprend. */
 export type QuestionSelection = {
+  /** Énoncé, objectif, choix de réponse ou identifiant exact. */
   search?: string
   domain?: string
+  /** Identifiant d'un objectif du référentiel. */
+  objective?: string
   hasImages?: boolean
-  /** Clé probablement erronée : une autre option plus choisie que la clé. */
+  /** Clé à vérifier. */
   toVerify?: boolean
+  noReferences?: boolean
   usageFilter?: "all" | "used" | "unused"
   usedInExamId?: string
+  /** Absente des N derniers examens blancs (dernière utilisation). */
+  notUsedInLast?: number
+  /** Hors du jeu de cet examen (banque du compositeur). */
+  notInExamId?: string
 }
 
 export type QuestionFiltersInput = QuestionSelection & {
@@ -131,7 +217,7 @@ export type QuestionFiltersInput = QuestionSelection & {
   limit?: number
   sortOrder?: "asc" | "desc"
   /** `successRate` : non significatives en fin, quel que soit le sens. */
-  sortBy?: QuestionSortBy
+  sortBy?: BankSortBy
 }
 
 /**
@@ -141,11 +227,16 @@ export type QuestionFiltersInput = QuestionSelection & {
 const selectionWhere = ({
   search,
   domain,
+  objective,
   hasImages,
+  noReferences,
   usageFilter = "all",
   usedInExamId,
+  notUsedInLast,
+  notInExamId,
 }: QuestionSelection) => {
   const searchTerm = search?.trim()
+  const pattern = searchTerm ? `%${escapeLike(searchTerm)}%` : ""
   // `usedInExamId` prime sur used/unused (l'UI garantit l'exclusion mutuelle).
   const usagePredicate = usedInExamId
     ? usedInExamSubquery(usedInExamId)
@@ -158,10 +249,17 @@ const selectionWhere = ({
   return and(
     isNull(questions.deletedAt),
     domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
+    objective ? eq(questions.objectiveId, objective) : undefined,
     searchTerm
       ? or(
-          ilike(questions.question, `%${escapeLike(searchTerm)}%`),
-          ilike(questions.objectifCmc, `%${escapeLike(searchTerm)}%`),
+          ilike(questions.question, pattern),
+          sql`${objectiveLabelSql} ilike ${pattern}`,
+          sql`exists (
+            select 1
+              from jsonb_array_elements_text("questions"."options") opt
+             where opt ilike ${pattern}
+          )`,
+          eq(questions.id, searchTerm),
         )
       : undefined,
     hasImages === undefined
@@ -169,167 +267,393 @@ const selectionWhere = ({
       : hasImages
         ? hasImagesSubquery
         : noImagesSubquery,
+    noReferences ? noReferencesSubquery : undefined,
     usagePredicate,
+    notUsedInLast && notUsedInLast > 0
+      ? notUsedInLastExams(
+          clamp(notUsedInLast, 1, 50),
+          QUESTION_ID,
+          notInExamId,
+        )
+      : undefined,
+    notInExamId ? not(usedInExamSubquery(notInExamId)) : undefined,
   )
+}
+
+const needsBankStats = (f: QuestionFiltersInput) =>
+  f.sortBy === "successRate" || f.sortBy === "answerCount" || !!f.toVerify
+
+/**
+ * Date d'ouverture de la dernière utilisation (examens en préparation exclus,
+ * voir `./last-use`), `null` pour une question jamais utilisée.
+ */
+const lastUseStart = sql`(
+  select max(lu_e.start_date)
+    from exam_questions lu_q
+    join exams lu_e on lu_e.id = lu_q.exam_id
+   where lu_q.question_id = ${QUESTION_ID}
+     and lu_e.finalized_at is not null
+)`
+
+/**
+ * Ordre de la liste, repris tel quel par les voisins précédent / suivant.
+ * Départage final par id : deux pages ne se chevauchent jamais.
+ */
+const listOrder = (
+  sortBy: BankSortBy,
+  isDesc: boolean,
+  stats: BankStats,
+): SQL[] => {
+  const dir = isDesc ? sql`desc` : sql`asc`
+  switch (sortBy) {
+    case "successRate":
+      return [sql`${stats.successRate} ${dir} nulls last`, asc(questions.id)]
+    case "answerCount":
+      return [
+        sql`coalesce(${stats.answerCount}, 0) ${dir}`,
+        desc(questions.createdAt),
+        asc(questions.id),
+      ]
+    case "lastUse":
+      return [sql`${lastUseStart} ${dir} nulls first`, asc(questions.id)]
+    case "domain":
+      return [
+        isDesc ? desc(questions.domain) : asc(questions.domain),
+        sql`${lastUseStart} asc nulls first`,
+        asc(questions.id),
+      ]
+    case "updatedAt":
+      return isDesc
+        ? [desc(questions.updatedAt), desc(questions.id)]
+        : [asc(questions.updatedAt), asc(questions.id)]
+    default:
+      return isDesc
+        ? [desc(questions.createdAt), desc(questions.id)]
+        : [asc(questions.createdAt), asc(questions.id)]
+  }
+}
+
+const listWhere = (f: QuestionFiltersInput, stats: BankStats) =>
+  and(selectionWhere(f), f.toVerify ? keyToVerifySql(stats) : undefined)
+
+const pageBounds = (f: QuestionFiltersInput) => {
+  // `Number.isFinite` : un `page`/`limit` forgé (NaN/Infinity) ne doit pas
+  // traverser le clamp (Math.max(1, NaN) === NaN → erreur SQL).
+  const limit = clamp(Number.isFinite(f.limit) ? f.limit! : 50, 1, 100)
+  const page =
+    f.page !== undefined && Number.isFinite(f.page)
+      ? Math.max(1, Math.floor(f.page))
+      : 1
+  return { limit, offset: (page - 1) * limit }
+}
+
+/** Une page de la liste, enrichie des comptes d'images, d'examens et des statistiques. */
+const listPage = async (
+  f: QuestionFiltersInput,
+): Promise<QuestionListItem[]> => {
+  const { limit, offset } = pageBounds(f)
+  const bankStats = questionSuccessStats()
+  const order = listOrder(
+    f.sortBy ?? "createdAt",
+    f.sortOrder !== "asc",
+    bankStats,
+  )
+  const where = listWhere(f, bankStats)
+  const columns = { id: questions.id }
+
+  // L'agrégat de toute la banque n'est calculé que si le tri ou le filtre
+  // en dépend.
+  const rows = needsBankStats(f)
+    ? await db
+        .with(bankStats)
+        .select(columns)
+        .from(questions)
+        .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+        .where(where)
+        .orderBy(...order)
+        .limit(limit)
+        .offset(offset)
+    : await db
+        .select(columns)
+        .from(questions)
+        .where(where)
+        .orderBy(...order)
+        .limit(limit)
+        .offset(offset)
+
+  return questionListItems(rows.map((r) => r.id))
 }
 
 /**
- * [Admin] Questions filtrées + paginées (offset `page`/`limit` + `total` pour la
- * pagination numérotée). Recherche ILIKE sur le texte ET l'objectif CMC, filtre
- * domaine, filtre images et filtre usage examen via EXISTS corrélés. Comptes
- * d'images et d'usage batchés (pas de N+1). Ordre stable (tie-break id). Garde admin.
+ * Lignes de liste de ces questions, dans l'ordre donné, enrichies des comptes
+ * d'images, d'examens et des statistiques. Les ids inconnus sont ignorés.
  */
-export const getQuestionsWithFilters = async ({
-  page = 1,
-  limit = 50,
-  search,
-  domain,
-  hasImages,
-  sortOrder = "desc",
-  sortBy = "createdAt",
-  toVerify = false,
-  usageFilter = "all",
-  usedInExamId,
-}: QuestionFiltersInput = {}): Promise<QuestionsPage> => {
+export const questionListItems = async (
+  pageIds: string[],
+): Promise<QuestionListItem[]> => {
   await requireRole(["admin"])
-
-  // `Number.isFinite` : un `page`/`limit` forgé (NaN/Infinity) ne doit pas
-  // traverser le clamp (Math.max(1, NaN) === NaN → erreur SQL).
-  const safeLimit = clamp(Number.isFinite(limit) ? limit : 50, 1, 100)
-  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1
-  const offset = (safePage - 1) * safeLimit
-  const isDesc = sortOrder !== "asc"
-
-  const where = selectionWhere({
-    search,
-    domain,
-    hasImages,
-    usageFilter,
-    usedInExamId,
-  })
-
-  const byCreation = isDesc
-    ? [desc(questions.createdAt), desc(questions.id)]
-    : [asc(questions.createdAt), asc(questions.id)]
-
-  const listColumns = {
-    id: questions.id,
-    question: questions.question,
-    domain: questions.domain,
-    objectifCMC: questions.objectifCmc,
-    options: questions.options,
-    createdAt: questions.createdAt,
-  }
-  const countColumn = { n: sql<number>`count(*)`.mapWith(Number) }
-
-  // Tri et filtre sur le taux de réussite : agrégat de toute la banque, joint.
-  const bankStats = questionSuccessStats()
-  const useStats = sortBy === "successRate" || toVerify
-  const statsWhere = and(
-    where,
-    toVerify ? eq(bankStats.keySuspect, true) : undefined,
-  )
-  const byStats =
-    sortBy === "successRate"
-      ? [
-          sql`${bankStats.successRate} ${isDesc ? sql`desc` : sql`asc`} nulls last`,
-          asc(questions.id),
-        ]
-      : [desc(bankStats.answerCount), asc(questions.id)]
-
-  const [rows, totalRows] = useStats
-    ? await Promise.all([
-        db
-          .with(bankStats)
-          .select(listColumns)
-          .from(questions)
-          .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
-          .where(statsWhere)
-          .orderBy(...byStats)
-          .limit(safeLimit)
-          .offset(offset),
-        // Le total ne dépend des stats que via le filtre : un simple tri ne
-        // le change pas, inutile de recalculer l'agrégat de la banque.
-        toVerify
-          ? db
-              .with(bankStats)
-              .select(countColumn)
-              .from(questions)
-              .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
-              .where(statsWhere)
-          : db.select(countColumn).from(questions).where(where),
-      ])
-    : await Promise.all([
-        db
-          .select(listColumns)
-          .from(questions)
-          .where(where)
-          .orderBy(...byCreation)
-          .limit(safeLimit)
-          .offset(offset),
-        db.select(countColumn).from(questions).where(where),
-      ])
-
-  const total = totalRows[0]?.n ?? 0
-  const pageIds = rows.map((r) => r.id)
+  if (pageIds.length === 0) return []
 
   const pageStats = questionSuccessStats(pageIds)
-  const [imageCounts, usageCounts, successRows] = pageIds.length
-    ? await Promise.all([
-        db
-          .select({
-            questionId: questionImages.questionId,
-            n: sql<number>`count(*)`.mapWith(Number),
-          })
-          .from(questionImages)
-          .where(
-            and(
-              eq(questionImages.kind, "statement"),
-              inArray(questionImages.questionId, pageIds),
-            ),
-          )
-          .groupBy(questionImages.questionId),
-        db
-          .select({
-            questionId: examQuestions.questionId,
-            n: sql<number>`count(*)`.mapWith(Number),
-          })
-          .from(examQuestions)
-          .where(inArray(examQuestions.questionId, pageIds))
-          .groupBy(examQuestions.questionId),
-        db
-          .with(pageStats)
-          .select({
-            questionId: pageStats.questionId,
-            answerCount: pageStats.answerCount,
-            successRate: pageStats.successRate,
-          })
-          .from(pageStats),
-      ])
-    : [[], [], []]
+  const [details, imageCounts, usageCounts, statRows] = await Promise.all([
+    db
+      .select({
+        id: questions.id,
+        question: questions.question,
+        domain: questions.domain,
+        objectifCMC: objectiveLabelSql,
+        options: questions.options,
+        createdAt: questions.createdAt,
+        updatedAt: questions.updatedAt,
+        keyConfirmedAt: questions.keyConfirmedAt,
+        keyConfirmedAnswerCount: questions.keyConfirmedAnswerCount,
+      })
+      .from(questions)
+      .where(inArray(questions.id, pageIds)),
+    db
+      .select({
+        questionId: questionImages.questionId,
+        n: sql<number>`count(*)`.mapWith(Number),
+      })
+      .from(questionImages)
+      .where(
+        and(
+          eq(questionImages.kind, "statement"),
+          inArray(questionImages.questionId, pageIds),
+        ),
+      )
+      .groupBy(questionImages.questionId),
+    db
+      .select({
+        questionId: examQuestions.questionId,
+        n: sql<number>`count(*)`.mapWith(Number),
+      })
+      .from(examQuestions)
+      .where(inArray(examQuestions.questionId, pageIds))
+      .groupBy(examQuestions.questionId),
+    db
+      .with(pageStats)
+      .select({
+        questionId: pageStats.questionId,
+        answerCount: pageStats.answerCount,
+        successRate: pageStats.successRate,
+        keySuspect: pageStats.keySuspect,
+      })
+      .from(pageStats),
+  ])
 
+  const detailMap = new Map(details.map((d) => [d.id, d]))
   const imageMap = new Map(imageCounts.map((c) => [c.questionId, c.n]))
   const usageMap = new Map(usageCounts.map((c) => [c.questionId, c.n]))
-  const successMap = new Map(successRows.map((r) => [r.questionId, r]))
+  const statMap = new Map(statRows.map((r) => [r.questionId, r]))
 
-  const items: QuestionListItem[] = rows.map((r) => ({
-    id: r.id,
-    question: r.question,
-    domain: r.domain,
-    objectifCMC: r.objectifCMC,
-    options: r.options,
-    createdAt: r.createdAt.getTime(),
-    imageCount: imageMap.get(r.id) ?? 0,
-    usageCount: usageMap.get(r.id) ?? 0,
-    answerCount: successMap.get(r.id)?.answerCount ?? 0,
-    successRate: successMap.get(r.id)?.successRate ?? null,
-  }))
+  return pageIds.flatMap((id) => {
+    const d = detailMap.get(id)
+    if (!d) return []
+    const s = statMap.get(id)
+    const answerCount = s?.answerCount ?? 0
+    return [
+      {
+        id,
+        question: d.question,
+        domain: d.domain,
+        objectifCMC: d.objectifCMC,
+        options: d.options,
+        createdAt: d.createdAt.getTime(),
+        updatedAt: d.updatedAt.getTime(),
+        imageCount: imageMap.get(id) ?? 0,
+        usageCount: usageMap.get(id) ?? 0,
+        answerCount,
+        successRate: s?.successRate ?? null,
+        keyToVerify: keyReview({
+          answerCount,
+          keySuspect: s?.keySuspect ?? false,
+          confirmation: toKeyConfirmation(d),
+        }).toVerify,
+      },
+    ]
+  })
+}
 
-  return { items, total }
+/**
+ * [Admin] Questions filtrées + paginées (offset `page`/`limit` + `total`), pour
+ * le navigateur de questions du formulaire d'examen. Garde admin.
+ */
+export const getQuestionsWithFilters = async (
+  input: QuestionFiltersInput = {},
+): Promise<QuestionsPage> => {
+  await requireRole(["admin"])
+  // Les clés à vérifier se parcourent d'abord par nombre de réponses : les
+  // plus jouées pèsent le plus sur les scores.
+  const filters: QuestionFiltersInput =
+    input.toVerify && (input.sortBy ?? "createdAt") === "createdAt"
+      ? { ...input, sortBy: "answerCount", sortOrder: "desc" }
+      : input
+
+  const countColumn = { n: sql<number>`count(*)`.mapWith(Number) }
+  const bankStats = questionSuccessStats()
+  const [items, totalRows] = await Promise.all([
+    listPage(filters),
+    // Le total ne dépend des statistiques que via le filtre « clé à vérifier ».
+    filters.toVerify
+      ? db
+          .with(bankStats)
+          .select(countColumn)
+          .from(questions)
+          .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+          .where(listWhere(filters, bankStats))
+      : db.select(countColumn).from(questions).where(selectionWhere(filters)),
+  ])
+  return { items, total: totalRows[0]?.n ?? 0 }
+}
+
+export type QuestionTabCounts = {
+  all: number
+  toVerify: number
+  noReferences: number
+}
+
+/**
+ * [Admin] Compteurs des onglets de la liste (Toutes, Clé à vérifier, Sans
+ * références) sur la recherche et les filtres en cours : un seul passage sur
+ * l'agrégat de la banque, coûteux sur Neon.
+ */
+export const getQuestionTabCounts = async (
+  selection: Omit<QuestionSelection, "toVerify" | "noReferences">,
+): Promise<QuestionTabCounts> => {
+  await requireRole(["admin"])
+  const bankStats = questionSuccessStats()
+  const [row] = await db
+    .with(bankStats)
+    .select({
+      all: sql<number>`count(*)`.mapWith(Number),
+      toVerify:
+        sql<number>`count(*) filter (where ${keyToVerifySql(bankStats)})`.mapWith(
+          Number,
+        ),
+      noReferences:
+        sql<number>`count(*) filter (where ${noReferencesSubquery})`.mapWith(
+          Number,
+        ),
+    })
+    .from(questions)
+    .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+    .where(
+      selectionWhere({
+        ...selection,
+        toVerify: undefined,
+        noReferences: undefined,
+      }),
+    )
+  return {
+    all: row?.all ?? 0,
+    toVerify: row?.toVerify ?? 0,
+    noReferences: row?.noReferences ?? 0,
+  }
+}
+
+export type QuestionListPage = QuestionsPage & { counts: QuestionTabCounts }
+
+/**
+ * [Admin] Page de la liste des questions et compteurs de ses onglets. L'onglet
+ * se pose par `toVerify` ou `noReferences` ; le total est le compteur de
+ * l'onglet courant.
+ */
+export const getQuestionList = async (
+  filters: QuestionFiltersInput,
+): Promise<QuestionListPage> => {
+  await requireRole(["admin"])
+  const [counts, items] = await Promise.all([
+    getQuestionTabCounts(filters),
+    listPage(filters),
+  ])
+  const total = filters.toVerify
+    ? counts.toVerify
+    : filters.noReferences
+      ? counts.noReferences
+      : counts.all
+  return { items, total, counts }
+}
+
+export type QuestionNeighbors = {
+  /** 1-based. */
+  position: number
+  total: number
+  previousId: string | null
+  nextId: string | null
+}
+
+/**
+ * [Admin] Place d'une question dans la liste filtrée et triée (mêmes filtres,
+ * même ordre que la liste) et ses voisines, à travers les pages. `null` si la
+ * question n'appartient pas à cette liste.
+ */
+export const getQuestionNeighbors = async (
+  questionId: string,
+  filters: QuestionFiltersInput,
+): Promise<QuestionNeighbors | null> => {
+  await requireRole(["admin"])
+
+  const bankStats = questionSuccessStats()
+  const order = sql.join(
+    listOrder(
+      filters.sortBy ?? "createdAt",
+      filters.sortOrder !== "asc",
+      bankStats,
+    ),
+    sql`, `,
+  )
+  const columns = {
+    rankedId: sql<string>`${questions.id}`.as("r_id"),
+    position: sql<number>`row_number() over (order by ${order})`
+      .mapWith(Number)
+      .as("r_position"),
+    previousId: sql<
+      string | null
+    >`lag(${questions.id}) over (order by ${order})`.as("r_previous"),
+    nextId: sql<
+      string | null
+    >`lead(${questions.id}) over (order by ${order})`.as("r_next"),
+    total: sql<number>`count(*) over ()`.mapWith(Number).as("r_total"),
+  }
+  // L'agrégat de la banque n'est joint que si l'ordre ou l'onglet en dépend :
+  // chaque ouverture du détail rejoue cette requête.
+  const ranked = needsBankStats(filters)
+    ? db
+        .$with("ranked")
+        .as(
+          db
+            .with(bankStats)
+            .select(columns)
+            .from(questions)
+            .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+            .where(listWhere(filters, bankStats)),
+        )
+    : db
+        .$with("ranked")
+        .as(
+          db
+            .select(columns)
+            .from(questions)
+            .where(listWhere(filters, bankStats)),
+        )
+  const [row] = await db
+    .with(ranked)
+    .select()
+    .from(ranked)
+    .where(eq(ranked.rankedId, questionId))
+    .limit(1)
+  if (!row) return null
+  return {
+    position: Number(row.position),
+    total: Number(row.total),
+    previousId: row.previousId,
+    nextId: row.nextId,
+  }
 }
 
 // ============================================
-// [Admin] Question complète (panel + édition)
+// [Admin] Question complète (détail + édition)
 // ============================================
 
 export type QuestionImageView = {
@@ -344,20 +668,28 @@ export type QuestionDetail = {
   options: string[]
   correctAnswer: string
   objectifCMC: string
+  objectiveId: string
+  /** L'objectif est une valeur invalide, à remplacer. */
+  objectiveNeedsFix: boolean
   domain: string
   /** Epoch ms. */
   createdAt: number
+  /** Epoch ms. */
+  updatedAt: number
   explanation: string
   references: string[] | null
   /** Images d'énoncé (`kind='statement'`). */
   images: QuestionImageView[]
   /** Images d'explication (`kind='explanation'`), affichées à la correction. */
   explanationImages: QuestionImageView[]
+  /** Dernière confirmation de la clé, en vigueur ou non. */
+  keyConfirmation: KeyConfirmation | null
 }
 
 /**
- * [Admin] Question par id, jointe à son explication (1:1) et ses images (enfant,
- * triées). Remplace `getQuestionById`. `null` si introuvable / supprimée.
+ * [Admin] Question par id, jointe à son explication (1:1), ses images (enfant,
+ * triées) et sa dernière confirmation de clé. `null` si introuvable ou
+ * supprimée.
  */
 export const getQuestionById = async (
   id: string,
@@ -370,23 +702,29 @@ export const getQuestionById = async (
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: cmcObjectives.label,
+      objectiveId: questions.objectiveId,
+      objectiveNeedsFix: cmcObjectives.needsFix,
       domain: questions.domain,
       createdAt: questions.createdAt,
-    })
-    .from(questions)
-    .where(and(eq(questions.id, id), isNull(questions.deletedAt)))
-    .limit(1)
-  if (!q) return null
-
-  const [expl] = await db
-    .select({
+      updatedAt: questions.updatedAt,
+      keyConfirmedAt: questions.keyConfirmedAt,
+      keyConfirmedAnswerCount: questions.keyConfirmedAnswerCount,
+      keyConfirmedNote: questions.keyConfirmedNote,
+      keyConfirmedByName: user.name,
       explanation: questionExplanations.explanation,
       references: questionExplanations.references,
     })
-    .from(questionExplanations)
-    .where(eq(questionExplanations.questionId, id))
+    .from(questions)
+    .innerJoin(cmcObjectives, eq(cmcObjectives.id, questions.objectiveId))
+    .leftJoin(user, eq(user.id, questions.keyConfirmedBy))
+    .leftJoin(
+      questionExplanations,
+      eq(questionExplanations.questionId, questions.id),
+    )
+    .where(and(eq(questions.id, id), isNull(questions.deletedAt)))
     .limit(1)
+  if (!q) return null
 
   // Deux jeux d'images séparés par `kind` (énoncé vs explication).
   const allImgs = await db
@@ -420,43 +758,362 @@ export const getQuestionById = async (
     options: q.options,
     correctAnswer: q.correctAnswer,
     objectifCMC: q.objectifCMC,
+    objectiveId: q.objectiveId,
+    objectiveNeedsFix: q.objectiveNeedsFix,
     domain: q.domain,
     createdAt: q.createdAt.getTime(),
-    explanation: expl?.explanation ?? "",
-    references: expl?.references ?? null,
+    updatedAt: q.updatedAt.getTime(),
+    explanation: q.explanation ?? "",
+    references: q.references ?? null,
     images,
     explanationImages,
+    keyConfirmation: toKeyConfirmation(q),
   }
 }
 
-// ============================================
-// [Admin] Objectifs CMC + ids (combobox, auto-complete)
-// ============================================
-
-/**
- * [Admin] Objectifs CMC distincts (combobox). Remplace `getUniqueObjectifsCMC`
- * (qui lisait la table d'agrégation `objectifCMCStats`) par un `SELECT DISTINCT`.
- * Tri français côté JS.
- */
-export const getUniqueObjectifsCMC = async (): Promise<string[]> => {
-  await requireRole(["admin"])
-  const rows = await db
-    .selectDistinct({ objectifCMC: questions.objectifCmc })
-    .from(questions)
-    .where(isNull(questions.deletedAt))
-    .limit(2000)
-  return rows.map((r) => r.objectifCMC).sort((a, b) => a.localeCompare(b, "fr"))
+export type QuestionExamUse = {
+  id: string
+  title: string
+  /** Epoch ms ; `null` pour un examen en préparation sans dates. */
+  startDate: number | null
+  endDate: number | null
+  /** Epoch ms ; `null` = examen en préparation. */
+  finalizedAt: number | null
+  isActive: boolean
 }
 
-/** [Admin] Tous les ids de questions (auto-complete sélection examen). Borné. */
-export const getAllQuestionIds = async (): Promise<string[]> => {
+/** Au-delà, la fiche n'affiche plus les examens d'une question. */
+const QUESTION_EXAMS_LIMIT = 100
+
+/**
+ * [Admin] Examens blancs dont le lot contient la question, du plus récent au
+ * plus ancien par date d'ouverture. Borné.
+ */
+export const getQuestionExams = async (
+  questionId: string,
+): Promise<QuestionExamUse[]> => {
   await requireRole(["admin"])
   const rows = await db
-    .select({ id: questions.id })
+    .select({
+      id: exams.id,
+      title: exams.title,
+      startDate: exams.startDate,
+      endDate: exams.endDate,
+      finalizedAt: exams.finalizedAt,
+      isActive: exams.isActive,
+    })
+    .from(examQuestions)
+    .innerJoin(exams, eq(exams.id, examQuestions.examId))
+    .where(eq(examQuestions.questionId, questionId))
+    .orderBy(desc(exams.startDate), desc(exams.id))
+    .limit(QUESTION_EXAMS_LIMIT)
+  return rows.map((r) => ({
+    ...r,
+    startDate: r.startDate?.getTime() ?? null,
+    endDate: r.endDate?.getTime() ?? null,
+    finalizedAt: r.finalizedAt?.getTime() ?? null,
+  }))
+}
+
+// ============================================
+// [Admin] Banque du compositeur d'examen
+// ============================================
+
+/** Dernière utilisation d'une question (`CONTEXT.md`). */
+export type LastUse = {
+  examId: string
+  title: string
+  /** Epoch ms : un examen finalisé a toujours ses dates. */
+  startDate: number
+  /** Dans l'un des derniers examens blancs : question récente. */
+  recent: boolean
+}
+
+export type BankQuestion = QuestionListItem & {
+  lastUse: LastUse | null
+  /** Supprimée depuis son ajout au jeu : la finalisation la refuse. */
+  deleted: boolean
+}
+
+/** Question récente (`CONTEXT.md`), forme SQL corrélée sur `questions`. */
+const recentSql = (examId: string) =>
+  sql<boolean>`not ${notUsedInLastExams(RECENT_EXAMS_DEFAULT, QUESTION_ID, examId)}`
+
+/**
+ * [Admin] Dernière utilisation de chaque question : l'examen le plus récent
+ * par date d'ouverture qui la contient, désactivés compris, examens en
+ * préparation exclus (même ordre que `notUsedInLastExams`). Une question est
+ * récente quand cet examen est l'un des derniers examens blancs.
+ * `exceptExamId` : l'examen qu'on compose ne compte pas pour ses propres
+ * questions, même finalisé (sinon elles seraient toutes récentes).
+ */
+export const getLastUses = cache(
+  async (
+    questionIds: string[],
+    exceptExamId?: string,
+  ): Promise<Map<string, LastUse>> => {
+    await requireRole(["admin"])
+    if (questionIds.length === 0) return new Map()
+    const [rows, recentExams] = await Promise.all([
+      db
+        .selectDistinctOn([examQuestions.questionId], {
+          questionId: examQuestions.questionId,
+          examId: exams.id,
+          title: exams.title,
+          startDate: exams.startDate,
+        })
+        .from(examQuestions)
+        .innerJoin(exams, eq(exams.id, examQuestions.examId))
+        .where(
+          and(
+            inArray(examQuestions.questionId, questionIds),
+            isNotNull(exams.finalizedAt),
+            exceptExamId ? ne(exams.id, exceptExamId) : undefined,
+          ),
+        )
+        .orderBy(
+          examQuestions.questionId,
+          desc(exams.startDate),
+          desc(exams.id),
+        ),
+      db
+        .select({ id: exams.id })
+        .from(exams)
+        .where(
+          and(
+            isNotNull(exams.finalizedAt),
+            exceptExamId ? ne(exams.id, exceptExamId) : undefined,
+          ),
+        )
+        .orderBy(desc(exams.startDate), desc(exams.id))
+        .limit(RECENT_EXAMS_DEFAULT),
+    ])
+    const recent = new Set(recentExams.map((e) => e.id))
+    return new Map(
+      rows.flatMap((r) =>
+        r.startDate
+          ? [
+              [
+                r.questionId,
+                {
+                  examId: r.examId,
+                  title: r.title,
+                  startDate: r.startDate.getTime(),
+                  recent: recent.has(r.examId),
+                },
+              ],
+            ]
+          : [],
+      ),
+    )
+  },
+)
+
+const withLastUses = async (
+  items: QuestionListItem[],
+  examId: string | undefined,
+  deleted: ReadonlySet<string> = new Set(),
+): Promise<BankQuestion[]> => {
+  const lastUses = await getLastUses(
+    items.map((i) => i.id),
+    examId,
+  )
+  return items.map((i) => ({
+    ...i,
+    lastUse: lastUses.get(i.id) ?? null,
+    deleted: deleted.has(i.id),
+  }))
+}
+
+/** Questions par page de la banque du compositeur. */
+export const BANK_PAGE_SIZE = 20
+
+export type BankFilters = Pick<
+  QuestionSelection,
+  "search" | "domain" | "notUsedInLast"
+> & {
+  sortBy: "lastUse" | "domain" | "successRate"
+  /** 1-based. */
+  page: number
+}
+
+/**
+ * [Admin] Une page de la banque du compositeur : les questions hors du jeu de
+ * l'examen, avec leur dernière utilisation. Plus anciennes d'abord, plus
+ * faible réussite d'abord.
+ */
+export const getExamBank = cache(
+  async (
+    examId: string,
+    filters: BankFilters,
+  ): Promise<{ items: BankQuestion[]; total: number }> => {
+    await requireRole(["admin"])
+    const page = await getQuestionsWithFilters({
+      ...filters,
+      notInExamId: examId,
+      sortOrder: "asc",
+      limit: BANK_PAGE_SIZE,
+    })
+    return { items: await withLastUses(page.items, examId), total: page.total }
+  },
+)
+
+/**
+ * [Admin] Le jeu de questions d'un examen, avec leur dernière utilisation.
+ * `countSelf` : l'examen lu compte dans la dernière utilisation (jeu d'une
+ * source de réouverture) ; par défaut il est exclu, comme pour l'examen qu'on
+ * compose.
+ */
+export const getExamSelection = cache(
+  async (
+    examId: string,
+    { countSelf = false }: { countSelf?: boolean } = {},
+  ): Promise<BankQuestion[]> => {
+    await requireRole(["admin"])
+    const rows = await db
+      .select({ id: examQuestions.questionId, deletedAt: questions.deletedAt })
+      .from(examQuestions)
+      .innerJoin(questions, eq(questions.id, examQuestions.questionId))
+      .where(eq(examQuestions.examId, examId))
+      .orderBy(asc(examQuestions.position))
+      .limit(1000)
+    return withLastUses(
+      await questionListItems(rows.map((r) => r.id)),
+      countSelf ? undefined : examId,
+      new Set(rows.filter((r) => r.deletedAt).map((r) => r.id)),
+    )
+  },
+)
+
+export type DomainPlanRow = {
+  domain: string
+  /** Dans le jeu de l'examen. */
+  chosen: number
+  /** Dans la banque, hors du jeu. */
+  available: number
+  /** Disponibles et récentes. */
+  recent: number
+}
+
+/** [Admin] Plan par domaine du compositeur : choisies, disponibles, récentes. */
+export const getDomainPlan = cache(
+  async (examId: string): Promise<DomainPlanRow[]> => {
+    await requireRole(["admin"])
+    const inExam = usedInExamSubquery(examId)
+    const recent = recentSql(examId)
+    return (
+      db
+        .select({
+          domain: questions.domain,
+          chosen: sql<number>`count(*) filter (where ${inExam})`.mapWith(
+            Number,
+          ),
+          available: sql<number>`count(*) filter (where not ${inExam})`.mapWith(
+            Number,
+          ),
+          recent:
+            sql<number>`count(*) filter (where not ${inExam} and ${recent})`.mapWith(
+              Number,
+            ),
+        })
+        .from(questions)
+        // Une question supprimée reste comptée dans le jeu qui la contient.
+        .where(or(isNull(questions.deletedAt), inExam))
+        .groupBy(questions.domain)
+        .orderBy(asc(questions.domain))
+        .limit(100)
+    )
+  },
+)
+
+/** Questions tirables par la complétion : hors du jeu, non supprimées, clé sans doute. */
+const drawablePool = (examId: string, stats: BankStats) =>
+  and(
+    isNull(questions.deletedAt),
+    not(usedInExamSubquery(examId)),
+    not(keyToVerifySql(stats)),
+  )
+
+/**
+ * [Admin] Offre de la banque par domaine pour la complétion (voir
+ * `planCompletion`) : toutes les disponibles fixent la répartition, les clés à
+ * vérifier ne sont jamais tirées.
+ */
+export const getBankSupply = async (
+  examId: string,
+): Promise<DomainSupply[]> => {
+  await requireRole(["admin"])
+  const stats = questionSuccessStats()
+  const usable = sql`not ${keyToVerifySql(stats)}`
+  const recent = recentSql(examId)
+  return db
+    .with(stats)
+    .select({
+      domain: questions.domain,
+      available: sql<number>`count(*)`.mapWith(Number),
+      clean:
+        sql<number>`count(*) filter (where ${usable} and not ${recent})`.mapWith(
+          Number,
+        ),
+      recent:
+        sql<number>`count(*) filter (where ${usable} and ${recent})`.mapWith(
+          Number,
+        ),
+    })
     .from(questions)
-    .where(isNull(questions.deletedAt))
-    .limit(5000)
-  return rows.map((r) => r.id)
+    .leftJoin(stats, eq(stats.questionId, questions.id))
+    .where(and(isNull(questions.deletedAt), not(usedInExamSubquery(examId))))
+    .groupBy(questions.domain)
+    .limit(100)
+}
+
+/** Une complétion ne dépasse jamais le plus grand jeu possible. */
+const MAX_DRAW = 1000
+
+/**
+ * [Admin] Tire au hasard, dans chaque domaine, le nombre d'anciennes et de
+ * récentes demandé, parmi les questions tirables.
+ */
+export const drawFromBank = async (
+  examId: string,
+  draws: DomainDraw[],
+): Promise<{ id: string; domain: string; recent: boolean }[]> => {
+  await requireRole(["admin"])
+  if (draws.length === 0) return []
+  const stats = questionSuccessStats()
+  const recent = recentSql(examId)
+  const pool = db.$with("pool").as(
+    db
+      .with(stats)
+      .select({
+        id: sql<string>`${questions.id}`.as("p_id"),
+        domain: sql<string>`${questions.domain}`.as("p_domain"),
+        recent: sql<boolean>`${recent}`.as("p_recent"),
+        rank: sql<number>`row_number() over (partition by ${questions.domain}, ${recent} order by random())`.as(
+          "p_rank",
+        ),
+      })
+      .from(questions)
+      .leftJoin(stats, eq(stats.questionId, questions.id))
+      .where(drawablePool(examId, stats)),
+  )
+  const quotas = sql.join(
+    draws.map((d) => sql`(${d.domain}, ${d.clean}::int, ${d.fallback}::int)`),
+    sql`, `,
+  )
+  const rows = await db
+    .with(pool)
+    .select({ id: pool.id, domain: pool.domain, recent: pool.recent })
+    .from(pool)
+    .innerJoin(
+      sql`(values ${quotas}) as quota(domain, clean, fallback)`,
+      sql`quota.domain = ${pool.domain}`,
+    )
+    .where(
+      sql`${pool.rank} <= case when ${pool.recent} then quota.fallback else quota.clean end`,
+    )
+    .limit(MAX_DRAW)
+  return rows
 }
 
 // ============================================
@@ -495,7 +1152,7 @@ export const getRandomQuizQuestions = async ({
       questionId: questions.id,
       question: questions.question,
       options: questions.options,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: objectiveLabelSql,
       domain: questions.domain,
     })
     .from(questions)
@@ -576,14 +1233,6 @@ export type QuestionStats = {
   domainStats: DomainStat[]
 }
 
-export type QuestionStatsEnriched = {
-  totalCount: number
-  withImagesCount: number
-  withoutImagesCount: number
-  uniqueDomainsCount: number
-  domainStats: DomainStat[]
-}
-
 const domainCounts = async (): Promise<DomainStat[]> => {
   const rows = await db
     .select({
@@ -603,48 +1252,6 @@ export const getQuestionStats = async (): Promise<QuestionStats> => {
   const totalCount = domainStats.reduce((s, d) => s + d.count, 0)
   return { totalCount, domainStats }
 }
-
-/**
- * [Admin] Stats enrichies (page questions). Remplace `getQuestionStatsEnriched` :
- * total + avec/sans images + domaines uniques + répartition triée. `withImagesCount`
- * = nombre de questions (non supprimées) ayant ≥ 1 image (DISTINCT sur le join).
- */
-export const getQuestionStatsEnriched =
-  async (): Promise<QuestionStatsEnriched> => {
-    await requireRole(["admin"])
-
-    const [domainStats, withImagesRow] = await Promise.all([
-      domainCounts(),
-      db
-        .select({
-          n: sql<number>`count(distinct ${questionImages.questionId})`.mapWith(
-            Number,
-          ),
-        })
-        .from(questionImages)
-        .innerJoin(
-          questions,
-          and(
-            eq(questions.id, questionImages.questionId),
-            isNull(questions.deletedAt),
-          ),
-        )
-        // Scopé `statement` : `withImagesCount` = questions ayant ≥ 1 image d'énoncé.
-        .where(eq(questionImages.kind, "statement")),
-    ])
-
-    const totalCount = domainStats.reduce((s, d) => s + d.count, 0)
-    const withImagesCount = withImagesRow[0]?.n ?? 0
-    const sorted = [...domainStats].sort((a, b) => b.count - a.count)
-
-    return {
-      totalCount,
-      withImagesCount,
-      withoutImagesCount: totalCount - withImagesCount,
-      uniqueDomainsCount: domainStats.length,
-      domainStats: sorted,
-    }
-  }
 
 // ============================================
 // [Admin] Export
@@ -672,8 +1279,8 @@ export type QuestionExportRow = {
 /**
  * [Admin] Questions pour l'export : la sélection de la liste, sans pagination
  * (borné à 5000), avec l'explication et le taux de
- * réussite. L'agrégat couvre toute la banque, comme le filtre « À vérifier »
- * de la liste.
+ * réussite. L'agrégat couvre toute la banque, comme l'onglet « Clé à
+ * vérifier » de la liste.
  */
 export const getQuestionsForExport = async (
   selection: QuestionSelection = {},
@@ -688,7 +1295,7 @@ export const getQuestionsForExport = async (
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
-      objectifCMC: questions.objectifCmc,
+      objectifCMC: objectiveLabelSql,
       domain: questions.domain,
       createdAt: questions.createdAt,
       explanation: questionExplanations.explanation,
@@ -705,7 +1312,7 @@ export const getQuestionsForExport = async (
     .where(
       and(
         selectionWhere(selection),
-        selection.toVerify ? eq(bankStats.keySuspect, true) : undefined,
+        selection.toVerify ? keyToVerifySql(bankStats) : undefined,
       ),
     )
     .orderBy(desc(questions.createdAt), desc(questions.id))

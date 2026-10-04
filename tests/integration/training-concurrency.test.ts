@@ -23,6 +23,7 @@ import {
 import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -50,7 +51,7 @@ beforeAll(async () => {
       question: `Q${i} ${suffix} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `CONC-${suffix}`,
     })),
   )
@@ -109,7 +110,7 @@ describe("clôture de session : gardes de statut + expiration", () => {
       expiresAt: new Date(Date.now() - DAY),
     })
     const res = await completeTrainingSession({ sessionId: sid })
-    expect(res).toEqual({ success: false, error: "Cette session a expiré" })
+    expect(res).toEqual({ success: false, error: "Cette série a expiré" })
     expect(await statusOf(sid)).toEqual({ status: "in_progress", score: null })
 
     await closeExpiredTrainingSessions()

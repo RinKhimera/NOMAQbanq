@@ -27,13 +27,11 @@ const makeQuestions = (count: number): QuizQuestion[] =>
 
 const makeMode = (overrides: Partial<QuizMode> = {}): QuizMode => ({
   kind: "training",
-  accent: "emerald",
   timer: null,
   pause: null,
   feedback: "deferred",
   showMeta: false,
-  labels: { title: "Entraînement", finishCta: "Terminer" },
-  backUrl: "/entrainement",
+  labels: { title: "Entraînement" },
   ...overrides,
 })
 
@@ -463,6 +461,33 @@ describe("useQuizSession — timer composé", () => {
     })
     expect(onFinish).toHaveBeenCalledWith({ isAutoSubmit: true })
   })
+  it("budget déjà épuisé au montage : l'auto-soumission part quand même", async () => {
+    // Le premier tick du chrono expire dans un effet qui court AVANT celui qui
+    // pose la référence d'auto-soumission : sans report, un examen ouvert
+    // après son budget ne se soumettrait jamais.
+    const onFinish = vi.fn().mockResolvedValue({ ok: true })
+    const start = Date.now()
+    renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 60,
+            initialNow: start + 3_600_000,
+          },
+        }),
+        callbacks: makeCallbacks({ onFinish }),
+      }),
+    )
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(onFinish).toHaveBeenCalledTimes(1)
+    expect(onFinish).toHaveBeenCalledWith({ isAutoSubmit: true })
+  })
+
   it("l'instant serveur d'une réponse ré-ancre le chrono (veille, retour arrière)", async () => {
     const start = Date.now()
     const THIRTY_MINUTES = 30 * 60 * 1000

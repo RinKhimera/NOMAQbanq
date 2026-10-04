@@ -10,16 +10,17 @@ import {
   user,
 } from "@/db/schema"
 import { getExamsForPicker } from "@/features/exams/dal"
+import { getObjectiveOptions } from "@/features/objectives/dal"
 import {
-  type QuestionStatsEnriched,
+  type QuestionStats,
   getQuestionById,
-  getQuestionStatsEnriched,
+  getQuestionStats,
   getQuestionsForExport,
   getQuestionsWithFilters,
-  getUniqueObjectifsCMC,
 } from "@/features/questions/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { objectiveIdFor } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -41,15 +42,15 @@ const q3 = createId() // 0 image, "gamma"
 const examId = createId() // examen qui utilise UNIQUEMENT q1
 const creatorId = createId() // créateur de l'examen (FK createdBy)
 
-let baseline: QuestionStatsEnriched
+let baseline: QuestionStats
 
-const mkQuestion = (id: string, label: string, createdAt: Date) =>
+const mkQuestion = async (id: string, label: string, createdAt: Date) =>
   db.insert(questions).values({
     id,
     question: `Question ${label} ${suffix} ?`,
     correctAnswer: "A",
     options: ["A", "B", "C", "D"],
-    objectifCmc: OBJ,
+    objectiveId: await objectiveIdFor(OBJ),
     domain: DOMAIN,
     createdAt,
   })
@@ -59,7 +60,7 @@ beforeAll(async () => {
     user: { id: "admin", role: "admin" },
   } as never)
 
-  baseline = await getQuestionStatsEnriched()
+  baseline = await getQuestionStats()
 
   const now = Date.now()
   await mkQuestion(q1, `alpha${suffix}`, new Date(now - 3 * DAY))
@@ -95,6 +96,7 @@ beforeAll(async () => {
     endDate: new Date(now + 5 * DAY),
     completionTime: 3600,
     createdBy: creatorId,
+    targetQuestionCount: 10,
   })
   await db.insert(examQuestions).values({ examId, questionId: q1, position: 0 })
 })
@@ -232,18 +234,25 @@ describe("getQuestionById", () => {
   })
 })
 
-describe("getUniqueObjectifsCMC", () => {
-  it("inclut l'objectif seedé", async () => {
-    const objs = await getUniqueObjectifsCMC()
-    expect(objs).toContain(OBJ)
+describe("getObjectiveOptions", () => {
+  it("rattache l'objectif seedé à son domaine", async () => {
+    const id = await objectiveIdFor(OBJ)
+    const { objectives, byDomain } = await getObjectiveOptions()
+    expect(byDomain[DOMAIN]).toEqual([id])
+    expect(objectives).toContainEqual({ id, label: OBJ })
+  })
+
+  it("ne propose jamais une entrée à corriger", async () => {
+    const id = await objectiveIdFor(`- ${suffix}`, { needsFix: true })
+    const { objectives } = await getObjectiveOptions()
+    expect(objectives.map((o) => o.id)).not.toContain(id)
   })
 })
 
-describe("getQuestionStatsEnriched (delta)", () => {
-  it("total + withImages + répartition domaine", async () => {
-    const after = await getQuestionStatsEnriched()
+describe("getQuestionStats (delta)", () => {
+  it("total + répartition domaine", async () => {
+    const after = await getQuestionStats()
     expect(after.totalCount - baseline.totalCount).toBe(3)
-    expect(after.withImagesCount - baseline.withImagesCount).toBe(1)
     const myDomain = after.domainStats.find((d) => d.domain === DOMAIN)
     expect(myDomain?.count).toBe(3)
   })

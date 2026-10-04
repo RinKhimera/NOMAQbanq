@@ -18,6 +18,7 @@ import { createPresignedUpload } from "@/lib/aws"
 import { cdnUrl } from "@/lib/cdn"
 import { createId } from "@/lib/ids"
 import { tryDeleteFromStorage } from "@/lib/storage"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -64,7 +65,7 @@ const seedQuestion = async () => {
     question: "Q upload",
     correctAnswer: "A",
     options: ["A", "B", "C", "D"],
-    objectifCmc: "Obj",
+    objectiveId: TEST_OBJECTIVE_ID,
     domain: "UPLOAD_DOM",
   })
   createdQuestions.push(id)
@@ -241,16 +242,15 @@ describe("createQuestionImageUpload", () => {
     expect(vi.mocked(createPresignedUpload)).not.toHaveBeenCalled()
   })
 
-  it("rejette un questionId bien formé mais inexistant", async () => {
+  it("accepte un identifiant réservé, pas encore créé (images avant la création)", async () => {
+    const reserved = createId()
     const res = await createQuestionImageUpload({
-      questionId: createId(),
+      questionId: reserved,
       imageIndex: 0,
       contentType: "image/jpeg",
       size: 1000,
     })
-    expect(res.success).toBe(false)
-    if (res.success)
-      throw new Error("presign accorde a une question inexistante")
-    expect(res.error).toContain("introuvable")
+    if (!res.success) throw new Error(res.error)
+    expect(res.storagePath).toMatch(new RegExp(`^tmp/questions/${reserved}/`))
   })
 })

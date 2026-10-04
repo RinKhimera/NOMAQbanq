@@ -2,7 +2,6 @@ import {
   and,
   desc,
   eq,
-  gt,
   inArray,
   isNotNull,
   isNull,
@@ -30,6 +29,8 @@ import {
   firstAnswersSql,
   questionSuccessStats,
 } from "./answers-sql"
+
+export * from "./dal.dashboard"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -253,29 +254,6 @@ export const getDashboardTrends = async (): Promise<DashboardTrends> => {
 }
 
 // ============================================
-// Paiements échoués récents (alerte dashboard)
-// ============================================
-
-/** [Admin] Nombre de transactions échouées des 7 derniers jours. Remplace
- * `analytics.getFailedPaymentsCount`. */
-export const getFailedPaymentsCount = async (): Promise<number> => {
-  await requireRole(["admin"])
-
-  const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS)
-  const [row] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.status, "failed"),
-        gt(transactions.createdAt, sevenDaysAgo),
-      ),
-    )
-
-  return row?.n ?? 0
-}
-
-// ============================================
 // Percentile d'examen
 // ============================================
 
@@ -362,15 +340,6 @@ export const getMyExamPercentiles = cache(
   },
 )
 
-/** [Admin] Percentile d'un étudiant à un examen ; `null` si non disponible. */
-export const getExamPercentileForUser = async (
-  examId: string,
-  userId: string,
-): Promise<number | null> => {
-  await requireRole(["admin"])
-  return (await percentilesOf(userId, [examId]))[examId] ?? null
-}
-
 // ============================================
 // Maîtrise par domaine
 // ============================================
@@ -439,6 +408,8 @@ export type QuestionAnswerBreakdown = {
   options: { option: string; count: number; share: number; isKey: boolean }[]
   /** Réponses dont le texte n'est plus une option de la question. */
   formerWording: { count: number; share: number }
+  /** Une option actuelle autre que la clé est plus choisie que les réponses justes. */
+  keySuspect: boolean
 }
 
 /**
@@ -465,6 +436,7 @@ export const getQuestionAnswerBreakdown = async (
       successRate: null,
       options: [],
       formerWording: { count: 0, share: 0 },
+      keySuspect: false,
     }
 
   const stats = questionSuccessStats([questionId])
@@ -478,6 +450,7 @@ export const getQuestionAnswerBreakdown = async (
       .select({
         answerCount: stats.answerCount,
         successRate: stats.successRate,
+        keySuspect: stats.keySuspect,
       })
       .from(stats),
   ])
@@ -507,5 +480,6 @@ export const getQuestionAnswerBreakdown = async (
       count: formerWordingCount,
       share: share(formerWordingCount),
     },
+    keySuspect: summary?.keySuspect ?? false,
   }
 }

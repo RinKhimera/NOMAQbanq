@@ -9,7 +9,7 @@ import {
   questions,
   user,
 } from "@/db/schema"
-import { createExam, startExam, updateExam } from "@/features/exams/actions"
+import { startExam } from "@/features/exams/actions"
 import {
   getExamReopeningSource,
   getParticipantExamResults,
@@ -17,6 +17,8 @@ import {
 import { lockFor } from "@/features/questions/answer-key-lock"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -30,7 +32,9 @@ const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 // Membre de l'audience restreinte : aucun abonnement requis pour passer.
 const STUDENT_ID = createId()
-const qIds = Array.from({ length: 3 }, () => createId())
+const qIds = Array.from({ length: 11 }, () => createId())
+// Jeu des examens de la fixture ; la 11ᵉ question sert à le changer.
+const examQIds = qIds.slice(0, 10)
 
 // Clos, avec une participation close (l'examen « rouvert par les dates » du bug).
 const CLOSED_TAKEN_ID = createId()
@@ -106,7 +110,7 @@ beforeAll(async () => {
       question: `REO Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj REO ${suffix}`,
+      objectiveId: TEST_OBJECTIVE_ID,
       domain: `REO-${suffix}`,
     })),
   )
@@ -115,7 +119,7 @@ beforeAll(async () => {
     question: `REO supprimée ${suffix}?`,
     correctAnswer: "A",
     options: ["A", "B", "C", "D"],
-    objectifCmc: `Obj REO ${suffix}`,
+    objectiveId: TEST_OBJECTIVE_ID,
     domain: `REO-${suffix}`,
     deletedAt: new Date("2026-05-01T00:00:00Z"),
   })
@@ -129,6 +133,7 @@ beforeAll(async () => {
       completionTime: 3 * 83,
       audienceType: "restricted",
       createdBy: ADMIN_ID,
+      targetQuestionCount: 10,
     },
     {
       id: CLOSED_EMPTY_ID,
@@ -137,6 +142,7 @@ beforeAll(async () => {
       endDate: CLOSED_END,
       completionTime: 3 * 83,
       createdBy: ADMIN_ID,
+      targetQuestionCount: 10,
     },
     {
       id: OPEN_TAKEN_ID,
@@ -145,6 +151,7 @@ beforeAll(async () => {
       endDate: new Date(now + DAY),
       completionTime: 3 * 83,
       createdBy: ADMIN_ID,
+      targetQuestionCount: 10,
     },
     {
       id: SOURCE_ID,
@@ -157,18 +164,21 @@ beforeAll(async () => {
       pauseDurationMinutes: 20,
       audienceType: "restricted",
       createdBy: ADMIN_ID,
+      targetQuestionCount: 10,
     },
   ])
-  await db
-    .insert(examQuestions)
-    .values([
-      ...[CLOSED_TAKEN_ID, CLOSED_EMPTY_ID, OPEN_TAKEN_ID].flatMap((examId) =>
-        qIds.map((questionId, position) => ({ examId, questionId, position })),
-      ),
-      { examId: SOURCE_ID, questionId: qIds[2], position: 0 },
-      { examId: SOURCE_ID, questionId: DELETED_QUESTION_ID, position: 1 },
-      { examId: SOURCE_ID, questionId: qIds[0], position: 2 },
-    ])
+  await db.insert(examQuestions).values([
+    ...[CLOSED_TAKEN_ID, CLOSED_EMPTY_ID, OPEN_TAKEN_ID].flatMap((examId) =>
+      examQIds.map((questionId, position) => ({
+        examId,
+        questionId,
+        position,
+      })),
+    ),
+    { examId: SOURCE_ID, questionId: qIds[2], position: 0 },
+    { examId: SOURCE_ID, questionId: DELETED_QUESTION_ID, position: 1 },
+    { examId: SOURCE_ID, questionId: qIds[0], position: 2 },
+  ])
   await db.insert(examAudience).values([
     { examId: CLOSED_TAKEN_ID, userId: STUDENT_ID },
     { examId: SOURCE_ID, userId: STUDENT_ID },
@@ -208,18 +218,18 @@ afterAll(async () => {
     .where(inArray(user.id, [ADMIN_ID, STUDENT_ID, DELETED_USER_ID]))
 })
 
-describe("updateExam — les dates d'un examen clos", () => {
+describe("modification d'un examen complet — les dates d'un examen clos", () => {
   it("refuse de repousser dans le futur la fin d'un examen clos qui a des participations, sans rien écrire", async () => {
     asAdmin()
     const before = await examRow(CLOSED_TAKEN_ID)
     const now = Date.now()
 
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: CLOSED_TAKEN_ID,
       title: `REO renommé ${suffix}`,
       startDate: now,
       endDate: now + 7 * DAY,
-      questionIds: qIds,
+      questionIds: examQIds,
       enablePause: false,
       audienceType: "subscribers",
       audienceUserIds: [],
@@ -236,12 +246,12 @@ describe("updateExam — les dates d'un examen clos", () => {
   it("renvoie vers « Rouvrir » même quand les questions changent aussi", async () => {
     asAdmin()
     const now = Date.now()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: CLOSED_TAKEN_ID,
       title: `REO clos passé ${suffix}`,
       startDate: now,
       endDate: now + 7 * DAY,
-      questionIds: [qIds[1], qIds[0], qIds[2]],
+      questionIds: [...examQIds.slice(1), qIds[10]],
       enablePause: false,
       audienceType: "restricted",
       audienceUserIds: [STUDENT_ID],
@@ -255,19 +265,19 @@ describe("updateExam — les dates d'un examen clos", () => {
 
   it("permet de corriger la fin d'un examen clos vers une autre date passée", async () => {
     asAdmin()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: CLOSED_TAKEN_ID,
       title: `REO clos passé ${suffix}`,
       startDate: CLOSED_START.getTime(),
       endDate: CLOSED_END.getTime() + DAY,
-      questionIds: qIds,
+      questionIds: examQIds,
       enablePause: false,
       audienceType: "restricted",
       audienceUserIds: [STUDENT_ID],
     })
 
     expect(res).toEqual({ success: true })
-    expect((await examRow(CLOSED_TAKEN_ID))?.endDate.getTime()).toBe(
+    expect((await examRow(CLOSED_TAKEN_ID))?.endDate?.getTime()).toBe(
       CLOSED_END.getTime() + DAY,
     )
   })
@@ -275,17 +285,17 @@ describe("updateExam — les dates d'un examen clos", () => {
   it("permet de reprogrammer un examen clos sans participation", async () => {
     asAdmin()
     const now = Date.now()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: CLOSED_EMPTY_ID,
       title: `REO clos vide ${suffix}`,
       startDate: now + DAY,
       endDate: now + 7 * DAY,
-      questionIds: qIds,
+      questionIds: examQIds,
       enablePause: false,
     })
 
     expect(res).toEqual({ success: true })
-    expect((await examRow(CLOSED_EMPTY_ID))?.endDate.getTime()).toBe(
+    expect((await examRow(CLOSED_EMPTY_ID))?.endDate?.getTime()).toBe(
       now + 7 * DAY,
     )
   })
@@ -293,17 +303,17 @@ describe("updateExam — les dates d'un examen clos", () => {
   it("permet de prolonger un examen ouvert qui a des participations", async () => {
     asAdmin()
     const now = Date.now()
-    const res = await updateExam({
+    const res = await saveAndFinalize({
       id: OPEN_TAKEN_ID,
       title: `REO ouvert ${suffix}`,
       startDate: now - DAY,
       endDate: now + 3 * DAY,
-      questionIds: qIds,
+      questionIds: examQIds,
       enablePause: false,
     })
 
     expect(res).toEqual({ success: true })
-    expect((await examRow(OPEN_TAKEN_ID))?.endDate.getTime()).toBe(
+    expect((await examRow(OPEN_TAKEN_ID))?.endDate?.getTime()).toBe(
       now + 3 * DAY,
     )
   })
@@ -341,15 +351,15 @@ describe("getExamReopeningSource — ce qu'une réouverture reprend", () => {
   })
 })
 
-describe("réouverture — une copie créée par createExam", () => {
+describe("réouverture — une copie créée par le formulaire", () => {
   it("l'ancien participant garde ses résultats, peut passer la copie, et sa correction d'origine est différée le temps de la copie", async () => {
     asAdmin()
     const now = Date.now()
-    const created = await createExam({
+    const created = await createFinalizedExam({
       title: `REO clos passé ${suffix} (réouverture)`,
       startDate: now - 60_000,
       endDate: now + 7 * DAY,
-      questionIds: qIds,
+      questionIds: examQIds,
       enablePause: false,
       audienceType: "restricted",
       audienceUserIds: [STUDENT_ID],

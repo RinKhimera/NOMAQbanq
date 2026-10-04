@@ -1,0 +1,154 @@
+"use client"
+
+import type { LucideIcon } from "lucide-react"
+import { type MouseEvent, type ReactNode, useRef, useState } from "react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { buttonVariants } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+import { cn } from "@/lib/utils"
+
+type ConfirmDialogProps = {
+  title: ReactNode
+  description?: ReactNode
+  children?: ReactNode
+  confirmLabel: ReactNode
+  cancelLabel?: ReactNode
+  pendingLabel?: ReactNode
+  variant?: "default" | "destructive"
+  icon?: LucideIcon
+  /**
+   * Une promesse garde le dialogue ouvert et verrouillé jusqu'à son issue ;
+   * `false` signale un échec et le laisse ouvert pour réessayer.
+   */
+  onConfirm: () => unknown
+  confirmDisabled?: boolean
+  confirmTestId?: string
+  /** Attente portée par l'appelant (ex. `useTransition`). */
+  isPending?: boolean
+  trigger?: ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}
+
+export const ConfirmDialog = ({
+  title,
+  description,
+  children,
+  confirmLabel,
+  cancelLabel = "Annuler",
+  pendingLabel,
+  variant = "default",
+  icon: Icon,
+  onConfirm,
+  confirmDisabled = false,
+  confirmTestId,
+  isPending = false,
+  trigger,
+  open,
+  onOpenChange,
+}: ConfirmDialogProps) => {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const [running, setRunning] = useState(false)
+  // Sans déclencheur Radix, rien ne reçoit le focus à la fermeture : on le
+  // rend à l'élément qui avait le focus à l'ouverture.
+  const openerRef = useRef<HTMLElement | null>(null)
+  const pending = isPending || running
+  const isOpen = open ?? uncontrolledOpen
+  const destructive = variant === "destructive"
+
+  const setOpen = (next: boolean) => {
+    if (pending && !next) return
+    setUncontrolledOpen(next)
+    onOpenChange?.(next)
+  }
+
+  const handleConfirm = async (event: MouseEvent) => {
+    // L'action Radix fermerait avant l'issue : c'est l'issue qui décide.
+    event.preventDefault()
+    setRunning(true)
+    try {
+      const outcome = await onConfirm()
+      if (outcome !== false) {
+        setUncontrolledOpen(false)
+        onOpenChange?.(false)
+      }
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <AlertDialog open={isOpen} onOpenChange={setOpen}>
+      {trigger && <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>}
+      <AlertDialogContent
+        className="max-w-md"
+        onOpenAutoFocus={() => {
+          if (!trigger && document.activeElement instanceof HTMLElement) {
+            openerRef.current = document.activeElement
+          }
+        }}
+        onCloseAutoFocus={(event) => {
+          if (trigger || !openerRef.current?.isConnected) return
+          event.preventDefault()
+          openerRef.current.focus()
+        }}
+      >
+        <AlertDialogHeader>
+          {Icon && (
+            <Icon
+              aria-hidden
+              className={cn(
+                "mx-auto mb-2 size-7",
+                destructive ? "text-danger-ink" : "text-accent-ink",
+              )}
+            />
+          )}
+          <AlertDialogTitle className={cn("text-xl", Icon && "text-center")}>
+            {title}
+          </AlertDialogTitle>
+          {description && (
+            <AlertDialogDescription className={cn(Icon && "text-center")}>
+              {description}
+            </AlertDialogDescription>
+          )}
+        </AlertDialogHeader>
+
+        {children}
+
+        <AlertDialogFooter className="mt-2 gap-3 sm:gap-3">
+          <AlertDialogCancel disabled={pending} className="flex-1">
+            {cancelLabel}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            data-testid={confirmTestId}
+            onClick={handleConfirm}
+            disabled={pending || confirmDisabled}
+            className={cn(
+              "flex-1",
+              destructive && buttonVariants({ variant: "destructive" }),
+            )}
+          >
+            {pending ? (
+              <span className="flex items-center gap-2">
+                <Spinner size="sm" />
+                {pendingLabel ?? confirmLabel}
+              </span>
+            ) : (
+              confirmLabel
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}

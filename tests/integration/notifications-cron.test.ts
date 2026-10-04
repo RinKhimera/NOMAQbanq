@@ -28,6 +28,7 @@ import { grantManualAccess } from "@/features/payments/lib"
 import { completeStripeTransaction } from "@/features/payments/stripe"
 import { createId } from "@/lib/ids"
 import { fakeMailer } from "../helpers/fake-mailer"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("@/email", () =>
   import("../helpers/fake-mailer").then((m) => m.fakeMailer),
@@ -80,6 +81,7 @@ beforeAll(async () => {
       endDate: past,
       completionTime: 3600,
       createdBy: creator,
+      targetQuestionCount: 10,
     },
     {
       id: openExam,
@@ -88,6 +90,7 @@ beforeAll(async () => {
       endDate: future,
       completionTime: 3600,
       createdBy: creator,
+      targetQuestionCount: 10,
     },
   ])
   await db.insert(examParticipations).values([
@@ -137,7 +140,7 @@ beforeAll(async () => {
     question: `Q retenue ${lockedQuestion} ?`,
     correctAnswer: "A",
     options: ["A", "B", "C", "D"],
-    objectifCmc: "Obj notif",
+    objectiveId: TEST_OBJECTIVE_ID,
     domain: "NOTIF",
   })
   await db.insert(examQuestions).values([
@@ -677,6 +680,7 @@ describe("backfill 0010 (anti-blast historique)", () => {
         endDate: past, // déjà clos
         completionTime: 3600,
         createdBy: creatorBf,
+        targetQuestionCount: 10,
       },
       {
         id: openBf,
@@ -685,6 +689,7 @@ describe("backfill 0010 (anti-blast historique)", () => {
         endDate: future, // encore ouvert
         completionTime: 3600,
         createdBy: creatorBf,
+        targetQuestionCount: 10,
       },
     ])
     await db.insert(examParticipations).values([
@@ -771,7 +776,7 @@ describe("comptes suspendus", () => {
       stripePriceId: `price_ban_${banned}`,
       stripePriceLookupKey: `price_ban_${banned}`,
     })
-    bannedTxId = await db.transaction((tx) =>
+    ;({ transactionId: bannedTxId } = await db.transaction((tx) =>
       grantManualAccess(tx, {
         userId: banned,
         product: {
@@ -785,7 +790,7 @@ describe("comptes suspendus", () => {
         paymentMethod: "interac",
         recordedBy: banned,
       }),
-    )
+    ))
   })
 
   afterAll(async () => {

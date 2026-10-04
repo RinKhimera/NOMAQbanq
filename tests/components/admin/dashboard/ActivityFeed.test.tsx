@@ -1,12 +1,7 @@
 import { render, screen } from "@testing-library/react"
-import { type ComponentProps, type ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { type ComponentProps } from "react"
+import { describe, expect, it } from "vitest"
 import { ActivityFeed } from "@/components/admin/dashboard/activity-feed"
-
-// Radix ScrollArea (ResizeObserver) -> stub passthrough en happy-dom.
-vi.mock("@/components/ui/scroll-area", () => ({
-  ScrollArea: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}))
 
 type Activities = ComponentProps<typeof ActivityFeed>["activities"]
 
@@ -68,15 +63,15 @@ describe("ActivityFeed", () => {
 
   it("rend chaque type d'activite (inscription, paiement, examen)", () => {
     const { container } = render(<ActivityFeed activities={activities} />)
-    expect(screen.getByText("Activité récente")).toBeInTheDocument()
+    expect(screen.getByText("Dernières actions")).toBeInTheDocument()
     // user_signup
     expect(container.textContent).toContain("Alice")
     expect(container.textContent).toContain("alice@example.com")
     // payment (+ badge "Manuel" sur paiement manuel)
-    expect(container.textContent).toContain("a payé")
+    expect(container.textContent).toContain("Paiement reçu")
     expect(container.textContent).toContain("Manuel")
     // exam_completed (scores haut/moyen/bas + null)
-    expect(container.textContent).toContain("85%")
+    expect(container.textContent).toMatch(/85\s%/)
     expect(container.textContent).toContain("Blanc 4")
   })
 })

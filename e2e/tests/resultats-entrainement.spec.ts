@@ -37,19 +37,20 @@ test.describe("Entraînement — page de résultats", () => {
     entrainement,
     page,
   }) => {
-    // Expand first question via its own toggle button inside the review card
-    const firstCard = page.locator("#question-1")
-    await expect(firstCard).toBeVisible({ timeout: 15_000 })
+    // La première question est dépliée d'office (son explication part au
+    // montage) : c'est la deuxième, repliée, qui prouve le chargement paresseux.
+    const secondCard = page.locator("#question-2")
+    await expect(secondCard).toBeVisible({ timeout: 15_000 })
 
-    const toggleBtn = firstCard.getByRole("button", {
-      name: /Développer la question|Réduire la question/,
+    const toggleBtn = secondCard.getByRole("button", {
+      name: "Développer la question",
     })
     await toggleBtn.click()
 
     // Lazy query fires → explanation appears with non-empty text
-    await entrainement.waitForExplanation(0)
+    await entrainement.waitForExplanation(1)
 
-    const explanation = firstCard.getByTestId("explanation-content")
+    const explanation = secondCard.getByTestId("explanation-content")
     const text = (await explanation.textContent()) ?? ""
     expect(text.length).toBeGreaterThan(10)
   })

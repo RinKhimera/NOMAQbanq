@@ -1,13 +1,21 @@
 "use server"
 
-import { and, eq, isNull } from "drizzle-orm"
+import { and, desc, eq, gt, isNotNull, isNull, sql } from "drizzle-orm"
 import { revalidatePath, revalidateTag } from "next/cache"
+import type { QuestionFile } from "@/components/admin/question-detail/question-detail-content"
 import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
-import { questionExplanations, questionImages, questions } from "@/db/schema"
+import {
+  cmcObjectives,
+  examQuestions,
+  exams,
+  questionExplanations,
+  questionImages,
+  questions,
+} from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
 import { copyInS3, createPresignedUpload } from "@/lib/aws"
-import { getPgErrorCode } from "@/lib/db-errors"
+import { getPgErrorCode, isPgUniqueViolation } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { consumeQuizRateLimit, getClientIpKey } from "@/lib/quiz-rate-limit"
@@ -21,32 +29,29 @@ import {
   validateImageFile,
 } from "@/lib/storage"
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
-import {
-  type QuestionAnswerBreakdown,
-  getQuestionAnswerBreakdown,
-} from "../analytics/dal"
-import { MARKETING_STATS_TAG } from "../marketing/cache-tags"
+import { questionSuccessStats } from "../analytics/answers-sql"
+import { getQuestionAnswerBreakdown } from "../analytics/dal"
+import { MARKETING_STATS_TAG, OBJECTIVES_TAG } from "../marketing/cache-tags"
 import { lockFor } from "./answer-key-lock"
 import {
-  type QuestionDetail,
   type QuestionExportRow,
-  type QuestionFiltersInput,
   type QuestionSelection,
-  type QuestionsPage,
-  getAllQuestionIds,
   getQuestionById,
+  getQuestionExams,
   getQuestionsForExport,
-  getQuestionsWithFilters,
   getQuizAnswerKey,
   getRandomQuizQuestions,
-  getUniqueObjectifsCMC,
 } from "./dal"
-import { normalizeObjectifCMC } from "./lib"
+import { keyReview } from "./key-review"
+import { diagnoseCorrection } from "./normalization"
 import { signQuizToken, verifyQuizToken } from "./quiz-token"
 import {
+  type ConfirmQuestionKeyInput,
   type CreateQuestionInput,
+  QUESTION_ID_PATTERN,
   type SetQuestionImagesInput,
   type UpdateQuestionInput,
+  confirmQuestionKeySchema,
   createQuestionSchema,
   loadRandomQuizQuestionsSchema,
   scoreQuizAnswersSchema,
@@ -56,40 +61,34 @@ import {
 
 const fail = (error: string) => ({ success: false as const, error })
 
-/** [Admin] Charge une page de la liste filtrée (browser : filtres + « charger plus »). */
-export const loadQuestionsPage = async (
-  filters: QuestionFiltersInput,
-): Promise<QuestionsPage> => {
-  await requireRole(["admin"])
-  return getQuestionsWithFilters(filters)
-}
-
-/** [Admin] Répartition des réponses d'une question (panneau latéral). */
-export const loadQuestionAnswerBreakdown = async (
+/**
+ * [Admin] Fiche d'une question pour un aperçu (compositeur d'examen) : le même
+ * contenu que la page de détail. `null` si introuvable ou supprimée.
+ */
+export const loadQuestionFile = async (
   id: string,
-): Promise<QuestionAnswerBreakdown> => {
+): Promise<QuestionFile | null> => {
   await requireRole(["admin"])
-  return getQuestionAnswerBreakdown(id)
-}
-
-/** [Admin] Détail complet d'une question (panel / édition). `null` si introuvable. */
-export const loadQuestionById = async (
-  id: string,
-): Promise<QuestionDetail | null> => {
-  await requireRole(["admin"])
-  return getQuestionById(id)
-}
-
-/** [Admin] Tous les ids de questions (auto-complete sélection examen). */
-export const loadAllQuestionIds = async (): Promise<string[]> => {
-  await requireRole(["admin"])
-  return getAllQuestionIds()
-}
-
-/** [Admin] Objectifs CMC distincts (combobox du formulaire création/édition). */
-export const loadUniqueObjectifsCMC = async (): Promise<string[]> => {
-  await requireRole(["admin"])
-  return getUniqueObjectifsCMC()
+  const [question, breakdown, exams] = await Promise.all([
+    getQuestionById(id),
+    getQuestionAnswerBreakdown(id),
+    getQuestionExams(id),
+  ])
+  if (!question) return null
+  return {
+    question,
+    breakdown,
+    exams,
+    review: keyReview({
+      answerCount: breakdown.answerCount,
+      keySuspect: breakdown.keySuspect,
+      confirmation: question.keyConfirmation,
+    }),
+    formatIssues: diagnoseCorrection({
+      explanation: question.explanation,
+      references: question.references ?? [],
+    }),
+  }
 }
 
 // ============================================
@@ -214,11 +213,51 @@ export const loadQuestionsForExport = async (
 }
 
 export type CreateQuestionResult =
-  { success: true; id: string } | { success: false; error: string }
+  | { success: true; id: string }
+  | { success: false; error: string; alreadyExists?: true }
+
+const revalidateQuestion = (id: string, objectivesChanged: boolean) => {
+  revalidatePath("/admin/questions")
+  revalidatePath(`/admin/questions/${id}`)
+  revalidateTag(MARKETING_STATS_TAG, "max")
+  if (objectivesChanged) revalidateTag(OBJECTIVES_TAG, "max")
+}
+
+class ObjectiveRefusedError extends Error {
+  constructor() {
+    super("OBJECTIVE_REFUSED")
+  }
+}
+
+const OBJECTIVE_REFUSED = "Choisissez un objectif du référentiel."
+
+/**
+ * Exige un objectif du référentiel qui ne soit pas à corriger, et rend son
+ * libellé. Le verrou partagé tient jusqu'à l'écriture : une fusion
+ * concurrente ne peut pas le supprimer entre-temps. Il se prend AVANT celui
+ * de la question, dans l'ordre des écritures du référentiel (objectif puis
+ * questions), sans quoi une fusion concurrente interbloque.
+ */
+const assertSelectableObjective = async (
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  objectiveId: string,
+) => {
+  const [objective] = await tx
+    .select({ id: cmcObjectives.id, label: cmcObjectives.label })
+    .from(cmcObjectives)
+    .where(
+      and(eq(cmcObjectives.id, objectiveId), eq(cmcObjectives.needsFix, false)),
+    )
+    .for("share")
+  if (!objective) throw new ObjectiveRefusedError()
+  return objective.label
+}
 
 /**
  * [Admin] Crée une question + sa ligne d'explication (1:1) atomiquement.
  * `explanation`/`references` vivent dans `questionExplanations` (split bandwidth).
+ * L'identifiant peut venir du formulaire, qui l'a réservé pour envoyer les
+ * images avant la création.
  */
 export const createQuestion = async (
   input: CreateQuestionInput,
@@ -230,16 +269,18 @@ export const createQuestion = async (
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
   const d = parsed.data
-  const id = createId()
+  const id = d.id ?? createId()
 
   try {
     await db.transaction(async (tx) => {
+      const label = await assertSelectableObjective(tx, d.objectiveId)
       await tx.insert(questions).values({
         id,
         question: d.question,
         correctAnswer: d.correctAnswer,
         options: d.options,
-        objectifCmc: normalizeObjectifCMC(d.objectifCMC),
+        objectiveId: d.objectiveId,
+        objectifCmc: label,
         domain: d.domain,
       })
       await tx.insert(questionExplanations).values({
@@ -248,18 +289,38 @@ export const createQuestion = async (
         references: d.references ?? null,
       })
     })
-    revalidatePath("/admin/questions")
-    revalidateTag(MARKETING_STATS_TAG, "max")
+    revalidateQuestion(id, true)
     return { success: true, id }
   } catch (error) {
+    if (error instanceof ObjectiveRefusedError) return fail(OBJECTIVE_REFUSED)
+    // Identifiant réservé déjà pris : une création précédente a abouti sans
+    // que sa réponse arrive au navigateur, qui reprend en mise à jour.
+    if (isPgUniqueViolation(error)) {
+      return {
+        ...fail("Cette question est déjà enregistrée."),
+        alreadyExists: true,
+      }
+    }
     captureServerError("[createQuestion]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
 
+const sameOptions = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((option, i) => option === b[i])
+
+class FrozenChoicesError extends Error {
+  constructor(readonly examTitle: string) {
+    super("FROZEN_CHOICES")
+  }
+}
+
 /**
- * [Admin] Met à jour une question + upsert de son explication. Soft-delete
- * respecté (refuse une question supprimée). Atomique.
+ * [Admin] Met à jour une question + upsert de son explication, sous verrou de
+ * la ligne. Choix figés : tant qu'un examen ouvert la contient, sa clé et le
+ * texte de ses options ne changent pas, puisque le verdict de chaque réponse
+ * est fixé au moment où elle est donnée. Modifier l'énoncé, les options ou la
+ * clé efface la clé confirmée. Refuse une question supprimée.
  */
 export const updateQuestion = async (
   input: UpdateQuestionInput,
@@ -273,19 +334,65 @@ export const updateQuestion = async (
   const d = parsed.data
 
   try {
-    await db.transaction(async (tx) => {
-      const updated = await tx
+    const objectivesChanged = await db.transaction(async (tx) => {
+      const label = await assertSelectableObjective(tx, d.objectiveId)
+      const [current] = await tx
+        .select({
+          question: questions.question,
+          options: questions.options,
+          correctAnswer: questions.correctAnswer,
+          domain: questions.domain,
+          objectiveId: questions.objectiveId,
+        })
+        .from(questions)
+        .where(and(eq(questions.id, d.id), isNull(questions.deletedAt)))
+        .for("update")
+      if (!current) throw new Error("Q_NOT_FOUND")
+
+      const choicesChanged =
+        current.correctAnswer !== d.correctAnswer ||
+        !sameOptions(current.options, d.options)
+      if (choicesChanged) {
+        // Même borne que le verrou de clé de réponse : `end_date > now()`. Un
+        // examen en préparation ne fige rien : l'admin corrige pendant qu'il
+        // compose.
+        const [open] = await tx
+          .select({ title: exams.title })
+          .from(examQuestions)
+          .innerJoin(exams, eq(exams.id, examQuestions.examId))
+          .where(
+            and(
+              eq(examQuestions.questionId, d.id),
+              isNotNull(exams.finalizedAt),
+              gt(exams.endDate, sql`now()`),
+            ),
+          )
+          .orderBy(desc(exams.endDate))
+          .limit(1)
+        if (open) throw new FrozenChoicesError(open.title)
+      }
+      // L'énoncé reçu est rogné : un énoncé hérité à espaces de bord n'a pas
+      // changé pour autant.
+      const clearsConfirmation =
+        choicesChanged || current.question.trim() !== d.question
+
+      await tx
         .update(questions)
         .set({
           question: d.question,
           correctAnswer: d.correctAnswer,
           options: d.options,
-          objectifCmc: normalizeObjectifCMC(d.objectifCMC),
+          objectiveId: d.objectiveId,
+          objectifCmc: label,
           domain: d.domain,
+          ...(clearsConfirmation && {
+            keyConfirmedAt: null,
+            keyConfirmedBy: null,
+            keyConfirmedAnswerCount: null,
+            keyConfirmedNote: null,
+          }),
         })
-        .where(and(eq(questions.id, d.id), isNull(questions.deletedAt)))
-        .returning({ id: questions.id })
-      if (updated.length === 0) throw new Error("Q_NOT_FOUND")
+        .where(eq(questions.id, d.id))
 
       await tx
         .insert(questionExplanations)
@@ -301,16 +408,87 @@ export const updateQuestion = async (
             references: d.references ?? null,
           },
         })
+      return (
+        current.domain !== d.domain || current.objectiveId !== d.objectiveId
+      )
     })
-    revalidatePath("/admin/questions")
-    revalidatePath(`/admin/questions/${d.id}/modifier`)
-    revalidateTag(MARKETING_STATS_TAG, "max")
+    revalidateQuestion(d.id, objectivesChanged)
     return { success: true }
   } catch (error) {
+    if (error instanceof ObjectiveRefusedError) return fail(OBJECTIVE_REFUSED)
+    if (error instanceof FrozenChoicesError) {
+      return fail(
+        `Cette question est dans l'examen ouvert « ${error.examTitle} » : ses choix et sa clé sont verrouillés jusqu'à la fermeture.`,
+      )
+    }
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
       return fail("Question introuvable")
     }
     captureServerError("[updateQuestion]", error)
+    return fail("Erreur serveur. Réessayez.")
+  }
+}
+
+/**
+ * [Admin] Clé confirmée : l'admin juge la clé juste malgré la répartition.
+ * Remplace la confirmation précédente et retient le nombre de réponses du
+ * moment, d'où partira le doublement. Refusée si la répartition ne désigne
+ * plus d'autre option. Ne touche pas à la date de modification : la question
+ * n'a pas changé.
+ */
+export const confirmQuestionKey = async (
+  input: ConfirmQuestionKeyInput,
+): Promise<{ success: true } | { success: false; error: string }> => {
+  const session = await requireRole(["admin"])
+
+  const parsed = confirmQuestionKeySchema.safeParse(input)
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
+  }
+  const { id, note } = parsed.data
+
+  try {
+    const outcome = await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ updatedAt: questions.updatedAt })
+        .from(questions)
+        .where(and(eq(questions.id, id), isNull(questions.deletedAt)))
+        .for("update")
+      if (!current) return "not_found" as const
+
+      const stats = questionSuccessStats([id])
+      const [s] = await tx
+        .with(stats)
+        .select({
+          answerCount: stats.answerCount,
+          keySuspect: stats.keySuspect,
+        })
+        .from(stats)
+      if (!s?.keySuspect) return "not_suspect" as const
+
+      await tx
+        .update(questions)
+        .set({
+          keyConfirmedAt: new Date(),
+          keyConfirmedBy: session.user.id,
+          keyConfirmedAnswerCount: s.answerCount,
+          keyConfirmedNote: note ? note : null,
+          updatedAt: current.updatedAt,
+        })
+        .where(eq(questions.id, id))
+      return "confirmed" as const
+    })
+    if (outcome === "not_found") return fail("Question introuvable")
+    if (outcome === "not_suspect") {
+      return fail(
+        "La répartition ne désigne plus d'autre option que la clé : rien à confirmer.",
+      )
+    }
+    revalidatePath("/admin/questions")
+    revalidatePath(`/admin/questions/${id}`)
+    return { success: true }
+  } catch (error) {
+    captureServerError("[confirmQuestionKey]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -368,6 +546,7 @@ export const deleteQuestion = async (
     await Promise.all(imagePaths.map((p) => tryDeleteFromStorage(p)))
     revalidatePath("/admin/questions")
     revalidateTag(MARKETING_STATS_TAG, "max")
+    revalidateTag(OBJECTIVES_TAG, "max")
     return { success: true, mode: "hard" }
   } catch (error) {
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
@@ -389,6 +568,7 @@ export const deleteQuestion = async (
 
     revalidatePath("/admin/questions")
     revalidateTag(MARKETING_STATS_TAG, "max")
+    revalidateTag(OBJECTIVES_TAG, "max")
     return { success: true, mode: "soft" }
   } catch (error) {
     captureServerError("[deleteQuestion]", error)
@@ -536,10 +716,6 @@ export const setQuestionImages = async (
   }
 }
 
-// Anti path-traversal : un id légitime (createId) ne contient que des caractères
-// d'URL sûrs ; on rejette tout le reste avant de l'interpoler dans le chemin.
-const QUESTION_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
-
 export type CreateQuestionImageUploadResult =
   | {
       success: true
@@ -551,7 +727,8 @@ export type CreateQuestionImageUploadResult =
 
 /**
  * [Admin] Étape 1 de l'upload d'image question : garde admin → questionId validé
- * (anti path-traversal) + existant → validation type/taille → rate-limit (50/h) →
+ * (anti path-traversal) et non supprimé, éventuellement pas encore créé
+ * (identifiant réservé par le formulaire) → validation type/taille → rate-limit (50/h) →
  * presigned POST S3 vers le TAMPON `tmp/questions/{questionId}/…`. Ne persiste
  * PAS : au save, `setQuestionImages` copie `tmp/` → `questions/` et enregistre le
  * chemin final ; un upload non sauvegardé reste dans `tmp/` et expire (Lifecycle),
@@ -566,7 +743,7 @@ export const createQuestionImageUpload = async (input: {
 }): Promise<CreateQuestionImageUploadResult> => {
   const session = await requireRole(["admin"])
 
-  if (!QUESTION_ID_RE.test(input.questionId)) {
+  if (!QUESTION_ID_PATTERN.test(input.questionId)) {
     return { success: false, error: "Question invalide" }
   }
   const kind: "statement" | "explanation" =
@@ -591,13 +768,14 @@ export const createQuestionImageUpload = async (input: {
     }
   }
 
-  // La question doit exister et ne pas être supprimée (évite des orphelins CDN).
+  // Identifiant réservé par le formulaire de création : la question n'existe
+  // pas encore. Une question supprimée, elle, ne reçoit plus d'images.
   const [q] = await db
-    .select({ id: questions.id })
+    .select({ deletedAt: questions.deletedAt })
     .from(questions)
-    .where(and(eq(questions.id, input.questionId), isNull(questions.deletedAt)))
+    .where(eq(questions.id, input.questionId))
     .limit(1)
-  if (!q) {
+  if (q?.deletedAt) {
     return { success: false, error: "Question introuvable" }
   }
 

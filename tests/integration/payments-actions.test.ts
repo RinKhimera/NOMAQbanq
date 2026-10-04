@@ -176,6 +176,92 @@ describe("recordManualPayment (DB)", () => {
     }
   })
 
+  it("renvoie l'expiration resultante par acces, lue du registre, et l'echeance precedente", async () => {
+    const before = await accessRow("exam")
+    const res = await recordManualPayment(manualInput)
+    expect(res.success).toBe(true)
+
+    const after = await accessRow("exam")
+    expect(res.grants).toEqual([
+      {
+        accessType: "exam",
+        expiresAt: after.expiresAt.getTime(),
+        previousExpiresAt: before?.expiresAt.getTime() ?? null,
+      },
+    ])
+  })
+
+  it("acces offert a 0 $ : accepte avec un motif, sans moyen de paiement", async () => {
+    const res = await recordManualPayment({
+      ...manualInput,
+      amountPaid: 0,
+      paymentMethod: undefined,
+      notes: "  Examen interrompu par une panne  ",
+    })
+    expect(res.success).toBe(true)
+
+    const [tx] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, res.transactionId!))
+    expect(tx.amountPaid).toBe(0)
+    expect(tx.paymentMethod).toBeNull()
+    expect(tx.notes).toBe("Examen interrompu par une panne")
+    expect(tx.status).toBe("completed")
+  })
+
+  it("acces offert sans motif → refus, aucune transaction ecrite", async () => {
+    const count = async () =>
+      (
+        await db
+          .select({ id: transactions.id })
+          .from(transactions)
+          .where(eq(transactions.userId, USER_ID))
+      ).length
+    const before = await count()
+
+    const res = await recordManualPayment({
+      ...manualInput,
+      amountPaid: 0,
+      paymentMethod: undefined,
+      notes: "ok",
+    })
+    expect(res).toEqual({
+      success: false,
+      error: "Indiquez le motif de la gratuité (5 caractères au moins).",
+    })
+    expect(await count()).toBe(before)
+  })
+
+  it("paiement non nul sans moyen → refus", async () => {
+    const res = await recordManualPayment({
+      ...manualInput,
+      paymentMethod: undefined,
+    })
+    expect(res).toEqual({
+      success: false,
+      error: "Méthode de paiement requise",
+    })
+  })
+
+  it("compte supprime → refus, aucune transaction ecrite", async () => {
+    const deletedId = createId()
+    await db.insert(user).values({
+      id: deletedId,
+      name: `Suppr ${suffix}`,
+      email: `suppr-${suffix}@test.invalid`,
+      deletedAt: new Date(),
+    })
+    const res = await recordManualPayment({ ...manualInput, userId: deletedId })
+    expect(res).toEqual({ success: false, error: "Utilisateur introuvable" })
+    const rows = await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.userId, deletedId))
+    expect(rows).toHaveLength(0)
+    await db.delete(user).where(eq(user.id, deletedId))
+  })
+
   it("utilisateur inexistant → erreur metier, aucune transaction ecrite", async () => {
     const ghostId = createId()
     const res = await recordManualPayment({ ...manualInput, userId: ghostId })
@@ -190,6 +276,40 @@ describe("recordManualPayment (DB)", () => {
 })
 
 describe("updateManualTransaction (DB)", () => {
+  it("un paiement manuel en attente ne se complete pas par une modification", async () => {
+    const pendingId = createId()
+    await db.insert(transactions).values({
+      id: pendingId,
+      userId: USER_ID,
+      productId: PID,
+      type: "manual",
+      status: "pending",
+      amountPaid: 5000,
+      currency: "CAD",
+      paymentMethod: "interac",
+      accessType: "exam",
+      durationDays: 30,
+      accessExpiresAt: new Date(Date.now() + 86_400_000),
+    })
+    const res = await updateManualTransaction({
+      transactionId: pendingId,
+      amountPaid: 5000,
+      currency: "CAD",
+      paymentMethod: "interac",
+      status: "completed",
+    })
+    expect(res).toEqual({
+      success: false,
+      error: "Seul un paiement complété ou remboursé change de statut",
+    })
+    const [row] = await db
+      .select({ status: transactions.status })
+      .from(transactions)
+      .where(eq(transactions.id, pendingId))
+    expect(row.status).toBe("pending")
+    await db.delete(transactions).where(eq(transactions.id, pendingId))
+  })
+
   it("modifie montant, methode et notes d'une transaction manuelle", async () => {
     const transactionId = await record()
 

@@ -1,124 +1,158 @@
 "use client"
 
-import { CircleCheckBig, CircleX } from "lucide-react"
-import { motion } from "motion/react"
+import { Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { AnswerOptionProps, AnswerState } from "./types"
+import type { AnswerOptionProps, AnswerOptionState } from "./types"
 
-const stateStyles: Record<AnswerState, string> = {
-  default:
-    "bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50",
-  selected:
-    "bg-blue-50 border-blue-400 text-blue-800 ring-2 ring-blue-400/20 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-200",
-  correct:
-    "bg-green-50 border-green-400 text-green-800 dark:bg-green-900/30 dark:border-green-500 dark:text-green-200",
-  incorrect:
-    "bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300",
-  "user-correct":
-    "bg-green-100 border-green-500 text-green-800 dark:bg-green-900/40 dark:border-green-400 dark:text-green-200",
-  "user-incorrect":
-    "bg-red-100 border-red-500 text-red-800 dark:bg-red-900/40 dark:border-red-400 dark:text-red-200",
+const OPTION: Record<AnswerOptionState, string> = {
+  default: "bg-surface border-line-strong text-ink",
+  selected: "bg-accent-soft border-accent text-ink",
+  correct: "bg-success-soft border-success text-ink",
+  incorrect: "bg-danger-soft border-danger text-ink",
+  muted: "bg-surface border-line text-ink-3",
 }
 
-const badgeStyles: Record<AnswerState, string> = {
-  default: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
-  selected: "bg-blue-200 text-blue-800 dark:bg-blue-700 dark:text-blue-100",
-  correct: "bg-green-200 text-green-800 dark:bg-green-700 dark:text-green-100",
-  incorrect: "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
-  "user-correct":
-    "bg-green-300 text-green-900 dark:bg-green-600 dark:text-green-100",
-  "user-incorrect": "bg-red-300 text-red-900 dark:bg-red-600 dark:text-red-100",
+const LETTER: Record<AnswerOptionState, string> = {
+  default: "bg-surface border-line-strong text-ink-2",
+  selected: "bg-accent border-accent text-accent-foreground",
+  correct: "bg-success border-success text-accent-foreground",
+  incorrect: "bg-danger border-danger text-accent-foreground",
+  muted: "bg-surface border-line text-ink-3",
 }
 
+const STATUS_LABEL: Partial<Record<AnswerOptionState, string>> = {
+  correct: "Bonne réponse",
+  incorrect: "Votre réponse",
+}
+
+export const optionLetter = (index: number) => String.fromCharCode(65 + index)
+
+/**
+ * Choix de réponse A–E. Un bouton quand `onClick` est fourni, un simple bloc
+ * sinon (correction, aperçu) : un choix corrigé ne se clique plus.
+ */
 export const AnswerOption = ({
   option,
   index,
   state,
   onClick,
   disabled = false,
-  showCheckIcon = false,
-  showXIcon = false,
   compact = false,
+  statusLabel = STATUS_LABEL[state],
 }: AnswerOptionProps) => {
-  const letter = String.fromCharCode(65 + index)
-  const isInteractive = onClick && !disabled
+  const letter = optionLetter(index)
+  const Icon = state === "correct" ? Check : state === "incorrect" ? X : null
 
   const content = (
-    <div
-      className={cn(
-        "flex items-center gap-3 rounded-xl border-2 transition-all duration-200",
-        compact ? "p-2.5 text-sm" : "p-3.5 sm:p-4",
-        stateStyles[state],
-        isInteractive && "cursor-pointer",
-        disabled && "cursor-not-allowed opacity-60",
-      )}
-    >
-      {/* Letter badge */}
+    <>
       <span
         className={cn(
-          "flex shrink-0 items-center justify-center rounded-full font-semibold",
-          compact ? "h-6 w-6 text-xs" : "h-8 w-8 text-sm",
-          badgeStyles[state],
+          "grid shrink-0 place-items-center rounded-sm border font-mono text-[13px] font-medium",
+          compact ? "size-6" : "size-7",
+          LETTER[state],
         )}
       >
-        {letter}
-      </span>
-
-      {/* Option text */}
-      <span
-        className={cn(
-          "min-w-0 flex-1 leading-relaxed",
-          compact ? "line-clamp-2" : "",
-          state === "correct" || state === "user-correct"
-            ? "font-medium"
-            : "font-normal",
+        {Icon ? (
+          <>
+            <Icon className="size-3.5" strokeWidth={2.5} aria-hidden />
+            <span className="sr-only">{letter}</span>
+          </>
+        ) : (
+          letter
         )}
-      >
-        {option}
       </span>
-
-      {/* Status icons */}
-      {showCheckIcon && (
-        <CircleCheckBig
+      <span className="min-w-0 wrap-break-word">{option}</span>
+      {statusLabel ? (
+        <span
           className={cn(
-            "shrink-0 text-green-600 dark:text-green-400",
-            compact ? "h-4 w-4" : "h-5 w-5",
+            "font-mono text-[11px] font-medium tracking-[0.04em] uppercase",
+            state === "correct" ? "text-success-ink" : "text-danger-ink",
           )}
-          aria-hidden="true"
-        />
+        >
+          {statusLabel}
+        </span>
+      ) : (
+        <span />
       )}
-      {showXIcon && (
-        <CircleX
-          className={cn(
-            "shrink-0 text-red-600 dark:text-red-400",
-            compact ? "h-4 w-4" : "h-5 w-5",
-          )}
-          aria-hidden="true"
-        />
-      )}
-    </div>
+    </>
   )
 
-  if (isInteractive) {
+  const className = cn(
+    "grid w-full items-center gap-3.5 rounded-md border text-left leading-normal transition-[background-color,border-color] duration-(--duration-fast)",
+    compact
+      ? "grid-cols-[24px_1fr_auto] px-3 py-2 text-sm"
+      : "grid-cols-[28px_1fr_auto] px-3.5 py-2.75 text-[15px]",
+    OPTION[state],
+  )
+  const dataAttributes = {
+    "data-state": state,
+    "data-selected": state === "selected",
+  }
+
+  if (!onClick) {
     return (
-      <motion.button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className="w-full text-left"
-        aria-pressed={state === "selected"}
+      <div
         data-testid={`answer-option-${index}`}
-        data-selected={state === "selected"}
+        className={className}
+        {...dataAttributes}
       >
         {content}
-      </motion.button>
+      </div>
     )
   }
 
-  return content
+  return (
+    <button
+      type="button"
+      data-testid={`answer-option-${index}`}
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={state === "selected"}
+      className={cn(
+        className,
+        "focus-ring cursor-pointer disabled:cursor-not-allowed disabled:opacity-60",
+        state === "default" && "hover:border-ink-4",
+      )}
+      {...dataAttributes}
+    >
+      {content}
+    </button>
+  )
 }
 
-export default AnswerOption
+type AnswerOptionListProps = {
+  options: readonly string[]
+  stateOf: (option: string, index: number) => AnswerOptionState
+  onSelect?: (index: number) => void
+  disabled?: boolean
+  compact?: boolean
+  className?: string
+}
+
+/** Liste des choix d'une question, dans l'ordre A–E. */
+export const AnswerOptionList = ({
+  options,
+  stateOf,
+  onSelect,
+  disabled,
+  compact,
+  className,
+}: AnswerOptionListProps) => (
+  <div
+    role="group"
+    aria-label="Choix de réponse"
+    className={cn("flex flex-col gap-2", className)}
+  >
+    {options.map((option, index) => (
+      <AnswerOption
+        key={index}
+        option={option}
+        index={index}
+        state={stateOf(option, index)}
+        onClick={onSelect ? () => onSelect(index) : undefined}
+        disabled={disabled}
+        compact={compact}
+      />
+    ))}
+  </div>
+)

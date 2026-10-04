@@ -9,14 +9,14 @@ export class PaymentPage extends BasePage {
   async gotoTarifs() {
     await super.goto("/tarifs")
     await expect(
-      this.page.getByText("Choisissez votre plan de préparation"),
+      this.page.getByRole("heading", { name: "Choisissez votre accès." }),
     ).toBeVisible({ timeout: 15_000 })
   }
 
   async gotoAbonnements() {
     await super.goto("/tableau-de-bord/abonnements")
     await expect(
-      this.page.getByRole("heading", { name: "Mon Abonnement" }),
+      this.page.getByRole("heading", { name: "Abonnements et accès" }),
     ).toBeVisible({ timeout: 15_000 })
   }
 
@@ -24,22 +24,10 @@ export class PaymentPage extends BasePage {
     await this.page.goto("/tableau-de-bord/paiement/succes")
   }
 
-  async expectPaywall(type: "training" | "exam") {
-    if (type === "training") {
-      await expect(this.page.getByText("Débloquez l'Entraînement")).toBeVisible(
-        { timeout: 15_000 },
-      )
-    } else {
-      await expect(this.page.getByText(/Accès aux examens requis/)).toBeVisible(
-        { timeout: 15_000 },
-      )
-    }
-  }
-
   async expectNoPaywall() {
-    await expect(this.page.getByText("Nouvelle session")).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(
+      this.page.getByText("Nouvelle série", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 })
   }
 
   async expectActiveAccess(type: "training" | "exam") {

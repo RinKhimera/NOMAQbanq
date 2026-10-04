@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useAnchoredClock } from "@/hooks/use-anchored-clock"
-import { remainingMs as clockRemainingMs, zone } from "@/lib/attempt-clock"
+import { remainingMs as clockRemainingMs } from "@/lib/attempt-clock"
 
 export type UseExamTimerOptions = {
   /**
@@ -22,15 +22,17 @@ export type UseExamTimerOptions = {
    */
   initialNow: number
   isPaused: boolean
+  /**
+   * Début de la pause en cours (instant serveur). Chargée en pause, la page
+   * fige le chrono à sa valeur de cet instant : le temps déjà passé en pause
+   * n'est pas encore dans `totalPauseDurationMs`, qui ne crédite qu'à la reprise.
+   */
+  pauseStartedAt?: number
   totalPauseDurationMs: number
   onExpire: () => void
 }
 
-export type UseExamTimerResult = {
-  remainingMs: number
-  isRunningOut: boolean
-  isCritical: boolean
-}
+export type UseExamTimerResult = { remainingMs: number }
 
 export function useExamTimer({
   enabled = true,
@@ -38,6 +40,7 @@ export function useExamTimer({
   totalSeconds,
   initialNow,
   isPaused,
+  pauseStartedAt,
   totalPauseDurationMs,
   onExpire,
 }: UseExamTimerOptions): UseExamTimerResult {
@@ -55,7 +58,9 @@ export function useExamTimer({
   )
 
   const [remainingMs, setRemainingMs] = useState<number>(() =>
-    computeRemaining(initialNow),
+    computeRemaining(
+      isPaused && pauseStartedAt !== undefined ? pauseStartedAt : initialNow,
+    ),
   )
   const now = useAnchoredClock(initialNow)
   const expiredRef = useRef(false)
@@ -85,10 +90,5 @@ export function useExamTimer({
     return () => clearInterval(id)
   }, [enabled, isPaused, computeRemaining, now])
 
-  const timeZone = zone(remainingMs)
-  return {
-    remainingMs,
-    isRunningOut: timeZone !== "normal",
-    isCritical: timeZone === "critical",
-  }
+  return { remainingMs }
 }

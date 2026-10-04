@@ -1,11 +1,13 @@
 import { MetadataRoute } from "next"
+import { DOMAINS } from "@/constants/domains"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://nomaqbanq.ca"
 
   // Date de dernière mise à jour majeure du contenu
-  const lastContentUpdate = new Date("2026-02-05")
+  const lastContentUpdate = new Date("2026-09-28")
   const legalPagesUpdate = new Date("2026-01-15")
+  const termsUpdate = new Date("2026-09-28")
 
   return [
     // Pages marketing principales
@@ -20,6 +22,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: lastContentUpdate,
       changeFrequency: "monthly",
       priority: 0.9,
+    },
+    ...DOMAINS.map((d) => ({
+      url: `${baseUrl}/domaines/${d.slug}`,
+      lastModified: lastContentUpdate,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+    {
+      url: `${baseUrl}/fonctionnement`,
+      lastModified: lastContentUpdate,
+      changeFrequency: "monthly",
+      priority: 0.8,
     },
     {
       url: `${baseUrl}/tarifs`,
@@ -48,7 +62,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Pages légales
     {
       url: `${baseUrl}/conditions`,
-      lastModified: legalPagesUpdate,
+      lastModified: termsUpdate,
       changeFrequency: "yearly",
       priority: 0.3,
     },

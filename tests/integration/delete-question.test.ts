@@ -12,6 +12,7 @@ import { deleteQuestion } from "@/features/questions/actions"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 import { tryDeleteFromStorage } from "@/lib/storage"
+import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
 vi.mock("@/lib/auth-guards", () => ({ requireRole: vi.fn() }))
 vi.mock("next/cache", () => ({
@@ -35,7 +36,7 @@ const mkQuestion = (id: string, label: string) => ({
   question: `Question ${label} ?`,
   correctAnswer: "A",
   options: ["A", "B"],
-  objectifCmc: "Objectif IT",
+  objectiveId: TEST_OBJECTIVE_ID,
   domain: "Cardiologie",
 })
 
@@ -74,6 +75,7 @@ beforeAll(async () => {
     endDate: new Date(now + DAY),
     completionTime: 3600,
     createdBy: adminId,
+    targetQuestionCount: 10,
   })
   await db
     .insert(examQuestions)
