@@ -376,9 +376,13 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   (`prices`, `seedCheckoutSession`, `customers`, `nextEvent`) /
   `stripeBox.reset()`. Même raison que le Mailer : un verbe Stripe ajouté au
   port sans son faux ne compile plus, un faux partiel ne masque plus un appel.
-- Les fichiers d'intégration tournent en série (`fileParallelism: false`) : un
-  test jumeau qui compare deux comptes sur une table globale (`count(*)`) est
-  déterministe. Cibler un fichier : `bun run test:integration -- <fichier>`.
+- Les fichiers d'intégration tournent **en parallèle** sur la même branche
+  Neon : un fichier ne lit que ses propres fixtures (suffixe unique). Ceux qui
+  balaient toute la branche (cron, `ALTER TABLE`), mesurent un écart sur un
+  agrégat global (`count(*)`, revenus, examens disponibles) ou lisent
+  `pg_stat_activity` vont dans `SERIAL_INTEGRATION` (`vitest.config.ts`) :
+  projet `integration-serial`, un fichier à la fois, après les autres. Cibler
+  un fichier : `bun run test:integration -- <fichier>`.
 - Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants

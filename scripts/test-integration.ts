@@ -1,6 +1,6 @@
 /**
  * Orchestrateur des tests d'intégration : branche Neon jetable → migrations →
- * vitest (projet integration) → destruction garantie. Flag --keep pour garder la
+ * vitest (projets integration et integration-serial) → destruction garantie. Flag --keep pour garder la
  * branche en debug (ramassée par le housekeeping > 1 h). Lancer via
  * `bun run test:integration` (ou `bun scripts/test-integration.ts --keep`).
  */
@@ -56,7 +56,7 @@ try {
   // le ciblage par défaut, sinon les deux se cumuleraient.
   const projectArgs = vitestArgs.includes("--project")
     ? []
-    : ["--project", "integration"]
+    : ["--project", "integration", "--project", "integration-serial"]
   exitCode = run("bunx", ["vitest", "run", ...projectArgs, ...vitestArgs], env)
 } finally {
   if (keep) {
