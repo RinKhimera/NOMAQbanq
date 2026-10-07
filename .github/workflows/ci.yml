@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, refonte-v2]
+    branches: [main]
   pull_request:
-    branches: [main, refonte-v2]
+    branches: [main]
     # `labeled`/`unlabeled` : poser ou retirer `skip-integration` relance la CI.
     types: [opened, synchronize, reopened, labeled, unlabeled]
 

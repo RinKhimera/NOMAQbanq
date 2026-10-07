@@ -994,6 +994,7 @@ describe("score retenu — participation sans réponse", () => {
       endDate,
       createdBy: ADMIN_ID,
       targetQuestionCount: 10,
+      finalizedAt: new Date(),
       completionTime: 3600,
     },
     questionId,

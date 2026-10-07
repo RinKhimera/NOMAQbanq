@@ -113,6 +113,7 @@ beforeAll(async () => {
     isActive: true,
     createdBy: A,
     targetQuestionCount: 10,
+    finalizedAt: new Date(),
   })
   await db.insert(examParticipations).values({
     id: createId(),

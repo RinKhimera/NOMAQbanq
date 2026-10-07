@@ -224,6 +224,7 @@ beforeAll(async () => {
     completionTime: 3600,
     createdBy: uAdmin,
     targetQuestionCount: 10,
+    finalizedAt: new Date(),
   })
   await db.insert(examParticipations).values({
     examId,

@@ -197,11 +197,8 @@ colonne)` dans le WHERE des canaux de
   étapes de `features/exams/actions.ts`, sous le verrou `exams FOR UPDATE` ; changer
   le jeu ou le visé d'un examen finalisé le remet en préparation (un visé
   ramené à la taille du jeu n'est pas un changement). Tout écrivain pose
-  `finalized_at` explicitement ; les défauts de `finalized_at` et
-  `target_question_count` sont provisoires (expand/contract : code antérieur
-  aux colonnes pendant le build et après un rollback) : leur retrait est la
-  migration « contract » de la première PR qui touche `exams` après la mise en
-  production de l'examen en préparation. Le verrou
+  `finalized_at` et `target_question_count` explicitement : aucune des deux
+  colonnes n'a de défaut, fixtures de test comprises. Le verrou
   de clé anonyme couvre aussi un examen en préparation, dates ou non.
 - **Référentiel des objectifs du CMC** (`features/objectives/`, vocabulaire
   dans `CONTEXT.md`) : toute question porte `objective_id`, jamais un libellé

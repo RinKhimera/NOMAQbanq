@@ -53,6 +53,7 @@ beforeAll(async () => {
     completionTime: 3600,
     createdBy: creatorId,
     targetQuestionCount: 10,
+    finalizedAt: new Date(),
   })
   await db.insert(user).values(
     userIds.map((id, i) => ({

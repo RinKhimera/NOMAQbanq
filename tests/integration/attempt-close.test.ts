@@ -75,6 +75,7 @@ const newExam = async (questionIds: string[], endDate = ENDED) => {
     isActive: true,
     createdBy: OWNER,
     targetQuestionCount: 10,
+    finalizedAt: new Date(),
   })
   await db.insert(examQuestions).values(
     questionIds.map((questionId, position) => ({

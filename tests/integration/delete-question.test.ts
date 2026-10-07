@@ -76,6 +76,7 @@ beforeAll(async () => {
     completionTime: 3600,
     createdBy: adminId,
     targetQuestionCount: 10,
+    finalizedAt: new Date(),
   })
   await db
     .insert(examQuestions)
