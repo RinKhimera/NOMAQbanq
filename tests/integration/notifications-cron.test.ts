@@ -82,6 +82,7 @@ beforeAll(async () => {
       completionTime: 3600,
       createdBy: creator,
       targetQuestionCount: 10,
+      finalizedAt: new Date(),
     },
     {
       id: openExam,
@@ -91,6 +92,7 @@ beforeAll(async () => {
       completionTime: 3600,
       createdBy: creator,
       targetQuestionCount: 10,
+      finalizedAt: new Date(),
     },
   ])
   await db.insert(examParticipations).values([
@@ -681,6 +683,7 @@ describe("backfill 0010 (anti-blast historique)", () => {
         completionTime: 3600,
         createdBy: creatorBf,
         targetQuestionCount: 10,
+        finalizedAt: new Date(),
       },
       {
         id: openBf,
@@ -690,6 +693,7 @@ describe("backfill 0010 (anti-blast historique)", () => {
         completionTime: 3600,
         createdBy: creatorBf,
         targetQuestionCount: 10,
+        finalizedAt: new Date(),
       },
     ])
     await db.insert(examParticipations).values([

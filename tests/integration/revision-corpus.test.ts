@@ -159,6 +159,7 @@ beforeAll(async () => {
       completionTime: 3600,
       createdBy: USER_ID,
       targetQuestionCount: 10,
+      finalizedAt: new Date(),
     },
     {
       id: CLOSED_EXAM_ID,
@@ -168,6 +169,7 @@ beforeAll(async () => {
       completionTime: 3600,
       createdBy: USER_ID,
       targetQuestionCount: 10,
+      finalizedAt: new Date(),
     },
   ])
   await db.insert(examQuestions).values([

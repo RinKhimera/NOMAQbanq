@@ -134,6 +134,7 @@ beforeAll(async () => {
       audienceType: "restricted",
       createdBy: ADMIN_ID,
       targetQuestionCount: 10,
+      finalizedAt: new Date(),
     },
     {
       id: CLOSED_EMPTY_ID,
@@ -143,6 +144,7 @@ beforeAll(async () => {
       completionTime: 3 * 83,
       createdBy: ADMIN_ID,
       targetQuestionCount: 10,
+      finalizedAt: new Date(),
     },
     {
       id: OPEN_TAKEN_ID,
@@ -152,6 +154,7 @@ beforeAll(async () => {
       completionTime: 3 * 83,
       createdBy: ADMIN_ID,
       targetQuestionCount: 10,
+      finalizedAt: new Date(),
     },
     {
       id: SOURCE_ID,
@@ -165,6 +168,7 @@ beforeAll(async () => {
       audienceType: "restricted",
       createdBy: ADMIN_ID,
       targetQuestionCount: 10,
+      finalizedAt: new Date(),
     },
   ])
   await db.insert(examQuestions).values([

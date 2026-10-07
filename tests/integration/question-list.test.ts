@@ -110,6 +110,7 @@ const mkExam = async (
     completionTime: 3600,
     createdBy: createdUsers[0],
     targetQuestionCount: 10,
+    finalizedAt: new Date(),
   })
   if (questionIds.length)
     await db.insert(examQuestions).values(

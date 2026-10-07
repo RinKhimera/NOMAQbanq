@@ -169,6 +169,13 @@
       "when": 1790985487425,
       "tag": "0023_cmc_objectives",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791373652344,
+      "tag": "0024_exam_defaults_contract",
+      "breakpoints": true
     }
   ]
 }
