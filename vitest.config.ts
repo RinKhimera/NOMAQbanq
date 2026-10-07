@@ -16,7 +16,9 @@ const root = realpathSync.native(path.resolve(__dirname))
 // sur la même branche Neon. Un balayage (cron, `ALTER TABLE`) touche les
 // fixtures des autres ; un écart avant/après sur un agrégat global (comptes,
 // revenus, examens disponibles) compte leurs insertions ; `pg_stat_activity`
-// voit leurs attentes de verrou. Un nouveau fichier de l'un de ces types
+// voit leurs attentes de verrou ; un produit cherché par son code
+// (`createStripeCheckout`, `recordManualPayment`) peut être celui d'un autre
+// fichier, le code n'étant pas unique. Un nouveau fichier de l'un de ces types
 // s'ajoute ici.
 const SERIAL_INTEGRATION = [
   // Balayages
@@ -33,11 +35,16 @@ const SERIAL_INTEGRATION = [
   "marketing-dal",
   "payments-admin-dal",
   "payments-clients-dal",
+  "payments-stripe",
   "questions-dal",
   "student-dashboard-dal",
   "users-admin-dal",
   // Attentes de verrou comptées sur toute la base
   "payments-actions",
+  // Produit cherché par son code
+  "payments-checkout",
+  "payments-manual",
+  "payments-verify",
 ].map((name) => `tests/integration/${name}.test.ts`)
 
 export default defineConfig({
