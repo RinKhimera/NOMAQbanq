@@ -1,6 +1,4 @@
 import { eq, inArray, sql } from "drizzle-orm"
-import { readFileSync } from "node:fs"
-import { fileURLToPath } from "node:url"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { cmcObjectives, questions } from "@/db/schema"
@@ -16,6 +14,7 @@ import { getPublicDomainObjectives } from "@/features/objectives/dal"
 import { objectiveKey } from "@/features/objectives/label"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { captureServerError } from "@/lib/observability"
 import { objectiveIdFor } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
@@ -23,6 +22,7 @@ vi.mock("react", async (orig) => {
   return { ...actual, cache: (fn: unknown) => fn }
 })
 vi.mock("@/lib/auth-guards", () => ({ requireRole: vi.fn() }))
+vi.mock("@/lib/observability", () => ({ captureServerError: vi.fn() }))
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),
@@ -59,13 +59,24 @@ const rowsOf = (ids: string[]) =>
     .where(inArray(questions.id, ids))
     .orderBy(questions.id)
 
+/** Attend qu'une insertion dans le référentiel soit bloquée sur un verrou. */
+const waitForInsertWaiter = async () => {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const res = await db.execute(sql`
+      select count(*)::int as n from pg_stat_activity
+      where datname = current_database() and wait_event_type = 'Lock'
+        and query ilike 'insert into "cmc_objectives"%'
+    `)
+    if ((res.rows[0] as { n: number }).n >= 1) return
+    await new Promise((r) => setTimeout(r, 25))
+  }
+  throw new Error("Aucune attente de verrou observée")
+}
+
 const entry = async (id: string) =>
   (await db.select().from(cmcObjectives).where(eq(cmcObjectives.id, id)))[0]
 
-/**
- * Tout sauf l'objectif : ce qu'une fusion ou une correction ne touche pas,
- * `objectif_cmc` compris.
- */
+/** Tout sauf l'objectif : ce qu'une fusion ou une correction ne touche pas. */
 const withoutObjective = (rows: Awaited<ReturnType<typeof rowsOf>>) =>
   rows.map((row) => ({
     ...row,
@@ -80,110 +91,6 @@ beforeAll(() => {
 
 afterAll(async () => {
   await db.delete(questions).where(inArray(questions.id, createdQuestions))
-})
-
-describe("migration 0023 : remplissage du référentiel", () => {
-  const backfill = readFileSync(
-    fileURLToPath(
-      new URL("../../drizzle/0023_cmc_objectives.sql", import.meta.url),
-    ),
-    "utf8",
-  )
-    .split("--> statement-breakpoint")
-    .map((s) => s.trim())
-    .filter((s) => /^(--[^\n]*\n)*\s*(INSERT|UPDATE)/.test(s))
-
-  class Rollback extends Error {}
-
-  it("rattache chaque question à une entrée, marque les valeurs invalides, ne change rien d'autre, et se rejoue sans effet", async () => {
-    expect(backfill).toHaveLength(2)
-    const legacy = {
-      spaced: `  Douleur  abdominale aiguë ${suffix} `,
-      dash: "-",
-      tab: `Bordetella pertussis ${suffix} \t`,
-      pasted: `Une jeune fille\tde 13 ans ${suffix} ${"x".repeat(130)}`,
-    }
-    const outcome = await db
-      .transaction(async (tx) => {
-        await tx.execute(
-          sql`alter table questions alter column objective_id drop not null`,
-        )
-        const ids: Record<string, string> = {}
-        for (const [key, value] of Object.entries(legacy)) {
-          ids[key] = createId()
-          await tx.insert(questions).values({
-            id: ids[key],
-            question: `Migration ${key} ${suffix}`,
-            correctAnswer: "A",
-            options: ["A", "B", "C", "D"],
-            objectifCmc: value,
-            objectiveId: sql`null`,
-            domain: DOMAIN,
-          })
-        }
-        const before = await tx
-          .select()
-          .from(questions)
-          .where(inArray(questions.id, Object.values(ids)))
-          .orderBy(questions.id)
-
-        for (const statement of backfill) await tx.execute(sql.raw(statement))
-        const read = () =>
-          tx
-            .select({
-              id: questions.id,
-              objectiveId: questions.objectiveId,
-              label: cmcObjectives.label,
-              needsFix: cmcObjectives.needsFix,
-              reviewedAt: cmcObjectives.reviewedAt,
-            })
-            .from(questions)
-            .innerJoin(
-              cmcObjectives,
-              eq(cmcObjectives.id, questions.objectiveId),
-            )
-            .where(inArray(questions.id, Object.values(ids)))
-            .orderBy(questions.id)
-        const first = await read()
-        const after = await tx
-          .select()
-          .from(questions)
-          .where(inArray(questions.id, Object.values(ids)))
-          .orderBy(questions.id)
-
-        for (const statement of backfill) await tx.execute(sql.raw(statement))
-        const second = await read()
-        throw new Rollback(
-          JSON.stringify({ ids, before, after, first, second }),
-        )
-      })
-      .catch((error: unknown) => {
-        if (error instanceof Rollback) return JSON.parse(error.message)
-        throw error
-      })
-
-    const byId = new Map<string, { label: string; needsFix: boolean }>(
-      outcome.first.map((r: { id: string }) => [r.id, r]),
-    )
-    expect(byId.get(outcome.ids.spaced)).toMatchObject({
-      label: `Douleur abdominale aiguë ${suffix}`,
-      needsFix: false,
-      reviewedAt: null,
-    })
-    expect(byId.get(outcome.ids.tab)).toMatchObject({
-      label: `Bordetella pertussis ${suffix}`,
-      needsFix: false,
-    })
-    expect(byId.get(outcome.ids.dash)).toMatchObject({
-      label: "-",
-      needsFix: true,
-    })
-    expect(byId.get(outcome.ids.pasted)).toMatchObject({ needsFix: true })
-    expect(withoutObjective(outcome.after)).toEqual(
-      withoutObjective(outcome.before),
-    )
-    expect(outcome.second).toEqual(outcome.first)
-  })
 })
 
 describe("création, renommage, garde et suppression", () => {
@@ -213,7 +120,6 @@ describe("création, renommage, garde et suppression", () => {
   it("renomme sous les mêmes règles, sans se compter comme doublon de lui-même", async () => {
     const id = await objectiveIdFor(label("Fievre"))
     const other = await objectiveIdFor(label("Céphalée"))
-    const q = await newQuestion(id)
     expect(await renameObjective({ id, label: label("Fièvre") })).toEqual({
       success: true,
     })
@@ -221,19 +127,17 @@ describe("création, renommage, garde et suppression", () => {
       label: label("Fièvre"),
       normalizedKey: objectiveKey(label("Fièvre")),
     })
-    expect((await rowsOf([q]))[0]?.objectifCmc).toBeNull()
     expect(
       await renameObjective({ id, label: label("cephalee") }),
     ).toMatchObject({ success: false, existing: { id: other } })
   })
 
-  it("« Garder tel quel » marque l'entrée revue, mais pas si une variante de même clé existe", async () => {
+  it("« Garder tel quel » marque l'entrée revue, mais pas sous un libellé qui double un autre objectif", async () => {
     const alone = await objectiveIdFor(label("Ictère"))
     expect(await keepObjective({ id: alone })).toEqual({ success: true })
     expect((await entry(alone))?.reviewedAt).not.toBeNull()
 
     const retouched = await objectiveIdFor(label("ictere neonatal"))
-    const q = await newQuestion(retouched)
     expect(
       await keepObjective({ id: retouched, label: label("Ictère néonatal") }),
     ).toEqual({ success: true })
@@ -242,12 +146,10 @@ describe("création, renommage, garde et suppression", () => {
       normalizedKey: objectiveKey(label("Ictère néonatal")),
       reviewedAt: expect.any(Date),
     })
-    expect((await rowsOf([q]))[0]?.objectifCmc).toBeNull()
 
     // Jumeau : un libellé retouché qui double un autre objectif ne touche à rien.
     const other = await objectiveIdFor(label("Prurit anal"))
     const clashing = await objectiveIdFor(label("Prurit vulvaire"))
-    const q2 = await newQuestion(clashing)
     expect(
       await keepObjective({ id: clashing, label: label("prurit anal") }),
     ).toMatchObject({ success: false, existing: { id: other } })
@@ -255,12 +157,36 @@ describe("création, renommage, garde et suppression", () => {
       label: label("Prurit vulvaire"),
       reviewedAt: null,
     })
-    expect((await rowsOf([q2]))[0]?.objectifCmc).toBeNull()
+  })
 
-    const a = await objectiveIdFor(label("Hématurie"))
-    await objectiveIdFor(label("hematurie"))
-    expect(await keepObjective({ id: a })).toMatchObject({ success: false })
-    expect((await entry(a))?.reviewedAt).toBeNull()
+  it("un doublon que seul l'index voit (écriture concurrente hors du verrou) est refusé de même, l'objectif existant proposé", async () => {
+    const twinLabel = label("Hémoptysie massive")
+    let commit!: () => void
+    const committed = new Promise<void>((r) => (commit = r))
+    let inserted!: (id: string) => void
+    const isInserted = new Promise<string>((r) => (inserted = r))
+    const holder = db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(cmcObjectives)
+        .values({ label: twinLabel, normalizedKey: objectiveKey(twinLabel) })
+        .returning({ id: cmcObjectives.id })
+      inserted(row!.id)
+      await committed
+    })
+    const twinId = await isInserted
+
+    // La vérification d'usage ne voit pas la ligne non validée : l'insertion
+    // attend la décision de l'index, puis échoue en 23505.
+    const pending = createObjective({ label: label("hemoptysie massive") })
+    await waitForInsertWaiter().finally(commit)
+    await holder
+
+    expect(await pending).toEqual({
+      success: false,
+      error: `L'objectif « ${twinLabel} » existe déjà : choisissez-le plutôt.`,
+      existing: { id: twinId, label: twinLabel },
+    })
+    expect(captureServerError).not.toHaveBeenCalled()
   })
 
   it("refuse de supprimer un objectif utilisé, même par une question supprimée", async () => {
@@ -280,7 +206,7 @@ describe("création, renommage, garde et suppression", () => {
 describe("fusion", () => {
   it("ne change que l'objectif des questions concernées, supprime les variantes et marque l'entrée gardée", async () => {
     const keep = await objectiveIdFor(label("Douleur abdominale aigue"))
-    const variant = await objectiveIdFor(label("Douleur abdominale aiguë"))
+    const variant = await objectiveIdFor(label("Douleurs abdominales aiguës"))
     const bystander = await objectiveIdFor(label("Dysphagie"))
     const moved = [await newQuestion(variant), await newQuestion(variant, true)]
     const stays = [await newQuestion(keep), await newQuestion(bystander)]
@@ -307,15 +233,36 @@ describe("fusion", () => {
     })
   })
 
+  it("fusionne sous le libellé exact d'une entrée fusionnée : elle disparaît avant que l'entrée gardée le prenne", async () => {
+    const keep = await objectiveIdFor(label("Céphalée de tension"))
+    const merged = await objectiveIdFor(label("Céphalées de tension"))
+    const q = await newQuestion(merged)
+
+    expect(
+      await mergeObjectives({
+        keepId: keep,
+        mergeIds: [merged],
+        label: label("Céphalées de tension"),
+      }),
+    ).toEqual({ success: true, moved: 1 })
+
+    expect(await entry(merged)).toBeUndefined()
+    expect(await entry(keep)).toMatchObject({
+      label: label("Céphalées de tension"),
+      normalizedKey: objectiveKey(label("Céphalées de tension")),
+    })
+    expect((await rowsOf([q]))[0]?.objectiveId).toBe(keep)
+  })
+
   it("refuse un libellé final qui double un objectif resté hors de la fusion", async () => {
-    const a = await objectiveIdFor(label("Anémie"))
-    const b = await objectiveIdFor(label("Anemie ferriprive"))
-    const outsider = await objectiveIdFor(label("anémie!"))
+    const a = await objectiveIdFor(label("Anémie ferriprive"))
+    const b = await objectiveIdFor(label("Anémie par carence martiale"))
+    const outsider = await objectiveIdFor(label("Anémie"))
     expect(
       await mergeObjectives({
         keepId: a,
         mergeIds: [b],
-        label: label("Anémie"),
+        label: label("anémie!"),
       }),
     ).toMatchObject({ success: false, existing: { id: outsider } })
     expect(await entry(b)).toBeDefined()

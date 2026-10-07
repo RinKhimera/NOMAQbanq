@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import {
   boolean,
   index,
@@ -13,9 +14,10 @@ import { user } from "./auth"
 import { questionImageKind } from "./enums"
 
 /**
- * Référentiel des objectifs du CMC (`CONTEXT.md`). L'unicité sur la clé
- * normalisée n'est pas en base tant que des variantes restent à fusionner :
- * l'application la vérifie à chaque création et renommage.
+ * Référentiel des objectifs du CMC (`CONTEXT.md`). Deux objectifs valides ne
+ * partagent jamais une clé normalisée : l'application le vérifie pour proposer
+ * l'objectif existant, l'index partiel le garantit. Les valeurs invalides
+ * (`needs_fix`) en sont exclues : elles se réduisent souvent à une clé vide.
  */
 export const cmcObjectives = pgTable(
   "cmc_objectives",
@@ -28,7 +30,7 @@ export const cmcObjectives = pgTable(
      * `objectiveKey(label)`, écrite par l'application à chaque écriture de
      * libellé : la clé JS n'a pas d'équivalent exact en SQL.
      */
-    normalizedKey: text("normalized_key"),
+    normalizedKey: text("normalized_key").notNull(),
     /** Valeur invalide héritée de la saisie libre : jamais proposée. */
     needsFix: boolean("needs_fix").default(false).notNull(),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
@@ -36,7 +38,12 @@ export const cmcObjectives = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (t) => [uniqueIndex("cmc_objectives_label_key").on(t.label)],
+  (t) => [
+    uniqueIndex("cmc_objectives_label_key").on(t.label),
+    uniqueIndex("cmc_objectives_normalized_key_key")
+      .on(t.normalizedKey)
+      .where(sql`${t.needsFix} = false`),
+  ],
 )
 
 export const questions = pgTable(
@@ -48,9 +55,6 @@ export const questions = pgTable(
     question: text("question").notNull(),
     correctAnswer: text("correct_answer").notNull(),
     options: jsonb("options").$type<string[]>().notNull(),
-    // Remplacé par `objectiveId`, ni lu ni écrit. Gardé un déploiement : la
-    // version précédente l'écrit encore pendant le build.
-    objectifCmc: text("objectif_cmc"),
     objectiveId: text("objective_id")
       .notNull()
       .references(() => cmcObjectives.id, { onDelete: "restrict" }),
