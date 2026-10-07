@@ -13,9 +13,10 @@ import { defineConfig } from "vitest/config"
 const root = realpathSync.native(path.resolve(__dirname))
 
 // Intégration : fichiers qui ne supportent pas d'autres fichiers en parallèle
-// sur la même branche Neon. Un balayage (cron, `ALTER TABLE`) touche les
+// sur la même base de test. Un balayage (cron, `ALTER TABLE`) touche les
 // fixtures des autres ; un écart avant/après sur un agrégat global (comptes,
-// revenus, examens disponibles) compte leurs insertions ; `pg_stat_activity`
+// revenus, examens disponibles) compte leurs insertions, un classement des
+// examens par date (« N derniers examens ») voit les leurs ; `pg_stat_activity`
 // voit leurs attentes de verrou ; un produit cherché par son code
 // (`createStripeCheckout`, `recordManualPayment`) peut être celui d'un autre
 // fichier, le code n'étant pas unique. Un nouveau fichier de l'un de ces types
@@ -39,6 +40,8 @@ const SERIAL_INTEGRATION = [
   "questions-dal",
   "student-dashboard-dal",
   "users-admin-dal",
+  // Classement global des examens (« N derniers examens »)
+  "question-list",
   // Attentes de verrou comptées sur toute la base
   "payments-actions",
   // Produit cherché par son code
@@ -147,9 +150,9 @@ export default defineConfig({
         },
       },
       {
-        // Tests d'intégration DAL/Actions contre une vraie branche Neon jetable.
+        // Tests d'intégration DAL/Actions contre un vrai Postgres jetable (Docker).
         // Opt-in : lancés UNIQUEMENT via `bun run test:integration` (orchestrateur
-        // qui crée la branche + pose INTEGRATION_BRANCH/HOST). Exclus de `bun run test`.
+        // qui démarre le conteneur + pose INTEGRATION_CONTAINER). Exclus de `bun run test`.
         // Fichiers en parallèle : chacun ne lit que ses propres fixtures.
         extends: true,
         test: {
@@ -164,7 +167,7 @@ export default defineConfig({
       },
       {
         // Un fichier à la fois, après tous les autres (`groupOrder`) : ces
-        // fichiers balaient toute la branche ou mesurent un agrégat global.
+        // fichiers balaient toute la base ou mesurent un agrégat global.
         extends: true,
         test: {
           name: "integration-serial",

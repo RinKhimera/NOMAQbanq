@@ -57,6 +57,9 @@ const withIp = (ip: string) => {
 
 const suffix = createId().slice(0, 8)
 const DOMAIN = `QUIZ-${suffix}`
+// Domaine à part, plus peuplé que le plafond : sans lui, rien ne prouve le clamp.
+const CLAMP_DOMAIN = `QUIZ-CLAMP-${suffix}`
+const clampIds = Array.from({ length: 11 }, () => createId())
 
 // qImg : 2 images, bonne réponse "A". q2 : aucune image, bonne réponse "B".
 const qImg = createId()
@@ -86,6 +89,16 @@ beforeAll(async () => {
   await mkQuestion(qImg, "A")
   await mkQuestion(q2, "B")
   await Promise.all(ids.slice(2).map((id) => mkQuestion(id, "C")))
+  await db.insert(questions).values(
+    clampIds.map((id) => ({
+      id,
+      question: `Question ${id.slice(0, 6)} ${suffix} ?`,
+      correctAnswer: "A",
+      options: ["A", "B", "C", "D"],
+      objectiveId: TEST_OBJECTIVE_ID,
+      domain: CLAMP_DOMAIN,
+    })),
+  )
 
   await db.insert(questionExplanations).values([
     { questionId: qImg, explanation: "Exp img", references: ["R1", "R2"] },
@@ -143,7 +156,7 @@ afterAll(async () => {
   await db
     .delete(questionExplanations)
     .where(inArray(questionExplanations.questionId, ids))
-  await db.delete(questions).where(inArray(questions.id, ids))
+  await db.delete(questions).where(inArray(questions.id, [...ids, ...clampIds]))
   await db.delete(user).where(eq(user.id, examCreatorId))
 })
 
@@ -175,8 +188,11 @@ describe("getRandomQuizQuestions", () => {
   })
 
   it("clampe count à 10", async () => {
-    const items = await getRandomQuizQuestions({ count: 50 })
-    expect(items.length).toBeLessThanOrEqual(10)
+    const items = await getRandomQuizQuestions({
+      domain: CLAMP_DOMAIN,
+      count: 50,
+    })
+    expect(items).toHaveLength(10)
   })
 
   it("ne fuite jamais correctAnswer ni explanation", async () => {

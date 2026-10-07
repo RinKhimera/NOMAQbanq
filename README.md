@@ -145,7 +145,7 @@ bun run check            # Type check + lint (before commit)
 bun run lint:fix         # Automatically fix lint errors
 bun run test             # Run frontend tests
 bun run test:coverage    # Run tests with coverage report
-bun run test:integration # DAL/Actions tests on an ephemeral Neon branch
+bun run test:integration # DAL/Actions tests on a disposable Postgres container (Docker)
 bun run test:e2e         # Playwright E2E tests
 bun run db:generate      # Generate a migration from the schema
 bun run db:migrate       # Apply migrations
@@ -201,7 +201,7 @@ The project uses Next.js route groups to organize the application:
 
 - **Framework**: Vitest with coverage threshold at 75%
 - **Frontend tests**: `tests/` directory, using happy-dom + @testing-library/react
-- **Integration tests**: `tests/integration/` (Node) run against an ephemeral Neon branch via `bun run test:integration`
+- **Integration tests**: `tests/integration/` (Node) run against a disposable Postgres container (Docker) via `bun run test:integration`
 - **E2E**: Playwright (`e2e/`) with Better Auth sign-in + POMs
 - **CI**: GitHub Actions runs type check, lint, and tests with coverage on every push/PR
 

@@ -94,9 +94,9 @@ describe("getMarketingStats — successRate calculé", () => {
     ])
   })
 
-  it("câble l'agrégat SQL sur resolveSuccessRate (oracle exact, baseline develop quelconque)", async () => {
-    // La branche de test est clonée de develop (scripts/neon-api.ts), donc la
-    // baseline n'est JAMAIS vide : l'oracle recalcule l'agrégat réel et exige
+  it("câble l'agrégat SQL sur resolveSuccessRate (oracle exact, baseline quelconque)", async () => {
+    // Sans hypothèse sur la baseline (d'autres participations peuvent exister) :
+    // l'oracle recalcule l'agrégat réel et exige
     // l'égalité avec la bascule — exact quelle que soit la baseline. Un if/else
     // qui rejouerait la logique de `resolveSuccessRate` serait tautologique.
     const agg = await baselineAgg()

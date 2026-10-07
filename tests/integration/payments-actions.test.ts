@@ -38,6 +38,7 @@ const ADMIN_ID = createId()
 const USER_ID = createId()
 const COMBO_USER_ID = createId()
 const PID = createId()
+const EXAM_PID = createId()
 
 const accessRow = (accessType: "exam" | "training", userId: string = USER_ID) =>
   db
@@ -120,19 +121,33 @@ beforeAll(async () => {
       email: `combo-${suffix}@test.invalid`,
     },
   ])
-  await db.insert(products).values({
-    id: PID,
-    code: "premium_access",
-    name: `Combo ${suffix}`,
-    description: "desc",
-    priceCad: 9000,
-    durationDays: 30,
-    accessType: "exam",
-    isCombo: true,
-    stripeProductId: `prod_${suffix}`,
-    stripePriceId: `price_${suffix}`,
-    stripePriceLookupKey: `price_${suffix}`,
-  })
+  await db.insert(products).values([
+    {
+      id: PID,
+      code: "premium_access",
+      name: `Combo ${suffix}`,
+      description: "desc",
+      priceCad: 9000,
+      durationDays: 30,
+      accessType: "exam",
+      isCombo: true,
+      stripeProductId: `prod_${suffix}`,
+      stripePriceId: `price_${suffix}`,
+      stripePriceLookupKey: `price_${suffix}`,
+    },
+    {
+      id: EXAM_PID,
+      code: "exam_access",
+      name: `Examens ${suffix}`,
+      description: "desc",
+      priceCad: 5000,
+      durationDays: 30,
+      accessType: "exam",
+      stripeProductId: `prod_exam_${suffix}`,
+      stripePriceId: `price_exam_${suffix}`,
+      stripePriceLookupKey: `price_exam_${suffix}`,
+    },
+  ])
   mocks.adminId.current = ADMIN_ID
 })
 
@@ -141,7 +156,7 @@ afterAll(async () => {
   const seeded = [USER_ID, COMBO_USER_ID]
   await db.delete(userAccess).where(inArray(userAccess.userId, seeded))
   await db.delete(transactions).where(inArray(transactions.userId, seeded))
-  await db.delete(products).where(eq(products.id, PID))
+  await db.delete(products).where(inArray(products.id, [PID, EXAM_PID]))
   await db.delete(user).where(inArray(user.id, seeded))
   await db.delete(user).where(eq(user.id, ADMIN_ID))
 })

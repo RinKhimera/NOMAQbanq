@@ -32,7 +32,7 @@ const suffix = createId().slice(0, 8)
 const DOMAIN = `OBJ-${suffix}`
 const createdQuestions: string[] = []
 
-/** Libellé propre à ce passage : la branche de test est une copie de develop. */
+/** Libellé propre à ce passage : `objectiveIdFor` reprend l'objectif d'un libellé déjà en base. */
 const label = (text: string) => `${text} ${suffix}`
 
 const newQuestion = async (objectiveId: string, deleted = false) => {

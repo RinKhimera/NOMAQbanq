@@ -88,8 +88,8 @@ describe("createStripeCheckout", () => {
 
     // metadata.userId transmis à Stripe (invariant anti-IDOR côté verify +
     // fulfillment). PAS d'assertion sur metadata.productId : products.code n'est
-    // pas unique et develop contient déjà un exam_access → le produit résolu
-    // (ORDER BY id ASC) est non déterministe.
+    // pas unique → le produit résolu (ORDER BY id ASC) dépend de ce que la base
+    // contient déjà.
     const [sessionId, created] = [...stripeBox.checkoutSessions][0]!
     expect(created.metadata?.userId).toBe(USER_ID)
 

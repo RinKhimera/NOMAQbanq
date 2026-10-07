@@ -28,8 +28,8 @@ bun run format           # Prettier write
 bun run format:check     # Prettier check
 bun run test             # Tests frontend (NE PAS utiliser `bun test` — runner Bun casse vi.mocked/vi.hoisted)
 bun run test:coverage    # Tests avec rapport coverage
-bun run test:integration # Tests DAL/Actions sur branche Neon ephemere (cree/migre/detruit)
-bun run test:coverage:full # Couverture AGREGEE frontend + backend (branche Neon ; seuls chiffres couvrant features/** et app/api/**)
+bun run test:integration # Tests DAL/Actions sur un Postgres Docker jetable (demarre/migre/detruit ; Docker Desktop requis)
+bun run test:coverage:full # Couverture AGREGEE frontend + backend (Postgres Docker ; seuls chiffres couvrant features/** et app/api/**)
 bun run test:e2e         # Tests E2E Playwright (bunx, pas npx)
 bun run e2e:ui           # Playwright UI mode
 bun run db:generate      # Drizzle: genere une migration depuis le schema
@@ -79,7 +79,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 ## Tests
 
 - Seuil coverage: 80% (statements/branches/functions/lines — `vitest.config.ts`)
-- Frontend: `tests/` (happy-dom) — Integration DAL/Actions: `tests/integration/` (node, vraie branche Neon ephemere via `bun run test:integration`)
+- Frontend: `tests/` (happy-dom) — Integration DAL/Actions: `tests/integration/` (node, Postgres Docker vide et migre via `bun run test:integration`)
 - E2E: `e2e/tests/` (Playwright + auth Better Auth) — POMs dans `e2e/pages/` ; support reset/cleanup via `app/api/e2e`
 - Config: `vitest.config.ts` (exclut `e2e/**`) — `playwright.config.ts` — env `TZ=UTC`
 
