@@ -24,6 +24,11 @@ export const cmcObjectives = pgTable(
       .primaryKey()
       .$defaultFn(() => createId()),
     label: text("label").notNull(),
+    /**
+     * `objectiveKey(label)`, écrite par l'application à chaque écriture de
+     * libellé : la clé JS n'a pas d'équivalent exact en SQL.
+     */
+    normalizedKey: text("normalized_key"),
     /** Valeur invalide héritée de la saisie libre : jamais proposée. */
     needsFix: boolean("needs_fix").default(false).notNull(),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
@@ -43,9 +48,8 @@ export const questions = pgTable(
     question: text("question").notNull(),
     correctAnswer: text("correct_answer").notNull(),
     options: jsonb("options").$type<string[]>().notNull(),
-    // Remplacé par `objectiveId` et plus jamais lu. Toute écriture y recopie
-    // le libellé de l'objectif : la version précédente le lit encore (build,
-    // rollback) jusqu'à la migration qui le supprime.
+    // Remplacé par `objectiveId`, ni lu ni écrit. Gardé un déploiement : la
+    // version précédente l'écrit encore pendant le build.
     objectifCmc: text("objectif_cmc"),
     objectiveId: text("objective_id")
       .notNull()

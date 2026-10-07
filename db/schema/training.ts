@@ -24,6 +24,8 @@ export const trainingSessions = pgTable(
     status: trainingStatus("status").notNull(),
     mode: trainingMode("mode").default("test").notNull(),
     domain: text("domain"),
+    // Jamais lu ni écrit ; gardé un déploiement, la version précédente
+    // l'écrit encore pendant le build.
     objectifCmc: text("objectif_cmc"),
     questionCount: integer("question_count").notNull(),
     score: integer("score"), // null until completed

@@ -202,14 +202,15 @@ colonne)` dans le WHERE des canaux de
   de clé anonyme couvre aussi un examen en préparation, dates ou non.
 - **Référentiel des objectifs du CMC** (`features/objectives/`, vocabulaire
   dans `CONTEXT.md`) : toute question porte `objective_id`, jamais un libellé
-  libre. `questions.objectif_cmc` n'est plus lu, mais chaque écriture
-  (création, modification, fusion, renommage, correction) y recopie le
-  libellé : la version précédente le lit encore pendant le build et après un
-  rollback, jusqu'à son `DROP COLUMN`. Les règles d'un libellé et la clé normalisée vivent dans
-  `label.ts` (pur, partagé avec le formulaire ; la migration 0023 les recopie
-  en SQL). L'unicité sur la clé n'est PAS en base tant que des variantes
-  restent à fusionner : chaque écriture qui pose un libellé la vérifie sous
-  `pg_advisory_xact_lock`. Ordre des verrous : objectif(s), puis question —
+  libre. `questions.objectif_cmc` et `training_sessions.objectif_cmc` ne sont
+  plus ni lus ni écrits, en attente de `DROP COLUMN`. Les règles d'un libellé
+  et la clé normalisée vivent dans `label.ts` (pur, partagé avec le
+  formulaire ; la migration 0023 recopie le nettoyage en SQL). Toute écriture
+  d'un libellé pose aussi `cmc_objectives.normalized_key = objectiveKey(label)`
+  (`labelled`), calculée en JS : Postgres n'a pas d'équivalent exact de
+  `\p{Diacritic}` ni de `toLocaleLowerCase("fr")`, ne jamais la recalculer en
+  SQL. L'unicité sur la clé n'est PAS encore en base : chaque écriture qui
+  pose un libellé la vérifie sous `pg_advisory_xact_lock`. Ordre des verrous : objectif(s), puis question —
   partout (`updateQuestion`, fusion, correction), sinon une fusion
   concurrente interbloque. Une entrée `needs_fix` (valeur invalide) n'est
   proposée nulle part et refusée par `createQuestion`/`updateQuestion`. La
@@ -375,9 +376,13 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   (`prices`, `seedCheckoutSession`, `customers`, `nextEvent`) /
   `stripeBox.reset()`. Même raison que le Mailer : un verbe Stripe ajouté au
   port sans son faux ne compile plus, un faux partiel ne masque plus un appel.
-- Les fichiers d'intégration tournent en série (`fileParallelism: false`) : un
-  test jumeau qui compare deux comptes sur une table globale (`count(*)`) est
-  déterministe. Cibler un fichier : `bun run test:integration -- <fichier>`.
+- Les fichiers d'intégration tournent **en parallèle** sur la même branche
+  Neon : un fichier ne lit que ses propres fixtures (suffixe unique). Ceux qui
+  balaient toute la branche (cron, `ALTER TABLE`), mesurent un écart sur un
+  agrégat global (`count(*)`, revenus, examens disponibles), lisent
+  `pg_stat_activity` ou cherchent un produit par son code vont dans `SERIAL_INTEGRATION` (`vitest.config.ts`) :
+  projet `integration-serial`, un fichier à la fois, après les autres. Cibler
+  un fichier : `bun run test:integration -- <fichier>`.
 - Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants

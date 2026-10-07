@@ -176,6 +176,13 @@
       "when": 1791373652344,
       "tag": "0024_exam_defaults_contract",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791374576649,
+      "tag": "0025_objective_normalized_key",
+      "breakpoints": true
     }
   ]
 }
