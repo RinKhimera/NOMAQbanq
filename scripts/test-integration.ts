@@ -1,6 +1,6 @@
 /**
  * Orchestrateur des tests d'intégration : Postgres jetable (Docker) → migrations
- * → vitest (projets integration et integration-serial) → destruction garantie.
+ * → vitest (projet integration, une base par worker) → destruction garantie.
  * Flag --keep pour garder le conteneur en debug (ramassé par le ménage > 1 h).
  * Lancer via `bun run test:integration` (ou `bun scripts/test-integration.ts --keep`).
  */
@@ -52,7 +52,7 @@ try {
   // le ciblage par défaut, sinon les deux se cumuleraient.
   const projectArgs = vitestArgs.includes("--project")
     ? []
-    : ["--project", "integration", "--project", "integration-serial"]
+    : ["--project", "integration"]
   exitCode = run("bunx", ["vitest", "run", ...projectArgs, ...vitestArgs], env)
 } finally {
   if (keep) {

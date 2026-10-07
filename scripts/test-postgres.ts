@@ -112,6 +112,10 @@ export const startTestPostgres = async (): Promise<TestPostgres> => {
     "synchronous_commit=off",
     "-c",
     "full_page_writes=off",
+    // Une base par worker vitest, chacune avec son pool : le défaut (100) est
+    // à portée d'une machine à 16 cœurs.
+    "-c",
+    "max_connections=200",
   ])
   try {
     await waitUntilReady(name)

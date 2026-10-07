@@ -391,14 +391,11 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   c'est la seule preuve automatique qu'une migration tient sur des données
   sales (clé nulle, doublon) ; elle s'applique aussi sur develop avant le
   merge.
-- Les fichiers d'intégration tournent **en parallèle** sur la même base : un
-  fichier ne lit que ses propres fixtures (suffixe unique). Ceux qui
-  balaient toute la base (cron, `ALTER TABLE`), mesurent un écart sur un
-  agrégat global (`count(*)`, revenus, examens disponibles) ou un classement
-  global (« N derniers examens »), lisent
-  `pg_stat_activity` ou cherchent un produit par son code vont dans `SERIAL_INTEGRATION` (`vitest.config.ts`) :
-  projet `integration-serial`, un fichier à la fois, après les autres. Cibler
-  un fichier : `bun run test:integration -- <fichier>`.
+- Les fichiers d'intégration tournent **en parallèle**, chacun sur une base
+  neuve clonée de la base migrée (`tests/helpers/worker-database.ts` : une base
+  par worker vitest, recréée à chaque fichier). Les tests d'un même fichier
+  partagent sa base : fixtures à suffixe unique, agrégat global mesuré en écart
+  avant/après. Cibler un fichier : `bun run test:integration -- <fichier>`.
 - Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants

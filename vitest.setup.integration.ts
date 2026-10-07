@@ -1,4 +1,6 @@
+import { TEST_DATABASE } from "./scripts/test-postgres"
 import { applyTestEnvDefaults } from "./tests/helpers/test-env"
+import { cloneTestDatabase } from "./tests/helpers/worker-database"
 
 // Triple garde-fou : ces tests ÉCRIVENT dans une vraie DB — jamais ailleurs que
 // dans le Postgres jetable de l'orchestrateur. Develop et la prod ne sont jamais
@@ -20,11 +22,15 @@ if (
     "Tests d'intégration : DATABASE_URL doit pointer vers localhost (Postgres de test).",
   )
 }
-if (!databaseUrl.pathname.startsWith("/nomaq_test")) {
+if (!databaseUrl.pathname.startsWith(`/${TEST_DATABASE}`)) {
   throw new Error(
-    `Tests d'intégration : base « ${databaseUrl.pathname.slice(1)} » refusée (préfixe nomaq_test requis).`,
+    `Tests d'intégration : base « ${databaseUrl.pathname.slice(1)} » refusée (préfixe ${TEST_DATABASE} requis).`,
   )
 }
+
+const fileUrl = await cloneTestDatabase(databaseUrl)
+process.env.DATABASE_URL = fileUrl
+process.env.DATABASE_URL_UNPOOLED = fileUrl
 
 applyTestEnvDefaults()
 

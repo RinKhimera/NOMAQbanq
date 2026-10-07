@@ -12,44 +12,6 @@ import { defineConfig } from "vitest/config"
 // la CI Linux n'est pas affectee). On force la casse reelle du disque.
 const root = realpathSync.native(path.resolve(__dirname))
 
-// Intégration : fichiers qui ne supportent pas d'autres fichiers en parallèle
-// sur la même base de test. Un balayage (cron, `ALTER TABLE`) touche les
-// fixtures des autres ; un écart avant/après sur un agrégat global (comptes,
-// revenus, examens disponibles) compte leurs insertions, un classement des
-// examens par date (« N derniers examens ») voit les leurs ; `pg_stat_activity`
-// voit leurs attentes de verrou ; un produit cherché par son code
-// (`createStripeCheckout`, `recordManualPayment`) peut être celui d'un autre
-// fichier, le code n'étant pas unique. Un nouveau fichier de l'un de ces types
-// s'ajoute ici.
-const SERIAL_INTEGRATION = [
-  // Balayages
-  "cmc-objectives",
-  "cron-close-expired",
-  "exam-preparation",
-  "notifications-cron",
-  "training-concurrency",
-  "users-account",
-  "users-ban",
-  // Agrégats globaux
-  "admin-dashboard-dal",
-  "exam-composer",
-  "marketing-dal",
-  "payments-admin-dal",
-  "payments-clients-dal",
-  "payments-stripe",
-  "questions-dal",
-  "student-dashboard-dal",
-  "users-admin-dal",
-  // Classement global des examens (« N derniers examens »)
-  "question-list",
-  // Attentes de verrou comptées sur toute la base
-  "payments-actions",
-  // Produit cherché par son code
-  "payments-checkout",
-  "payments-manual",
-  "payments-verify",
-].map((name) => `tests/integration/${name}.test.ts`)
-
 export default defineConfig({
   root,
   plugins: [react(), tailwindcss()],
@@ -153,29 +115,14 @@ export default defineConfig({
         // Tests d'intégration DAL/Actions contre un vrai Postgres jetable (Docker).
         // Opt-in : lancés UNIQUEMENT via `bun run test:integration` (orchestrateur
         // qui démarre le conteneur + pose INTEGRATION_CONTAINER). Exclus de `bun run test`.
-        // Fichiers en parallèle : chacun ne lit que ses propres fixtures.
+        // Fichiers en parallèle, chaque worker sur sa propre base
+        // (`tests/helpers/worker-database.ts`).
         extends: true,
         test: {
           name: "integration",
           environment: "node",
           include: ["tests/integration/**/*.test.ts"],
-          exclude: SERIAL_INTEGRATION,
           setupFiles: ["./vitest.setup.integration.ts"],
-          testTimeout: 30_000,
-          hookTimeout: 30_000,
-        },
-      },
-      {
-        // Un fichier à la fois, après tous les autres (`groupOrder`) : ces
-        // fichiers balaient toute la base ou mesurent un agrégat global.
-        extends: true,
-        test: {
-          name: "integration-serial",
-          environment: "node",
-          include: SERIAL_INTEGRATION,
-          setupFiles: ["./vitest.setup.integration.ts"],
-          fileParallelism: false,
-          sequence: { groupOrder: 1 },
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },
