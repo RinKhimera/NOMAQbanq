@@ -1,0 +1,1 @@
+ALTER TABLE "cmc_objectives" ADD COLUMN "normalized_key" text;

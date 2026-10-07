@@ -57,13 +57,15 @@ const STALE =
   "Un objectif a été modifié entre-temps. Rechargez la page et recommencez."
 
 /**
- * Écritures sur une question : `objectif_cmc` suit le libellé, que lit
- * encore la version précédente (build, rollback) jusqu'au `DROP COLUMN` ; la
- * date de modification ne bouge pas, la question n'a pas changé.
+ * Changer l'objectif d'une question depuis le référentiel ne la modifie pas :
+ * sa date de modification ne bouge pas.
  */
-const mirrorLabel = (label: string) => ({
-  objectifCmc: label,
-  updatedAt: sql`${questions.updatedAt}`,
+const keepUpdatedAt = { updatedAt: sql`${questions.updatedAt}` }
+
+/** Tout libellé écrit porte sa clé normalisée. */
+const labelled = (label: string) => ({
+  label,
+  normalizedKey: objectiveKey(label),
 })
 
 const revalidateObjectives = () => {
@@ -150,7 +152,7 @@ export const createObjective = async (
       await assertUniqueKey(tx, label, [])
       const [objective] = await tx
         .insert(cmcObjectives)
-        .values({ label, reviewedAt: new Date() })
+        .values({ ...labelled(label), reviewedAt: new Date() })
         .returning({ id: cmcObjectives.id, label: cmcObjectives.label })
       return { objective: objective! }
     }),
@@ -177,12 +179,8 @@ export const renameObjective = async (
       await assertUniqueKey(tx, label, [id])
       await tx
         .update(cmcObjectives)
-        .set({ label })
+        .set(labelled(label))
         .where(eq(cmcObjectives.id, id))
-      await tx
-        .update(questions)
-        .set(mirrorLabel(label))
-        .where(eq(questions.objectiveId, id))
       return {}
     }),
   )
@@ -216,17 +214,13 @@ export const mergeObjectives = async (
       await assertUniqueKey(tx, label, all)
       const moved = await tx
         .update(questions)
-        .set({ objectiveId: keepId, ...mirrorLabel(label) })
+        .set({ objectiveId: keepId, ...keepUpdatedAt })
         .where(inArray(questions.objectiveId, mergeIds))
         .returning({ id: questions.id })
-      await tx
-        .update(questions)
-        .set(mirrorLabel(label))
-        .where(eq(questions.objectiveId, keepId))
       await tx.delete(cmcObjectives).where(inArray(cmcObjectives.id, mergeIds))
       await tx
         .update(cmcObjectives)
-        .set({ label, reviewedAt: new Date() })
+        .set({ ...labelled(label), reviewedAt: new Date() })
         .where(eq(cmcObjectives.id, keepId))
       return { moved: moved.length }
     }),
@@ -258,13 +252,8 @@ export const keepObjective = async (
       await assertUniqueKey(tx, label, [id])
       await tx
         .update(cmcObjectives)
-        .set({ label, reviewedAt: new Date() })
+        .set({ ...labelled(label), reviewedAt: new Date() })
         .where(eq(cmcObjectives.id, id))
-      if (label !== entry!.label)
-        await tx
-          .update(questions)
-          .set(mirrorLabel(label))
-          .where(eq(questions.objectiveId, id))
       return {}
     }),
   )
@@ -344,7 +333,7 @@ export const correctQuestionObjective = async (
         )
       await tx
         .update(questions)
-        .set({ objectiveId, ...mirrorLabel(to.label) })
+        .set({ objectiveId, ...keepUpdatedAt })
         .where(eq(questions.id, questionId))
       // Les questions supprimées retiennent l'entrée (clé étrangère) sans
       // compter parmi celles qui restent à corriger.

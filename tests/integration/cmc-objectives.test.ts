@@ -13,6 +13,7 @@ import {
   renameObjective,
 } from "@/features/objectives/actions"
 import { getPublicDomainObjectives } from "@/features/objectives/dal"
+import { objectiveKey } from "@/features/objectives/label"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 import { objectiveIdFor } from "../helpers/objective"
@@ -62,14 +63,13 @@ const entry = async (id: string) =>
   (await db.select().from(cmcObjectives).where(eq(cmcObjectives.id, id)))[0]
 
 /**
- * Tout sauf l'objectif et sa copie `objectif_cmc` : ce qu'une fusion ou une
- * correction ne touche pas.
+ * Tout sauf l'objectif : ce qu'une fusion ou une correction ne touche pas,
+ * `objectif_cmc` compris.
  */
 const withoutObjective = (rows: Awaited<ReturnType<typeof rowsOf>>) =>
   rows.map((row) => ({
     ...row,
     objectiveId: undefined,
-    objectifCmc: undefined,
   }))
 
 beforeAll(() => {
@@ -194,7 +194,10 @@ describe("création, renommage, garde et suppression", () => {
       objective: { label: label("Toux") },
     })
     if (!created.success) return
-    expect((await entry(created.objective.id))?.reviewedAt).not.toBeNull()
+    expect(await entry(created.objective.id)).toMatchObject({
+      reviewedAt: expect.any(Date),
+      normalizedKey: objectiveKey(label("Toux")),
+    })
 
     expect(await createObjective({ label: label("toux.") })).toEqual({
       success: false,
@@ -214,8 +217,11 @@ describe("création, renommage, garde et suppression", () => {
     expect(await renameObjective({ id, label: label("Fièvre") })).toEqual({
       success: true,
     })
-    expect((await entry(id))?.label).toBe(label("Fièvre"))
-    expect((await rowsOf([q]))[0]?.objectifCmc).toBe(label("Fièvre"))
+    expect(await entry(id)).toMatchObject({
+      label: label("Fièvre"),
+      normalizedKey: objectiveKey(label("Fièvre")),
+    })
+    expect((await rowsOf([q]))[0]?.objectifCmc).toBeNull()
     expect(
       await renameObjective({ id, label: label("cephalee") }),
     ).toMatchObject({ success: false, existing: { id: other } })
@@ -233,9 +239,10 @@ describe("création, renommage, garde et suppression", () => {
     ).toEqual({ success: true })
     expect(await entry(retouched)).toMatchObject({
       label: label("Ictère néonatal"),
+      normalizedKey: objectiveKey(label("Ictère néonatal")),
       reviewedAt: expect.any(Date),
     })
-    expect((await rowsOf([q]))[0]?.objectifCmc).toBe(label("Ictère néonatal"))
+    expect((await rowsOf([q]))[0]?.objectifCmc).toBeNull()
 
     // Jumeau : un libellé retouché qui double un autre objectif ne touche à rien.
     const other = await objectiveIdFor(label("Prurit anal"))
@@ -291,15 +298,11 @@ describe("fusion", () => {
     expect(withoutObjective(after)).toEqual(withoutObjective(before))
     const objectiveOf = new Map(after.map((r) => [r.id, r.objectiveId]))
     expect(moved.map((id) => objectiveOf.get(id))).toEqual([keep, keep])
-    // Copie pour la version précédente : les questions déplacées comme celles
-    // de l'entrée gardée portent le libellé final.
-    expect(
-      after.filter((r) => r.objectiveId === keep).map((r) => r.objectifCmc),
-    ).toEqual(Array(3).fill(label("Douleur abdominale aiguë")))
     expect(objectiveOf.get(stays[1]!)).toBe(bystander)
     expect(await entry(variant)).toBeUndefined()
     expect(await entry(keep)).toMatchObject({
       label: label("Douleur abdominale aiguë"),
+      normalizedKey: objectiveKey(label("Douleur abdominale aiguë")),
       reviewedAt: expect.any(Date),
     })
   })
@@ -386,9 +389,6 @@ describe("correction d'une valeur invalide", () => {
     const after = await rowsOf([q1!, q2!])
     expect(withoutObjective(after)).toEqual(withoutObjective(before))
     expect(after.map((r) => r.objectiveId)).toEqual([target, target])
-    expect(after.map((r) => r.objectifCmc)).toEqual(
-      Array(2).fill(label("Hémoptysie")),
-    )
     expect(await entry(invalid)).toBeUndefined()
   })
 

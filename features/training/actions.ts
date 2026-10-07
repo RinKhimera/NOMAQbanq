@@ -220,7 +220,6 @@ export const createTrainingSession = async (
         status: "in_progress",
         mode,
         domain: domain && domain !== "all" ? domain : null,
-        objectifCmc: null,
         // Le nombre RÉELLEMENT retenu : en révision le corpus peut être plus
         // court, et le score final se calcule sur ce dénominateur.
         questionCount: picked.length,
