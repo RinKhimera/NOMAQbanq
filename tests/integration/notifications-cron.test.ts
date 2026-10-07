@@ -931,7 +931,11 @@ describe("sendInactivityReminders", () => {
   })
 
   it("relance les inactifs consentants", async () => {
-    await sendInactivityReminders()
+    // La branche de test copie develop, dont les comptes réels dépassent un
+    // lot : l'arriéré se vide en plusieurs passes, comme au cron.
+    for (let pass = 0; pass < 20; pass++) {
+      if ((await sendInactivityReminders()) === 0) break
+    }
     expect(calledFor()).toContain(ids.eligible)
     expect(calledFor()).toContain(ids.staleBuyer)
     for (const id of [
