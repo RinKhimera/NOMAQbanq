@@ -135,15 +135,17 @@ const lockEntries = async (tx: Tx, ids: string[]) => {
   return rows
 }
 
+/** Libellé que l'écriture pose, et objectifs qu'elle concerne. */
+type LabelWrite = { label: string; exceptIds: string[] }
+
 /**
- * `label` : libellé que l'écriture pose. Un doublon arrivé hors du verrou
- * consultatif (écriture concurrente) n'est vu que par l'index : même refus que
- * `assertUniqueKey`, sans capture.
+ * Un doublon arrivé hors du verrou consultatif (écriture concurrente) n'est vu
+ * que par l'index : même refus que `assertUniqueKey`, sans capture.
  */
 const settle = async <T extends object>(
   tag: string,
   run: () => Promise<T>,
-  label?: string,
+  write?: LabelWrite,
 ): Promise<ObjectiveWriteResult<T>> => {
   try {
     const value = await run()
@@ -152,8 +154,10 @@ const settle = async <T extends object>(
   } catch (error) {
     if (error instanceof RefusalError)
       return fail(error.message, error.existing)
-    if (label !== undefined && isPgUniqueViolation(error)) {
-      const twin = await findTwin(db, label)
+    if (write && isPgUniqueViolation(error)) {
+      const twin = await findTwin(db, write.label, write.exceptIds).catch(
+        () => undefined,
+      )
       if (twin) return fail(duplicateOf(twin).message, twin)
     }
     captureServerError(tag, error)
@@ -188,7 +192,7 @@ export const createObjective = async (
           .returning({ id: cmcObjectives.id, label: cmcObjectives.label })
         return { objective: objective! }
       }),
-    label,
+    { label, exceptIds: [] },
   )
 }
 
@@ -218,7 +222,7 @@ export const renameObjective = async (
           .where(eq(cmcObjectives.id, id))
         return {}
       }),
-    label,
+    { label, exceptIds: [id] },
   )
 }
 
@@ -264,7 +268,7 @@ export const mergeObjectives = async (
           .where(eq(cmcObjectives.id, keepId))
         return { moved: moved.length }
       }),
-    label,
+    { label, exceptIds: all },
   )
 }
 
@@ -299,7 +303,9 @@ export const keepObjective = async (
           .where(eq(cmcObjectives.id, id))
         return {}
       }),
-    parsed.data.label,
+    parsed.data.label === undefined
+      ? undefined
+      : { label: parsed.data.label, exceptIds: [id] },
   )
 }
 

@@ -14,6 +14,7 @@ import { getPublicDomainObjectives } from "@/features/objectives/dal"
 import { objectiveKey } from "@/features/objectives/label"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { captureServerError } from "@/lib/observability"
 import { objectiveIdFor } from "../helpers/objective"
 
 vi.mock("react", async (orig) => {
@@ -21,6 +22,7 @@ vi.mock("react", async (orig) => {
   return { ...actual, cache: (fn: unknown) => fn }
 })
 vi.mock("@/lib/auth-guards", () => ({ requireRole: vi.fn() }))
+vi.mock("@/lib/observability", () => ({ captureServerError: vi.fn() }))
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),
@@ -57,12 +59,13 @@ const rowsOf = (ids: string[]) =>
     .where(inArray(questions.id, ids))
     .orderBy(questions.id)
 
-/** Attend qu'une connexion soit bloquée sur un verrou (fichier en série). */
-const waitForLockWaiter = async () => {
+/** Attend qu'une insertion dans le référentiel soit bloquée sur un verrou. */
+const waitForInsertWaiter = async () => {
   for (let attempt = 0; attempt < 200; attempt++) {
     const res = await db.execute(sql`
       select count(*)::int as n from pg_stat_activity
       where datname = current_database() and wait_event_type = 'Lock'
+        and query ilike 'insert into "cmc_objectives"%'
     `)
     if ((res.rows[0] as { n: number }).n >= 1) return
     await new Promise((r) => setTimeout(r, 25))
@@ -175,8 +178,7 @@ describe("création, renommage, garde et suppression", () => {
     // La vérification d'usage ne voit pas la ligne non validée : l'insertion
     // attend la décision de l'index, puis échoue en 23505.
     const pending = createObjective({ label: label("hemoptysie massive") })
-    await waitForLockWaiter()
-    commit()
+    await waitForInsertWaiter().finally(commit)
     await holder
 
     expect(await pending).toEqual({
@@ -184,6 +186,7 @@ describe("création, renommage, garde et suppression", () => {
       error: `L'objectif « ${twinLabel} » existe déjà : choisissez-le plutôt.`,
       existing: { id: twinId, label: twinLabel },
     })
+    expect(captureServerError).not.toHaveBeenCalled()
   })
 
   it("refuse de supprimer un objectif utilisé, même par une question supprimée", async () => {
@@ -228,6 +231,27 @@ describe("fusion", () => {
       normalizedKey: objectiveKey(label("Douleur abdominale aiguë")),
       reviewedAt: expect.any(Date),
     })
+  })
+
+  it("fusionne sous le libellé exact d'une entrée fusionnée : elle disparaît avant que l'entrée gardée le prenne", async () => {
+    const keep = await objectiveIdFor(label("Céphalée de tension"))
+    const merged = await objectiveIdFor(label("Céphalées de tension"))
+    const q = await newQuestion(merged)
+
+    expect(
+      await mergeObjectives({
+        keepId: keep,
+        mergeIds: [merged],
+        label: label("Céphalées de tension"),
+      }),
+    ).toEqual({ success: true, moved: 1 })
+
+    expect(await entry(merged)).toBeUndefined()
+    expect(await entry(keep)).toMatchObject({
+      label: label("Céphalées de tension"),
+      normalizedKey: objectiveKey(label("Céphalées de tension")),
+    })
+    expect((await rowsOf([q]))[0]?.objectiveId).toBe(keep)
   })
 
   it("refuse un libellé final qui double un objectif resté hors de la fusion", async () => {
