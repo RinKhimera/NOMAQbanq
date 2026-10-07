@@ -202,15 +202,18 @@ colonne)` dans le WHERE des canaux de
   de clé anonyme couvre aussi un examen en préparation, dates ou non.
 - **Référentiel des objectifs du CMC** (`features/objectives/`, vocabulaire
   dans `CONTEXT.md`) : toute question porte `objective_id`, jamais un libellé
-  libre. `questions.objectif_cmc` et `training_sessions.objectif_cmc` ne sont
-  plus ni lus ni écrits, en attente de `DROP COLUMN`. Les règles d'un libellé
-  et la clé normalisée vivent dans `label.ts` (pur, partagé avec le
-  formulaire ; la migration 0023 recopie le nettoyage en SQL). Toute écriture
-  d'un libellé pose aussi `cmc_objectives.normalized_key = objectiveKey(label)`
-  (`labelled`), calculée en JS : Postgres n'a pas d'équivalent exact de
+  libre. Les règles d'un libellé et la clé normalisée vivent dans `label.ts`
+  (pur, partagé avec le formulaire ; la migration 0023 recopie le nettoyage
+  en SQL). Toute écriture d'un libellé pose aussi
+  `cmc_objectives.normalized_key = objectiveKey(label)` (`labelled`, fixtures
+  de test comprises), calculée en JS : Postgres n'a pas d'équivalent exact de
   `\p{Diacritic}` ni de `toLocaleLowerCase("fr")`, ne jamais la recalculer en
-  SQL. L'unicité sur la clé n'est PAS encore en base : chaque écriture qui
-  pose un libellé la vérifie sous `pg_advisory_xact_lock`. Ordre des verrous : objectif(s), puis question —
+  SQL. Unicité de la clé entre objectifs valides : index partiel
+  `cmc_objectives_normalized_key_key` (`WHERE needs_fix = false`, les valeurs
+  invalides se réduisant souvent à une clé vide). `assertUniqueKey` la
+  vérifie d'abord sous `pg_advisory_xact_lock` pour proposer l'objectif
+  existant ; un `23505` (écriture hors du verrou) donne le même refus, sans
+  capture (`settle`). Ordre des verrous : objectif(s), puis question —
   partout (`updateQuestion`, fusion, correction), sinon une fusion
   concurrente interbloque. Une entrée `needs_fix` (valeur invalide) n'est
   proposée nulle part et refusée par `createQuestion`/`updateQuestion`. La

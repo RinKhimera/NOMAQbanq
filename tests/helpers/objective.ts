@@ -1,5 +1,6 @@
 import { db } from "@/db"
 import { cmcObjectives } from "@/db/schema"
+import { objectiveKey } from "@/features/objectives/label"
 
 /**
  * Objectif semé par `vitest.setup.integration.ts` : les fabriques de question
@@ -11,7 +12,11 @@ export const TEST_OBJECTIVE_LABEL = "Objectif de test"
 export const seedTestObjective = () =>
   db
     .insert(cmcObjectives)
-    .values({ id: TEST_OBJECTIVE_ID, label: TEST_OBJECTIVE_LABEL })
+    .values({
+      id: TEST_OBJECTIVE_ID,
+      label: TEST_OBJECTIVE_LABEL,
+      normalizedKey: objectiveKey(TEST_OBJECTIVE_LABEL),
+    })
     .onConflictDoNothing()
 
 /**
@@ -24,7 +29,11 @@ export const objectiveIdFor = async (
 ): Promise<string> => {
   const [row] = await db
     .insert(cmcObjectives)
-    .values({ label, needsFix: opts.needsFix ?? false })
+    .values({
+      label,
+      normalizedKey: objectiveKey(label),
+      needsFix: opts.needsFix ?? false,
+    })
     .onConflictDoUpdate({
       target: cmcObjectives.label,
       set: { needsFix: opts.needsFix ?? false },

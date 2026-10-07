@@ -1,12 +1,12 @@
 "use server"
 
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, isNull, notInArray, sql } from "drizzle-orm"
 import { revalidatePath, revalidateTag } from "next/cache"
 import { OBJECTIVES_HREF } from "@/constants"
 import { db } from "@/db"
 import { cmcObjectives, questions } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
-import { getPgErrorCode } from "@/lib/db-errors"
+import { getPgErrorCode, isPgUniqueViolation } from "@/lib/db-errors"
 import { captureServerError } from "@/lib/observability"
 import { OBJECTIVES_TAG } from "../marketing/cache-tags"
 import { type ObjectiveQuestion, getObjectiveQuestions } from "./dal"
@@ -81,22 +81,42 @@ const revalidateObjectives = () => {
 const lockLabels = (tx: Tx) =>
   tx.execute(sql`select pg_advisory_xact_lock(hashtext('cmc_objectives'))`)
 
-/** Refuse un libellé dont la clé normalisée double un objectif hors de `exceptIds`. */
-const assertUniqueKey = async (tx: Tx, label: string, exceptIds: string[]) => {
-  const key = objectiveKey(label)
-  const rows = await tx
+/** Objectif valide de même clé normalisée que `label`, hors de `exceptIds`. */
+const findTwin = async (
+  executor: Tx | typeof db,
+  label: string,
+  exceptIds: string[] = [],
+): Promise<Objective | undefined> => {
+  const [twin] = await executor
     .select({ id: cmcObjectives.id, label: cmcObjectives.label })
     .from(cmcObjectives)
-    .where(eq(cmcObjectives.needsFix, false))
-    .limit(5000)
-  const twin = rows.find(
-    (r) => !exceptIds.includes(r.id) && objectiveKey(r.label) === key,
-  )
-  if (twin)
-    throw new RefusalError(
-      `L'objectif « ${twin.label} » existe déjà : choisissez-le plutôt.`,
-      twin,
+    .where(
+      and(
+        eq(cmcObjectives.normalizedKey, objectiveKey(label)),
+        eq(cmcObjectives.needsFix, false),
+        exceptIds.length > 0
+          ? notInArray(cmcObjectives.id, exceptIds)
+          : undefined,
+      ),
     )
+    .limit(1)
+  return twin
+}
+
+const duplicateOf = (twin: Objective) =>
+  new RefusalError(
+    `L'objectif « ${twin.label} » existe déjà : choisissez-le plutôt.`,
+    twin,
+  )
+
+/**
+ * Refuse un libellé dont la clé normalisée double un objectif hors de
+ * `exceptIds`. L'index unique garantit la règle ; cette vérification permet
+ * de proposer l'objectif existant.
+ */
+const assertUniqueKey = async (tx: Tx, label: string, exceptIds: string[]) => {
+  const twin = await findTwin(tx, label, exceptIds)
+  if (twin) throw duplicateOf(twin)
 }
 
 /** Entrées verrouillées, dans l'ordre des ids pour ne jamais s'interbloquer. */
@@ -115,9 +135,15 @@ const lockEntries = async (tx: Tx, ids: string[]) => {
   return rows
 }
 
+/**
+ * `label` : libellé que l'écriture pose. Un doublon arrivé hors du verrou
+ * consultatif (écriture concurrente) n'est vu que par l'index : même refus que
+ * `assertUniqueKey`, sans capture.
+ */
 const settle = async <T extends object>(
   tag: string,
   run: () => Promise<T>,
+  label?: string,
 ): Promise<ObjectiveWriteResult<T>> => {
   try {
     const value = await run()
@@ -126,6 +152,10 @@ const settle = async <T extends object>(
   } catch (error) {
     if (error instanceof RefusalError)
       return fail(error.message, error.existing)
+    if (label !== undefined && isPgUniqueViolation(error)) {
+      const twin = await findTwin(db, label)
+      if (twin) return fail(duplicateOf(twin).message, twin)
+    }
     captureServerError(tag, error)
     return fail("Erreur serveur. Réessayez.")
   }
@@ -146,16 +176,19 @@ export const createObjective = async (
   if (!parsed.success) return firstIssue(parsed.error)
   const { label } = parsed.data
 
-  return settle("[createObjective]", () =>
-    db.transaction(async (tx) => {
-      await lockLabels(tx)
-      await assertUniqueKey(tx, label, [])
-      const [objective] = await tx
-        .insert(cmcObjectives)
-        .values({ ...labelled(label), reviewedAt: new Date() })
-        .returning({ id: cmcObjectives.id, label: cmcObjectives.label })
-      return { objective: objective! }
-    }),
+  return settle(
+    "[createObjective]",
+    () =>
+      db.transaction(async (tx) => {
+        await lockLabels(tx)
+        await assertUniqueKey(tx, label, [])
+        const [objective] = await tx
+          .insert(cmcObjectives)
+          .values({ ...labelled(label), reviewedAt: new Date() })
+          .returning({ id: cmcObjectives.id, label: cmcObjectives.label })
+        return { objective: objective! }
+      }),
+    label,
   )
 }
 
@@ -168,21 +201,24 @@ export const renameObjective = async (
   if (!parsed.success) return firstIssue(parsed.error)
   const { id, label } = parsed.data
 
-  return settle("[renameObjective]", () =>
-    db.transaction(async (tx) => {
-      await lockLabels(tx)
-      const [entry] = await lockEntries(tx, [id])
-      if (entry!.needsFix)
-        throw new RefusalError(
-          "Une valeur invalide se corrige question par question.",
-        )
-      await assertUniqueKey(tx, label, [id])
-      await tx
-        .update(cmcObjectives)
-        .set(labelled(label))
-        .where(eq(cmcObjectives.id, id))
-      return {}
-    }),
+  return settle(
+    "[renameObjective]",
+    () =>
+      db.transaction(async (tx) => {
+        await lockLabels(tx)
+        const [entry] = await lockEntries(tx, [id])
+        if (entry!.needsFix)
+          throw new RefusalError(
+            "Une valeur invalide se corrige question par question.",
+          )
+        await assertUniqueKey(tx, label, [id])
+        await tx
+          .update(cmcObjectives)
+          .set(labelled(label))
+          .where(eq(cmcObjectives.id, id))
+        return {}
+      }),
+    label,
   )
 }
 
@@ -203,27 +239,32 @@ export const mergeObjectives = async (
   const { keepId, mergeIds, label } = parsed.data
   const all = [keepId, ...mergeIds]
 
-  return settle("[mergeObjectives]", () =>
-    db.transaction(async (tx) => {
-      await lockLabels(tx)
-      const entries = await lockEntries(tx, all)
-      if (entries.some((e) => e.needsFix))
-        throw new RefusalError(
-          "Une valeur invalide ne se fusionne pas : corrigez ses questions.",
-        )
-      await assertUniqueKey(tx, label, all)
-      const moved = await tx
-        .update(questions)
-        .set({ objectiveId: keepId, ...keepUpdatedAt })
-        .where(inArray(questions.objectiveId, mergeIds))
-        .returning({ id: questions.id })
-      await tx.delete(cmcObjectives).where(inArray(cmcObjectives.id, mergeIds))
-      await tx
-        .update(cmcObjectives)
-        .set({ ...labelled(label), reviewedAt: new Date() })
-        .where(eq(cmcObjectives.id, keepId))
-      return { moved: moved.length }
-    }),
+  return settle(
+    "[mergeObjectives]",
+    () =>
+      db.transaction(async (tx) => {
+        await lockLabels(tx)
+        const entries = await lockEntries(tx, all)
+        if (entries.some((e) => e.needsFix))
+          throw new RefusalError(
+            "Une valeur invalide ne se fusionne pas : corrigez ses questions.",
+          )
+        await assertUniqueKey(tx, label, all)
+        const moved = await tx
+          .update(questions)
+          .set({ objectiveId: keepId, ...keepUpdatedAt })
+          .where(inArray(questions.objectiveId, mergeIds))
+          .returning({ id: questions.id })
+        await tx
+          .delete(cmcObjectives)
+          .where(inArray(cmcObjectives.id, mergeIds))
+        await tx
+          .update(cmcObjectives)
+          .set({ ...labelled(label), reviewedAt: new Date() })
+          .where(eq(cmcObjectives.id, keepId))
+        return { moved: moved.length }
+      }),
+    label,
   )
 }
 
@@ -240,22 +281,25 @@ export const keepObjective = async (
   if (!parsed.success) return firstIssue(parsed.error)
   const { id } = parsed.data
 
-  return settle("[keepObjective]", () =>
-    db.transaction(async (tx) => {
-      await lockLabels(tx)
-      const [entry] = await lockEntries(tx, [id])
-      if (entry!.needsFix)
-        throw new RefusalError(
-          "Une valeur invalide se corrige question par question.",
-        )
-      const label = parsed.data.label ?? entry!.label
-      await assertUniqueKey(tx, label, [id])
-      await tx
-        .update(cmcObjectives)
-        .set({ ...labelled(label), reviewedAt: new Date() })
-        .where(eq(cmcObjectives.id, id))
-      return {}
-    }),
+  return settle(
+    "[keepObjective]",
+    () =>
+      db.transaction(async (tx) => {
+        await lockLabels(tx)
+        const [entry] = await lockEntries(tx, [id])
+        if (entry!.needsFix)
+          throw new RefusalError(
+            "Une valeur invalide se corrige question par question.",
+          )
+        const label = parsed.data.label ?? entry!.label
+        await assertUniqueKey(tx, label, [id])
+        await tx
+          .update(cmcObjectives)
+          .set({ ...labelled(label), reviewedAt: new Date() })
+          .where(eq(cmcObjectives.id, id))
+        return {}
+      }),
+    parsed.data.label,
   )
 }
 
