@@ -190,6 +190,13 @@
       "when": 1791405995905,
       "tag": "0026_objectives_contract",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791409958351,
+      "tag": "0027_drop_objectif_cmc",
+      "breakpoints": true
     }
   ]
 }
