@@ -80,8 +80,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 ## Tests
 
 - Seuil coverage: 80% (statements/branches/functions/lines — `vitest.config.ts`)
-- L'extension choisit l'environnement : `tests/**/*.test.ts` = projet `unit` (Node, sans DOM, rapide) ; `tests/**/*.test.tsx` = projet `frontend` (happy-dom + jest-dom) pour tout test qui rend un composant/hook ou touche `document` — Integration DAL/Actions: `tests/integration/` (node, Postgres Docker vide et migre via `bun run test:integration`)
-- Resets entre tests : la config (`mockReset`, `restoreMocks`, `unstubEnvs`, `unstubGlobals`) et `vitest.setup.common.ts` (vrais timers) s'en chargent — pas de reset recopié (verrou : `tests/architecture/test-hygiene.test.ts`). Une implémentation par défaut se pose par `vi.fn(impl)` ou dans un `beforeEach`, jamais par `mockImplementation` au chargement.
+- Unitaires `tests/**/*.test.ts` (Node) · composants/hooks `tests/**/*.test.tsx` (happy-dom) — Integration DAL/Actions: `tests/integration/` (node, Postgres Docker vide et migre via `bun run test:integration`)
 - E2E: `e2e/tests/` (Playwright + auth Better Auth) — POMs dans `e2e/pages/` ; support reset/cleanup via `app/api/e2e`
 - Config: `vitest.config.ts` (exclut `e2e/**`) — `playwright.config.ts` — env `TZ=UTC`
 
@@ -121,6 +120,7 @@ Regles specialisees dans `.claude/rules/`:
 | `admin-ui.md`      | `app/(admin)/**`, `components/admin/**`                                      | Master-detail, stat cards, filtres                                                                          |
 | `seo.md`           | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts`                      | Metadata, pages marketing, claims éditoriaux                                                                |
 | `e2e-testing.md`   | `e2e/**`, `playwright.config.ts`, `components/quiz/**`                       | Playwright, data-testid, auth Better Auth, selectors                                                        |
+| `testing.md`       | `tests/**`, `vitest*.ts`                                                     | Environnement par extension, resets portés par la config, défauts `vi.fn(impl)`, assertions prouvées        |
 | `design-system.md` | `app/**`, `components/**`, `hooks/**`                                        | Interdits, jetons sémantiques, hauteurs de contrôles, vocabulaire ; catalogue des composants partagés       |
 
 Ajouter les nouveaux patterns au fichier rules correspondant, pas ici.

@@ -90,6 +90,5 @@ export const resetFakeDrizzle = (returning: unknown[] = []) => {
   state.returning = returning
   state.set = undefined
   state.offsets = []
-  state.transaction.mockReset()
   state.transaction.mockImplementation(async (cb) => cb(fakeTx))
 }

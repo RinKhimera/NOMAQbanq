@@ -31,7 +31,8 @@ export const inAppZone = (d: Date | number | string) =>
  * Année civile dans le fuseau de la plateforme. Brancher sur
  * `new Date().getFullYear()` lit l'année du RUNTIME — serveur en UTC vs
  * navigateur en heure locale — et fait diverger le texte entre le SSR et
- * l'hydratation le soir du 31 décembre.
+ * l'hydratation le soir du 31 décembre (même piège que la salutation du
+ * tableau de bord, post-mortem Sentry NOMAQBANQ-5).
  */
 export const getAppZoneYear = (d: Date | number | string): number =>
   inAppZone(d).getFullYear()

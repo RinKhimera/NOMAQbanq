@@ -10,6 +10,10 @@ const testFiles = walk("tests", (name) => /\.test\.tsx?$/.test(name)).map(
   (path) => ({ path, source: readSource(path) }),
 )
 
+// Le projet `integration` garde ses mocks d'un test à l'autre (`beforeAll`,
+// `clearMocks` sans `mockReset`) : les règles de reset ne le visent pas.
+const isIntegration = (path: string) => path.startsWith("tests/integration/")
+
 const offenders = (pattern: RegExp, allowed: string[] = []) =>
   testFiles
     .filter(
@@ -33,12 +37,12 @@ const isCallback = (node: ts.Node) =>
  * l'analyse ne connaît pas : `"helper"`, ignorée. Le contexte descend avec le
  * parcours : les pointeurs `parent` de l'AST ne sont pas fiables ici.
  */
-const unitCalls = (
+const misplacedMockCalls = (
   method: (name: string) => boolean,
   offending: (callee: string | null) => boolean,
 ) =>
   testFiles
-    .filter(({ path }) => !path.startsWith("tests/integration/"))
+    .filter(({ path }) => !isIntegration(path))
     .flatMap(({ path, source }) => {
       const file = ts.createSourceFile(
         path,
@@ -96,10 +100,7 @@ describe("hygiène des tests", () => {
   })
 
   it("aucun mockReset() manuel : `mockReset: true` le fait avant chaque test", () => {
-    // Le projet `integration` garde ses mocks d'un test à l'autre (`beforeAll`).
-    const integration = testFiles
-      .map(({ path }) => path)
-      .filter((path) => path.startsWith("tests/integration/"))
+    const integration = testFiles.map(({ path }) => path).filter(isIntegration)
     expect(offenders(/\.mockReset\(\)/, integration)).toEqual([])
   })
 
@@ -108,7 +109,7 @@ describe("hygiène des tests", () => {
     // au niveau du module, d'un `describe`, d'un `beforeAll` ou d'une factory
     // `vi.mock` rend `undefined` dès le premier test, sans que rien ne rougisse.
     expect(
-      unitCalls(
+      misplacedMockCalls(
         (name) => DEFAULT_SETTER.test(name),
         (callee) => (callee === null ? true : RUNS_AT_LOAD.test(callee)),
       ),
@@ -117,7 +118,7 @@ describe("hygiène des tests", () => {
 
   it("aucun mockClear() en beforeEach/afterEach : la config le fait déjà", () => {
     expect(
-      unitCalls(
+      misplacedMockCalls(
         (name) => name === "mockClear",
         (callee) => callee !== null && /^(beforeEach|afterEach)\b/.test(callee),
       ),
