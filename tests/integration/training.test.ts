@@ -293,11 +293,21 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
 
 describe("gardes", () => {
   it("refuse une 2e session si une est déjà en cours", async () => {
-    const s2 = await createTrainingSession({ questionCount: 5, mode: "test" })
+    // Tirage borné au domaine du fichier : il ne prend jamais une question
+    // qu'un autre test devra supprimer (FK restrict sur les items).
+    const s2 = await createTrainingSession({
+      questionCount: 5,
+      domain: DOMAIN,
+      mode: "test",
+    })
     expect(s2.success).toBe(true)
     if (!s2.success) throw new Error(s2.error)
 
-    const s3 = await createTrainingSession({ questionCount: 5, mode: "test" })
+    const s3 = await createTrainingSession({
+      questionCount: 5,
+      domain: DOMAIN,
+      mode: "test",
+    })
     expect(s3.success).toBe(false)
 
     const abandon = await abandonTrainingSession({ sessionId: s2.sessionId })

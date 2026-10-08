@@ -219,8 +219,8 @@ describe("closeExpiredExamParticipations", () => {
 
   it("idempotent : une participation déjà fermée n'est pas re-traitée", async () => {
     // pPast n'est plus `in_progress` → exclu du 2e passage, état inchangé.
-    // (On n'assertit pas un closedCount global : la branche éphémère hérite de
-    // `develop` et peut contenir d'autres participations expirées.)
+    // (On n'assertit pas un closedCount global : le balayage couvre toute la
+    // base, participations expirées des autres tests comprises.)
     const before = await statusOf(pPast)
     await closeExpiredExamParticipations()
     const after = await statusOf(pPast)

@@ -19,7 +19,7 @@
     "test:coverage": "vitest run --coverage --project frontend",
     "test:integration": "bun scripts/test-integration.ts",
     "test:integration:keep": "bun scripts/test-integration.ts --keep",
-    "test:coverage:full": "bun scripts/test-integration.ts --config vitest.coverage.config.ts --coverage --project frontend --project integration --project integration-serial",
+    "test:coverage:full": "bun scripts/test-integration.ts --config vitest.coverage.config.ts --coverage --project frontend --project integration",
     "generate-favicons": "bun scripts/generate-favicons.mjs",
     "env:sync": "bun scripts/sync-env.ts",
     "audit:medias": "bun scripts/audit-medias.ts",

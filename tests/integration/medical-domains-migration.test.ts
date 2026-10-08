@@ -7,7 +7,7 @@ import { questions, trainingSessions, user } from "@/db/schema"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-// La branche de test est déjà migrée : on rejoue le SQL de la migration sur des
+// La base de test est déjà migrée : on rejoue le SQL de la migration sur des
 // lignes créées ici dans l'ancienne graphie, pour qu'il puisse échouer.
 const migrationStatements = readFileSync(
   fileURLToPath(

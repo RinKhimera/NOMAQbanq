@@ -87,14 +87,12 @@ describe("createStripeCheckout", () => {
     expect(res).toEqual({ checkoutUrl: "https://checkout.stripe.test/1" })
 
     // metadata.userId transmis à Stripe (invariant anti-IDOR côté verify +
-    // fulfillment). PAS d'assertion sur metadata.productId : products.code n'est
-    // pas unique et develop contient déjà un exam_access → le produit résolu
-    // (ORDER BY id ASC) est non déterministe.
+    // fulfillment) ; le produit est le seul `exam_access` de la base.
     const [sessionId, created] = [...stripeBox.checkoutSessions][0]!
     expect(created.metadata?.userId).toBe(USER_ID)
+    expect(created.metadata?.productId).toBe(PID)
 
-    // Transaction pending retrouvable par le webhook via stripeSessionId
-    // (invariants robustes, indépendants du produit résolu).
+    // Transaction pending retrouvable par le webhook via stripeSessionId.
     const [tx] = await db
       .select()
       .from(transactions)

@@ -180,8 +180,8 @@ afterAll(async () => {
 
 describe("sendExamResultsNotifications", () => {
   it("envoie aux opt-in d'examens clos, marque tout, ignore les examens ouverts", async () => {
-    // Le balayage est GLOBAL (toute la branche Neon) → on n'assert PAS de compteur
-    // absolu (d'autres fichiers de test créent des participations éligibles), mais
+    // Le balayage est GLOBAL (toute la base) → on n'assert PAS de compteur
+    // absolu (d'autres tests créent des participations éligibles), mais
     // l'effet précis sur NOS fixtures.
     await sendExamResultsNotifications()
 
@@ -931,8 +931,8 @@ describe("sendInactivityReminders", () => {
   })
 
   it("relance les inactifs consentants", async () => {
-    // La branche de test copie develop, dont les comptes réels dépassent un
-    // lot : l'arriéré se vide en plusieurs passes, comme au cron.
+    // Un passage est plafonné à un lot (INACTIVITY_LIMIT) : l'arriéré se vide
+    // en plusieurs passes, comme au cron.
     for (let pass = 0; pass < 20; pass++) {
       if ((await sendInactivityReminders()) === 0) break
     }

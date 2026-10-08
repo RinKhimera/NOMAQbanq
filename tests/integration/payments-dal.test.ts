@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
@@ -29,11 +29,14 @@ const pid = createId()
 const sameTsIds = [createId(), createId(), createId()]
 const pendingTxId = createId()
 const accessTxId = createId()
+const otherUid = createId()
+const otherTxId = createId()
 
 beforeAll(async () => {
-  await db
-    .insert(user)
-    .values({ id: uid, name: "IT User", email: `it-${uid}@test.invalid` })
+  await db.insert(user).values([
+    { id: uid, name: "IT User", email: `it-${uid}@test.invalid` },
+    { id: otherUid, name: "Autre", email: `it-${otherUid}@test.invalid` },
+  ])
   await db.insert(products).values({
     id: pid,
     code: "exam_access",
@@ -93,6 +96,21 @@ beforeAll(async () => {
     accessExpiresAt: new Date(Date.now() + 90 * DAY),
     createdAt: new Date("2026-03-01T00:00:00.000Z"),
   })
+  // Transaction d'un autre utilisateur, la plus récente de la base : sans le
+  // filtre par propriétaire, elle passerait en tête de liste.
+  await db.insert(transactions).values({
+    id: otherTxId,
+    userId: otherUid,
+    productId: pid,
+    type: "manual",
+    status: "completed",
+    amountPaid: 5000,
+    currency: "CAD",
+    accessType: "exam",
+    durationDays: 90,
+    accessExpiresAt: new Date(Date.now() + 90 * DAY),
+    createdAt: new Date("2026-04-01T00:00:00.000Z"),
+  })
   // Accès exam actif, training expiré.
   await db.insert(userAccess).values([
     {
@@ -112,9 +130,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.delete(userAccess).where(eq(userAccess.userId, uid))
-  await db.delete(transactions).where(eq(transactions.userId, uid))
+  await db
+    .delete(transactions)
+    .where(inArray(transactions.userId, [uid, otherUid]))
   await db.delete(products).where(eq(products.id, pid))
-  await db.delete(user).where(eq(user.id, uid))
+  await db.delete(user).where(inArray(user.id, [uid, otherUid]))
 })
 
 describe("getAccessStatus", () => {
@@ -180,6 +200,7 @@ describe("getMyTransactions (pagination keyset)", () => {
     const ids = all.map((t) => t.id)
     expect(new Set(ids).size).toBe(4)
     expect(ids).not.toContain(pendingTxId)
+    expect(ids).not.toContain(otherTxId)
     expect(all.every((t) => t.status !== "pending")).toBe(true)
     // Ordre décroissant strict par createdAt (la plus récente d'abord).
     expect(all[0]?.id).toBe(accessTxId)

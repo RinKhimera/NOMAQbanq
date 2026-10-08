@@ -72,11 +72,6 @@ const GROUP_MAP: readonly Group[] = [
     keys: ["SENTRY_AUTH_TOKEN", "NEXT_PUBLIC_SENTRY_DSN"],
   },
   {
-    title: "Tests d'intégration — Neon API",
-    tier: "🟡 outillage",
-    keys: ["NEON_API_KEY", "NEON_PROJECT_ID"],
-  },
-  {
     title: "Tests E2E — Playwright",
     tier: "🟡 tests",
     keys: [

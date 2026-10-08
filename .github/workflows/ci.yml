@@ -53,7 +53,7 @@ jobs:
 
       # Garde-fou rapide, sans secret : seuil à 80 % sur le périmètre frontend.
       # La couverture AGRÉGÉE (frontend + backend) est mesurée par le job
-      # `integration`, qui seul dispose de la branche Neon.
+      # `integration`, qui seul dispose d'une base de données.
       - name: Tests with coverage
         run: bun run test:coverage
 
@@ -85,15 +85,13 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Orchestrateur : crée une branche Neon jetable (test-*), migre, lance le
-      # projet vitest `integration`, détruit la branche. Seuls secrets requis :
-      # NEON_API_KEY + NEON_PROJECT_ID (l'URL DB vient de la branche créée ;
-      # l'env applicatif vient de tests/helpers/test-env.ts).
-      # Lance les DEUX projets sur la branche jetable et applique les seuils de
+      # Orchestrateur : démarre un Postgres jetable (`docker run postgres:18`,
+      # Docker est fourni par le runner), migre une base vide, lance les projets
+      # vitest, supprime le conteneur. Aucun secret. La base tourne sur le
+      # runner lui-même : la latence ne dépend pas de la région Azure qui
+      # l'héberge.
+      # Lance aussi le projet frontend et applique les seuils de
       # `vitest.coverage.config.ts` : c'est la seule mesure qui voie le backend
       # (`features/**`, `app/api/**`), invisible du périmètre frontend.
-      - name: Integration tests + aggregated coverage (ephemeral Neon branch)
+      - name: Integration tests + aggregated coverage (Postgres container)
         run: bun run test:coverage:full
-        env:
-          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}

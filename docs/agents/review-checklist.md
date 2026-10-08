@@ -38,14 +38,15 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
 9. **Envoi de masse au premier passage d'un cron.** Une nouvelle notification sans
    backfill de son marqueur part pour tout l'historique au déploiement.
 10. **Schéma et code déployés dans le mauvais ordre.** Retirer une colonne que le code
-    en production lit encore (la migration tourne au build, AVANT la bascule).
+    en production lit **ou insère** encore (la migration tourne au build, AVANT la
+    bascule ; Drizzle nomme toutes les colonnes de son schéma dans un INSERT).
 11. **Horloge du rendu.** `Date.now()` dans un initialiseur ou au rendu SSR diverge à
     l'hydratation ; `performance.now()` s'arrête en veille.
 12. **Comparaison sur un texte modifiable.** Une réponse stockée en texte comparée à la
     clé actuelle : une reformulation par un admin réécrit tout l'historique.
 13. **Test qui passe que la garde existe ou non.** Il ne teste pas la garde : écrire par
     paires jumelles ; un faux `tx` identique au faux `db`, ou un compteur absolu sur un
-    balayage global de la branche, rendent l'assertion tautologique.
+    balayage global de la base, rendent l'assertion tautologique.
 14. **Bouton sans `type` dans un `<form>`.** Un `<button>` vaut `type="submit"` par
     défaut : un composant réutilisable (tri, défilement, menu d'un tableau) monté dans
     un formulaire le soumet au clic. Tout bouton d'un composant partagé porte un `type`
@@ -107,3 +108,10 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
     un échec qui n'en est pas un. Ordonner par l'instant de l'événement
     (`coalesce(refunded_at, completed_at, created_at)`), et semer en test des
     lignes dont l'ordre de création diffère de l'ordre des événements.
+26. **Filtre ou plafond testé sur une base vide.** La base d'intégration ne
+    contient que les fixtures du fichier : un filtre par propriétaire
+    (`eq(userId, …)`) testé avec un seul utilisateur, un plafond (`.limit`,
+    `slice`) testé sous son seuil, un seuil (`score >= …`) testé avec des
+    lignes toutes du même côté passent encore si on les retire. Semer une
+    ligne d'un autre propriétaire, plus de lignes que le plafond, des lignes
+    des deux côtés du seuil, et asserter une valeur exacte, pas `<=`.

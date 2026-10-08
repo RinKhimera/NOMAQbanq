@@ -58,7 +58,7 @@ const JOUR_SOIR = shiftCalendarDay(toAppZoneCalendarDay(Date.now()), -1)
 const INSTANT_SOIR =
   startOfNextAppZoneDay(JOUR_SOIR).getTime() - 3 * 60 * 60 * 1000
 
-// Baselines capturés AVANT seed (la branche éphémère hérite des données de `develop`).
+// Baselines capturés AVANT seed : les assertions portent sur l'écart, pas sur un total.
 let baseAdmin: Awaited<ReturnType<typeof getAdminStats>>
 let baseTrends: Awaited<ReturnType<typeof getDashboardTrends>>
 let baseRevenue: Awaited<ReturnType<typeof getRevenueByDay>>
@@ -280,26 +280,69 @@ describe("getExpiringAccess", () => {
 
 describe("getRecentActivity", () => {
   it("fusionne inscriptions, paiements et examens récents (max 10, triés desc)", async () => {
-    const acts = await getRecentActivity()
-    expect(acts.length).toBeLessThanOrEqual(10)
+    // Plus de candidats que les plafonds : 9 inscriptions (5 retenues), 6
+    // paiements complétés (5 retenus) et 1 examen → 11 activités, coupées à 10.
+    // Les inscriptions ajoutées sont les plus récentes : sans la limite à 5,
+    // elles occuperaient davantage de places.
+    const now = Date.now()
+    const extraUsers = Array.from({ length: 6 }, (_, i) => ({
+      id: createId(),
+      name: `Extra ${suffix} ${i}`,
+      email: `extra-${i}-${suffix}@test.invalid`,
+      createdAt: new Date(now + (i + 1) * 60_000),
+    }))
+    const extraTxIds = [createId(), createId()]
+    await db.insert(user).values(extraUsers)
+    await db.insert(transactions).values(
+      extraTxIds.map((id, i) => ({
+        id,
+        userId: B,
+        productId: PID,
+        type: "manual" as const,
+        status: "completed" as const,
+        amountPaid: 100,
+        currency: "CAD" as const,
+        accessType: "exam" as const,
+        durationDays: 90,
+        accessExpiresAt: new Date(now + 90 * DAY),
+        createdAt: new Date(now - (i + 3) * DAY),
+        completedAt: new Date(now - (i + 3) * DAY),
+      })),
+    )
 
-    const signup = acts.find(
-      (a) => a.type === "user_signup" && a.data.userName === name(A),
-    )
-    const payment = acts.find(
-      (a) => a.type === "payment" && a.data.productName === `Prod ${suffix}`,
-    )
-    const exam = acts.find(
-      (a) =>
-        a.type === "exam_completed" && a.data.examTitle === `Examen ${suffix}`,
-    )
-    expect(signup).toBeDefined()
-    expect(payment).toBeDefined()
-    expect(exam).toBeDefined()
+    try {
+      const acts = await getRecentActivity()
+      expect(acts).toHaveLength(10)
+      expect(acts.filter((a) => a.type === "user_signup")).toHaveLength(5)
 
-    // Tri décroissant par timestamp.
-    const ts = acts.map((a) => a.timestamp)
-    expect(ts).toEqual([...ts].sort((x, y) => y - x))
+      const signup = acts.find(
+        (a) =>
+          a.type === "user_signup" && a.data.userName === `Extra ${suffix} 5`,
+      )
+      const payment = acts.find(
+        (a) => a.type === "payment" && a.data.productName === `Prod ${suffix}`,
+      )
+      const exam = acts.find(
+        (a) =>
+          a.type === "exam_completed" &&
+          a.data.examTitle === `Examen ${suffix}`,
+      )
+      expect(signup).toBeDefined()
+      expect(payment).toBeDefined()
+      expect(exam).toBeDefined()
+
+      // Tri décroissant par timestamp.
+      const ts = acts.map((a) => a.timestamp)
+      expect(ts).toEqual([...ts].sort((x, y) => y - x))
+    } finally {
+      await db.delete(transactions).where(inArray(transactions.id, extraTxIds))
+      await db.delete(user).where(
+        inArray(
+          user.id,
+          extraUsers.map((u) => u.id),
+        ),
+      )
+    }
   })
 })
 

@@ -1,18 +1,15 @@
 /**
- * Orchestrateur des tests d'intégration : branche Neon jetable → migrations →
- * vitest (projets integration et integration-serial) → destruction garantie. Flag --keep pour garder la
- * branche en debug (ramassée par le housekeeping > 1 h). Lancer via
- * `bun run test:integration` (ou `bun scripts/test-integration.ts --keep`).
+ * Orchestrateur des tests d'intégration : Postgres jetable (Docker) → migrations
+ * → vitest (projet integration, une base par worker) → destruction garantie.
+ * Flag --keep pour garder le conteneur en debug (ramassé par le ménage > 1 h).
+ * Lancer via `bun run test:integration` (ou `bun scripts/test-integration.ts --keep`).
  */
-import { config } from "dotenv"
 import { spawnSync } from "node:child_process"
 import {
-  cleanupStaleTestBranches,
-  createTestBranch,
-  deleteBranch,
-} from "./neon-api"
-
-config({ path: ".env.local" })
+  removeStaleTestContainers,
+  startTestPostgres,
+  stopTestPostgres,
+} from "./test-postgres"
 
 const keep = process.argv.includes("--keep")
 
@@ -22,16 +19,22 @@ const vitestArgs = process.argv
   .slice(2)
   .filter((arg) => arg !== "--keep" && arg !== "--")
 
-const removed = await cleanupStaleTestBranches()
+// Ctrl+C atteint aussi vitest, qui s'arrête de lui-même. Ignoré ici :
+// l'orchestrateur survit au signal, `spawnSync` rend la main et le `finally`
+// supprime le conteneur.
+process.on("SIGINT", () => {})
+process.on("SIGTERM", () => {})
+
+const removed = removeStaleTestContainers()
 if (removed.length > 0) {
   console.log(
-    `[test-integration] branches orphelines supprimées : ${removed.join(", ")}`,
+    `[test-integration] conteneurs orphelins supprimés : ${removed.join(", ")}`,
   )
 }
 
-console.log("[test-integration] création de la branche de test…")
-const branch = await createTestBranch()
-console.log(`[test-integration] branche ${branch.name} prête (${branch.host})`)
+console.log("[test-integration] démarrage de Postgres…")
+const postgres = await startTestPostgres()
+console.log(`[test-integration] ${postgres.name} prêt (${postgres.url})`)
 
 const run = (command: string, args: string[], env: NodeJS.ProcessEnv): number =>
   spawnSync(command, args, { env, stdio: "inherit", shell: true }).status ?? 1
@@ -40,15 +43,14 @@ let exitCode = 1
 try {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    DATABASE_URL: branch.connectionUri,
-    DATABASE_URL_UNPOOLED: branch.connectionUri,
-    INTEGRATION_BRANCH: branch.name,
-    INTEGRATION_HOST: branch.host,
+    DATABASE_URL: postgres.url,
+    DATABASE_URL_UNPOOLED: postgres.url,
+    INTEGRATION_CONTAINER: postgres.name,
   }
 
   console.log("[test-integration] migrations…")
   if (run("bun", ["run", "db:migrate"], env) !== 0) {
-    throw new Error("db:migrate a échoué sur la branche de test.")
+    throw new Error("db:migrate a échoué sur la base de test.")
   }
 
   console.log("[test-integration] tests…")
@@ -56,16 +58,16 @@ try {
   // le ciblage par défaut, sinon les deux se cumuleraient.
   const projectArgs = vitestArgs.includes("--project")
     ? []
-    : ["--project", "integration", "--project", "integration-serial"]
+    : ["--project", "integration"]
   exitCode = run("bunx", ["vitest", "run", ...projectArgs, ...vitestArgs], env)
 } finally {
   if (keep) {
     console.log(
-      `[test-integration] --keep : branche conservée → ${branch.name} (${branch.host})`,
+      `[test-integration] --keep : conteneur conservé → ${postgres.name} (${postgres.url})`,
     )
   } else {
-    await deleteBranch(branch.id)
-    console.log("[test-integration] branche supprimée.")
+    stopTestPostgres(postgres.name)
+    console.log("[test-integration] conteneur supprimé.")
   }
 }
 

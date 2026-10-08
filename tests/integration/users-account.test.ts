@@ -369,29 +369,27 @@ describe("deleteMyAccount — garde dernier admin", () => {
       role: "admin",
     })
 
-    // Hermétique vis-à-vis des autres fichiers d'intégration : le refus n'est dû
-    // que si soloAdmin est le seul admin actif à cet instant. L'attente porte ce
-    // décompte, pour que le cas « plusieurs admins » vérifie aussi quelque chose
-    // (la suppression est alors légitime) au lieu de ne rien asserter.
+    // Précondition : un admin laissé par un test précédent rendrait la
+    // suppression légitime, et le refus ne serait plus testé.
     const activeAdmins = await db
       .select({ id: user.id })
       .from(user)
       .where(and(eq(user.role, "admin"), isNull(user.deletedAt)))
-    const isSoleAdmin = activeAdmins.length === 1
+    expect(activeAdmins).toEqual([{ id: soloAdmin }])
 
     vi.mocked(requireSession).mockResolvedValueOnce({
       user: { id: soloAdmin, email: emailSolo, role: "admin" },
       session: { id: createId() },
     } as never)
     const res = await deleteMyAccount({ confirmEmail: emailSolo })
-    expect(res.success).toBe(!isSoleAdmin)
+    expect(res.success).toBe(false)
 
     const [u] = await db
       .select({ deletedAt: user.deletedAt })
       .from(user)
       .where(eq(user.id, soloAdmin))
       .limit(1)
-    expect(u?.deletedAt === null).toBe(isSoleAdmin)
+    expect(u?.deletedAt).toBeNull()
 
     await db.delete(user).where(eq(user.id, soloAdmin))
   })
@@ -411,10 +409,9 @@ describe("deleteMyAccount — garde dernier admin", () => {
         banReason: "test",
       },
     ])
-    // L'attendu exclut B par son id, PAS par le prédicat `banned` de
-    // l'implémentation : sur une base sans autre admin, un garde manquant
-    // compterait B et ferait échouer ce test. Sur une base partagée avec
-    // d'autres admins actifs, le test ne discrimine plus (limite connue).
+    // Précondition sans le prédicat `banned` de l'implémentation : hors A et B,
+    // aucun admin. Un garde manquant compterait alors B et laisserait passer
+    // la suppression.
     const otherAdminsIgnoringB = await db
       .select({ id: user.id })
       .from(user)
@@ -431,9 +428,11 @@ describe("deleteMyAccount — garde dernier admin", () => {
       session: { id: createId() },
     } as never)
 
+    expect(otherAdminsIgnoringB).toEqual([])
+
     const res = await deleteMyAccount({ confirmEmail: emailA })
     // B est admin mais suspendu : il ne sauve pas A.
-    expect(res.success).toBe(otherAdminsIgnoringB.length > 0)
+    expect(res.success).toBe(false)
 
     await db.delete(session).where(eq(session.userId, adminA))
     await db.delete(user).where(eq(user.id, adminA))

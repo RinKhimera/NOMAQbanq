@@ -6,7 +6,7 @@ import baseConfig from "./vitest.config"
 // se lance sur les DEUX projets a la fois — seule facon d'obtenir un chiffre unique
 // couvrant frontend et backend, puisque des tests du projet `frontend`
 // (tests/features/**) exercent du code backend sans base de donnees.
-// Lancee par `bun run test:coverage:full` (via l'orchestrateur Neon).
+// Lancee par `bun run test:coverage:full` (via l'orchestrateur Docker).
 const baseCoverage = baseConfig.test?.coverage as
   { exclude?: string[] } | undefined
 

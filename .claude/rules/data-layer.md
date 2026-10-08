@@ -4,6 +4,7 @@ paths:
   - "app/**"
   - "components/**"
   - "tests/integration/**"
+  - "drizzle/**"
 ---
 
 # Data Layer (Drizzle) + Server Actions / Components
@@ -357,6 +358,17 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   un `useEffect`. Fetch-par-id → tracker l'id chargé (`useState<{id,q}>` +
   comparer `state?.id === currentId`) au lieu d'un reset synchrone.
 
+## Migrations (`drizzle/`)
+
+- Les migrations s'appliquent au build Vercel de prod, AVANT la bascule : la
+  version précédente sert le trafic pendant tout le build, et après un échec.
+- **Retirer une colonne = deux déploiements.** Drizzle nomme TOUTES les
+  colonnes de son schéma dans chaque INSERT (`default` pour celles qu'on
+  omet) : un `DROP COLUMN` dans le déploiement qui la retire du schéma casse
+  les insertions de la version en service pendant le build. Déploiement N :
+  retirer la colonne du schéma (elle reste en base) ; N+1 : migration manuelle
+  `bunx drizzle-kit generate --custom --name …` en `DROP COLUMN IF EXISTS`.
+
 ## Gates
 
 - `bun run check` = `prettier --check . && tsc --noEmit && eslint --max-warnings 0`. **SonarLint**
@@ -379,13 +391,23 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   (`prices`, `seedCheckoutSession`, `customers`, `nextEvent`) /
   `stripeBox.reset()`. Même raison que le Mailer : un verbe Stripe ajouté au
   port sans son faux ne compile plus, un faux partiel ne masque plus un appel.
-- Les fichiers d'intégration tournent **en parallèle** sur la même branche
-  Neon : un fichier ne lit que ses propres fixtures (suffixe unique). Ceux qui
-  balaient toute la branche (cron, `ALTER TABLE`), mesurent un écart sur un
-  agrégat global (`count(*)`, revenus, examens disponibles), lisent
-  `pg_stat_activity` ou cherchent un produit par son code vont dans `SERIAL_INTEGRATION` (`vitest.config.ts`) :
-  projet `integration-serial`, un fichier à la fois, après les autres. Cibler
-  un fichier : `bun run test:integration -- <fichier>`.
+- **La base part vide** : un Postgres Docker jetable par run
+  (`scripts/test-postgres.ts`), migrations appliquées, aucune donnée de
+  référence (aucune migration ne sème de produit ni d'objectif ; seul
+  `test-objective` est semé par `vitest.setup.integration.ts`). Un test sème
+  tout ce qu'il lit, produit cherché par son code compris. Docker Desktop est
+  requis en local.
+- **Une migration qui transforme des données a son test de rejeu** : il crée
+  des lignes dans l'ancienne forme puis rejoue le SQL du fichier de migration
+  (modèle : `medical-domains-migration.test.ts`). La base de test étant vide,
+  c'est la seule preuve automatique qu'une migration tient sur des données
+  sales (clé nulle, doublon) ; elle s'applique aussi sur develop avant le
+  merge.
+- Les fichiers d'intégration tournent **en parallèle**, chacun sur une base
+  neuve clonée de la base migrée (`tests/helpers/worker-database.ts` : une base
+  par worker vitest, recréée à chaque fichier). Les tests d'un même fichier
+  partagent sa base : fixtures à suffixe unique, agrégat global mesuré en écart
+  avant/après. Cibler un fichier : `bun run test:integration -- <fichier>`.
 - Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants

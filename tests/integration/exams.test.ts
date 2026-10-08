@@ -1020,7 +1020,7 @@ describe("score retenu — participation sans réponse", () => {
     // (retenu), aucune question répondue dans les deux cas. La borne exacte
     // `end_date > now()` (strict) est portée par le test du fragment SQL :
     // une date de fin égale à l'horloge JS du seed dépendrait de l'écart entre
-    // cette horloge et celle de Neon.
+    // cette horloge et celle de Postgres.
     const specs = [
       makeBareExam(emptyOpenId, new Date(Date.now() + 60_000), qIds[2]),
       makeBareExam(emptyClosedId, new Date(Date.now() - 60_000), qIds[3]),
