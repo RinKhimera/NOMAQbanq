@@ -270,31 +270,31 @@ const datesAndAudienceErrors = (d: {
  * avec une fin à venir est acceptée : l'examen s'ouvre aussitôt.
  */
 const finalizeInTx = async (tx: Tx, examId: string, now: number) => {
-  const [[exam], set, [audience]] = await Promise.all([
-    tx
-      .select({
-        startDate: exams.startDate,
-        endDate: exams.endDate,
-        audienceType: exams.audienceType,
-        targetQuestionCount: exams.targetQuestionCount,
-      })
-      .from(exams)
-      .where(eq(exams.id, examId))
-      .limit(1),
-    tx
-      .select({
-        questionId: examQuestions.questionId,
-        deletedAt: questions.deletedAt,
-      })
-      .from(examQuestions)
-      .innerJoin(questions, eq(questions.id, examQuestions.questionId))
-      .where(eq(examQuestions.examId, examId)),
-    tx
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
-      .from(examAudience)
-      .innerJoin(user, eq(user.id, examAudience.userId))
-      .where(and(eq(examAudience.examId, examId), isNull(user.deletedAt))),
-  ])
+  // En séquence : une transaction tient une seule connexion, qui n'exécute
+  // qu'une requête à la fois (pg@9 refuse d'empiler).
+  const [exam] = await tx
+    .select({
+      startDate: exams.startDate,
+      endDate: exams.endDate,
+      audienceType: exams.audienceType,
+      targetQuestionCount: exams.targetQuestionCount,
+    })
+    .from(exams)
+    .where(eq(exams.id, examId))
+    .limit(1)
+  const set = await tx
+    .select({
+      questionId: examQuestions.questionId,
+      deletedAt: questions.deletedAt,
+    })
+    .from(examQuestions)
+    .innerJoin(questions, eq(questions.id, examQuestions.questionId))
+    .where(eq(examQuestions.examId, examId))
+  const [audience] = await tx
+    .select({ n: sql<number>`count(*)`.mapWith(Number) })
+    .from(examAudience)
+    .innerJoin(user, eq(user.id, examAudience.userId))
+    .where(and(eq(examAudience.examId, examId), isNull(user.deletedAt)))
   if (!exam) throw new Error("NOT_FOUND")
 
   const startDate = exam.startDate?.getTime() ?? null
@@ -386,10 +386,8 @@ const updateExamTx = async (
   now: number,
 ): Promise<{ finalized: boolean }> => {
   const exam = await lockExam(tx, examId)
-  const [hasParticipations, current] = await Promise.all([
-    hasParticipationsTx(tx, examId),
-    examQuestionIds(tx, examId),
-  ])
+  const hasParticipations = await hasParticipationsTx(tx, examId)
+  const current = await examQuestionIds(tx, examId)
   const next = s.questionIds ?? current
   const setChanged = !sameSet(current, next)
   // Un visé ramené à la taille du jeu n'en change pas la définition : c'est
