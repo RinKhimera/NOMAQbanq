@@ -38,7 +38,8 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
 9. **Envoi de masse au premier passage d'un cron.** Une nouvelle notification sans
    backfill de son marqueur part pour tout l'historique au déploiement.
 10. **Schéma et code déployés dans le mauvais ordre.** Retirer une colonne que le code
-    en production lit encore (la migration tourne au build, AVANT la bascule).
+    en production lit **ou insère** encore (la migration tourne au build, AVANT la
+    bascule ; Drizzle nomme toutes les colonnes de son schéma dans un INSERT).
 11. **Horloge du rendu.** `Date.now()` dans un initialiseur ou au rendu SSR diverge à
     l'hydratation ; `performance.now()` s'arrête en veille.
 12. **Comparaison sur un texte modifiable.** Une réponse stockée en texte comparée à la

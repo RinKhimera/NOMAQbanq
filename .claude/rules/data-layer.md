@@ -357,6 +357,17 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   un `useEffect`. Fetch-par-id → tracker l'id chargé (`useState<{id,q}>` +
   comparer `state?.id === currentId`) au lieu d'un reset synchrone.
 
+## Migrations (`drizzle/`)
+
+- Les migrations s'appliquent au build Vercel de prod, AVANT la bascule : la
+  version précédente sert le trafic pendant tout le build, et après un échec.
+- **Retirer une colonne = deux déploiements.** Drizzle nomme TOUTES les
+  colonnes de son schéma dans chaque INSERT (`default` pour celles qu'on
+  omet) : un `DROP COLUMN` dans le déploiement qui la retire du schéma casse
+  les insertions de la version en service pendant le build. Déploiement N :
+  retirer la colonne du schéma (elle reste en base) ; N+1 : migration manuelle
+  `bunx drizzle-kit generate --custom --name …` en `DROP COLUMN IF EXISTS`.
+
 ## Gates
 
 - `bun run check` = `prettier --check . && tsc --noEmit && eslint --max-warnings 0`. **SonarLint**
