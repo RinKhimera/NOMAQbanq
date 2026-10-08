@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { user } from "@/db/schema"
 import {
@@ -8,28 +8,26 @@ import {
   sendOnce,
 } from "@/features/notifications/one-shot"
 import { createId } from "@/lib/ids"
+import { holdUserLock } from "../helpers/user-lock"
 
 const capture = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/observability", () => ({ captureServerError: capture }))
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = new Date("2026-09-18T12:00:00.000Z")
-const suffix = createId().slice(0, 8)
 
 type Row = { id: string; userId: string; email: string; name: string }
 
-const seeded: string[] = []
 const newUser = async (
   extra: Partial<typeof user.$inferInsert> = {},
 ): Promise<string> => {
   const id = createId()
   await db.insert(user).values({
     id,
-    name: `OneShot ${id.slice(0, 6)}`,
-    email: `oneshot-${id.slice(0, 6)}-${suffix}@test.invalid`,
+    name: `OneShot ${id}`,
+    email: `oneshot-${id}@test.invalid`,
     ...extra,
   })
-  seeded.push(id)
   return id
 }
 
@@ -72,10 +70,6 @@ const spec = (
   send: vi.fn().mockResolvedValue("msg-id"),
   context: (row) => ({ userId: row.userId }),
   ...over,
-})
-
-afterAll(async () => {
-  await db.delete(user).where(inArray(user.id, seeded))
 })
 
 describe("sendOnce — le courriel unique part une fois", () => {
@@ -122,25 +116,23 @@ describe("sendOnce — destinataire éligible (garanti par le claim)", () => {
   // READ COMMITTED : un UPDATE qui a attendu un verrou de ligne ré-évalue ses
   // prédicats sur la version fraîche de la LIGNE CIBLE seulement ; un sous-select
   // resterait au snapshot de départ (banned = false) et laisserait passer.
+  // La suspension se met en file la première derrière le verrou tenu, le claim
+  // ensuite : à la libération, elle commite avant que le claim ne reprenne.
   it("suspension commitée pendant l'attente du verrou de ligne : aucun envoi, aucun marqueur", async () => {
     const id = await newUser()
     const send = vi.fn().mockResolvedValue("id")
-    const suspension = db.transaction(async (tx) => {
-      await tx
-        .select({ id: user.id })
-        .from(user)
-        .where(eq(user.id, id))
-        .for("update")
-      await tx
-        .update(user)
-        .set({ banned: true, banReason: "test" })
-        .where(eq(user.id, id))
-      await new Promise((r) => setTimeout(r, 1500))
-    })
-    await new Promise((r) => setTimeout(r, 300))
-
-    const sent = await sendOnce(spec([id], { send }))
+    const lock = await holdUserLock(id)
+    const suspension = db
+      .update(user)
+      .set({ banned: true, banReason: "test" })
+      .where(eq(user.id, id))
+      .execute()
+    await lock.waitForWaiters(1)
+    const sending = sendOnce(spec([id], { send }))
+    await lock.waitForWaiters(2)
+    await lock.release()
     await suspension
+    const sent = await sending
 
     expect(sent).toBe(0)
     expect(send).not.toHaveBeenCalled()

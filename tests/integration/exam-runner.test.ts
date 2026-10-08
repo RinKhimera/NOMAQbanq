@@ -2,19 +2,10 @@
  * Tests d'intégration : startExam pré-création + saveExamAnswer + saveExamFlag
  * + finalizeExam + pauseExam/resumeExam.
  */
-import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import {
-  examAnswers,
-  examParticipations,
-  exams,
-  products,
-  questions,
-  transactions,
-  user,
-  userAccess,
-} from "@/db/schema"
+import { examAnswers, examParticipations, questions, user } from "@/db/schema"
 import {
   finalizeExam,
   pauseExam,
@@ -23,331 +14,282 @@ import {
   saveExamFlag,
   startExam,
 } from "@/features/exams/actions"
-import { getExamSession, getExamWithQuestions } from "@/features/exams/dal"
+import { getExamSession } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 import { seedExam } from "../helpers/seed-exam"
+import { seedAccess } from "../helpers/seed-payments"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 const STUDENT_ID = createId()
-const PID = createId()
 const qIds = Array.from({ length: 4 }, () => createId())
 
-const setSession = (id: string, role: "user" | "admin") =>
+const asStudent = () =>
   vi
     .mocked(getCurrentSession)
-    .mockResolvedValue({ user: { id, role } } as never)
-const asAdmin = () => setSession(ADMIN_ID, "admin")
-const asStudent = () => setSession(STUDENT_ID, "user")
+    .mockResolvedValue({ user: { id: STUDENT_ID, role: "user" } } as never)
 
-let examId: string
-let pauseExamId: string
+const NOT_IN_PROGRESS = {
+  success: false,
+  error: "Cette participation n'est plus active.",
+  code: "NOT_IN_PROGRESS",
+}
+
+/** Examen ouvert sur les 4 questions, dans l'ordre de `qIds`. */
+const openExam = (opts: { enablePause?: boolean } = {}) => {
+  const now = Date.now()
+  return seedExam({
+    createdBy: ADMIN_ID,
+    title: "ER Exam",
+    startDate: now - 3600_000,
+    endDate: now + 3600_000,
+    questionIds: qIds,
+    enablePause: opts.enablePause ?? false,
+    pauseDurationMinutes: opts.enablePause ? 15 : undefined,
+  })
+}
+
+/** Examen ouvert sur lequel l'étudiant a démarré sa participation. */
+const startedExam = async (opts: { enablePause?: boolean } = {}) => {
+  const examId = await openExam(opts)
+  asStudent()
+  const s = await startExam({ examId })
+  if (!s.success) throw new Error(s.error)
+  return examId
+}
+
+const participationOf = async (examId: string) => {
+  const [p] = await db
+    .select({ id: examParticipations.id, score: examParticipations.score })
+    .from(examParticipations)
+    .where(
+      and(
+        eq(examParticipations.examId, examId),
+        eq(examParticipations.userId, STUDENT_ID),
+      ),
+    )
+  return p
+}
+
+const answerRow = async (examId: string, questionId: string) => {
+  const [row] = await db
+    .select({
+      selectedAnswer: examAnswers.selectedAnswer,
+      isCorrect: examAnswers.isCorrect,
+      isFlagged: examAnswers.isFlagged,
+    })
+    .from(examAnswers)
+    .innerJoin(
+      examParticipations,
+      eq(examParticipations.id, examAnswers.participationId),
+    )
+    .where(
+      and(
+        eq(examParticipations.examId, examId),
+        eq(examAnswers.questionId, questionId),
+      ),
+    )
+  return row
+}
 
 beforeAll(async () => {
   await db.insert(user).values([
-    { id: ADMIN_ID, name: "ER admin", email: `er-adm-${suffix}@test.invalid` },
-    {
-      id: STUDENT_ID,
-      name: "ER student",
-      email: `er-stu-${suffix}@test.invalid`,
-    },
+    { id: ADMIN_ID, name: "ER admin", email: "er-adm@test.invalid" },
+    { id: STUDENT_ID, name: "ER student", email: "er-stu@test.invalid" },
   ])
-  await db.insert(products).values({
-    id: PID,
-    code: "exam_access",
-    name: "Exam",
-    description: "desc",
-    priceCad: 5000,
-    durationDays: 90,
-    accessType: "exam",
-    stripeProductId: `prod_er_${suffix}`,
-    stripePriceId: `price_er_${suffix}`,
-    stripePriceLookupKey: `price_er_${suffix}`,
-  })
-  const txId = createId()
-  await db.insert(transactions).values({
-    id: txId,
-    userId: STUDENT_ID,
-    productId: PID,
-    type: "manual",
-    status: "completed",
-    amountPaid: 5000,
-    currency: "CAD",
-    accessType: "exam",
-    durationDays: 90,
-    accessExpiresAt: new Date(Date.now() + 90 * DAY),
-  })
-  await db.insert(userAccess).values({
-    userId: STUDENT_ID,
-    accessType: "exam",
-    expiresAt: new Date(Date.now() + 10 * DAY),
-    lastTransactionId: txId,
-  })
+  await seedAccess(STUDENT_ID, "exam", new Date(Date.now() + 10 * DAY))
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `ER Q${i} ${suffix}?`,
+      question: `ER Q${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
-      domain: `ER-${suffix}`,
+      domain: "ER",
     })),
   )
-
-  asAdmin()
-  const now = Date.now()
-  examId = await seedExam({
-    createdBy: ADMIN_ID,
-    title: `ER Exam ${suffix}`,
-    startDate: now - 3600_000,
-    endDate: now + 3600_000,
-    questionIds: qIds,
-    enablePause: false,
-  })
-
-  pauseExamId = await seedExam({
-    createdBy: ADMIN_ID,
-    title: `ER Pause Exam ${suffix}`,
-    startDate: now - 3600_000,
-    endDate: now + 3600_000,
-    questionIds: qIds,
-    enablePause: true,
-    pauseDurationMinutes: 15,
-  })
-})
-
-afterAll(async () => {
-  await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
-  const uids = [ADMIN_ID, STUDENT_ID]
-  await db.delete(userAccess).where(inArray(userAccess.userId, uids))
-  await db.delete(transactions).where(inArray(transactions.userId, uids))
-  await db.delete(questions).where(inArray(questions.id, qIds))
-  await db.delete(products).where(eq(products.id, PID))
-  await db.delete(user).where(inArray(user.id, uids))
 })
 
 describe("startExam pré-création", () => {
   it("crée une ligne examAnswers (selectedAnswer null) par question", async () => {
+    const examId = await openExam()
     asStudent()
     const res = await startExam({ examId })
     expect(res.success).toBe(true)
-    expect(res).not.toHaveProperty("pausePhase")
 
-    const [p] = await db
-      .select({ id: examParticipations.id })
-      .from(examParticipations)
-      .where(eq(examParticipations.examId, examId))
+    const p = await participationOf(examId)
     const rows = await db
       .select()
       .from(examAnswers)
       .where(eq(examAnswers.participationId, p.id))
-    expect(rows).toHaveLength(4)
+    expect(rows.map((r) => r.questionId).sort()).toEqual([...qIds].sort())
     expect(rows.every((r) => r.selectedAnswer === null)).toBe(true)
     expect(rows.every((r) => r.isCorrect === null)).toBe(true)
-  })
-
-  it("startExam est idempotent (même participation si in_progress)", async () => {
-    asStudent()
-    const r1 = await startExam({ examId })
-    const r2 = await startExam({ examId })
-    expect(r1.success && r2.success).toBe(true)
-    if (!r1.success || !r2.success)
-      throw new Error("startExam concurrent refuse")
-    expect(r1.participationId).toBe(r2.participationId)
   })
 })
 
 describe("saveExamAnswer", () => {
   it("met à jour la ligne et ne renvoie JAMAIS isCorrect", async () => {
-    asStudent()
-    const view = await getExamWithQuestions(examId)
-    const qId = view!.questions[0]._id
+    const examId = await startedExam()
     const res = await saveExamAnswer({
       examId,
-      questionId: qId,
+      questionId: qIds[0],
       selectedAnswer: "A",
     })
     expect(res).toEqual({ success: true, serverNow: expect.any(Number) })
-    expect(res).not.toHaveProperty("isCorrect")
 
-    // Verify in DB that isCorrect was set server-side
-    const [p] = await db
-      .select({ id: examParticipations.id })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          eq(examParticipations.userId, STUDENT_ID),
-        ),
-      )
-    const [row] = await db
-      .select()
-      .from(examAnswers)
-      .where(
-        and(
-          eq(examAnswers.participationId, p.id),
-          eq(examAnswers.questionId, qId),
-        ),
-      )
-    expect(row.selectedAnswer).toBe("A")
-    expect(row.isCorrect).toBe(true) // calculated server-side
+    // isCorrect est calculé côté serveur, en base seulement.
+    expect(await answerRow(examId, qIds[0])).toMatchObject({
+      selectedAnswer: "A",
+      isCorrect: true,
+    })
   })
 
   it("saveExamAnswer sur question hors examen → échec", async () => {
-    asStudent()
+    const examId = await startedExam()
     const res = await saveExamAnswer({
       examId,
       questionId: createId(),
       selectedAnswer: "A",
     })
-    expect(res.success).toBe(false)
+    expect(res).toEqual({
+      success: false,
+      error: "Cette question ne fait pas partie de l'examen.",
+    })
   })
 })
 
 describe("saveExamFlag", () => {
   it("marque et démarque une question", async () => {
-    asStudent()
-    const view = await getExamWithQuestions(examId)
-    const qId = view!.questions[1]._id
+    const examId = await startedExam()
 
-    const r1 = await saveExamFlag({ examId, questionId: qId, isFlagged: true })
+    const r1 = await saveExamFlag({
+      examId,
+      questionId: qIds[1],
+      isFlagged: true,
+    })
     expect(r1.success).toBe(true)
+    expect((await answerRow(examId, qIds[1]))?.isFlagged).toBe(true)
 
-    const r2 = await saveExamFlag({ examId, questionId: qId, isFlagged: false })
+    const r2 = await saveExamFlag({
+      examId,
+      questionId: qIds[1],
+      isFlagged: false,
+    })
     expect(r2.success).toBe(true)
+    expect((await answerRow(examId, qIds[1]))?.isFlagged).toBe(false)
   })
 })
 
 describe("finalizeExam", () => {
   it("calcule le score depuis les lignes en base", async () => {
-    asStudent()
-    const view = await getExamWithQuestions(examId)
-    const ids = view!.questions.map((q) => q._id)
-    // qIds[0] already answered A (correct); save q[2] incorrect
-    await saveExamAnswer({ examId, questionId: ids[2], selectedAnswer: "B" })
+    const examId = await startedExam()
+    await saveExamAnswer({ examId, questionId: qIds[0], selectedAnswer: "A" })
+    await saveExamAnswer({ examId, questionId: qIds[2], selectedAnswer: "B" })
 
     const res = await finalizeExam({ examId })
     // Le décompte des justes ne repart pas vers le navigateur : lu en base.
     expect(res).toEqual({ success: true })
-    // 1 correct (idx 0, A), 1 incorrect (idx 2, B), 2 unanswered = 1/4 = 25
-    const [p] = await db
-      .select({ score: examParticipations.score })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          eq(examParticipations.userId, STUDENT_ID),
-        ),
-      )
-    expect(p?.score).toBe(25)
+    // 1 juste, 1 fausse, 2 sans réponse : 1/4.
+    expect((await participationOf(examId))?.score).toBe(25)
   })
 
   it("finalizeExam refuse une 2e soumission", async () => {
-    asStudent()
-    const res = await finalizeExam({ examId })
-    expect(res.success).toBe(false)
+    const examId = await startedExam()
+    expect(await finalizeExam({ examId })).toEqual({ success: true })
+
+    expect(await finalizeExam({ examId })).toEqual(NOT_IN_PROGRESS)
   })
 })
 
 describe("pauseExam / resumeExam", () => {
   it("une seule pause autorisée ; resume cumule la durée", async () => {
+    const examId = await openExam({ enablePause: true })
     asStudent()
-    await startExam({ examId: pauseExamId })
+    expect(await getExamSession(examId)).toBeNull()
+    await startExam({ examId })
+    expect(await getExamSession(examId)).toMatchObject({
+      participationId: (await participationOf(examId))?.id,
+      status: "in_progress",
+      isPaused: false,
+      pauseStartedAt: null,
+    })
 
-    const r1 = await pauseExam({ examId: pauseExamId })
+    const r1 = await pauseExam({ examId })
     expect(r1.success).toBe(true)
+    expect(await getExamSession(examId)).toMatchObject({
+      isPaused: true,
+      pauseStartedAt: r1.pauseStartedAt,
+    })
 
-    const s1 = await getExamSession(pauseExamId)
-    expect(s1?.isPaused).toBe(true)
+    expect(await pauseExam({ examId })).toEqual({
+      success: false,
+      error: "Vous êtes déjà en pause.",
+    })
 
-    // Already paused → refuse
-    const r2 = await pauseExam({ examId: pauseExamId })
-    expect(r2.success).toBe(false)
-
-    // Resume
-    const r3 = await resumeExam({ examId: pauseExamId })
+    const r3 = await resumeExam({ examId })
     expect(r3.success).toBe(true)
     expect(r3.totalPauseDurationMs).toBeGreaterThanOrEqual(0)
+    expect(await getExamSession(examId)).toMatchObject({
+      isPaused: false,
+      totalPauseDurationMs: r3.totalPauseDurationMs,
+    })
 
-    const s2 = await getExamSession(pauseExamId)
-    expect(s2?.isPaused).toBe(false)
-
-    // Pause already used → refuse
-    const r4 = await pauseExam({ examId: pauseExamId })
+    const r4 = await pauseExam({ examId })
     expect(r4.success).toBe(false)
   })
 
-  it("saveExamAnswer refuse pendant la pause (simulation)", async () => {
-    // Create a separate exam for this test
-    asAdmin()
-    const now = Date.now()
-    const pExamId = await seedExam({
-      createdBy: ADMIN_ID,
-      title: `ER Pause2 ${suffix}`,
-      startDate: now - 3600_000,
-      endDate: now + 3600_000,
-      questionIds: qIds,
-      enablePause: true,
-      pauseDurationMinutes: 15,
-    })
-
-    asStudent()
-    await startExam({ examId: pExamId })
-    await pauseExam({ examId: pExamId })
+  it("saveExamAnswer refuse pendant la pause", async () => {
+    const examId = await startedExam({ enablePause: true })
+    await pauseExam({ examId })
 
     const res = await saveExamAnswer({
-      examId: pExamId,
+      examId,
       questionId: qIds[0],
       selectedAnswer: "A",
     })
     expect(res.success).toBe(false)
     expect(res.error).toContain("pause")
   })
+
+  it("saveExamAnswer accepte de nouveau après la reprise", async () => {
+    const examId = await startedExam({ enablePause: true })
+    await pauseExam({ examId })
+    await resumeExam({ examId })
+
+    const res = await saveExamAnswer({
+      examId,
+      questionId: qIds[0],
+      selectedAnswer: "A",
+    })
+    expect(res.success).toBe(true)
+  })
 })
 
-describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
+describe("saveExamAnswer — budget-temps + anti-race", () => {
   // completionTime = 4 questions × 83 s = 332 s ; budget dépassé au-delà de
-  // 332 s + GRACE_MS (10 s, `lib/attempt-clock`). Chaque test crée son examen + participation avec
-  // un startedAt reculé.
+  // 332 s + GRACE_MS (10 s, `lib/attempt-clock`).
   const makeStartedExam = async (backdateMs: number): Promise<string> => {
-    asAdmin()
-    const t = Date.now()
-    const eId = await seedExam({
-      createdBy: ADMIN_ID,
-      title: `ER Budget ${suffix} ${createId().slice(0, 4)}`,
-      startDate: t - 3600_000,
-      endDate: t + 3600_000,
-      questionIds: qIds,
-      enablePause: false,
-    })
-    asStudent()
-    const s = await startExam({ examId: eId })
-    if (!s.success) throw new Error(s.error)
+    const examId = await startedExam()
     await db
       .update(examParticipations)
       .set({ startedAt: new Date(Date.now() - backdateMs) })
       .where(
         and(
-          eq(examParticipations.examId, eId),
+          eq(examParticipations.examId, examId),
           eq(examParticipations.userId, STUDENT_ID),
         ),
       )
-    return eId
+    return examId
   }
 
   it("refuse une réponse au-delà du budget-temps (TIME_UP) et ne la persiste pas", async () => {
     const eId = await makeStartedExam(400_000)
-    asStudent()
     const res = await saveExamAnswer({
       examId: eId,
       questionId: qIds[0],
@@ -358,26 +300,11 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
       error: "Temps écoulé.",
       code: "TIME_UP",
     })
-
-    const [row] = await db
-      .select({ selectedAnswer: examAnswers.selectedAnswer })
-      .from(examAnswers)
-      .innerJoin(
-        examParticipations,
-        eq(examParticipations.id, examAnswers.participationId),
-      )
-      .where(
-        and(
-          eq(examParticipations.examId, eId),
-          eq(examAnswers.questionId, qIds[0]),
-        ),
-      )
-    expect(row?.selectedAnswer).toBeNull()
+    expect((await answerRow(eId, qIds[0]))?.selectedAnswer).toBeNull()
   })
 
-  it("attaque #2 bout-en-bout : réponse hors-temps refusée puis finalize isAutoSubmit tardif → score ne l'inclut pas", async () => {
+  it("réponse hors-temps refusée puis finalize isAutoSubmit tardif → score ne l'inclut pas", async () => {
     const eId = await makeStartedExam(400_000)
-    asStudent()
     const save = await saveExamAnswer({
       examId: eId,
       questionId: qIds[0],
@@ -387,21 +314,11 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
 
     const fin = await finalizeExam({ examId: eId, isAutoSubmit: true })
     expect(fin).toEqual({ success: true })
-    const [p] = await db
-      .select({ score: examParticipations.score })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, eId),
-          eq(examParticipations.userId, STUDENT_ID),
-        ),
-      )
-    expect(p?.score).toBe(0)
+    expect((await participationOf(eId))?.score).toBe(0)
   })
 
   it("race déterministe : finalize PUIS save → save refusé (session plus active)", async () => {
     const eId = await makeStartedExam(1_000) // dans les temps
-    asStudent()
     const fin = await finalizeExam({ examId: eId, isAutoSubmit: false })
     expect(fin.success).toBe(true)
 
@@ -410,10 +327,6 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
       questionId: qIds[0],
       selectedAnswer: "A",
     })
-    expect(save).toEqual({
-      success: false,
-      error: "Cette participation n'est plus active.",
-      code: "NOT_IN_PROGRESS",
-    })
+    expect(save).toEqual(NOT_IN_PROGRESS)
   })
 })

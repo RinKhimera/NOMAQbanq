@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { user } from "@/db/schema"
 import { updateProfile } from "@/features/users/actions"
@@ -11,7 +11,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
 const editorId = createId()
 const otherId = createId()
-const takenUsername = `taken_${Date.now()}`
+const takenUsername = "taken_username"
 
 beforeAll(async () => {
   await db.insert(user).values([
@@ -28,14 +28,9 @@ beforeAll(async () => {
   } as never)
 })
 
-afterAll(async () => {
-  await db.delete(user).where(eq(user.id, editorId))
-  await db.delete(user).where(eq(user.id, otherId))
-})
-
 describe("updateProfile", () => {
   it("met à jour le profil de l'utilisateur courant", async () => {
-    const freshUsername = `fresh_${Date.now()}`
+    const freshUsername = "fresh_username"
     const result = await updateProfile({
       name: "Nouveau Nom",
       username: freshUsername,

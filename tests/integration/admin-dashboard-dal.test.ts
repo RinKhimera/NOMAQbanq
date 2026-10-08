@@ -1,10 +1,9 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { inArray } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examParticipations,
   exams,
-  products,
   transactions,
   user,
   userAccess,
@@ -19,12 +18,8 @@ import {
 } from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { seedProduct } from "../helpers/seed-payments"
 
-// `cache()` React → identité (pas de contexte RSC en test node).
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 // Garde admin mockée : on isole la logique DB.
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
@@ -32,12 +27,11 @@ vi.mock("@/lib/auth-guards", () => ({
 }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 
 const A = createId() // admin, créé maintenant
 const B = createId() // user, créé maintenant (fenêtre récente)
 const C = createId() // user, créé il y a 45j (fenêtre précédente)
-const PID = createId()
+let PID: string
 const E = createId() // examen actif en fenêtre
 const TX1 = createId() // CAD 5000 complétée aujourd'hui
 const TX2 = createId() // XAF 300000 complétée il y a 2j
@@ -58,22 +52,13 @@ const JOUR_SOIR = shiftCalendarDay(toAppZoneCalendarDay(Date.now()), -1)
 const INSTANT_SOIR =
   startOfNextAppZoneDay(JOUR_SOIR).getTime() - 3 * 60 * 60 * 1000
 
-// Baselines capturés AVANT seed : les assertions portent sur l'écart, pas sur un total.
-let baseAdmin: Awaited<ReturnType<typeof getAdminStats>>
-let baseTrends: Awaited<ReturnType<typeof getDashboardTrends>>
-let baseRevenue: Awaited<ReturnType<typeof getRevenueByDay>>
-
-const name = (id: string) => `Adm ${suffix} ${id.slice(0, 4)}`
-const email = (id: string) => `${id.slice(0, 6)}-${suffix}@test.invalid`
+const name = (id: string) => `Adm ${id.slice(0, 4)}`
+const email = (id: string) => `${id}@test.invalid`
 
 beforeAll(async () => {
   vi.mocked(requireRole).mockResolvedValue({
     user: { id: A, role: "admin" },
   } as never)
-
-  baseAdmin = await getAdminStats()
-  baseTrends = await getDashboardTrends()
-  baseRevenue = await getRevenueByDay()
 
   const now = Date.now()
   await db.insert(user).values([
@@ -92,21 +77,10 @@ beforeAll(async () => {
       createdAt: new Date(now - 45 * DAY),
     },
   ])
-  await db.insert(products).values({
-    id: PID,
-    code: "exam_access",
-    name: `Prod ${suffix}`,
-    description: "desc",
-    priceCad: 5000,
-    durationDays: 90,
-    accessType: "exam",
-    stripeProductId: `prod_${suffix}`,
-    stripePriceId: `price_${suffix}`,
-    stripePriceLookupKey: `price_${suffix}`,
-  })
+  PID = await seedProduct("exam_access", { name: "Produit examens" })
   await db.insert(exams).values({
     id: E,
-    title: `Examen ${suffix}`,
+    title: "Examen tableau de bord",
     startDate: new Date(now - 2 * DAY),
     endDate: new Date(now + 2 * DAY),
     completionTime: 3600,
@@ -212,30 +186,20 @@ beforeAll(async () => {
   ])
 })
 
-afterAll(async () => {
-  await db.delete(exams).where(eq(exams.createdBy, A)) // cascade participations
-  await db.delete(userAccess).where(inArray(userAccess.id, [ACC1, ACC2]))
-  await db
-    .delete(transactions)
-    .where(inArray(transactions.id, [TX1, TX2, TX3, TX_FAIL, TX_SOIR]))
-  await db.delete(products).where(eq(products.id, PID))
-  await db.delete(user).where(inArray(user.id, [A, B, C]))
-})
-
 describe("getAdminStats", () => {
-  it("compte utilisateurs (par rôle), examens actifs et participations (delta)", async () => {
+  it("compte utilisateurs (par rôle), examens actifs et participations", async () => {
     const s = await getAdminStats()
-    expect(s.totalUsers - baseAdmin.totalUsers).toBe(3)
-    expect(s.adminCount - baseAdmin.adminCount).toBe(1)
-    expect(s.regularUserCount - baseAdmin.regularUserCount).toBe(2)
-    expect(s.totalExams - baseAdmin.totalExams).toBe(1)
-    expect(s.activeExams - baseAdmin.activeExams).toBe(1)
-    expect(s.totalParticipations - baseAdmin.totalParticipations).toBe(1)
+    expect(s.totalUsers).toBe(3)
+    expect(s.adminCount).toBe(1)
+    expect(s.regularUserCount).toBe(2)
+    expect(s.totalExams).toBe(1)
+    expect(s.activeExams).toBe(1)
+    expect(s.totalParticipations).toBe(1)
   })
 })
 
 describe("getRevenueByDay", () => {
-  it("30 jours par devise, somme = transactions complétées de la fenêtre (delta)", async () => {
+  it("30 jours par devise, somme = transactions complétées de la fenêtre", async () => {
     const before = toAppZoneCalendarDay(Date.now())
     const r = await getRevenueByDay()
     const after = toAppZoneCalendarDay(Date.now())
@@ -243,11 +207,9 @@ describe("getRevenueByDay", () => {
     expect(r.XAF).toHaveLength(30)
     // TX1 (CAD aujourd'hui) et TX_SOIR (CAD hier soir) dans la fenêtre ;
     // TX3 (CAD -45j) hors fenêtre.
-    expect(sumRevenue(r.CAD) - sumRevenue(baseRevenue.CAD)).toBe(
-      5000 + SOIR_CAD,
-    )
+    expect(sumRevenue(r.CAD)).toBe(5000 + SOIR_CAD)
     // TX2 (XAF -2j) dans la fenêtre.
-    expect(sumRevenue(r.XAF) - sumRevenue(baseRevenue.XAF)).toBe(300000)
+    expect(sumRevenue(r.XAF)).toBe(300000)
     // Dernier bucket = aujourd'hui (heure de l'Est). before/after encadrent le
     // `now` interne du DAL → robuste au passage de minuit pendant le test.
     expect([before, after]).toContain(r.CAD.at(-1)?.date)
@@ -258,11 +220,9 @@ describe("getRevenueByDay", () => {
     const jour = (rows: { date: string; revenue: number }[], d: string) =>
       rows.find((row) => row.date === d)?.revenue ?? 0
 
-    // Bucketé en UTC, cet encaissement partirait sur le jour suivant : le
-    // delta de sa propre soirée serait nul.
-    expect(jour(r.CAD, JOUR_SOIR) - jour(baseRevenue.CAD, JOUR_SOIR)).toBe(
-      SOIR_CAD,
-    )
+    // Bucketé en UTC, cet encaissement partirait sur le jour suivant : sa
+    // propre soirée serait à 0.
+    expect(jour(r.CAD, JOUR_SOIR)).toBe(SOIR_CAD)
   })
 })
 
@@ -287,8 +247,8 @@ describe("getRecentActivity", () => {
     const now = Date.now()
     const extraUsers = Array.from({ length: 6 }, (_, i) => ({
       id: createId(),
-      name: `Extra ${suffix} ${i}`,
-      email: `extra-${i}-${suffix}@test.invalid`,
+      name: `Extra ${i}`,
+      email: `extra-${i}@test.invalid`,
       createdAt: new Date(now + (i + 1) * 60_000),
     }))
     const extraTxIds = [createId(), createId()]
@@ -316,16 +276,15 @@ describe("getRecentActivity", () => {
       expect(acts.filter((a) => a.type === "user_signup")).toHaveLength(5)
 
       const signup = acts.find(
-        (a) =>
-          a.type === "user_signup" && a.data.userName === `Extra ${suffix} 5`,
+        (a) => a.type === "user_signup" && a.data.userName === "Extra 5",
       )
       const payment = acts.find(
-        (a) => a.type === "payment" && a.data.productName === `Prod ${suffix}`,
+        (a) => a.type === "payment" && a.data.productName === "Produit examens",
       )
       const exam = acts.find(
         (a) =>
           a.type === "exam_completed" &&
-          a.data.examTitle === `Examen ${suffix}`,
+          a.data.examTitle === "Examen tableau de bord",
       )
       expect(signup).toBeDefined()
       expect(payment).toBeDefined()
@@ -347,19 +306,13 @@ describe("getRecentActivity", () => {
 })
 
 describe("getDashboardTrends", () => {
-  it("revenus récents par devise + nouveaux users/participations (delta)", async () => {
+  it("revenus récents par devise + nouveaux users/participations", async () => {
     const t = await getDashboardTrends()
-    expect(
-      t.revenueByCurrency.CAD.recent - baseTrends.revenueByCurrency.CAD.recent,
-    ).toBe(5000 + SOIR_CAD)
-    expect(
-      t.revenueByCurrency.XAF.recent - baseTrends.revenueByCurrency.XAF.recent,
-    ).toBe(300000)
+    expect(t.revenueByCurrency.CAD.recent).toBe(5000 + SOIR_CAD)
+    expect(t.revenueByCurrency.XAF.recent).toBe(300000)
     // A et B créés maintenant (fenêtre récente) ; C il y a 45j (précédente).
-    expect(t.recentUsersCount - baseTrends.recentUsersCount).toBe(2)
-    expect(
-      t.recentParticipationsCount - baseTrends.recentParticipationsCount,
-    ).toBe(1)
-    expect(typeof t.usersTrend).toBe("number")
+    expect(t.recentUsersCount).toBe(2)
+    expect(t.recentParticipationsCount).toBe(1)
+    expect(t.usersTrend).toBe(100)
   })
 })

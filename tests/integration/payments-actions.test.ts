@@ -1,8 +1,7 @@
-import { and, eq, inArray, sql } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
-import { lockUser } from "@/features/payments/access-ledger"
+import { transactions, user, userAccess } from "@/db/schema"
 import {
   deleteManualTransaction,
   recordManualPayment,
@@ -11,18 +10,16 @@ import {
 import { getTransactionAccessImpact } from "@/features/payments/dal"
 import type { RecordManualPaymentInput } from "@/features/payments/schemas"
 import { createId } from "@/lib/ids"
+import { seedProduct } from "../helpers/seed-payments"
+import { holdUserLock } from "../helpers/user-lock"
 
-// Complement DB de tests/features/payments-actions.test.ts : ici on execute le
-// corps des `db.transaction` (resolution produit, verrous, recompute d'acces),
-// que le fichier unitaire simule au niveau du resultat.
+// Complément DB de tests/features/payments-actions.test.ts : ici on exécute le
+// corps des `db.transaction` (résolution produit, verrous, recompute d'accès),
+// que le fichier unitaire simule au niveau du résultat.
 const { mocks } = vi.hoisted(() => ({
   mocks: { adminId: { current: "" } },
 }))
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(async () => ({
     user: { id: mocks.adminId.current, email: "adm@test.invalid" },
@@ -33,14 +30,19 @@ vi.mock("@/lib/auth-guards", () => ({
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
-const suffix = createId().slice(0, 8)
+const DAY = 86_400_000
 const ADMIN_ID = createId()
-const USER_ID = createId()
-const COMBO_USER_ID = createId()
-const PID = createId()
-const EXAM_PID = createId()
+let PID = ""
 
-const accessRow = (accessType: "exam" | "training", userId: string = USER_ID) =>
+const newUser = async (over: Partial<typeof user.$inferInsert> = {}) => {
+  const id = createId()
+  await db
+    .insert(user)
+    .values({ id, name: `Usr ${id}`, email: `usr-${id}@test.invalid`, ...over })
+  return id
+}
+
+const accessRow = (accessType: "exam" | "training", userId: string) =>
   db
     .select({
       expiresAt: userAccess.expiresAt,
@@ -52,163 +54,102 @@ const accessRow = (accessType: "exam" | "training", userId: string = USER_ID) =>
     )
     .then((r) => r[0])
 
-/**
- * Tient le verrou `user` dans une transaction a part. Les actions lancees
- * pendant ce temps lisent la transaction PUIS attendent derriere ce verrou :
- * l'entrelacement « deux lectures avant le premier commit » est force au lieu
- * d'etre laisse au hasard du pool.
- */
-const holdUserLock = async (userId: string) => {
-  let release!: () => void
-  const released = new Promise<void>((r) => (release = r))
-  let locked!: () => void
-  const isLocked = new Promise<void>((r) => (locked = r))
-  const holder = db.transaction(async (tx) => {
-    await lockUser(tx, userId)
-    locked()
-    await released
-  })
-  await isLocked
-
-  return {
-    /** Attend que `n` connexions soient bloquees sur un verrou. */
-    waitForWaiters: async (n: number) => {
-      for (let attempt = 0; attempt < 200; attempt++) {
-        const res = await db.execute(sql`
-          select count(*)::int as n from pg_stat_activity
-          where datname = current_database() and wait_event_type = 'Lock'
-        `)
-        if ((res.rows[0] as { n: number }).n >= n) return
-        await new Promise((r) => setTimeout(r, 25))
-      }
-      throw new Error(`${n} attente(s) de verrou jamais observee(s)`)
-    },
-    release: async () => {
-      release()
-      await holder
-    },
-  }
-}
-
-const manualInput: RecordManualPaymentInput = {
-  userId: USER_ID,
+const manualInput = (userId: string): RecordManualPaymentInput => ({
+  userId,
   productCode: "exam_access",
   amountPaid: 5000,
   currency: "CAD",
   paymentMethod: "Virement Interac",
-}
+})
 
-/** Enregistre un paiement manuel et renvoie l'id de transaction (echoue sinon). */
+/** Enregistre un paiement manuel et renvoie l'id de transaction (échoue sinon). */
 const record = async (
+  userId: string,
   overrides: Partial<RecordManualPaymentInput> = {},
 ): Promise<string> => {
-  const res = await recordManualPayment({ ...manualInput, ...overrides })
+  const res = await recordManualPayment({
+    ...manualInput(userId),
+    ...overrides,
+  })
   expect(res.success).toBe(true)
   return res.transactionId!
 }
 
+const countTransactions = async (userId: string) =>
+  (
+    await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.userId, userId))
+  ).length
+
 beforeAll(async () => {
-  await db.insert(user).values([
-    {
-      id: ADMIN_ID,
-      name: `Adm ${suffix}`,
-      email: `adm-${suffix}@test.invalid`,
-    },
-    { id: USER_ID, name: `Usr ${suffix}`, email: `usr-${suffix}@test.invalid` },
-    {
-      id: COMBO_USER_ID,
-      name: `Combo ${suffix}`,
-      email: `combo-${suffix}@test.invalid`,
-    },
-  ])
-  await db.insert(products).values([
-    {
-      id: PID,
-      code: "premium_access",
-      name: `Combo ${suffix}`,
-      description: "desc",
-      priceCad: 9000,
-      durationDays: 30,
-      accessType: "exam",
-      isCombo: true,
-      stripeProductId: `prod_${suffix}`,
-      stripePriceId: `price_${suffix}`,
-      stripePriceLookupKey: `price_${suffix}`,
-    },
-    {
-      id: EXAM_PID,
-      code: "exam_access",
-      name: `Examens ${suffix}`,
-      description: "desc",
-      priceCad: 5000,
-      durationDays: 30,
-      accessType: "exam",
-      stripeProductId: `prod_exam_${suffix}`,
-      stripePriceId: `price_exam_${suffix}`,
-      stripePriceLookupKey: `price_exam_${suffix}`,
-    },
-  ])
+  await db
+    .insert(user)
+    .values({ id: ADMIN_ID, name: "Adm", email: "adm@test.invalid" })
+  PID = await seedProduct("premium_access", { priceCad: 9000 })
+  await seedProduct("exam_access")
   mocks.adminId.current = ADMIN_ID
 })
 
-afterAll(async () => {
-  // FK restrict : les lignes d'acces referencent les transactions.
-  const seeded = [USER_ID, COMBO_USER_ID]
-  await db.delete(userAccess).where(inArray(userAccess.userId, seeded))
-  await db.delete(transactions).where(inArray(transactions.userId, seeded))
-  await db.delete(products).where(inArray(products.id, [PID, EXAM_PID]))
-  await db.delete(user).where(inArray(user.id, seeded))
-  await db.delete(user).where(eq(user.id, ADMIN_ID))
-})
-
 describe("recordManualPayment (DB)", () => {
-  it("cree une transaction manuelle completee, tracee par l'admin, et ouvre l'acces", async () => {
-    const transactionId = await record()
+  it("crée une transaction manuelle complétée, tracée par l'admin, et ouvre l'accès", async () => {
+    const userId = await newUser()
+    const res = await recordManualPayment(manualInput(userId))
+    expect(res.success).toBe(true)
 
     const [tx] = await db
       .select()
       .from(transactions)
-      .where(eq(transactions.id, transactionId))
-    expect(tx.type).toBe("manual")
-    expect(tx.status).toBe("completed")
-    expect(tx.userId).toBe(USER_ID)
-    expect(tx.recordedBy).toBe(ADMIN_ID)
-    expect(tx.amountPaid).toBe(5000)
-    expect(tx.paymentMethod).toBe("Virement Interac")
+      .where(eq(transactions.id, res.transactionId!))
+    expect(tx).toMatchObject({
+      type: "manual",
+      status: "completed",
+      userId,
+      recordedBy: ADMIN_ID,
+      amountPaid: 5000,
+      paymentMethod: "Virement Interac",
+    })
     expect(tx.completedAt).not.toBeNull()
 
-    const access = await accessRow(tx.accessType)
-    expect(access.lastTransactionId).toBe(transactionId)
-    expect(access.expiresAt.getTime()).toBeGreaterThan(Date.now())
+    const access = await accessRow(tx.accessType, userId)
+    expect(access.lastTransactionId).toBe(res.transactionId)
+    expect(access.expiresAt.getTime()).toBe(res.recordedAt! + 30 * DAY)
   })
 
-  it("produit combo : ouvre exam ET training sur la meme transaction", async () => {
-    const transactionId = await record({ productCode: "premium_access" })
+  it("produit combo : ouvre exam ET training sur la même transaction", async () => {
+    const userId = await newUser()
+    const transactionId = await record(userId, {
+      productCode: "premium_access",
+    })
 
     for (const type of ["exam", "training"] as const) {
-      const access = await accessRow(type)
+      const access = await accessRow(type, userId)
       expect(access.lastTransactionId).toBe(transactionId)
     }
   })
 
-  it("renvoie l'expiration resultante par acces, lue du registre, et l'echeance precedente", async () => {
-    const before = await accessRow("exam")
-    const res = await recordManualPayment(manualInput)
+  it("renvoie l'expiration résultante par accès, lue du registre, et l'échéance précédente", async () => {
+    const userId = await newUser()
+    await record(userId)
+    const before = await accessRow("exam", userId)
+    const res = await recordManualPayment(manualInput(userId))
     expect(res.success).toBe(true)
 
-    const after = await accessRow("exam")
+    const after = await accessRow("exam", userId)
     expect(res.grants).toEqual([
       {
         accessType: "exam",
         expiresAt: after.expiresAt.getTime(),
-        previousExpiresAt: before?.expiresAt.getTime() ?? null,
+        previousExpiresAt: before.expiresAt.getTime(),
       },
     ])
   })
 
-  it("acces offert a 0 $ : accepte avec un motif, sans moyen de paiement", async () => {
+  it("accès offert à 0 $ : accepté avec un motif, sans moyen de paiement", async () => {
+    const userId = await newUser()
     const res = await recordManualPayment({
-      ...manualInput,
+      ...manualInput(userId),
       amountPaid: 0,
       paymentMethod: undefined,
       notes: "  Examen interrompu par une panne  ",
@@ -225,18 +166,10 @@ describe("recordManualPayment (DB)", () => {
     expect(tx.status).toBe("completed")
   })
 
-  it("acces offert sans motif → refus, aucune transaction ecrite", async () => {
-    const count = async () =>
-      (
-        await db
-          .select({ id: transactions.id })
-          .from(transactions)
-          .where(eq(transactions.userId, USER_ID))
-      ).length
-    const before = await count()
-
+  it("accès offert sans motif → refus, aucune transaction écrite", async () => {
+    const userId = await newUser()
     const res = await recordManualPayment({
-      ...manualInput,
+      ...manualInput(userId),
       amountPaid: 0,
       paymentMethod: undefined,
       notes: "ok",
@@ -245,12 +178,13 @@ describe("recordManualPayment (DB)", () => {
       success: false,
       error: "Indiquez le motif de la gratuité (5 caractères au moins).",
     })
-    expect(await count()).toBe(before)
+    expect(await countTransactions(userId)).toBe(0)
   })
 
   it("paiement non nul sans moyen → refus", async () => {
+    const userId = await newUser()
     const res = await recordManualPayment({
-      ...manualInput,
+      ...manualInput(userId),
       paymentMethod: undefined,
     })
     expect(res).toEqual({
@@ -259,43 +193,28 @@ describe("recordManualPayment (DB)", () => {
     })
   })
 
-  it("compte supprime → refus, aucune transaction ecrite", async () => {
-    const deletedId = createId()
-    await db.insert(user).values({
-      id: deletedId,
-      name: `Suppr ${suffix}`,
-      email: `suppr-${suffix}@test.invalid`,
-      deletedAt: new Date(),
-    })
-    const res = await recordManualPayment({ ...manualInput, userId: deletedId })
+  it("compte supprimé → refus, aucune transaction écrite", async () => {
+    const deletedId = await newUser({ deletedAt: new Date() })
+    const res = await recordManualPayment(manualInput(deletedId))
     expect(res).toEqual({ success: false, error: "Utilisateur introuvable" })
-    const rows = await db
-      .select({ id: transactions.id })
-      .from(transactions)
-      .where(eq(transactions.userId, deletedId))
-    expect(rows).toHaveLength(0)
-    await db.delete(user).where(eq(user.id, deletedId))
+    expect(await countTransactions(deletedId)).toBe(0)
   })
 
-  it("utilisateur inexistant → erreur metier, aucune transaction ecrite", async () => {
+  it("utilisateur inexistant → erreur métier, aucune transaction écrite", async () => {
     const ghostId = createId()
-    const res = await recordManualPayment({ ...manualInput, userId: ghostId })
+    const res = await recordManualPayment(manualInput(ghostId))
     expect(res).toEqual({ success: false, error: "Utilisateur introuvable" })
-
-    const rows = await db
-      .select({ id: transactions.id })
-      .from(transactions)
-      .where(eq(transactions.userId, ghostId))
-    expect(rows).toHaveLength(0)
+    expect(await countTransactions(ghostId)).toBe(0)
   })
 })
 
 describe("updateManualTransaction (DB)", () => {
-  it("un paiement manuel en attente ne se complete pas par une modification", async () => {
+  it("un paiement manuel en attente ne se complète pas par une modification", async () => {
+    const userId = await newUser()
     const pendingId = createId()
     await db.insert(transactions).values({
       id: pendingId,
-      userId: USER_ID,
+      userId,
       productId: PID,
       type: "manual",
       status: "pending",
@@ -304,7 +223,7 @@ describe("updateManualTransaction (DB)", () => {
       paymentMethod: "interac",
       accessType: "exam",
       durationDays: 30,
-      accessExpiresAt: new Date(Date.now() + 86_400_000),
+      accessExpiresAt: new Date(Date.now() + DAY),
     })
     const res = await updateManualTransaction({
       transactionId: pendingId,
@@ -322,11 +241,10 @@ describe("updateManualTransaction (DB)", () => {
       .from(transactions)
       .where(eq(transactions.id, pendingId))
     expect(row.status).toBe("pending")
-    await db.delete(transactions).where(eq(transactions.id, pendingId))
   })
 
-  it("modifie montant, methode et notes d'une transaction manuelle", async () => {
-    const transactionId = await record()
+  it("modifie montant, méthode et notes d'une transaction manuelle", async () => {
+    const transactionId = await record(await newUser())
 
     const res = await updateManualTransaction({
       transactionId,
@@ -344,18 +262,19 @@ describe("updateManualTransaction (DB)", () => {
     expect(tx.amountPaid).toBe(7500)
     expect(tx.paymentMethod).toBe("Comptant")
     expect(tx.notes).toBe("regularisation")
-    // Statut absent de l'entree : conserve, et aucun recompute declenche.
+    // Statut absent de l'entrée : conservé, et aucun recompute déclenché.
     expect(tx.status).toBe("completed")
   })
 
-  it("completed → refunded : l'acces retombe sur la transaction precedente", async () => {
-    const first = await record()
-    const firstExpiry = (await accessRow("exam")).expiresAt
-    const second = await record()
-    const afterSecond = await accessRow("exam")
+  it("completed → refunded : l'accès retombe sur la transaction précédente", async () => {
+    const userId = await newUser()
+    const first = await record(userId)
+    const firstExpiry = (await accessRow("exam", userId)).expiresAt
+    const second = await record(userId)
+    const afterSecond = await accessRow("exam", userId)
     expect(afterSecond.lastTransactionId).toBe(second)
-    expect(afterSecond.expiresAt.getTime()).toBeGreaterThan(
-      firstExpiry.getTime(),
+    expect(afterSecond.expiresAt.getTime()).toBe(
+      firstExpiry.getTime() + 30 * DAY,
     )
 
     const res = await updateManualTransaction({
@@ -367,7 +286,7 @@ describe("updateManualTransaction (DB)", () => {
     })
     expect(res).toEqual({ success: true })
 
-    const restored = await accessRow("exam")
+    const restored = await accessRow("exam", userId)
     expect(restored.lastTransactionId).toBe(first)
     expect(restored.expiresAt.getTime()).toBe(firstExpiry.getTime())
   })
@@ -376,7 +295,7 @@ describe("updateManualTransaction (DB)", () => {
     const stripeTxId = createId()
     await db.insert(transactions).values({
       id: stripeTxId,
-      userId: USER_ID,
+      userId: await newUser(),
       productId: PID,
       type: "stripe",
       status: "completed",
@@ -384,8 +303,8 @@ describe("updateManualTransaction (DB)", () => {
       currency: "CAD",
       accessType: "exam",
       durationDays: 30,
-      accessExpiresAt: new Date(Date.now() + 86_400_000),
-      stripeSessionId: `cs_${suffix}`,
+      accessExpiresAt: new Date(Date.now() + DAY),
+      stripeSessionId: `cs_${stripeTxId}`,
     })
 
     const res = await updateManualTransaction({
@@ -406,7 +325,7 @@ describe("updateManualTransaction (DB)", () => {
     expect(tx.amountPaid).toBe(9000)
   })
 
-  it("transaction inexistante → erreur metier", async () => {
+  it("transaction inexistante → erreur métier", async () => {
     const res = await updateManualTransaction({
       transactionId: createId(),
       amountPaid: 1000,
@@ -418,29 +337,25 @@ describe("updateManualTransaction (DB)", () => {
 })
 
 describe("deleteManualTransaction (DB)", () => {
-  it("supprime la transaction et signale la reduction d'acces (FK restrict franchie)", async () => {
-    const transactionId = await record()
-    expect((await accessRow("exam")).lastTransactionId).toBe(transactionId)
+  it("supprime la transaction et signale la réduction d'accès (FK restrict franchie)", async () => {
+    const userId = await newUser()
+    const transactionId = await record(userId)
+    expect((await accessRow("exam", userId)).lastTransactionId).toBe(
+      transactionId,
+    )
 
     const res = await deleteManualTransaction(transactionId)
-    expect(res.success).toBe(true)
-    expect(res.accessRevoked).toBe(true)
-
-    const rows = await db
-      .select({ id: transactions.id })
-      .from(transactions)
-      .where(eq(transactions.id, transactionId))
-    expect(rows).toHaveLength(0)
-
-    const access = await accessRow("exam")
-    expect(access?.lastTransactionId).not.toBe(transactionId)
+    expect(res).toEqual({ success: true, accessRevoked: true })
+    expect(await countTransactions(userId)).toBe(0)
+    expect(await accessRow("exam", userId)).toBeUndefined()
   })
 
   it("transaction Stripe → refus, la ligne reste en base", async () => {
+    const userId = await newUser()
     const stripeTxId = createId()
     await db.insert(transactions).values({
       id: stripeTxId,
-      userId: USER_ID,
+      userId,
       productId: PID,
       type: "stripe",
       status: "completed",
@@ -448,8 +363,8 @@ describe("deleteManualTransaction (DB)", () => {
       currency: "CAD",
       accessType: "exam",
       durationDays: 30,
-      accessExpiresAt: new Date(Date.now() + 86_400_000),
-      stripeSessionId: `cs_del_${suffix}`,
+      accessExpiresAt: new Date(Date.now() + DAY),
+      stripeSessionId: `cs_${stripeTxId}`,
     })
 
     const res = await deleteManualTransaction(stripeTxId)
@@ -457,15 +372,10 @@ describe("deleteManualTransaction (DB)", () => {
       success: false,
       error: "Seules les transactions manuelles peuvent être supprimées",
     })
-
-    const rows = await db
-      .select({ id: transactions.id })
-      .from(transactions)
-      .where(eq(transactions.id, stripeTxId))
-    expect(rows).toHaveLength(1)
+    expect(await countTransactions(userId)).toBe(1)
   })
 
-  it("transaction inexistante → erreur metier", async () => {
+  it("transaction inexistante → erreur métier", async () => {
     const res = await deleteManualTransaction(createId())
     expect(res).toEqual({ success: false, error: "Transaction introuvable" })
   })
@@ -473,12 +383,10 @@ describe("deleteManualTransaction (DB)", () => {
   it("combo : l'aperçu annonce type par type ce que la suppression fait ensuite", async () => {
     // Combo puis accès examen simple : l'examen cumule au-delà du combo, seul
     // le combo couvre l'entraînement.
-    const comboId = await record({
-      userId: COMBO_USER_ID,
-      productCode: "premium_access",
-    })
-    await record({ userId: COMBO_USER_ID, productCode: "exam_access" })
-    const examBefore = (await accessRow("exam", COMBO_USER_ID)).expiresAt
+    const userId = await newUser()
+    const comboId = await record(userId, { productCode: "premium_access" })
+    await record(userId, { productCode: "exam_access" })
+    const examBefore = (await accessRow("exam", userId)).expiresAt
 
     const impacts = await getTransactionAccessImpact(comboId)
     const on = (type: "exam" | "training") =>
@@ -491,15 +399,14 @@ describe("deleteManualTransaction (DB)", () => {
 
     const res = await deleteManualTransaction(comboId)
     expect(res).toEqual({ success: true, accessRevoked: true })
-    expect(await accessRow("training", COMBO_USER_ID)).toBeUndefined()
-    expect((await accessRow("exam", COMBO_USER_ID)).expiresAt).toEqual(
-      examBefore,
-    )
+    expect(await accessRow("training", userId)).toBeUndefined()
+    expect((await accessRow("exam", userId)).expiresAt).toEqual(examBefore)
   })
 
-  it("double suppression concurrente : une seule reussit, l'autre dit introuvable", async () => {
-    const transactionId = await record()
-    const lock = await holdUserLock(USER_ID)
+  it("double suppression concurrente : une seule réussit, l'autre dit introuvable", async () => {
+    const userId = await newUser()
+    const transactionId = await record(userId)
+    const lock = await holdUserLock(userId)
 
     const first = deleteManualTransaction(transactionId)
     const second = deleteManualTransaction(transactionId)
@@ -513,9 +420,10 @@ describe("deleteManualTransaction (DB)", () => {
     ])
   })
 
-  it("modification lancee pendant une suppression : introuvable, rien d'ecrit", async () => {
-    const transactionId = await record()
-    const lock = await holdUserLock(USER_ID)
+  it("modification lancée pendant une suppression : introuvable, rien d'écrit", async () => {
+    const userId = await newUser()
+    const transactionId = await record(userId)
+    const lock = await holdUserLock(userId)
 
     const deleting = deleteManualTransaction(transactionId)
     await lock.waitForWaiters(1)

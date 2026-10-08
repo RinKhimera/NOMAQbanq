@@ -1,5 +1,5 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -20,8 +20,8 @@ import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 // une fois ; les appelants (actions, crons, démarrage de session) ne portent
 // que le mapping vers ce verbe.
 //
-// Fixtures datées en 1990 : un `expiredBefore` en 1991 ne peut attraper
-// qu'elles, jamais les tentatives d'aujourd'hui des autres tests du fichier.
+// Fixtures closes en 1990, balayées par un `expiredBefore` en 1991 ; une
+// échéance en 2999 = tentative non expirée.
 const DAY = 24 * 60 * 60 * 1000
 const NOW = new Date("2026-09-19T12:00:00.000Z")
 const ENDED = new Date("1990-06-01T00:00:00.000Z")
@@ -30,21 +30,16 @@ const SWEEP = new Date("1991-01-01T00:00:00.000Z")
 // closes » ne doit dépendre ni de l'ordre des cas ni d'une ligne héritée.
 const ENDED_LIMIT = new Date("1980-06-01T00:00:00.000Z")
 const SWEEP_LIMIT = new Date("1981-01-01T00:00:00.000Z")
-const suffix = createId().slice(0, 8)
 
 const OWNER = createId()
-const seededUsers = [OWNER]
-const seededQuestions: string[] = []
-const seededExams: string[] = []
 
 const newUser = async () => {
   const id = createId()
   await db.insert(user).values({
     id,
     name: `Close ${id.slice(0, 6)}`,
-    email: `close-${id.slice(0, 6)}-${suffix}@test.invalid`,
+    email: `close-${id}@test.invalid`,
   })
-  seededUsers.push(id)
   return id
 }
 
@@ -53,14 +48,13 @@ const newQuestions = async (n: number) => {
   await db.insert(questions).values(
     ids.map((id, i) => ({
       id,
-      question: `Q ${i} ${suffix} ?`,
+      question: `Q ${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
-      domain: `CLOSE-${suffix}`,
+      domain: "CLOSE",
     })),
   )
-  seededQuestions.push(...ids)
   return ids
 }
 
@@ -68,7 +62,7 @@ const newExam = async (questionIds: string[], endDate = ENDED) => {
   const id = createId()
   await db.insert(exams).values({
     id,
-    title: `Exam ${suffix} ${id.slice(0, 4)}`,
+    title: `Exam ${id.slice(0, 4)}`,
     startDate: new Date(endDate.getTime() - 3 * DAY),
     endDate,
     completionTime: 3600,
@@ -84,7 +78,6 @@ const newExam = async (questionIds: string[], endDate = ENDED) => {
       position,
     })),
   )
-  seededExams.push(id)
   return id
 }
 
@@ -191,19 +184,10 @@ let qIds: string[]
 beforeAll(async () => {
   await db.insert(user).values({
     id: OWNER,
-    name: `Close owner ${suffix}`,
-    email: `close-owner-${suffix}@test.invalid`,
+    name: "Close owner",
+    email: "close-owner@test.invalid",
   })
   qIds = await newQuestions(4)
-})
-
-afterAll(async () => {
-  await db.delete(exams).where(inArray(exams.id, seededExams))
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.userId, seededUsers))
-  await db.delete(questions).where(inArray(questions.id, seededQuestions))
-  await db.delete(user).where(inArray(user.id, seededUsers))
 })
 
 describe("closeAttempts — participation (kind: exam)", () => {

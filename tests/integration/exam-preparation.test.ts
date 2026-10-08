@@ -1,16 +1,13 @@
 import { asc, eq, inArray, sql } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
   examParticipations,
   examQuestions,
   exams,
-  products,
   questions,
-  transactions,
   user,
-  userAccess,
 } from "@/db/schema"
 import { getMyDashboard } from "@/features/analytics/dal.dashboard"
 import {
@@ -39,11 +36,8 @@ import { createId } from "@/lib/ids"
 import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 import { seedExam } from "../helpers/seed-exam"
+import { seedAccess } from "../helpers/seed-payments"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),
@@ -59,7 +53,6 @@ vi.mock("@/lib/aws", () => ({
 }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 
 const ADMIN_ID = createId()
 const STUDENT_ID = createId()
@@ -70,8 +63,6 @@ const deletedQId = createId()
 const freeQId = createId()
 // Seule dans un examen en préparation sans dates : le verrou anonyme s'y lit seul.
 const undatedQId = createId()
-const PID = createId()
-const createdExams: string[] = []
 
 const asUser = (id: string, role: "user" | "admin" = "user") =>
   vi
@@ -81,7 +72,7 @@ const asAdmin = () => asUser(ADMIN_ID, "admin")
 
 // « Enregistrer » reçoit toujours l'état entier du formulaire.
 const base = {
-  title: `Préparation ${suffix}`,
+  title: "Préparation",
   targetQuestionCount: 10,
   startDate: null,
   endDate: null,
@@ -100,7 +91,6 @@ const saveNew = async (input: Parameters<typeof saveExam>[0]) => {
   asAdmin()
   const res = await saveExam(input)
   if (!res.success) throw new Error(res.error)
-  createdExams.push(res.examId)
   return res.examId
 }
 
@@ -142,19 +132,19 @@ beforeAll(async () => {
     {
       id: ADMIN_ID,
       name: "Prép admin",
-      email: `prep-adm-${suffix}@test.invalid`,
+      email: "prep-adm@test.invalid",
       role: "admin",
     },
     {
       id: STUDENT_ID,
       name: "Prép étudiant",
-      email: `prep-stu-${suffix}@test.invalid`,
+      email: "prep-stu@test.invalid",
     },
   ])
   await db.insert(questions).values([
     ...qIds.map((id, i) => ({
       id,
-      question: `Q préparation ${i} ${suffix}`,
+      question: `Q préparation ${i}`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
@@ -162,7 +152,7 @@ beforeAll(async () => {
     })),
     {
       id: undatedQId,
-      question: `Q sans dates ${suffix}`,
+      question: "Q sans dates",
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
@@ -170,7 +160,7 @@ beforeAll(async () => {
     },
     {
       id: freeQId,
-      question: `Q libre ${suffix}`,
+      question: "Q libre",
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
@@ -178,7 +168,7 @@ beforeAll(async () => {
     },
     {
       id: deletedQId,
-      question: `Q supprimée ${suffix}`,
+      question: "Q supprimée",
       correctAnswer: "A",
       options: ["A", "B"],
       objectiveId: TEST_OBJECTIVE_ID,
@@ -188,49 +178,7 @@ beforeAll(async () => {
 
   // Accès Examens de l'étudiant : le tableau de bord ne compte les examens
   // disponibles qu'avec lui.
-  await db.insert(products).values({
-    id: PID,
-    code: "exam_access",
-    name: "Exam",
-    description: "desc",
-    priceCad: 5000,
-    durationDays: 30,
-    accessType: "exam",
-    stripeProductId: `prod_${suffix}`,
-    stripePriceId: `price_${suffix}`,
-    stripePriceLookupKey: `price_${suffix}`,
-  })
-  const txId = createId()
-  await db.insert(transactions).values({
-    id: txId,
-    userId: STUDENT_ID,
-    productId: PID,
-    type: "manual",
-    status: "completed",
-    amountPaid: 5000,
-    currency: "CAD",
-    accessType: "exam",
-    durationDays: 30,
-    accessExpiresAt: new Date(Date.now() + 20 * DAY),
-  })
-  await db.insert(userAccess).values({
-    userId: STUDENT_ID,
-    accessType: "exam",
-    expiresAt: new Date(Date.now() + 20 * DAY),
-    lastTransactionId: txId,
-  })
-})
-
-afterAll(async () => {
-  // Examens créés par l'action ou par `seedExam` : tous portent cet admin.
-  await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
-  await db.delete(userAccess).where(eq(userAccess.userId, STUDENT_ID))
-  await db.delete(transactions).where(eq(transactions.userId, STUDENT_ID))
-  await db.delete(products).where(eq(products.id, PID))
-  await db
-    .delete(questions)
-    .where(inArray(questions.id, [...qIds, freeQId, undatedQId, deletedQId]))
-  await db.delete(user).where(inArray(user.id, [ADMIN_ID, STUDENT_ID]))
+  await seedAccess(STUDENT_ID, "exam", new Date(Date.now() + 20 * DAY))
 })
 
 describe("enregistrer un examen en préparation", () => {
@@ -409,7 +357,7 @@ describe("contrainte et lectures filtrées", () => {
   it("jumeau : les mêmes lectures répondent sur un examen finalisé", async () => {
     const examId = await seedExam({
       createdBy: ADMIN_ID,
-      title: `Jumeau ${suffix}`,
+      title: "Jumeau",
       startDate: Date.now() - 7 * DAY,
       endDate: Date.now() - DAY,
       questionIds: qIds.slice(0, 3),
@@ -422,51 +370,58 @@ describe("contrainte et lectures filtrées", () => {
   })
 
   it("compteurs : un examen en préparation qui garde ses dates n'est pas compté", async () => {
-    const countersOf = async () => {
-      asAdmin()
-      const [overview, admin] = await Promise.all([
-        getExamsOverview(),
-        getAdminStats(),
-      ])
-      asUser(STUDENT_ID)
-      const dashboard = await getMyDashboard("tout")
-      return {
-        past: overview.filter(
-          (e) => adminPhaseOf(e, Date.now()) === "completed",
-        ).length,
-        active: admin.activeExams,
-        available: dashboard?.exams.availableCount ?? -1,
+    // Fenêtres posées autour d'une date que ce test est seul à occuper : les
+    // examens des autres tests, datés autour d'aujourd'hui, y sont tous à
+    // venir. Les compteurs datés s'y relèvent en valeurs exactes.
+    const anchor = Date.UTC(2001, 0, 15)
+    const openAt = { startDate: anchor - DAY, endDate: anchor + 7 * DAY }
+    const closedAt = { startDate: anchor - 7 * DAY, endDate: anchor - DAY }
+    const datedCountersAtAnchor = async () => {
+      // `getAdminStats` lit son `now` dans l'horloge JS.
+      vi.useFakeTimers({ toFake: ["Date"], now: anchor })
+      try {
+        asAdmin()
+        const [overview, admin] = await Promise.all([
+          getExamsOverview(),
+          getAdminStats(),
+        ])
+        return {
+          past: overview.filter((e) => adminPhaseOf(e, anchor) === "completed")
+            .length,
+          active: admin.activeExams,
+        }
+      } finally {
+        vi.useRealTimers()
       }
     }
-    const before = await countersOf()
+    // Sans filtre de fenêtre, la disponibilité compte tous les examens aux
+    // abonnés du fichier : elle se lit en écart.
+    const available = async () => {
+      asUser(STUDENT_ID)
+      return (await getMyDashboard("tout"))?.exams.availableCount ?? -1
+    }
+    const availableBefore = await available()
 
-    await saveNew({ ...base, ...openWindow(), questionIds: qIds.slice(0, 3) })
-    await saveNew({
-      ...base,
-      startDate: Date.now() - 7 * DAY,
-      endDate: Date.now() - DAY,
-    })
-    expect(await countersOf()).toEqual(before)
+    await saveNew({ ...base, ...openAt, questionIds: qIds.slice(0, 3) })
+    await saveNew({ ...base, ...closedAt })
+    expect(await datedCountersAtAnchor()).toEqual({ past: 0, active: 0 })
+    expect(await available()).toBe(availableBefore)
 
     // Jumeaux finalisés, mêmes fenêtres : chaque compteur bouge.
     await seedExam({
       createdBy: ADMIN_ID,
-      title: `Jumeau ouvert ${suffix}`,
-      ...openWindow(),
+      title: "Jumeau ouvert",
+      ...openAt,
       questionIds: qIds.slice(0, 3),
     })
     await seedExam({
       createdBy: ADMIN_ID,
-      title: `Jumeau clos ${suffix}`,
-      startDate: Date.now() - 7 * DAY,
-      endDate: Date.now() - DAY,
+      title: "Jumeau clos",
+      ...closedAt,
       questionIds: qIds.slice(0, 3),
     })
-    expect(await countersOf()).toEqual({
-      past: before.past + 1,
-      active: before.active + 1,
-      available: before.available + 2,
-    })
+    expect(await datedCountersAtAnchor()).toEqual({ past: 1, active: 1 })
+    expect(await available()).toBe(availableBefore + 2)
   })
 })
 
@@ -474,12 +429,11 @@ describe("crons et dates nulles", () => {
   it("la clôture et les courriels de résultats balaient sans erreur un examen sans dates", async () => {
     await saveNew({ ...base, questionIds: qIds.slice(0, 3) })
 
+    // Aucune participation du fichier n'est sur un examen clos.
     await expect(closeExpiredExamParticipations()).resolves.toMatchObject({
-      closedCount: expect.any(Number),
+      closedCount: 0,
     })
-    await expect(sendExamResultsNotifications()).resolves.toEqual(
-      expect.any(Number),
-    )
+    await expect(sendExamResultsNotifications()).resolves.toBe(0)
   })
 })
 
@@ -569,12 +523,11 @@ describe("finaliser", () => {
   it("le formulaire crée un examen finalisé : enregistrer puis finaliser", async () => {
     asAdmin()
     const res = await createFinalizedExam({
-      title: `Formulaire ${suffix}`,
+      title: "Formulaire",
       ...openWindow(),
       questionIds: qIds.slice(0, 10),
     })
     if (!res.success) throw new Error(res.error)
-    createdExams.push(res.examId)
 
     expect((await examRow(res.examId))?.completionTime).toBe(10 * 83)
     expect((await examRow(res.examId))?.finalizedAt).toBeInstanceOf(Date)
@@ -612,7 +565,7 @@ describe("modifier un examen finalisé", () => {
     const res = await saveExam({
       id: examId,
       ...base,
-      title: `Renommé ${suffix}`,
+      title: "Renommé",
       startDate: Date.now() + DAY,
       endDate: Date.now() + 8 * DAY,
       questionIds: order,
@@ -652,7 +605,7 @@ describe("modifier un examen finalisé", () => {
   it("un visé à 0 inséré par l'ancien déploiement se recale sur le jeu, participations comprises", async () => {
     const examId = await seedExam({
       createdBy: ADMIN_ID,
-      title: `Ancien déploiement ${suffix}`,
+      title: "Ancien déploiement",
       ...openWindow(),
       questionIds: qIds.slice(0, 10),
     })
@@ -670,7 +623,7 @@ describe("modifier un examen finalisé", () => {
     asAdmin()
     const res = await saveAndFinalize({
       id: examId,
-      title: `Ancien déploiement ${suffix}`,
+      title: "Ancien déploiement",
       ...openWindow(),
       questionIds: qIds.slice(0, 10),
     })
@@ -727,7 +680,7 @@ describe("verrou de clé et choix figés", () => {
     expect(
       await updateQuestion({
         id: questionId,
-        question: `Q libre ${suffix}`,
+        question: "Q libre",
         options: ["A", "B", "C", "D"],
         correctAnswer: "B",
         explanation: "Parce que.",
@@ -762,7 +715,7 @@ describe("verrou anonyme d'un examen en préparation sans dates", () => {
 
 describe("dernière utilisation", () => {
   it("un examen en préparation ne compte pas ; un examen finalisé, si", async () => {
-    // Fenêtres lointaines : ces deux examens sont les plus récents de la base.
+    // Fenêtres lointaines : ces deux examens sont les plus récents du fichier.
     const far = Date.UTC(2099, 0, 1)
     const finalizedId = await saveComplete({
       questionIds: qIds.slice(0, 10),

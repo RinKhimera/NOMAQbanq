@@ -1,18 +1,15 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAudience,
   examParticipations,
   examQuestions,
   exams,
-  products,
   questions,
   trainingSessionItems,
   trainingSessions,
-  transactions,
   user,
-  userAccess,
 } from "@/db/schema"
 import {
   getMyDashboard,
@@ -26,16 +23,12 @@ import { getCurrentSession } from "@/lib/dal"
 import { periodWindow } from "@/lib/dashboard-period"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
+import { seedAccess } from "../helpers/seed-payments"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.now()
-const suffix = createId().slice(0, 8)
 
 const ADMIN_ID = createId()
 const STUDENT_ID = createId()
@@ -43,18 +36,8 @@ const EMPTY_ID = createId()
 const TRAINER_ID = createId()
 const REVIEWER_ID = createId()
 const ARCHIVE_ID = createId()
-const users = [
-  ADMIN_ID,
-  STUDENT_ID,
-  EMPTY_ID,
-  TRAINER_ID,
-  REVIEWER_ID,
-  ARCHIVE_ID,
-]
 const LOCKED_QUESTION = createId()
 let openExam = ""
-const PID = createId()
-const examIds: string[] = []
 
 const setSession = (id: string | null, role: "user" | "admin" = "user") =>
   vi
@@ -76,11 +59,10 @@ const examWith = async ({
   active?: boolean
 }) => {
   const id = createId()
-  examIds.push(id)
   const completedAt = new Date(NOW - daysAgo * DAY)
   await db.insert(exams).values({
     id,
-    title: `Examen ${daysAgo} ${suffix}`,
+    title: `Examen ${daysAgo}`,
     startDate: new Date(completedAt.getTime() - DAY),
     // Un examen encore ouvert retient le score de ses participations.
     endDate: open
@@ -147,67 +129,18 @@ const series = async ({
 
 beforeAll(async () => {
   await db.insert(user).values([
-    { id: TRAINER_ID, name: "Tr", email: `sdtr-${suffix}@test.invalid` },
-    { id: REVIEWER_ID, name: "Rev", email: `sdrev-${suffix}@test.invalid` },
-    { id: ADMIN_ID, name: "Adm", email: `sdadm-${suffix}@test.invalid` },
-    { id: STUDENT_ID, name: "Stu", email: `sdstu-${suffix}@test.invalid` },
-    { id: EMPTY_ID, name: "Empty", email: `sdemp-${suffix}@test.invalid` },
-    { id: ARCHIVE_ID, name: "Arc", email: `sdarc-${suffix}@test.invalid` },
+    { id: TRAINER_ID, name: "Tr", email: "sdtr@test.invalid" },
+    { id: REVIEWER_ID, name: "Rev", email: "sdrev@test.invalid" },
+    { id: ADMIN_ID, name: "Adm", email: "sdadm@test.invalid" },
+    { id: STUDENT_ID, name: "Stu", email: "sdstu@test.invalid" },
+    { id: EMPTY_ID, name: "Empty", email: "sdemp@test.invalid" },
+    { id: ARCHIVE_ID, name: "Arc", email: "sdarc@test.invalid" },
   ])
-  await db.insert(products).values({
-    id: PID,
-    code: "exam_access",
-    name: "Exam",
-    description: "desc",
-    priceCad: 5000,
-    durationDays: 30,
-    accessType: "exam",
-    stripeProductId: `prod_${suffix}`,
-    stripePriceId: `price_${suffix}`,
-    stripePriceLookupKey: `price_${suffix}`,
-  })
   for (const userId of [STUDENT_ID, EMPTY_ID, ARCHIVE_ID]) {
-    const txId = createId()
-    await db.insert(transactions).values({
-      id: txId,
-      userId,
-      productId: PID,
-      type: "manual",
-      status: "completed",
-      amountPaid: 5000,
-      currency: "CAD",
-      accessType: "exam",
-      durationDays: 30,
-      accessExpiresAt: new Date(NOW + 20 * DAY),
-    })
-    await db.insert(userAccess).values({
-      userId,
-      accessType: "exam",
-      expiresAt: new Date(NOW + 20 * DAY),
-      lastTransactionId: txId,
-    })
+    await seedAccess(userId, "exam", new Date(NOW + 20 * DAY))
   }
-
   // Accès Entraînement échu il y a 3 jours.
-  const lapsedTx = createId()
-  await db.insert(transactions).values({
-    id: lapsedTx,
-    userId: EMPTY_ID,
-    productId: PID,
-    type: "manual",
-    status: "completed",
-    amountPaid: 5000,
-    currency: "CAD",
-    accessType: "training",
-    durationDays: 30,
-    accessExpiresAt: new Date(NOW - 3 * DAY),
-  })
-  await db.insert(userAccess).values({
-    userId: EMPTY_ID,
-    accessType: "training",
-    expiresAt: new Date(NOW - 3 * DAY),
-    lastTransactionId: lapsedTx,
-  })
+  await seedAccess(EMPTY_ID, "training", new Date(NOW - 3 * DAY))
 
   await examWith({ daysAgo: 2, score: 80 })
   await examWith({ daysAgo: 3, score: 60 })
@@ -272,7 +205,7 @@ beforeAll(async () => {
   // examen ouvert auquel il participe : score retenu.
   await db.insert(questions).values({
     id: LOCKED_QUESTION,
-    question: `Q ${suffix}`,
+    question: "Q retenue",
     correctAnswer: "A",
     options: ["A", "B"],
     objectiveId: TEST_OBJECTIVE_ID,
@@ -299,18 +232,6 @@ beforeAll(async () => {
     score: 100,
     answered: LOCKED_QUESTION,
   })
-})
-
-afterAll(async () => {
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.userId, users))
-  await db.delete(exams).where(inArray(exams.id, examIds))
-  await db.delete(questions).where(eq(questions.id, LOCKED_QUESTION))
-  await db.delete(userAccess).where(inArray(userAccess.userId, users))
-  await db.delete(transactions).where(inArray(transactions.userId, users))
-  await db.delete(products).where(eq(products.id, PID))
-  await db.delete(user).where(inArray(user.id, users))
 })
 
 describe("getMyDashboard — score moyen des examens blancs", () => {
@@ -370,7 +291,9 @@ describe("getMyDashboard — chiffres sur « Tout »", () => {
       expect(d?.exams.passedCount).toBe(2) // 80 et 60, au seuil
       expect(d?.exams.overallAverage).toBe(55)
     }
-    expect(week?.exams.availableCount).toBeGreaterThanOrEqual(5)
+    // Les 10 examens actifs du beforeAll, y compris ceux des autres comptes :
+    // l'accès ouvre tout examen de l'audience publique.
+    expect(week?.exams.availableCount).toBe(10)
   })
 
   it("sans accès Examens : aucun examen disponible", async () => {
@@ -420,10 +343,9 @@ describe("getMyDashboard — taux de complétion", () => {
 describe("getMyDashboard — examens disponibles et audience restreinte", () => {
   it("un examen restreint compte pour un membre, jamais pour un abonné hors audience", async () => {
     const restricted = createId()
-    examIds.push(restricted)
     await db.insert(exams).values({
       id: restricted,
-      title: `Restreint ${suffix}`,
+      title: "Restreint",
       startDate: new Date(NOW - DAY),
       endDate: new Date(NOW + DAY),
       isActive: true,
@@ -552,7 +474,8 @@ describe("getMyRecentActivity", () => {
   it("achats, participations et séries closes, du plus récent au plus ancien", async () => {
     setSession(STUDENT_ID)
     const items = await getMyRecentActivity()
-    expect(items.length).toBeLessThanOrEqual(6)
+    // 1 achat + 5 participations + 2 séries closes, coupés à 6.
+    expect(items).toHaveLength(6)
     // Octroi manuel : un accès activé, pas un paiement.
     expect(items[0]).toMatchObject({ kind: "purchase", manual: true })
     expect(items[1]).toMatchObject({ kind: "exam", score: null })

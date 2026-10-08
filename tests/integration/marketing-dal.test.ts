@@ -1,5 +1,4 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
 import { db } from "@/db"
 import { examParticipations, exams, user } from "@/db/schema"
 import { getMarketingStats } from "@/features/marketing/dal"
@@ -10,12 +9,6 @@ import {
 import { createId } from "@/lib/ids"
 import { PASS_THRESHOLD } from "@/lib/score"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
-
-const suffix = createId().slice(0, 8)
 const examId = createId()
 const creatorId = createId()
 // Assez de participations pour franchir le seuil de volume à coup sûr, dont
@@ -29,12 +22,12 @@ beforeAll(async () => {
   await db.insert(user).values({
     id: creatorId,
     name: "Créateur Marketing",
-    email: `mktg-${suffix}@test.invalid`,
+    email: "mktg@test.invalid",
     emailVerified: true,
   })
   await db.insert(exams).values({
     id: examId,
-    title: `Examen marketing ${suffix}`,
+    title: "Examen marketing",
     startDate: new Date(Date.now() - 48 * 60 * 60 * 1000),
     endDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
     completionTime: 3600,
@@ -46,7 +39,7 @@ beforeAll(async () => {
     userIds.map((id, i) => ({
       id,
       name: `Participant ${i}`,
-      email: `mktg-p-${i}-${suffix}@test.invalid`,
+      email: `mktg-p-${i}@test.invalid`,
       emailVerified: true,
     })),
   )
@@ -61,17 +54,7 @@ beforeAll(async () => {
   )
 })
 
-afterAll(async () => {
-  await db.delete(exams).where(eq(exams.id, examId)) // cascade participations
-  await db.delete(user).where(inArray(user.id, [creatorId, ...userIds]))
-})
-
 describe("getMarketingStats — successRate calculé", () => {
-  it("ne renvoie plus le champ rating", async () => {
-    const stats = await getMarketingStats()
-    expect(stats).not.toHaveProperty("rating")
-  })
-
   it("ne publie aucun nombre de questions par domaine", async () => {
     const stats = await getMarketingStats()
     expect(Object.keys(stats).toSorted()).toEqual([

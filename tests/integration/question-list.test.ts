@@ -1,13 +1,10 @@
-import { inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examQuestions,
   exams,
   questionExplanations,
   questions,
-  trainingSessionItems,
-  trainingSessions,
   user,
 } from "@/db/schema"
 import {
@@ -20,19 +17,14 @@ import {
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 import { objectiveIdFor } from "../helpers/objective"
+import { seedAnswers } from "../helpers/seed-answers"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
 
-const suffix = createId().slice(0, 8)
-// Domaine propre au fichier : aucun filtre ne voit la banque partagée.
-const DOMAIN = `LIST-${suffix}`
+const DOMAIN = "Domaine liste"
 const DAY = 24 * 60 * 60 * 1000
 const at = (days: number) => new Date(Date.UTC(2026, 0, 1) + days * DAY)
 
@@ -42,9 +34,7 @@ const ids = {
   recent: createId(), // sans ligne d'explication, 3 réponses
   newest: createId(), // références remplies, choix « Pénicilline G »
 }
-const createdUsers: string[] = []
-const createdSessions: string[] = []
-const createdExams: string[] = []
+const creatorId = createId()
 
 const mkQuestion = async (
   id: string,
@@ -55,7 +45,7 @@ const mkQuestion = async (
 ) =>
   db.insert(questions).values({
     id,
-    question: `Énoncé ${label} ${suffix}`,
+    question: `Énoncé ${label}`,
     correctAnswer: options[0],
     options,
     objectiveId: await objectiveIdFor(objective),
@@ -64,51 +54,19 @@ const mkQuestion = async (
     updatedAt: at(days + 100 - days * 2),
   })
 
-/** Une réponse d'entraînement d'un nouvel étudiant. */
-const answer = async (questionId: string, selected: string, key = "A") => {
-  const userId = createId()
-  createdUsers.push(userId)
-  await db.insert(user).values({
-    id: userId,
-    name: "Liste",
-    email: `list-${userId}@test.invalid`,
-    role: "user",
-  })
-  const sessionId = createId()
-  createdSessions.push(sessionId)
-  await db.insert(trainingSessions).values({
-    id: sessionId,
-    userId,
-    status: "completed",
-    mode: "test",
-    questionCount: 1,
-    startedAt: at(0),
-    expiresAt: at(1),
-  })
-  await db.insert(trainingSessionItems).values({
-    sessionId,
-    questionId,
-    position: 0,
-    selectedAnswer: selected,
-    isCorrect: selected === key,
-    answeredAt: at(0),
-  })
-}
-
 const mkExam = async (
   title: string,
   startDays: number,
   questionIds: string[],
 ) => {
   const id = createId()
-  createdExams.push(id)
   await db.insert(exams).values({
     id,
     title,
     startDate: at(startDays),
     endDate: at(startDays + 4),
     completionTime: 3600,
-    createdBy: createdUsers[0],
+    createdBy: creatorId,
     targetQuestionCount: 10,
     finalizedAt: new Date(),
   })
@@ -144,18 +102,14 @@ beforeAll(async () => {
   ])
 
   // Clé suspecte : B (7) plus choisie que la clé A (5), sur 12 réponses.
-  for (const choice of [...Array(5).fill("A"), ...Array(7).fill("B")])
-    await answer(ids.mid, choice)
-  for (const choice of ["A", "A", "B"]) await answer(ids.recent, choice)
-})
-
-afterAll(async () => {
-  await db.delete(exams).where(inArray(exams.id, createdExams))
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.id, createdSessions))
-  await db.delete(questions).where(inArray(questions.id, Object.values(ids)))
-  await db.delete(user).where(inArray(user.id, createdUsers))
+  await seedAnswers(ids.mid, [...Array(5).fill("A"), ...Array(7).fill("B")])
+  await seedAnswers(ids.recent, ["A", "A", "B"])
+  await db.insert(user).values({
+    id: creatorId,
+    name: "Créateur",
+    email: "createur@test.invalid",
+    role: "admin",
+  })
 })
 
 const listIds = async (filters: Parameters<typeof getQuestionList>[0]) =>
@@ -292,23 +246,22 @@ describe("examens d'une question et dernière utilisation", () => {
   let recentExams: string[] = []
 
   beforeAll(async () => {
-    // Trois examens plus récents que tout examen de la base partagée.
     recentExams = [
-      await mkExam(`Récent 1 ${suffix}`, 40000, [ids.mid]),
-      await mkExam(`Récent 2 ${suffix}`, 40014, [ids.mid, ids.newest]),
-      await mkExam(`Récent 3 ${suffix}`, 40028, []),
+      await mkExam("Récent 1", 10, [ids.mid]),
+      await mkExam("Récent 2", 20, [ids.mid, ids.newest]),
+      await mkExam("Récent 3", 30, []),
     ]
-    await mkExam(`Ancien ${suffix}`, 0, [ids.old])
+    await mkExam("Ancien", 0, [ids.old])
   })
 
   it("titre, fenêtre et activation, du plus récent au plus ancien", async () => {
     const used = await getQuestionExams(ids.mid)
     expect(used.map((e) => e.id)).toEqual([recentExams[1], recentExams[0]])
     expect(used[0]).toMatchObject({
-      title: `Récent 2 ${suffix}`,
+      title: "Récent 2",
       isActive: true,
-      startDate: at(40014).getTime(),
-      endDate: at(40018).getTime(),
+      startDate: at(20).getTime(),
+      endDate: at(24).getTime(),
     })
   })
 

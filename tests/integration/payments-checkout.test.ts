@@ -1,18 +1,11 @@
 import { eq } from "drizzle-orm"
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user } from "@/db/schema"
+import { transactions, user } from "@/db/schema"
 import { createStripeCheckout } from "@/features/payments/actions"
 import { createId } from "@/lib/ids"
 import { fakeStripe, stripeBox } from "../helpers/fake-stripe"
+import { seedProduct } from "../helpers/seed-payments"
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -20,10 +13,6 @@ const { mocks } = vi.hoisted(() => ({
   },
 }))
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(async () => ({
     user: { id: mocks.sessionUserId.current, email: "chk@test.invalid" },
@@ -35,9 +24,24 @@ vi.mock("@/lib/stripe", () =>
 )
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
-const suffix = createId().slice(0, 8)
-const USER_ID = createId()
-const PID = createId()
+const LOOKUP_KEY = "price_exam"
+let PID = ""
+
+/** Un acheteur neuf par test : ses transactions se comptent à partir de zéro. */
+const signIn = async () => {
+  const id = createId()
+  await db
+    .insert(user)
+    .values({ id, name: `Chk ${id}`, email: `chk-${id}@test.invalid` })
+  mocks.sessionUserId.current = id
+  return id
+}
+
+const transactionsOf = (userId: string) =>
+  db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(eq(transactions.userId, userId))
 
 beforeEach(() => {
   stripeBox.reset()
@@ -45,40 +49,20 @@ beforeEach(() => {
     id: "price_resolved",
     unit_amount: 5000,
     currency: "cad",
-    lookup_key: `price_${suffix}`,
+    lookup_key: LOOKUP_KEY,
   })
 })
 
 beforeAll(async () => {
-  await db.insert(user).values({
-    id: USER_ID,
-    name: `Chk ${suffix}`,
-    email: `chk-${suffix}@test.invalid`,
-  })
-  await db.insert(products).values({
-    id: PID,
-    code: "exam_access",
-    name: `Exam ${suffix}`,
-    description: "desc",
-    priceCad: 5000,
+  PID = await seedProduct("exam_access", {
     durationDays: 90,
-    accessType: "exam",
-    isCombo: false,
-    stripeProductId: `prod_${suffix}`,
-    stripePriceId: `price_${suffix}`,
-    stripePriceLookupKey: `price_${suffix}`,
+    stripePriceLookupKey: LOOKUP_KEY,
   })
-  mocks.sessionUserId.current = USER_ID
-})
-
-afterAll(async () => {
-  await db.delete(transactions).where(eq(transactions.userId, USER_ID))
-  await db.delete(products).where(eq(products.id, PID))
-  await db.delete(user).where(eq(user.id, USER_ID))
 })
 
 describe("createStripeCheckout", () => {
   it("crée une transaction pending liée à la session Stripe + metadata.userId", async () => {
+    const userId = await signIn()
     const res = await createStripeCheckout({
       productCode: "exam_access",
       successPath: "/tableau-de-bord",
@@ -89,7 +73,7 @@ describe("createStripeCheckout", () => {
     // metadata.userId transmis à Stripe (invariant anti-IDOR côté verify +
     // fulfillment) ; le produit est le seul `exam_access` de la base.
     const [sessionId, created] = [...stripeBox.checkoutSessions][0]!
-    expect(created.metadata?.userId).toBe(USER_ID)
+    expect(created.metadata?.userId).toBe(userId)
     expect(created.metadata?.productId).toBe(PID)
 
     // Transaction pending retrouvable par le webhook via stripeSessionId.
@@ -99,19 +83,15 @@ describe("createStripeCheckout", () => {
       .where(eq(transactions.stripeSessionId, sessionId))
     expect(tx.status).toBe("pending")
     expect(tx.type).toBe("stripe")
-    expect(tx.userId).toBe(USER_ID)
+    expect(tx.userId).toBe(userId)
     expect(tx.stripeSessionId).toBe(sessionId)
   })
 
-  // La devise d'un prix Stripe est immuable : un ecart ne peut pas etre un etat
-  // transitoire legitime. C'est le seul cas de refus restant au checkout.
-  it("devise Stripe ≠ cad → aucune transaction pending creee", async () => {
+  // La devise d'un prix Stripe est immuable : un écart ne peut pas être un état
+  // transitoire légitime. C'est le seul cas de refus restant au checkout.
+  it("devise Stripe ≠ cad → aucune transaction pending créée", async () => {
+    const userId = await signIn()
     stripeBox.prices[0]!.currency = "usd"
-
-    const before = await db
-      .select({ id: transactions.id })
-      .from(transactions)
-      .where(eq(transactions.userId, USER_ID))
 
     const res = await createStripeCheckout({
       productCode: "exam_access",
@@ -123,15 +103,11 @@ describe("createStripeCheckout", () => {
       error: "Ce produit est mal configuré. Contactez le support.",
     })
     expect(fakeStripe.createCheckoutSession).not.toHaveBeenCalled()
-
-    const after = await db
-      .select({ id: transactions.id })
-      .from(transactions)
-      .where(eq(transactions.userId, USER_ID))
-    expect(after.length).toBe(before.length)
+    expect(await transactionsOf(userId)).toEqual([])
   })
 
   it("refuse un productCode inconnu (pas d'appel Stripe)", async () => {
+    await signIn()
     const res = await createStripeCheckout({
       productCode: "does_not_exist",
       successPath: "/tableau-de-bord",
@@ -142,17 +118,13 @@ describe("createStripeCheckout", () => {
   })
 
   it("price_id absent du mode de la clé → message de configuration, aucun pending", async () => {
+    const userId = await signIn()
     // Ce que Stripe renvoie quand le price_id appartient à l'autre mode : les
     // préfixes étant identiques en test et en live, c'est le seul signal.
     stripeBox.failNext(
       "createCheckoutSession",
       Object.assign(new Error("No such price"), { code: "resource_missing" }),
     )
-
-    const before = await db
-      .select({ id: transactions.id })
-      .from(transactions)
-      .where(eq(transactions.userId, USER_ID))
 
     const res = await createStripeCheckout({
       productCode: "exam_access",
@@ -162,11 +134,6 @@ describe("createStripeCheckout", () => {
     expect(res).toEqual({
       error: "Ce produit est mal configuré. Contactez le support.",
     })
-
-    const after = await db
-      .select({ id: transactions.id })
-      .from(transactions)
-      .where(eq(transactions.userId, USER_ID))
-    expect(after).toHaveLength(before.length)
+    expect(await transactionsOf(userId)).toEqual([])
   })
 })

@@ -1,21 +1,14 @@
 import { eq } from "drizzle-orm"
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
+import { transactions, user } from "@/db/schema"
 import { sendAbandonedCartReminder } from "@/features/notifications/abandoned-cart"
 import { sendWelcomeEmailOnce } from "@/features/notifications/welcome"
 import { DELETION_GRACE_MS } from "@/features/users/lib/account-deletion"
 import { auth } from "@/lib/auth"
 import { createId } from "@/lib/ids"
 import { fakeMailer, mailbox } from "../helpers/fake-mailer"
+import { seedAccess, seedProduct } from "../helpers/seed-payments"
 
 vi.mock("@/email", () =>
   import("../helpers/fake-mailer").then((m) => m.fakeMailer),
@@ -42,12 +35,6 @@ beforeAll(async () => {
     { id: emailUid, name: "Courriel", email: `e-${emailUid}@test.invalid` },
     { id: loginUid, name: "Connexion", email: `l-${loginUid}@test.invalid` },
   ])
-})
-
-afterAll(async () => {
-  for (const id of [uid, googleUid, emailUid, loginUid]) {
-    await db.delete(user).where(eq(user.id, id))
-  }
 })
 
 beforeEach(() => mailbox.reset())
@@ -128,7 +115,6 @@ describe("hooks Better Auth", () => {
     } as never)
     expect(before).toBe(false)
     expect(await column(expiredUid, "deletedAt")).not.toBeNull()
-    await db.delete(user).where(eq(user.id, expiredUid))
   })
 
   it("réinitialisation et vérification transmettent le nom au courriel", async () => {
@@ -162,14 +148,13 @@ describe("hooks Better Auth", () => {
 
 describe("sendAbandonedCartReminder", () => {
   const DAY = 86400000
-  const exam = createId()
-  const combo = createId()
+  let exam: string
+  let combo: string
   const buyer = createId()
   const optOut = createId()
   const owner = createId()
   const halfOwner = createId()
   const recentBuyer = createId()
-  const all = [buyer, optOut, owner, halfOwner, recentBuyer]
 
   const seedTx = async (
     userId: string,
@@ -195,33 +180,16 @@ describe("sendAbandonedCartReminder", () => {
   }
 
   beforeAll(async () => {
-    await db.insert(products).values([
-      {
-        id: exam,
-        code: "exam_access",
-        name: "Accès examens",
-        description: "Accès examens",
-        priceCad: 20000,
-        durationDays: 90,
-        accessType: "exam",
-        stripeProductId: `prod_${exam}`,
-        stripePriceId: `price_${exam}`,
-        stripePriceLookupKey: `price_${exam}`,
-      },
-      {
-        id: combo,
-        code: "premium_access",
-        name: "Accès premium",
-        description: "Examens + entraînement",
-        priceCad: 35000,
-        durationDays: 180,
-        accessType: "exam",
-        isCombo: true,
-        stripeProductId: `prod_${combo}`,
-        stripePriceId: `price_${combo}`,
-        stripePriceLookupKey: `price_${combo}`,
-      },
-    ])
+    exam = await seedProduct("exam_access", {
+      name: "Accès examens",
+      priceCad: 20000,
+      durationDays: 90,
+    })
+    combo = await seedProduct("premium_access", {
+      name: "Accès premium",
+      priceCad: 35000,
+      durationDays: 180,
+    })
     await db.insert(user).values([
       { id: buyer, name: "Panier", email: `cart-${buyer}@test.invalid` },
       {
@@ -242,39 +210,16 @@ describe("sendAbandonedCartReminder", () => {
         email: `cart-${recentBuyer}@test.invalid`,
       },
     ])
-    // `user_access.last_transaction_id` est NOT NULL : un achat complété ancien
-    // sert d'ancre, hors de la fenêtre de 7 jours.
-    const ownerTx = await seedTx(owner, exam, {
-      status: "completed",
-      completedAt: new Date(Date.now() - 30 * DAY),
+    // Achats hors de la fenêtre de 7 jours : seule la garde d'accès actif
+    // peut alors retenir le rappel.
+    const longAgo = new Date(Date.now() - 30 * DAY)
+    await seedAccess(owner, "exam", new Date(Date.now() + 30 * DAY), {
+      productId: exam,
+      completedAt: longAgo,
     })
-    await db.insert(userAccess).values({
-      userId: owner,
-      accessType: "exam",
-      expiresAt: new Date(Date.now() + 30 * DAY),
-      lastTransactionId: ownerTx,
+    await seedAccess(halfOwner, "training", new Date(Date.now() + 30 * DAY), {
+      completedAt: longAgo,
     })
-    const halfTx = await seedTx(halfOwner, exam, {
-      status: "completed",
-      accessType: "training",
-      completedAt: new Date(Date.now() - 30 * DAY),
-    })
-    await db.insert(userAccess).values({
-      userId: halfOwner,
-      accessType: "training",
-      expiresAt: new Date(Date.now() + 30 * DAY),
-      lastTransactionId: halfTx,
-    })
-  })
-
-  afterAll(async () => {
-    for (const id of all) {
-      await db.delete(userAccess).where(eq(userAccess.userId, id))
-      await db.delete(transactions).where(eq(transactions.userId, id))
-      await db.delete(user).where(eq(user.id, id))
-    }
-    await db.delete(products).where(eq(products.id, exam))
-    await db.delete(products).where(eq(products.id, combo))
   })
 
   const cartSentAt = async (id: string) =>

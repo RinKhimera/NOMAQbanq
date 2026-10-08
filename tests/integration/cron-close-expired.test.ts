@@ -1,5 +1,5 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -16,13 +16,7 @@ import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
-
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 
 // Les deux crons ne portent que la sélection des expirées et le statut de
 // clôture ; le score de clôture appartient à `closeAttempts`, prouvé dans
@@ -33,39 +27,38 @@ const U3 = createId() // déjà terminé → intact
 const USERS = [U1, U2, U3]
 const qIds = Array.from({ length: 4 }, () => createId())
 
-const examPast = createId()
-const examFuture = createId()
-const pPast = createId()
-const pFuture = createId()
-const pDone = createId()
-
-const tsExpired = createId()
-const tsFuture = createId()
-const tsDone = createId()
-
 beforeAll(async () => {
-  const now = Date.now()
   await db.insert(user).values(
     USERS.map((id, i) => ({
       id,
-      name: `Cron ${suffix} ${i}`,
-      email: `${id.slice(0, 6)}-${suffix}@test.invalid`,
+      name: `Cron ${i}`,
+      email: `cron-${i}@test.invalid`,
     })),
   )
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `Q ${i} ${suffix} ?`,
+      question: `Q ${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
-      domain: `CRON-${suffix}`,
+      domain: "CRON",
     })),
   )
+})
 
+/**
+ * Un examen clos et un examen ouvert ; U1 en cours sur le clos (2 justes sur
+ * 4), U2 en cours sur l'ouvert, U3 déjà terminé sur le clos.
+ */
+const seedParticipations = async () => {
+  const now = Date.now()
+  const examPast = createId()
+  const examFuture = createId()
+  const ids = { pPast: createId(), pFuture: createId(), pDone: createId() }
   const mkExam = (id: string, endOffset: number) => ({
     id,
-    title: `Exam ${suffix} ${id.slice(0, 4)}`,
+    title: `Exam ${id.slice(0, 4)}`,
     startDate: new Date(now - 3 * DAY),
     endDate: new Date(now + endOffset),
     completionTime: 3600,
@@ -84,10 +77,9 @@ beforeAll(async () => {
         qIds.map((questionId, position) => ({ examId, questionId, position })),
       ),
     )
-
   await db.insert(examParticipations).values([
     {
-      id: pPast,
+      id: ids.pPast,
       examId: examPast,
       userId: U1,
       status: "in_progress",
@@ -95,7 +87,7 @@ beforeAll(async () => {
       startedAt: new Date(now - 2 * DAY),
     },
     {
-      id: pFuture,
+      id: ids.pFuture,
       examId: examFuture,
       userId: U2,
       status: "in_progress",
@@ -103,7 +95,7 @@ beforeAll(async () => {
       startedAt: new Date(now - 1000),
     },
     {
-      id: pDone,
+      id: ids.pDone,
       examId: examPast,
       userId: U3,
       status: "completed",
@@ -112,72 +104,16 @@ beforeAll(async () => {
       completedAt: new Date(now - DAY - 1000),
     },
   ])
-  await db.insert(examAnswers).values([
-    {
-      id: createId(),
-      participationId: pPast,
-      questionId: qIds[0],
-      selectedAnswer: "A",
-      isCorrect: true,
-    },
-    {
-      id: createId(),
-      participationId: pPast,
-      questionId: qIds[1],
-      selectedAnswer: "A",
-      isCorrect: true,
-    },
-    {
-      id: createId(),
-      participationId: pPast,
-      questionId: qIds[2],
-      selectedAnswer: "B",
-      isCorrect: false,
-    },
-  ])
-
-  const mkSession = (
-    id: string,
-    userId: string,
-    status: "in_progress" | "completed",
-    expiresOffset: number,
-  ) => ({
-    id,
-    userId,
-    status,
-    questionCount: 4,
-    score: status === "completed" ? 100 : null,
-    startedAt: new Date(now - 2 * DAY),
-    completedAt: status === "completed" ? new Date(now - DAY) : null,
-    expiresAt: new Date(now + expiresOffset),
-  })
-  await db
-    .insert(trainingSessions)
-    .values([
-      mkSession(tsExpired, U1, "in_progress", -DAY),
-      mkSession(tsFuture, U2, "in_progress", DAY),
-      mkSession(tsDone, U3, "completed", -DAY),
-    ])
-  await db.insert(trainingSessionItems).values(
-    qIds.map((questionId, position) => ({
-      id: createId(),
-      sessionId: tsExpired,
-      questionId,
-      position,
-      selectedAnswer: position < 3 ? "A" : null,
-      isCorrect: position < 2 ? true : position < 3 ? false : null,
+  await db.insert(examAnswers).values(
+    [true, true, false].map((isCorrect, i) => ({
+      participationId: ids.pPast,
+      questionId: qIds[i],
+      selectedAnswer: isCorrect ? "A" : "B",
+      isCorrect,
     })),
   )
-})
-
-afterAll(async () => {
-  await db.delete(exams).where(eq(exams.createdBy, U1)) // cascade questions/participations/answers
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.userId, USERS))
-  await db.delete(questions).where(inArray(questions.id, qIds))
-  await db.delete(user).where(inArray(user.id, USERS))
-})
+  return ids
+}
 
 const statusOf = (id: string) =>
   db
@@ -205,8 +141,10 @@ const sessionOf = (id: string) =>
 
 describe("closeExpiredExamParticipations", () => {
   it("ferme en auto_submitted la participation d'un examen terminé, laisse les autres", async () => {
+    const { pPast, pFuture, pDone } = await seedParticipations()
+
     const res = await closeExpiredExamParticipations()
-    expect(res.closedCount).toBeGreaterThanOrEqual(1)
+    expect(res.closedCount).toBe(1)
 
     const past = await statusOf(pPast)
     expect(past?.status).toBe("auto_submitted")
@@ -218,11 +156,11 @@ describe("closeExpiredExamParticipations", () => {
   })
 
   it("idempotent : une participation déjà fermée n'est pas re-traitée", async () => {
-    // pPast n'est plus `in_progress` → exclu du 2e passage, état inchangé.
-    // (On n'assertit pas un closedCount global : le balayage couvre toute la
-    // base, participations expirées des autres tests comprises.)
+    const { pPast } = await seedParticipations()
+    expect((await closeExpiredExamParticipations()).closedCount).toBe(1)
     const before = await statusOf(pPast)
-    await closeExpiredExamParticipations()
+
+    expect((await closeExpiredExamParticipations()).closedCount).toBe(0)
     const after = await statusOf(pPast)
     expect(after?.status).toBe("auto_submitted")
     expect(after?.score).toBe(50)
@@ -232,8 +170,44 @@ describe("closeExpiredExamParticipations", () => {
 
 describe("closeExpiredTrainingSessions", () => {
   it("ferme en abandoned la session expirée, laisse les autres", async () => {
+    const now = Date.now()
+    const tsExpired = createId()
+    const tsFuture = createId()
+    const tsDone = createId()
+    const mkSession = (
+      id: string,
+      userId: string,
+      status: "in_progress" | "completed",
+      expiresOffset: number,
+    ) => ({
+      id,
+      userId,
+      status,
+      questionCount: 4,
+      score: status === "completed" ? 100 : null,
+      startedAt: new Date(now - 2 * DAY),
+      completedAt: status === "completed" ? new Date(now - DAY) : null,
+      expiresAt: new Date(now + expiresOffset),
+    })
+    await db
+      .insert(trainingSessions)
+      .values([
+        mkSession(tsExpired, U1, "in_progress", -DAY),
+        mkSession(tsFuture, U2, "in_progress", DAY),
+        mkSession(tsDone, U3, "completed", -DAY),
+      ])
+    await db.insert(trainingSessionItems).values(
+      qIds.map((questionId, position) => ({
+        sessionId: tsExpired,
+        questionId,
+        position,
+        selectedAnswer: position < 3 ? "A" : null,
+        isCorrect: position < 2 ? true : position < 3 ? false : null,
+      })),
+    )
+
     const res = await closeExpiredTrainingSessions()
-    expect(res.closedCount).toBeGreaterThanOrEqual(1)
+    expect(res.closedCount).toBe(1)
 
     const expired = await sessionOf(tsExpired)
     expect(expired?.status).toBe("abandoned")

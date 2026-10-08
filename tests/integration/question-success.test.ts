@@ -1,5 +1,5 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -18,31 +18,21 @@ import {
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
+import { seedAnswers } from "../helpers/seed-answers"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
-
-const suffix = createId().slice(0, 8)
-const createdUsers: string[] = []
-const createdQuestions: string[] = []
-const createdSessions: string[] = []
-const createdExams: string[] = []
 
 const at = (minute: number) => new Date(Date.UTC(2026, 0, 1, 10, minute))
 
-const newQuestion = async () => {
+const newQuestion = async (domain = "Cardiologie") => {
   const id = createId()
-  createdQuestions.push(id)
   await db.insert(questions).values({
     id,
-    question: `Réussite ${suffix} ${id}`,
+    question: `Réussite ${id}`,
     correctAnswer: "A",
     options: ["A", "B", "C"],
     objectiveId: TEST_OBJECTIVE_ID,
-    domain: "Cardiologie",
+    domain,
   })
   return id
 }
@@ -52,11 +42,10 @@ const newUser = async (
   { deleted = false }: { deleted?: boolean } = {},
 ) => {
   const id = createId()
-  createdUsers.push(id)
   await db.insert(user).values({
     id,
     name: "Réussite",
-    email: `success-${id}-${suffix}@test.invalid`,
+    email: `success-${id}@test.invalid`,
     role,
     deletedAt: deleted ? new Date() : null,
   })
@@ -72,7 +61,6 @@ const answer = async (
   status: "completed" | "in_progress" = "completed",
 ) => {
   const sessionId = createId()
-  createdSessions.push(sessionId)
   await db.insert(trainingSessions).values({
     id: sessionId,
     userId,
@@ -103,10 +91,9 @@ const answerInExam = async (
   completedAt: Date | null,
 ) => {
   const examId = createId()
-  createdExams.push(examId)
   await db.insert(exams).values({
     id: examId,
-    title: `Réussite ${suffix}`,
+    title: "Réussite",
     startDate: at(0),
     endDate: at(59),
     completionTime: 3600,
@@ -131,12 +118,6 @@ const answerInExam = async (
   })
 }
 
-/** Autant d'étudiants que de choix, chacun répondant une fois. */
-const answeredBy = async (questionId: string, choices: ("A" | "B" | "C")[]) => {
-  for (const choice of choices)
-    await answer(await newUser(), questionId, choice)
-}
-
 /** Réécrit les options et la clé de `questionId`, comme une édition admin. */
 const edit = (questionId: string, options: string[], correctAnswer: string) =>
   db
@@ -144,10 +125,12 @@ const edit = (questionId: string, options: string[], correctAnswer: string) =>
     .set({ options, correctAnswer })
     .where(eq(questions.id, questionId))
 
-const rowOf = async (questionId: string) =>
-  (await getQuestionsWithFilters({ search: suffix, limit: 100 })).items.find(
-    (q) => q.id === questionId,
-  )
+/** Ligne de la liste admin : l'énoncé porte l'id de la question. */
+const rowOf = async (questionId: string) => {
+  const { items } = await getQuestionsWithFilters({ search: questionId })
+  expect(items).toHaveLength(1)
+  return items[0]
+}
 
 beforeAll(() => {
   vi.mocked(getCurrentSession).mockResolvedValue({
@@ -155,25 +138,16 @@ beforeAll(() => {
   } as never)
 })
 
-afterAll(async () => {
-  await db.delete(exams).where(inArray(exams.id, createdExams))
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.id, createdSessions))
-  await db.delete(questions).where(inArray(questions.id, createdQuestions))
-  await db.delete(user).where(inArray(user.id, createdUsers))
-})
-
 describe("taux de réussite d'une question", () => {
   it("rend la part de premières réponses justes et leur nombre", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "C"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "C"])
     expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 70 })
   })
 
   it("compte la première réponse d'un étudiant, pas sa révision", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
     const reviser = await newUser()
     await answer(reviser, q, "B", at(1))
     await answer(reviser, q, "A", at(2))
@@ -182,7 +156,7 @@ describe("taux de réussite d'une question", () => {
 
   it("jumeau : une première réponse juste reste juste malgré une erreur ensuite", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
     const reviser = await newUser()
     await answer(reviser, q, "A", at(1))
     await answer(reviser, q, "B", at(2))
@@ -191,13 +165,13 @@ describe("taux de réussite d'une question", () => {
 
   it("n'a pas de taux sous 10 réponses", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "B", "B", "B", "B"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "B", "B", "B", "B"])
     expect(await rowOf(q)).toMatchObject({ answerCount: 9, successRate: null })
   })
 
   it("date une réponse d'examen de la clôture : un examen clos avant l'entraînement est la première réponse", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
     const student = await newUser()
     await answerInExam(student, q, "B", at(1))
     await answer(student, q, "A", at(2))
@@ -206,7 +180,7 @@ describe("taux de réussite d'une question", () => {
 
   it("jumeau : un examen clos après l'entraînement n'est pas la première réponse", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
     const student = await newUser()
     await answer(student, q, "A", at(1))
     await answerInExam(student, q, "B", at(2))
@@ -215,7 +189,7 @@ describe("taux de réussite d'une question", () => {
 
   it("ne compte ni une question d'examen laissée vide, ni une participation non close, ni une session en cours", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
     await answerInExam(await newUser(), q, null, at(1))
     await answerInExam(await newUser(), q, "B", null)
     await answer(await newUser(), q, "B", at(1), "in_progress")
@@ -224,7 +198,7 @@ describe("taux de réussite d'une question", () => {
 
   it("ignore les réponses des comptes admin et supprimés", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A", "A"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A", "A"])
     await answer(await newUser("admin"), q, "B")
     await answer(await newUser("user", { deleted: true }), q, "B")
     expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 100 })
@@ -232,12 +206,13 @@ describe("taux de réussite d'une question", () => {
 })
 
 describe("filtre « À vérifier » et tri par taux de réussite", () => {
+  const DOMAIN = "Domaine à vérifier"
   const listed = async (
     filters: Parameters<typeof getQuestionsWithFilters>[0],
   ) =>
-    (
-      await getQuestionsWithFilters({ search: suffix, limit: 100, ...filters })
-    ).items.map((q) => q.id)
+    (await getQuestionsWithFilters({ domain: DOMAIN, ...filters })).items.map(
+      (q) => q.id,
+    )
 
   let suspect: string
   let tied: string
@@ -246,8 +221,8 @@ describe("filtre « À vérifier » et tri par taux de réussite", () => {
   let easy: string
 
   beforeAll(async () => {
-    suspect = await newQuestion()
-    await answeredBy(suspect, [
+    suspect = await newQuestion(DOMAIN)
+    await seedAnswers(suspect, [
       "A",
       "A",
       "A",
@@ -259,17 +234,17 @@ describe("filtre « À vérifier » et tri par taux de réussite", () => {
       "B",
       "C",
     ])
-    tied = await newQuestion()
-    await answeredBy(tied, ["A", "A", "A", "A", "A", "B", "B", "B", "B", "B"])
-    tooFew = await newQuestion()
-    await answeredBy(tooFew, ["A", "B", "B", "B", "B", "B", "B", "B", "B"])
-    solidSuspect = await newQuestion()
-    await answeredBy(solidSuspect, [
+    tied = await newQuestion(DOMAIN)
+    await seedAnswers(tied, ["A", "A", "A", "A", "A", "B", "B", "B", "B", "B"])
+    tooFew = await newQuestion(DOMAIN)
+    await seedAnswers(tooFew, ["A", "B", "B", "B", "B", "B", "B", "B", "B"])
+    solidSuspect = await newQuestion(DOMAIN)
+    await seedAnswers(solidSuspect, [
       ...Array<"A">(5).fill("A"),
       ...Array<"B">(7).fill("B"),
     ])
-    easy = await newQuestion()
-    await answeredBy(easy, Array<"A">(10).fill("A"))
+    easy = await newQuestion(DOMAIN)
+    await seedAnswers(easy, Array<"A">(10).fill("A"))
   })
 
   it("isole les questions où une autre option est strictement plus choisie que la clé, les plus répondues d'abord", async () => {
@@ -279,7 +254,7 @@ describe("filtre « À vérifier » et tri par taux de réussite", () => {
 
   it("compte le filtre dans le total paginé", async () => {
     const page = await getQuestionsWithFilters({
-      search: suffix,
+      domain: DOMAIN,
       limit: 1,
       toVerify: true,
     })
@@ -288,37 +263,42 @@ describe("filtre « À vérifier » et tri par taux de réussite", () => {
 
   it("ne change pas le total quand on trie seulement par taux", async () => {
     const sorted = await getQuestionsWithFilters({
-      search: suffix,
+      domain: DOMAIN,
       limit: 1,
       sortBy: "successRate",
     })
-    const plain = await getQuestionsWithFilters({ search: suffix, limit: 1 })
-    expect(sorted.total).toBe(plain.total)
-    expect(sorted.total).toBeGreaterThan(2)
+    const plain = await getQuestionsWithFilters({ domain: DOMAIN, limit: 1 })
+    expect([sorted.total, plain.total]).toEqual([5, 5])
   })
 
   it("trie par taux croissant, les questions non significatives en fin", async () => {
-    const ids = await listed({ sortBy: "successRate", sortOrder: "asc" })
-    // 40 %, 42 %, 50 %, 100 %.
-    const scored = [suspect, solidSuspect, tied, easy]
-    expect(ids.filter((id) => scored.includes(id))).toEqual(scored)
-    expect(ids.indexOf(tooFew)).toBeGreaterThan(ids.indexOf(easy))
+    // 40 %, 42 %, 50 %, 100 %, puis sans taux.
+    expect(await listed({ sortBy: "successRate", sortOrder: "asc" })).toEqual([
+      suspect,
+      solidSuspect,
+      tied,
+      easy,
+      tooFew,
+    ])
   })
 
   it("trie par taux décroissant, les questions non significatives toujours en fin", async () => {
-    const ids = await listed({ sortBy: "successRate", sortOrder: "desc" })
-    const scored = [easy, tied, solidSuspect, suspect]
-    expect(ids.filter((id) => scored.includes(id))).toEqual(scored)
-    expect(ids.indexOf(tooFew)).toBeGreaterThan(ids.indexOf(suspect))
+    expect(await listed({ sortBy: "successRate", sortOrder: "desc" })).toEqual([
+      easy,
+      tied,
+      solidSuspect,
+      suspect,
+      tooFew,
+    ])
   })
 
   it("l'export suit le filtre « À vérifier »", async () => {
-    const rows = await getQuestionsForExport({ search: suffix, toVerify: true })
+    const rows = await getQuestionsForExport({ domain: DOMAIN, toVerify: true })
     expect(rows.map((r) => r.id).sort()).toEqual([solidSuspect, suspect].sort())
   })
 
   it("l'export porte le taux de réussite et le nombre de réponses, sans taux sous le seuil", async () => {
-    const rows = await getQuestionsForExport({ search: suffix })
+    const rows = await getQuestionsForExport({ domain: DOMAIN })
     expect(rows.find((r) => r.id === easy)).toMatchObject({
       answerCount: 10,
       successRate: 100,
@@ -333,7 +313,7 @@ describe("filtre « À vérifier » et tri par taux de réussite", () => {
 describe("répartition des réponses d'une question", () => {
   it("rend chaque option avec son nombre et sa part, la clé marquée, cohérente avec le taux", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "B", "B", "B", "A"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "B", "B", "B", "A"])
     const breakdown = await getQuestionAnswerBreakdown(q)
     expect(breakdown).toEqual({
       answerCount: 10,
@@ -359,18 +339,14 @@ describe("répartition des réponses d'une question", () => {
 })
 
 describe("clé corrigée et option reformulée", () => {
-  const listedToVerify = async () =>
+  const isToVerify = async (questionId: string) =>
     (
-      await getQuestionsWithFilters({
-        search: suffix,
-        limit: 100,
-        toVerify: true,
-      })
-    ).items.map((q) => q.id)
+      await getQuestionsWithFilters({ search: questionId, toVerify: true })
+    ).items.some((q) => q.id === questionId)
 
   it("une clé corrigée recompte l'historique sur la nouvelle clé", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"])
     await edit(q, ["A", "B", "C"], "B")
     expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 30 })
     expect(await getQuestionAnswerBreakdown(q)).toMatchObject({
@@ -381,10 +357,10 @@ describe("clé corrigée et option reformulée", () => {
 
   it("une option-clé reformulée garde justes les anciennes réponses justes, sans passer « À vérifier »", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"])
     await edit(q, ["A 500 mg", "B", "C"], "A 500 mg")
     expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 70 })
-    expect(await listedToVerify()).not.toContain(q)
+    expect(await isToVerify(q)).toBe(false)
     expect(await getQuestionAnswerBreakdown(q)).toEqual({
       answerCount: 10,
       successRate: 70,
@@ -400,7 +376,7 @@ describe("clé corrigée et option reformulée", () => {
 
   it("un distracteur reformulé garde fausses ses réponses, rangées en formulation antérieure", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"])
     await edit(q, ["A", "B bis", "C"], "A")
     const breakdown = await getQuestionAnswerBreakdown(q)
     expect(breakdown).toMatchObject({
@@ -414,7 +390,7 @@ describe("clé corrigée et option reformulée", () => {
 
   it("compte les formulations antérieures dans le seuil de significativité", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "A", "B", "B", "B", "B"])
+    await seedAnswers(q, ["A", "A", "A", "A", "A", "B", "B", "B", "B"])
     await edit(q, ["A 500 mg", "B", "C"], "A 500 mg")
     await answer(await newUser(), q, "B")
     expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 50 })
@@ -422,10 +398,10 @@ describe("clé corrigée et option reformulée", () => {
 
   it("une formulation antérieure plus choisie que la clé actuelle ne rend pas la clé suspecte", async () => {
     const q = await newQuestion()
-    await answeredBy(q, ["A", "A", "A", "A", "B", "B", "B", "B", "B", "B"])
+    await seedAnswers(q, ["A", "A", "A", "A", "B", "B", "B", "B", "B", "B"])
     // Les six réponses « B » deviennent une formulation antérieure : elles ne
     // sont plus un distracteur actuel à comparer à la clé.
     await edit(q, ["A", "B bis", "C"], "A")
-    expect(await listedToVerify()).not.toContain(q)
+    expect(await isToVerify(q)).toBe(false)
   })
 })

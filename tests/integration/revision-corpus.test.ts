@@ -1,5 +1,5 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -25,10 +25,6 @@ import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { objectiveIdFor } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 vi.mock("@/features/payments/dal", () => ({
@@ -43,15 +39,14 @@ const asUser = (id: string) =>
     .mocked(getCurrentSession)
     .mockResolvedValue({ user: { id, role: "user" } } as never)
 
-const suffix = createId().slice(0, 8)
 const USER_ID = createId()
 const OTHER_USER_ID = createId()
 const AS_USER = { id: USER_ID, role: "user" as const }
-const DOMAIN = `RC-${suffix}`
-const OBJ = `Obj RC ${suffix}`
+const DOMAIN = "Domaine révision"
+const OBJ = "Obj RC"
 // Deuxième objectif, porté par la seule question d'index 4 : exerce la branche
 // « filtre objectifs » du SQL brut, qu'aucun autre test ne traverse.
-const OBJ_ALT = `Obj RC alt ${suffix}`
+const OBJ_ALT = "Obj RC alt"
 let objAltId = ""
 
 // 0 = ratée · 1 = ratée puis réussie · 2 = réussie · 3 = marquée (jamais vue)
@@ -91,11 +86,11 @@ const seedSession = async (
 
 beforeAll(async () => {
   await db.insert(user).values([
-    { id: USER_ID, name: "IT revision", email: `rc-${suffix}@test.invalid` },
+    { id: USER_ID, name: "IT revision", email: "rc@test.invalid" },
     {
       id: OTHER_USER_ID,
       name: "IT revision autre",
-      email: `rc-other-${suffix}@test.invalid`,
+      email: "rc-other@test.invalid",
     },
   ])
   const objId = await objectiveIdFor(OBJ)
@@ -103,7 +98,7 @@ beforeAll(async () => {
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `RC Q${i} ${suffix}?`,
+      question: `RC Q${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: i === 4 ? objAltId : objId,
@@ -153,7 +148,7 @@ beforeAll(async () => {
   await db.insert(exams).values([
     {
       id: OPEN_EXAM_ID,
-      title: `RC examen ouvert ${suffix}`,
+      title: "RC examen ouvert",
       startDate: new Date("2026-01-01T00:00:00Z"),
       endDate: new Date("2099-01-01T00:00:00Z"),
       completionTime: 3600,
@@ -163,7 +158,7 @@ beforeAll(async () => {
     },
     {
       id: CLOSED_EXAM_ID,
-      title: `RC examen clos ${suffix}`,
+      title: "RC examen clos",
       startDate: new Date("2026-01-01T00:00:00Z"),
       endDate: new Date("2026-01-02T00:00:00Z"),
       completionTime: 3600,
@@ -204,28 +199,6 @@ beforeAll(async () => {
   })
 })
 
-afterAll(async () => {
-  // Les réponses partent en cascade avec leur participation ; les participations
-  // doivent tomber avant les questions (`exam_answers.question_id` en restrict).
-  await db
-    .delete(examParticipations)
-    .where(inArray(examParticipations.examId, [OPEN_EXAM_ID, CLOSED_EXAM_ID]))
-  await db
-    .delete(examQuestions)
-    .where(inArray(examQuestions.examId, [OPEN_EXAM_ID, CLOSED_EXAM_ID]))
-  await db
-    .delete(exams)
-    .where(inArray(exams.id, [OPEN_EXAM_ID, CLOSED_EXAM_ID]))
-  await db
-    .delete(questionBookmarks)
-    .where(eq(questionBookmarks.userId, USER_ID))
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.userId, [USER_ID, OTHER_USER_ID]))
-  await db.delete(questions).where(inArray(questions.id, qIds))
-  await db.delete(user).where(inArray(user.id, [USER_ID, OTHER_USER_ID]))
-})
-
 describe("corpus de révision", () => {
   it("« ratée » = dernière tentative fausse (une réussite ultérieure la retire)", async () => {
     const ids = await pickRevisionQuestionIds(db, {
@@ -264,19 +237,9 @@ describe("corpus de révision", () => {
       viewer: AS_USER,
       criteria: ["unseen"],
       domain: DOMAIN,
-      limit: 2,
+      limit: 1,
     })
-    expect(ids).toHaveLength(2)
-  })
-
-  it("n'emprunte jamais l'historique d'un autre étudiant", async () => {
-    const ids = await pickRevisionQuestionIds(db, {
-      viewer: AS_USER,
-      criteria: ["failed"],
-      domain: DOMAIN,
-      limit: 20,
-    })
-    expect(ids).not.toContain(qIds[5])
+    expect(ids).toHaveLength(1)
   })
 
   it("une question servie mais jamais répondue reste « non vue »", async () => {

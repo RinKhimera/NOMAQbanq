@@ -38,6 +38,10 @@ export const createFinalizedExam = async (
     : { success: false, error: finalized.error }
 }
 
+/** « Enregistrer » seul : l'écrivain du jeu, sous le verrou de l'examen. */
+export const saveExamSettings = (input: CompleteExam & { id: string }) =>
+  saveExam(settings(input))
+
 /**
  * Ce que fait le formulaire d'un examen existant : « Enregistrer », puis
  * « Finaliser » s'il est repassé en préparation (jeu changé).

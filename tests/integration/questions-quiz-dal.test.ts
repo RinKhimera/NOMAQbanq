@@ -1,6 +1,5 @@
-import { eq, inArray } from "drizzle-orm"
 import { headers } from "next/headers"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examQuestions,
@@ -25,10 +24,6 @@ import { createId } from "@/lib/ids"
 import { getClientIpKey } from "@/lib/quiz-rate-limit"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
@@ -39,26 +34,32 @@ vi.mock("next/cache", () => ({
 }))
 vi.mock("next/headers", () => ({ headers: vi.fn() }))
 
-// Chaque test prend une "IP" unique (chaîne arbitraire : elle est HMAC-ée) →
-// compteurs indépendants entre tests. Les IPs utilisées sont tracées pour le
-// cleanup (les clés stockées sont des HMAC, non corrélables sans re-calcul).
-// `setIpHeader` (mock seul, ne mute PAS usedIps) est ce que le cleanup
-// utilise — itérer usedIps avec une fonction qui y push serait une boucle
-// infinie.
-const usedIps: string[] = []
-const setIpHeader = (ip: string) =>
+// Chaque test prend une « IP » neuve (chaîne arbitraire : elle est HMAC-ée),
+// donc son propre compteur.
+const withFreshIp = () =>
   vi
     .mocked(headers)
-    .mockResolvedValue(new Headers({ "x-forwarded-for": ip }) as never)
-const withIp = (ip: string) => {
-  usedIps.push(ip)
-  setIpHeader(ip)
+    .mockResolvedValue(
+      new Headers({ "x-forwarded-for": `ip-${createId()}` }) as never,
+    )
+
+/**
+ * Compteur déjà à `count` pour une IP neuve : le seuil de 30 est prouvé appel
+ * par appel dans `quiz-rate-limit.test.ts`, ici seul le branchement compte.
+ */
+const withQuotaAt = async (action: "load" | "score", count: number) => {
+  withFreshIp()
+  await db.insert(quizRateLimits).values({
+    key: await getClientIpKey(),
+    action,
+    count,
+    windowStart: new Date(),
+  })
 }
 
-const suffix = createId().slice(0, 8)
-const DOMAIN = `QUIZ-${suffix}`
+const DOMAIN = "Domaine quiz"
 // Domaine à part, plus peuplé que le plafond : sans lui, rien ne prouve le clamp.
-const CLAMP_DOMAIN = `QUIZ-CLAMP-${suffix}`
+const CLAMP_DOMAIN = "Domaine plafond"
 const clampIds = Array.from({ length: 11 }, () => createId())
 
 // qImg : 2 images, bonne réponse "A". q2 : aucune image, bonne réponse "B".
@@ -78,7 +79,7 @@ const examClosedId = createId()
 const mkQuestion = (id: string, correct: string) =>
   db.insert(questions).values({
     id,
-    question: `Question ${id.slice(0, 6)} ${suffix} ?`,
+    question: `Question ${id.slice(0, 6)} ?`,
     correctAnswer: correct,
     options: ["A", "B", "C", "D"],
     objectiveId: TEST_OBJECTIVE_ID,
@@ -92,7 +93,7 @@ beforeAll(async () => {
   await db.insert(questions).values(
     clampIds.map((id) => ({
       id,
-      question: `Question ${id.slice(0, 6)} ${suffix} ?`,
+      question: `Question ${id.slice(0, 6)} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
@@ -106,20 +107,20 @@ beforeAll(async () => {
   ])
 
   await db.insert(questionImages).values([
-    { questionId: qImg, storagePath: `quiz/${suffix}/1.jpg`, position: 1 },
-    { questionId: qImg, storagePath: `quiz/${suffix}/0.jpg`, position: 0 },
+    { questionId: qImg, storagePath: "quiz/1.jpg", position: 1 },
+    { questionId: qImg, storagePath: "quiz/0.jpg", position: 0 },
   ])
 
   await db.insert(user).values({
     id: examCreatorId,
     name: "Créateur Examen Quiz",
-    email: `quiz91-${suffix}@test.invalid`,
+    email: "createur-quiz@test.invalid",
     emailVerified: true,
   })
   await db.insert(exams).values([
     {
       id: examOpenId,
-      title: `Examen ouvert ${suffix}`,
+      title: "Examen ouvert",
       startDate: new Date(Date.now() - 60 * 60 * 1000),
       endDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
       completionTime: 3600,
@@ -129,7 +130,7 @@ beforeAll(async () => {
     },
     {
       id: examClosedId,
-      title: `Examen clos ${suffix}`,
+      title: "Examen clos",
       startDate: new Date(Date.now() - 48 * 60 * 60 * 1000),
       endDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
       completionTime: 3600,
@@ -142,22 +143,6 @@ beforeAll(async () => {
     { examId: examOpenId, questionId: qOpen, position: 0 },
     { examId: examClosedId, questionId: qClosed, position: 0 },
   ])
-})
-
-afterAll(async () => {
-  for (const ip of usedIps) {
-    setIpHeader(ip)
-    await db
-      .delete(quizRateLimits)
-      .where(eq(quizRateLimits.key, await getClientIpKey()))
-  }
-  await db.delete(exams).where(inArray(exams.id, [examOpenId, examClosedId]))
-  await db.delete(questionImages).where(inArray(questionImages.questionId, ids))
-  await db
-    .delete(questionExplanations)
-    .where(inArray(questionExplanations.questionId, ids))
-  await db.delete(questions).where(inArray(questions.id, [...ids, ...clampIds]))
-  await db.delete(user).where(eq(user.id, examCreatorId))
 })
 
 describe("lockFor anonyme (verrou du quiz public)", () => {
@@ -180,13 +165,6 @@ describe("getRandomQuizQuestions", () => {
     expect(new Set(all.map((q) => q._id))).toEqual(new Set(servable))
   })
 
-  it("ne sert jamais une question d'un examen ouvert (tirages répétés)", async () => {
-    for (let i = 0; i < 5; i++) {
-      const items = await getRandomQuizQuestions({ domain: DOMAIN, count: 10 })
-      expect(items.map((q) => q._id)).not.toContain(qOpen)
-    }
-  })
-
   it("clampe count à 10", async () => {
     const items = await getRandomQuizQuestions({
       domain: CLAMP_DOMAIN,
@@ -207,7 +185,7 @@ describe("getRandomQuizQuestions", () => {
     const items = await getRandomQuizQuestions({ domain: DOMAIN, count: 10 })
     const withImg = items.find((q) => q._id === qImg)
     expect(withImg?.images.map((i) => i.order)).toEqual([0, 1])
-    expect(withImg?.images[0].url).toContain(`quiz/${suffix}/0.jpg`)
+    expect(withImg?.images[0].url).toContain("quiz/0.jpg")
     expect(withImg?.images[0].url.startsWith("https://")).toBe(true)
 
     const noImg = items.find((q) => q._id === q2)
@@ -236,7 +214,7 @@ describe("scoreQuizAnswers (action publique)", () => {
   const EMPTY = { score: 0, totalQuestions: 0, questionResults: [] }
 
   it("score avec un jeton valide ; les ids hors jeton sont omis (anti-moisson)", async () => {
-    withIp(`ip-${createId()}`)
+    withFreshIp()
     const token = signQuizToken([qImg, q2])
     const result = await scoreQuizAnswers({
       token,
@@ -262,7 +240,7 @@ describe("scoreQuizAnswers (action publique)", () => {
   })
 
   it("refuse de servir la clé d'ids arbitraires sans jeton les couvrant", async () => {
-    withIp(`ip-${createId()}`)
+    withFreshIp()
     const token = signQuizToken([q2])
     const result = await scoreQuizAnswers({
       token,
@@ -272,7 +250,7 @@ describe("scoreQuizAnswers (action publique)", () => {
   })
 
   it("refuse un jeton falsifié ou malformé", async () => {
-    withIp(`ip-${createId()}`)
+    withFreshIp()
     const valid = signQuizToken([qImg])
     // Altère le PAYLOAD (1er segment) : c'est l'entrée string du HMAC, donc tout
     // changement casse la signature de façon déterministe. Altérer la SIGNATURE
@@ -295,7 +273,7 @@ describe("scoreQuizAnswers (action publique)", () => {
     const stale = signQuizToken([qImg])
     vi.useRealTimers()
 
-    withIp(`ip-${createId()}`)
+    withFreshIp()
     const result = await scoreQuizAnswers({
       token: stale,
       answers: [{ questionId: qImg, selectedAnswer: "A" }],
@@ -304,7 +282,7 @@ describe("scoreQuizAnswers (action publique)", () => {
   })
 
   it("n'expose jamais la clé d'une question d'examen ouvert, même sous jeton valide (examen ouvert après émission)", async () => {
-    withIp(`ip-${createId()}`)
+    withFreshIp()
     const token = signQuizToken([qOpen, q2])
     const result = await scoreQuizAnswers({
       token,
@@ -318,7 +296,7 @@ describe("scoreQuizAnswers (action publique)", () => {
   })
 
   it("déduplique un id répété dans answers (compté une seule fois)", async () => {
-    withIp(`ip-${createId()}`)
+    withFreshIp()
     const token = signQuizToken([q2])
     const result = await scoreQuizAnswers({
       token,
@@ -332,7 +310,7 @@ describe("scoreQuizAnswers (action publique)", () => {
   })
 
   it("refuse une entrée hors bornes zod (> 10 réponses)", async () => {
-    withIp(`ip-${createId()}`)
+    withFreshIp()
     const token = signQuizToken([qImg])
     const result = await scoreQuizAnswers({
       token,
@@ -344,27 +322,21 @@ describe("scoreQuizAnswers (action publique)", () => {
     expect(result).toEqual(EMPTY)
   })
 
-  it("refuse au-delà de 30 scorings/h pour la même IP", async () => {
-    withIp(`ip-${createId()}`)
+  it("score encore au 30ᵉ appel de l'heure, refuse au 31ᵉ", async () => {
     const token = signQuizToken([q2])
-    for (let i = 0; i < 30; i++) {
-      const r = await scoreQuizAnswers({
-        token,
-        answers: [{ questionId: q2, selectedAnswer: "B" }],
-      })
-      expect(r.totalQuestions).toBe(1)
-    }
-    const refused = await scoreQuizAnswers({
-      token,
-      answers: [{ questionId: q2, selectedAnswer: "B" }],
-    })
-    expect(refused).toEqual(EMPTY)
+    const answers = [{ questionId: q2, selectedAnswer: "B" }]
+
+    await withQuotaAt("score", 29)
+    expect((await scoreQuizAnswers({ token, answers })).score).toBe(1)
+
+    await withQuotaAt("score", 30)
+    expect(await scoreQuizAnswers({ token, answers })).toEqual(EMPTY)
   })
 })
 
 describe("loadRandomQuizQuestions (action publique)", () => {
   it("renvoie les questions et un jeton couvrant exactement les ids servis", async () => {
-    withIp(`ip-${createId()}`)
+    withFreshIp()
     const bundle = await loadRandomQuizQuestions({
       count: 3,
       domain: DOMAIN,
@@ -376,24 +348,19 @@ describe("loadRandomQuizQuestions (action publique)", () => {
     )
   })
 
-  it("refuse au-delà de 30 tirages/h pour la même IP", async () => {
-    withIp(`ip-${createId()}`)
-    for (let i = 0; i < 30; i++) {
-      const bundle = await loadRandomQuizQuestions({
-        count: 1,
-        domain: DOMAIN,
-      })
-      expect(bundle.token).not.toBeNull()
-    }
-    const refused = await loadRandomQuizQuestions({
-      count: 1,
-      domain: DOMAIN,
-    })
-    expect(refused).toEqual({ questions: [], token: null })
+  it("tire encore au 30ᵉ appel de l'heure, refuse au 31ᵉ", async () => {
+    await withQuotaAt("load", 29)
+    const served = await loadRandomQuizQuestions({ count: 1, domain: DOMAIN })
+    expect(served.token).not.toBeNull()
+
+    await withQuotaAt("load", 30)
+    expect(await loadRandomQuizQuestions({ count: 1, domain: DOMAIN })).toEqual(
+      { questions: [], token: null },
+    )
   })
 
   it("refuse un count non numérique (zod) sans throw", async () => {
-    withIp(`ip-${createId()}`)
+    withFreshIp()
     const bundle = await loadRandomQuizQuestions({ count: "abc" as never })
     expect(bundle).toEqual({ questions: [], token: null })
   })

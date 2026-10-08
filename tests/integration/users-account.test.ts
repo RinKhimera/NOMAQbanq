@@ -1,5 +1,5 @@
-import { and, eq, isNull, ne } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { and, eq, inArray, isNull, ne } from "drizzle-orm"
+import { describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { account, session, user } from "@/db/schema"
 import {
@@ -26,13 +26,17 @@ vi.mock("@/lib/auth", () => ({ auth: { api: {} } }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("next/headers", () => ({ headers: vi.fn() }))
 
-const userId = createId()
-const googleAccountId = createId()
-const currentSessionId = createId()
-const otherSessionId = createId()
-const userEmail = `account-${userId}@test.invalid`
+/**
+ * Compte connecté par mot de passe et Google, avec deux sessions actives dont
+ * la courante ; les gardes de session sont branchées dessus.
+ */
+const seedSignedInAccount = async () => {
+  const userId = createId()
+  const googleAccountId = createId()
+  const currentSessionId = createId()
+  const otherSessionId = createId()
+  const userEmail = `account-${userId}@test.invalid`
 
-beforeAll(async () => {
   await db.insert(user).values({
     id: userId,
     name: "Compte Test",
@@ -80,16 +84,18 @@ beforeAll(async () => {
   }
   vi.mocked(getCurrentSession).mockResolvedValue(sessionShape as never)
   vi.mocked(requireSession).mockResolvedValue(sessionShape as never)
-})
-
-afterAll(async () => {
-  await db.delete(session).where(eq(session.userId, userId))
-  await db.delete(account).where(eq(account.userId, userId))
-  await db.delete(user).where(eq(user.id, userId))
-})
+  return {
+    userId,
+    userEmail,
+    googleAccountId,
+    currentSessionId,
+    otherSessionId,
+  }
+}
 
 describe("getLoginMethods", () => {
   it("indique mot de passe + Google liés et email vérifié, sans secret", async () => {
+    const { googleAccountId } = await seedSignedInAccount()
     const methods = await getLoginMethods()
     expect(methods).not.toBeNull()
     expect(methods?.hasPassword).toBe(true)
@@ -110,6 +116,7 @@ describe("account — identité (provider_id, account_id)", () => {
   // échouer pour une autre raison (colonne obligatoire oubliée) et faire passer
   // à tort un test de refus.
   it("refuse qu'un second utilisateur lie le même compte Google", async () => {
+    const { userId } = await seedSignedInAccount()
     const otherId = createId()
     await db.insert(user).values({
       id: otherId,
@@ -129,10 +136,10 @@ describe("account — identité (provider_id, account_id)", () => {
       .from(account)
       .where(eq(account.userId, otherId))
     expect(rows).toHaveLength(0)
-    await db.delete(user).where(eq(user.id, otherId))
   })
 
   it("accepte le même account_id chez un autre fournisseur", async () => {
+    const { userId } = await seedSignedInAccount()
     const otherId = createId()
     await db.insert(user).values({
       id: otherId,
@@ -150,12 +157,12 @@ describe("account — identité (provider_id, account_id)", () => {
       .from(account)
       .where(eq(account.userId, otherId))
     expect(rows).toHaveLength(1)
-    await db.delete(user).where(eq(user.id, otherId))
   })
 })
 
 describe("getUserSessions", () => {
   it("liste les sessions actives, marque la courante, sans token", async () => {
+    const { currentSessionId } = await seedSignedInAccount()
     const sessions = await getUserSessions()
     expect(sessions).toHaveLength(2)
     const current = sessions.find((s) => s.isCurrent)
@@ -166,6 +173,8 @@ describe("getUserSessions", () => {
   })
 
   it("exclut les sessions expirées", async () => {
+    const { userId, currentSessionId, otherSessionId } =
+      await seedSignedInAccount()
     const expiredId = createId()
     await db.insert(session).values({
       id: expiredId,
@@ -174,18 +183,26 @@ describe("getUserSessions", () => {
       expiresAt: new Date(Date.now() - 1000),
     })
     const sessions = await getUserSessions()
-    expect(sessions.some((s) => s.id === expiredId)).toBe(false)
-    await db.delete(session).where(eq(session.id, expiredId))
+    expect(sessions.map((s) => s.id).sort()).toEqual(
+      [currentSessionId, otherSessionId].sort(),
+    )
   })
 })
 
 describe("revokeUserSession", () => {
   it("refuse de révoquer la session courante", async () => {
+    const { currentSessionId } = await seedSignedInAccount()
     const res = await revokeUserSession(currentSessionId)
     expect(res.success).toBe(false)
+    const rows = await db
+      .select({ id: session.id })
+      .from(session)
+      .where(eq(session.id, currentSessionId))
+    expect(rows).toHaveLength(1)
   })
 
   it("révoque une autre session appartenant à l'utilisateur", async () => {
+    const { userId, otherSessionId } = await seedSignedInAccount()
     const res = await revokeUserSession(otherSessionId)
     expect(res.success).toBe(true)
     const rows = await db
@@ -196,6 +213,7 @@ describe("revokeUserSession", () => {
   })
 
   it("ne révoque pas la session d'un autre utilisateur (IDOR)", async () => {
+    await seedSignedInAccount()
     const strangerId = createId()
     const strangerSession = createId()
     await db.insert(user).values({
@@ -216,13 +234,12 @@ describe("revokeUserSession", () => {
       .from(session)
       .where(eq(session.id, strangerSession))
     expect(rows).toHaveLength(1)
-    await db.delete(session).where(eq(session.userId, strangerId))
-    await db.delete(user).where(eq(user.id, strangerId))
   })
 })
 
 describe("revokeOtherUserSessions", () => {
   it("supprime toutes les sessions sauf la courante", async () => {
+    const { userId, currentSessionId } = await seedSignedInAccount()
     const extraId = createId()
     await db.insert(session).values({
       id: extraId,
@@ -236,30 +253,25 @@ describe("revokeOtherUserSessions", () => {
       .select({ id: session.id })
       .from(session)
       .where(eq(session.userId, userId))
-    expect(rows).toHaveLength(1)
-    expect(rows[0]?.id).toBe(currentSessionId)
+    expect(rows).toEqual([{ id: currentSessionId }])
   })
 })
 
-// ⚠️ En dernier parmi les tests utilisant `userId` actif : marque le compte comme
-// supprimé et détruit ses sessions.
 describe("deleteMyAccount", () => {
   it("refuse si l'email de confirmation ne correspond pas", async () => {
+    const { userId } = await seedSignedInAccount()
     const res = await deleteMyAccount({ confirmEmail: "mauvais@test.invalid" })
     expect(res.success).toBe(false)
+    const [u] = await db
+      .select({ deletedAt: user.deletedAt })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+    expect(u?.deletedAt).toBeNull()
   })
 
   it("pose deletedAt, supprime les sessions, sans anonymiser", async () => {
-    await db
-      .insert(session)
-      .values({
-        id: currentSessionId,
-        userId,
-        token: `tok-${currentSessionId}`,
-        expiresAt: new Date(Date.now() + 86400000),
-      })
-      .onConflictDoNothing()
-
+    const { userId, userEmail } = await seedSignedInAccount()
     const res = await deleteMyAccount({ confirmEmail: userEmail })
     expect(res.success).toBe(true)
 
@@ -301,7 +313,7 @@ describe("anonymizeExpiredDeletedAccounts", () => {
     })
 
     const res: AnonymizeResult = await anonymizeExpiredDeletedAccounts()
-    expect(res.anonymizedCount).toBeGreaterThanOrEqual(1)
+    expect(res.anonymizedCount).toBe(1)
 
     const [u] = await db
       .select({
@@ -321,12 +333,16 @@ describe("anonymizeExpiredDeletedAccounts", () => {
       .from(account)
       .where(eq(account.userId, oldId))
     expect(accs).toHaveLength(0)
-
-    await db.delete(user).where(eq(user.id, oldId))
   })
 })
 
+// La garde compte les admins de toute la base : chaque test retire les siens
+// dans un `finally`, sans quoi le suivant verrait un « autre admin » (sessions
+// et comptes partent en cascade).
 describe("deleteMyAccount — garde dernier admin", () => {
+  const removeUsers = (...ids: string[]) =>
+    db.delete(user).where(inArray(user.id, ids))
+
   it("autorise la suppression d'un admin s'il en reste un autre", async () => {
     const adminA = createId()
     const adminB = createId()
@@ -340,23 +356,23 @@ describe("deleteMyAccount — garde dernier admin", () => {
         role: "admin",
       },
     ])
-    vi.mocked(requireSession).mockResolvedValueOnce({
-      user: { id: adminA, email: emailA, role: "admin" },
-      session: { id: createId() },
-    } as never)
+    try {
+      vi.mocked(requireSession).mockResolvedValueOnce({
+        user: { id: adminA, email: emailA, role: "admin" },
+        session: { id: createId() },
+      } as never)
 
-    const res = await deleteMyAccount({ confirmEmail: emailA })
-    expect(res.success).toBe(true)
-    const [u] = await db
-      .select({ deletedAt: user.deletedAt })
-      .from(user)
-      .where(eq(user.id, adminA))
-      .limit(1)
-    expect(u?.deletedAt).not.toBeNull()
-
-    await db.delete(session).where(eq(session.userId, adminA))
-    await db.delete(user).where(eq(user.id, adminA))
-    await db.delete(user).where(eq(user.id, adminB))
+      const res = await deleteMyAccount({ confirmEmail: emailA })
+      expect(res.success).toBe(true)
+      const [u] = await db
+        .select({ deletedAt: user.deletedAt })
+        .from(user)
+        .where(eq(user.id, adminA))
+        .limit(1)
+      expect(u?.deletedAt).not.toBeNull()
+    } finally {
+      await removeUsers(adminA, adminB)
+    }
   })
 
   it("refuse la suppression du seul admin actif", async () => {
@@ -368,30 +384,31 @@ describe("deleteMyAccount — garde dernier admin", () => {
       email: emailSolo,
       role: "admin",
     })
+    try {
+      // Précondition : un autre admin rendrait la suppression légitime, et le
+      // refus ne serait plus testé.
+      const activeAdmins = await db
+        .select({ id: user.id })
+        .from(user)
+        .where(and(eq(user.role, "admin"), isNull(user.deletedAt)))
+      expect(activeAdmins).toEqual([{ id: soloAdmin }])
 
-    // Précondition : un admin laissé par un test précédent rendrait la
-    // suppression légitime, et le refus ne serait plus testé.
-    const activeAdmins = await db
-      .select({ id: user.id })
-      .from(user)
-      .where(and(eq(user.role, "admin"), isNull(user.deletedAt)))
-    expect(activeAdmins).toEqual([{ id: soloAdmin }])
+      vi.mocked(requireSession).mockResolvedValueOnce({
+        user: { id: soloAdmin, email: emailSolo, role: "admin" },
+        session: { id: createId() },
+      } as never)
+      const res = await deleteMyAccount({ confirmEmail: emailSolo })
+      expect(res.success).toBe(false)
 
-    vi.mocked(requireSession).mockResolvedValueOnce({
-      user: { id: soloAdmin, email: emailSolo, role: "admin" },
-      session: { id: createId() },
-    } as never)
-    const res = await deleteMyAccount({ confirmEmail: emailSolo })
-    expect(res.success).toBe(false)
-
-    const [u] = await db
-      .select({ deletedAt: user.deletedAt })
-      .from(user)
-      .where(eq(user.id, soloAdmin))
-      .limit(1)
-    expect(u?.deletedAt).toBeNull()
-
-    await db.delete(user).where(eq(user.id, soloAdmin))
+      const [u] = await db
+        .select({ deletedAt: user.deletedAt })
+        .from(user)
+        .where(eq(user.id, soloAdmin))
+        .limit(1)
+      expect(u?.deletedAt).toBeNull()
+    } finally {
+      await removeUsers(soloAdmin)
+    }
   })
 
   it("un admin suspendu ne compte pas comme « autre admin »", async () => {
@@ -409,33 +426,32 @@ describe("deleteMyAccount — garde dernier admin", () => {
         banReason: "test",
       },
     ])
-    // Précondition sans le prédicat `banned` de l'implémentation : hors A et B,
-    // aucun admin. Un garde manquant compterait alors B et laisserait passer
-    // la suppression.
-    const otherAdminsIgnoringB = await db
-      .select({ id: user.id })
-      .from(user)
-      .where(
-        and(
-          eq(user.role, "admin"),
-          isNull(user.deletedAt),
-          ne(user.id, adminA),
-          ne(user.id, bannedB),
-        ),
-      )
-    vi.mocked(requireSession).mockResolvedValueOnce({
-      user: { id: adminA, email: emailA, role: "admin" },
-      session: { id: createId() },
-    } as never)
+    try {
+      // Précondition sans le prédicat `banned` de l'implémentation : hors A et
+      // B, aucun admin. Un garde manquant compterait alors B et laisserait
+      // passer la suppression.
+      const otherAdminsIgnoringB = await db
+        .select({ id: user.id })
+        .from(user)
+        .where(
+          and(
+            eq(user.role, "admin"),
+            isNull(user.deletedAt),
+            ne(user.id, adminA),
+            ne(user.id, bannedB),
+          ),
+        )
+      expect(otherAdminsIgnoringB).toEqual([])
 
-    expect(otherAdminsIgnoringB).toEqual([])
-
-    const res = await deleteMyAccount({ confirmEmail: emailA })
-    // B est admin mais suspendu : il ne sauve pas A.
-    expect(res.success).toBe(false)
-
-    await db.delete(session).where(eq(session.userId, adminA))
-    await db.delete(user).where(eq(user.id, adminA))
-    await db.delete(user).where(eq(user.id, bannedB))
+      vi.mocked(requireSession).mockResolvedValueOnce({
+        user: { id: adminA, email: emailA, role: "admin" },
+        session: { id: createId() },
+      } as never)
+      const res = await deleteMyAccount({ confirmEmail: emailA })
+      // B est admin mais suspendu : il ne sauve pas A.
+      expect(res.success).toBe(false)
+    } finally {
+      await removeUsers(adminA, bannedB)
+    }
   })
 })

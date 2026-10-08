@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { user } from "@/db/schema"
 import { updateNotificationPreferences } from "@/features/notifications/actions"
@@ -12,23 +12,21 @@ vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 vi.mock("@/lib/auth-guards", () => ({ requireSession: vi.fn() }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
-const uid = createId()
-
-beforeAll(async () => {
+/** Nouvel utilisateur aux préférences par défaut, connecté pour la suite du test. */
+const signInNewUser = async () => {
+  const id = createId()
   await db
     .insert(user)
-    .values({ id: uid, name: "Prefs", email: `prefs-${uid}@test.invalid` })
-  const shape = { user: { id: uid }, session: { id: createId() } }
+    .values({ id, name: "Prefs", email: `prefs-${id}@test.invalid` })
+  const shape = { user: { id }, session: { id: createId() } }
   vi.mocked(getCurrentSession).mockResolvedValue(shape as never)
   vi.mocked(requireSession).mockResolvedValue(shape as never)
-})
-
-afterAll(async () => {
-  await db.delete(user).where(eq(user.id, uid))
-})
+  return id
+}
 
 describe("préférences de notification", () => {
-  it("valeurs par défaut = opt-out (les 2 activées)", async () => {
+  it("valeurs par défaut = opt-out (les 3 activées)", async () => {
+    await signInNewUser()
     const prefs = await getNotificationPreferences()
     expect(prefs).toEqual({
       examResults: true,
@@ -37,7 +35,8 @@ describe("préférences de notification", () => {
     })
   })
 
-  it("updateNotificationPreferences persiste les 2 booléens", async () => {
+  it("updateNotificationPreferences persiste les 3 booléens", async () => {
+    const uid = await signInNewUser()
     const res = await updateNotificationPreferences({
       examResults: false,
       accessExpiry: true,

@@ -1,13 +1,5 @@
 import { eq } from "drizzle-orm"
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { user } from "@/db/schema"
 import { updateUserRole } from "@/features/users/actions"
@@ -65,11 +57,6 @@ beforeAll(async () => {
   ])
 })
 
-afterAll(async () => {
-  await db.delete(user).where(eq(user.id, adminId))
-  await db.delete(user).where(eq(user.id, targetId))
-})
-
 beforeEach(async () => {
   await db
     .update(user)
@@ -77,7 +64,7 @@ beforeEach(async () => {
     .where(eq(user.id, adminId))
   await db
     .update(user)
-    .set({ role: "user", deletedAt: null })
+    .set({ role: "user", deletedAt: null, banned: false, banReason: null })
     .where(eq(user.id, targetId))
   mockCallerSession()
 })
@@ -163,10 +150,6 @@ describe("updateUserRole", () => {
       error: "Levez d'abord la suspension de ce compte.",
     })
     expect(await getRole(targetId)).toBe("user")
-    await db
-      .update(user)
-      .set({ banned: false, banReason: null })
-      .where(eq(user.id, targetId))
   })
 
   it("refuse un rôle hors enum (zod)", async () => {

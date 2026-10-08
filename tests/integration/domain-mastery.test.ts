@@ -1,5 +1,5 @@
-import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, describe, expect, it, vi } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -16,27 +16,16 @@ import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
-
-const suffix = createId().slice(0, 8)
-const createdUsers: string[] = []
-const createdQuestions: string[] = []
-const createdSessions: string[] = []
-const createdExams: string[] = []
 
 const at = (iso: string) => new Date(`2026-01-01T${iso}:00Z`)
 
 const newStudent = async () => {
   const id = createId()
-  createdUsers.push(id)
   await db.insert(user).values({
     id,
     name: "Maîtrise",
-    email: `mastery-${id}-${suffix}@test.invalid`,
+    email: `mastery-${id}@test.invalid`,
   })
   vi.mocked(getCurrentSession).mockResolvedValue({
     user: { id, role: "user" },
@@ -49,10 +38,9 @@ const newQuestion = async (
   { deleted = false }: { deleted?: boolean } = {},
 ) => {
   const id = createId()
-  createdQuestions.push(id)
   await db.insert(questions).values({
     id,
-    question: `Q ${suffix}`,
+    question: "Q",
     correctAnswer: "A",
     options: ["A", "B"],
     objectiveId: TEST_OBJECTIVE_ID,
@@ -69,7 +57,6 @@ const train = async (
   { status = "completed" }: { status?: "completed" | "in_progress" } = {},
 ) => {
   const sessionId = createId()
-  createdSessions.push(sessionId)
   await db.insert(trainingSessions).values({
     id: sessionId,
     userId,
@@ -104,11 +91,10 @@ const sitExam = async (
   { open, completedAt }: { open: boolean; completedAt: Date | null },
 ) => {
   const examId = createId()
-  createdExams.push(examId)
   const now = Date.now()
   await db.insert(exams).values({
     id: examId,
-    title: `Maîtrise ${suffix}`,
+    title: "Maîtrise",
     startDate: new Date(now - 10 * DAY),
     endDate: open ? new Date(now + DAY) : new Date(now - DAY),
     completionTime: 3600,
@@ -153,23 +139,24 @@ const closeSession = (sessionId: string) =>
 const masteryOf = async (domain: string) =>
   (await getMyDomainMastery()).find((d) => d.domain === domain)
 
-afterAll(async () => {
-  await db.delete(exams).where(inArray(exams.id, createdExams))
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.id, createdSessions))
-  await db.delete(questions).where(inArray(questions.id, createdQuestions))
-  await db.delete(user).where(inArray(user.id, createdUsers))
-})
-
 describe("maîtrise par domaine", () => {
   it("rend la part de réponses justes du domaine, et rien pour un domaine jamais pratiqué", async () => {
-    const student = await newStudent()
     const [q1, q2, q3] = [
       await newQuestion("Cardiologie"),
       await newQuestion("Cardiologie"),
       await newQuestion("Cardiologie"),
     ]
+    // Les réponses d'un autre élève, dans les deux domaines lus, ne comptent pas.
+    const classmate = await newStudent()
+    await train(classmate, [
+      { questionId: q3, isCorrect: true, answeredAt: at("11:00") },
+      {
+        questionId: await newQuestion("Neurologie"),
+        isCorrect: true,
+        answeredAt: at("09:01"),
+      },
+    ])
+    const student = await newStudent()
     await train(student, [
       { questionId: q1, isCorrect: true, answeredAt: at("10:00") },
       { questionId: q2, isCorrect: true, answeredAt: at("10:01") },

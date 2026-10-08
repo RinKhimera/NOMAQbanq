@@ -1,31 +1,20 @@
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import type Stripe from "stripe"
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
+import { transactions, user, userAccess } from "@/db/schema"
 import { fulfilStripeEvent } from "@/features/payments/fulfillment"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { fakeMailer, mailbox } from "../helpers/fake-mailer"
 import { stripeBox } from "../helpers/fake-stripe"
+import { seedProduct } from "../helpers/seed-payments"
 
 // Fulfillment de bout en bout sur une vraie base, pour les chemins qui coûtent
 // de l'argent : octroi, idempotence, litige avant fulfillment, remboursement
 // complet vs partiel, litige perdu. La table exhaustive des événements, sur
 // verbes db mockés, vit dans tests/features/stripe-fulfillment.test.ts.
 vi.mock("@/lib/observability", () => ({ captureServerError: vi.fn() }))
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
@@ -39,20 +28,15 @@ vi.mock("@/lib/stripe", () =>
 
 const DAY = 24 * 60 * 60 * 1000
 const DURATION_DAYS = 90
-const suffix = createId().slice(0, 8)
-const PRODUCT_ID = createId()
-const seededUsers: string[] = []
+let PRODUCT_ID = ""
 
 const fulfil = (event: unknown) => fulfilStripeEvent(event as Stripe.Event)
 
 const newUser = async () => {
   const id = createId()
-  await db.insert(user).values({
-    id,
-    name: `Fulfil ${id.slice(0, 6)}`,
-    email: `fulfil-${id.slice(0, 6)}-${suffix}@test.invalid`,
-  })
-  seededUsers.push(id)
+  await db
+    .insert(user)
+    .values({ id, name: `Fulfil ${id}`, email: `fulfil-${id}@test.invalid` })
   return id
 }
 
@@ -189,26 +173,10 @@ const refundEvent = (o: {
 })
 
 beforeAll(async () => {
-  await db.insert(products).values({
-    id: PRODUCT_ID,
-    code: "exam_access",
-    name: `Exam ${suffix}`,
-    description: "desc",
-    priceCad: 5000,
+  PRODUCT_ID = await seedProduct("exam_access", {
+    name: "Exam",
     durationDays: DURATION_DAYS,
-    accessType: "exam",
-    isCombo: false,
-    stripeProductId: `prod_f_${suffix}`,
-    stripePriceId: `price_f_${suffix}`,
-    stripePriceLookupKey: `price_f_${suffix}`,
   })
-})
-
-afterAll(async () => {
-  await db.delete(userAccess).where(inArray(userAccess.userId, seededUsers))
-  await db.delete(transactions).where(inArray(transactions.userId, seededUsers))
-  await db.delete(products).where(eq(products.id, PRODUCT_ID))
-  await db.delete(user).where(inArray(user.id, seededUsers))
 })
 
 beforeEach(() => {
@@ -247,7 +215,7 @@ describe("fulfillment — octroi", () => {
     expect(fakeMailer.sendPurchaseConfirmationEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: expect.stringContaining("@test.invalid"),
-        productName: `Exam ${suffix}`,
+        productName: "Exam",
         amountPaid: 4500,
         currency: "CAD",
         grantedAccess: [{ accessType: "exam", expiresAt: access!.expiresAt }],
