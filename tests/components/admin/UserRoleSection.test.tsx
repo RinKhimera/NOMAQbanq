@@ -27,10 +27,6 @@ const baseUser = {
 }
 
 beforeEach(() => {
-  mocks.updateUserRole.mockReset()
-  mocks.refresh.mockReset()
-  mocks.toastSuccess.mockReset()
-  mocks.toastError.mockReset()
   mocks.updateUserRole.mockResolvedValue({ success: true })
 })
 

@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull, ne, notInArray, or } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
 import { products, transactions, user } from "@/db/schema"
+import type { TransactionStatus } from "@/schemas/payment"
 import {
   type GrantedAccess,
   applyGrant,
@@ -353,7 +354,7 @@ export type RefundStripeResult =
   | { status: "refunded"; userId: string; accessReducedOrRemoved: boolean }
   | {
       status: "skipped"
-      currentStatus: (typeof transactions.status.enumValues)[number]
+      currentStatus: TransactionStatus
     }
   | { status: "not_found" }
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { RefusalCode } from "@/features/attempts/guard"
 import {
   deactivateExam,
@@ -119,17 +119,12 @@ const refuse = (code: RefusalCode) =>
 
 beforeEach(() => {
   mocks.session.current = { user: { id: "u1", role: "user" } }
-  mocks.requireAttempt.mockReset().mockResolvedValue(openAttempt())
+  mocks.requireAttempt.mockResolvedValue(openAttempt())
   resetFakeDrizzle([{ id: "a1" }])
   // Seul `Date` est simule : les actions lisent `Date.now()`, aucune n'attend de
-  // minuterie. Aucune option de config ne restaure les faux timers (restoreMocks
-  // ne parcourt que le registre des espions) — d'ou l'afterEach explicite.
+  // minuterie.
   vi.useFakeTimers({ toFake: ["Date"] })
   vi.setSystemTime(NOW)
-})
-
-afterEach(() => {
-  vi.useRealTimers()
 })
 
 describe("lectures gardees", () => {

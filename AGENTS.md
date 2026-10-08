@@ -26,7 +26,7 @@ bun run lint             # ESLint strict (--max-warnings 0)
 bun run lint:fix         # Auto-fix ESLint
 bun run format           # Prettier write
 bun run format:check     # Prettier check
-bun run test             # Tests frontend (NE PAS utiliser `bun test` — runner Bun casse vi.mocked/vi.hoisted)
+bun run test             # Tests unitaires + composants (cibler : `bun run test <fichier>` ; NE PAS utiliser `bun test` — runner Bun casse vi.mocked/vi.hoisted)
 bun run test:coverage    # Tests avec rapport coverage
 bun run test:integration # Tests DAL/Actions sur un Postgres Docker jetable (demarre/migre/detruit ; Docker Desktop requis, ~25 s ; cibler : -- <fichier> -t "<titre>" ; ordre des tests melange, graine affichee : -- --sequence.seed=N pour rejouer)
 bun run test:integration -- --experimental.importDurations.print # Diagnostic : modules les plus lents a importer (duree d'une suite)
@@ -80,7 +80,8 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 ## Tests
 
 - Seuil coverage: 80% (statements/branches/functions/lines — `vitest.config.ts`)
-- Frontend: `tests/` (happy-dom) — Integration DAL/Actions: `tests/integration/` (node, Postgres Docker vide et migre via `bun run test:integration`)
+- L'extension choisit l'environnement : `tests/**/*.test.ts` = projet `unit` (Node, sans DOM, rapide) ; `tests/**/*.test.tsx` = projet `frontend` (happy-dom + jest-dom) pour tout test qui rend un composant/hook ou touche `document` — Integration DAL/Actions: `tests/integration/` (node, Postgres Docker vide et migre via `bun run test:integration`)
+- Resets entre tests : la config (`mockReset`, `restoreMocks`, `unstubEnvs`, `unstubGlobals`) et `vitest.setup.common.ts` (vrais timers) s'en chargent — pas de reset recopié (verrou : `tests/architecture/test-hygiene.test.ts`). Une implémentation par défaut se pose par `vi.fn(impl)` ou dans un `beforeEach`, jamais par `mockImplementation` au chargement.
 - E2E: `e2e/tests/` (Playwright + auth Better Auth) — POMs dans `e2e/pages/` ; support reset/cleanup via `app/api/e2e`
 - Config: `vitest.config.ts` (exclut `e2e/**`) — `playwright.config.ts` — env `TZ=UTC`
 

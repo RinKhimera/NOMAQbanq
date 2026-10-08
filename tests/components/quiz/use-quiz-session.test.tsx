@@ -1,5 +1,5 @@
 import { act, waitFor } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { AnswersMap } from "@/components/quiz/runner/types"
 import { makeQuestion, renderSession } from "../../helpers/quiz-session"
 
@@ -239,8 +239,6 @@ describe("useQuizSession — finish dialog", () => {
 
 describe("useQuizSession — timer composé", () => {
   beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
-
   it("sans timer (entraînement), ne s'auto-soumet PAS au montage ni après écoulement", async () => {
     // Un mode sans timer expose totalSeconds=0 : sans garde, onExpire part au
     // montage et la session est soumise vide.
@@ -533,8 +531,6 @@ describe("useQuizSession — raccourcis clavier", () => {
 
 describe("useQuizSession — pause (rest break)", () => {
   beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
-
   it("isPaused initial dérive de initialPause", () => {
     const { result } = renderSession({
       initialPause: { isPaused: true, totalPauseDurationMs: 5000 },

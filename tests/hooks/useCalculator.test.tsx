@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { CalculatorProvider, useCalculator } from "@/hooks/useCalculator"
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -39,6 +39,13 @@ const setup = (keys?: string) => {
 }
 
 describe("useCalculator", () => {
+  it("refuse d'être appelé hors de CalculatorProvider", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    expect(() => renderHook(() => useCalculator())).toThrow(
+      "useCalculator must be used within CalculatorProvider",
+    )
+  })
+
   it("démarre sur 0, sans opération en attente", () => {
     const result = setup()
     expect(result.current.display).toBe("0")
@@ -83,6 +90,40 @@ describe("useCalculator", () => {
     expect(setup(keys).current.display).toBe(display)
   })
 
+  describe("chaîne d'opérations, de gauche à droite", () => {
+    it.each([
+      ["2 + 3 *", "5", "4 =", "20", 5, "*"],
+      ["1 0 - 4 -", "6", "3 =", "3", 6, "-"],
+      ["8 / 2 *", "4", "3 =", "12", 4, "*"],
+    ] as const)(
+      "%s affiche %s, puis %s → %s",
+      (keys, partial, rest, total, previousValue, operation) => {
+        const result = setup(keys)
+        expect(result.current).toMatchObject({
+          display: partial,
+          previousValue,
+          operation,
+        })
+        press(result, rest)
+        expect(result.current.display).toBe(total)
+      },
+    )
+
+    it("garde la valeur exacte derrière l'affichage arrondi", () => {
+      const result = setup("1 / 3 +")
+      expect(result.current.display).toBe("0.3333333333")
+      expect(result.current.previousValue).toBe(1 / 3)
+    })
+
+    it.each([
+      ["1 / 3 * 3 =", "1"],
+      ["1 / 3 = * 3 =", "1"],
+      ["9 9 9 9 9 9 9 9 9 9 9 9 * 2 / 2 =", "999999999999"],
+    ])("%s → %s : l'arrondi de l'écran ne se propage pas", (keys, total) => {
+      expect(setup(keys).current.display).toBe(total)
+    })
+  })
+
   it("enchaîne un calcul sur le résultat précédent", () => {
     const result = setup("5 + 3 =")
     expect(result.current.display).toBe("8")
@@ -100,6 +141,12 @@ describe("useCalculator", () => {
     expect(setup("5 =").current.display).toBe("5")
   })
 
+  it("passe en notation scientifique au-delà de 10¹²", () => {
+    expect(setup("9 9 9 9 9 9 9 9 9 9 9 9 * 2 =").current.display).toBe(
+      "2.00e+12",
+    )
+  })
+
   it("plafonne la saisie à 12 chiffres", () => {
     expect(setup("1 2 3 4 5 6 7 8 9 0 1 2 3").current.display).toBe(
       "123456789012",
@@ -107,12 +154,15 @@ describe("useCalculator", () => {
   })
 
   describe("division par zéro", () => {
-    it("affiche Erreur et oublie l'opération", () => {
-      const result = setup("5 / 0 =")
-      expect(result.current.display).toBe("Erreur")
-      expect(result.current.previousValue).toBeNull()
-      expect(result.current.operation).toBeNull()
-    })
+    it.each(["5 / 0 =", "0 / 0 ="])(
+      "%s affiche Erreur et oublie l'opération",
+      (keys) => {
+        const result = setup(keys)
+        expect(result.current.display).toBe("Erreur")
+        expect(result.current.previousValue).toBeNull()
+        expect(result.current.operation).toBeNull()
+      },
+    )
 
     it.each([
       ["3", "3"],
@@ -128,18 +178,17 @@ describe("useCalculator", () => {
       expect(result.current.operation).toBeNull()
     })
 
-    it("= ne change rien quand l'erreur vient d'un opérateur enchaîné", () => {
-      // « 5 / 0 + » calcule la division au moment de l'opérateur : l'affichage
-      // passe à Erreur alors qu'une opération reste en attente.
+    it("au milieu d'une chaîne, affiche Erreur et abandonne la chaîne", () => {
       const result = setup("5 / 0 +")
-      expect(result.current.display).toBe("Erreur")
-      const before = { ...result.current }
-      press(result, "=")
       expect(result.current).toMatchObject({
-        display: before.display,
-        previousValue: before.previousValue,
-        operation: before.operation,
+        display: "Erreur",
+        previousValue: null,
+        operation: null,
       })
+      press(result, "=")
+      expect(result.current.display).toBe("Erreur")
+      press(result, "4 * 2 =")
+      expect(result.current.display).toBe("8")
     })
   })
 })

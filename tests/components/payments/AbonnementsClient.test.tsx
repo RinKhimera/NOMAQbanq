@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { AbonnementsClient } from "@/app/(dashboard)/tableau-de-bord/abonnements/_components/abonnements-client"
 import { createCustomerPortal } from "@/features/payments/actions"
 import type {
@@ -67,8 +67,6 @@ const renderPage = (
   )
 
 describe("AbonnementsClient", () => {
-  beforeEach(() => vi.mocked(createCustomerPortal).mockReset())
-
   it("le portail ne s'ouvre qu'après confirmation ; une erreur laisse le Dialog ouvert", async () => {
     vi.mocked(createCustomerPortal).mockResolvedValue({
       success: false,

@@ -28,7 +28,7 @@ const exec = { execute } as unknown as Executor
 beforeEach(() => {
   rows = []
   execute.mockClear()
-  mocks.hasActiveAccess.mockReset().mockResolvedValue(true)
+  mocks.hasActiveAccess.mockResolvedValue(true)
 })
 
 const trainingRow = (extra: Record<string, unknown> = {}) => ({

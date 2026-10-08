@@ -36,7 +36,6 @@ const hydrate = async (html: string, node: React.ReactElement) => {
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => {
-  vi.useRealTimers()
   document.body.innerHTML = ""
 })
 

@@ -25,6 +25,9 @@ describe("getInitials", () => {
     ["محمد علي", "مع"],
     ["123 Test", "1T"],
     ["😀 Test", "😀T"],
+    // Une majuscule qui s'écrit en deux lettres (ß → SS) garde sa minuscule :
+    // l'avatar n'a la place que de deux caractères.
+    ["ßara ﬀion", "ßﬀ"],
   ])("%j → %j", (fullName, initials) => {
     expect(getInitials(fullName)).toBe(initials)
   })

@@ -33,7 +33,7 @@ interface Arg {
 const firstArg = () => sendEmailSpy.mock.calls[0]?.[0] as Arg
 
 beforeEach(() => {
-  sendEmailSpy.mockReset().mockResolvedValue("msg-1")
+  sendEmailSpy.mockResolvedValue("msg-1")
 })
 
 describe("données communes du template", () => {

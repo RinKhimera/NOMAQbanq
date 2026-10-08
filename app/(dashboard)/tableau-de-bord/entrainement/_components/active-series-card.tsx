@@ -14,7 +14,7 @@ import { TRAINING_MODE_LABEL } from "@/features/training/schemas"
 import { useClock } from "@/hooks/use-clock"
 import { formatShortDuration } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
-import { TONE_COLOR } from "@/lib/tone"
+import { TONE_COLOR, TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000
@@ -43,6 +43,7 @@ export const ActiveSeriesCard = ({
   const remainingMs = Math.max(0, session.expiresAt - now)
   const elapsedMs = Math.max(0, now - session.startedAt)
   const expiresSoon = remainingMs < TWO_HOURS_MS
+  const expiryTone: Tone = expiresSoon ? "warning" : "neutral"
   const answered = session.answeredCount
   const total = session.questionCount
 
@@ -101,9 +102,10 @@ export const ActiveSeriesCard = ({
             </span>
           ) : (
             <span
+              data-tone={expiryTone}
               className={cn(
                 "inline-flex items-center gap-1.5",
-                expiresSoon && "text-warning-ink",
+                expiryTone !== "neutral" && TONE_TEXT[expiryTone],
               )}
             >
               {expiresSoon && <Clock aria-hidden className="size-3.5" />}

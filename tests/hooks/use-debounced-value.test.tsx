@@ -1,15 +1,11 @@
 import { act, renderHook } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
 describe("useDebouncedValue", () => {
   beforeEach(() => {
     vi.useFakeTimers()
   })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it("ne suit la valeur qu'après le délai, en ne gardant que la dernière", () => {
     const onSettle = vi.fn()
     const { result, rerender } = renderHook(

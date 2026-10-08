@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { AccessImpactPanel } from "@/components/shared/payments/access-impact-panel"
 import {
   ManualPaymentDialog,
@@ -57,11 +57,6 @@ const renderDialog = () => {
 }
 
 const amount = () => screen.getByLabelText("Montant")
-
-beforeEach(() => {
-  mocks.recordManualPayment.mockReset()
-  mocks.toastError.mockReset()
-})
 
 describe("ManualPaymentDialog", () => {
   it("client déjà choisi, prix du produit proposé, moyen de paiement demandé", () => {

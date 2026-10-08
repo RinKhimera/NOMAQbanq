@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { RefusalCode } from "@/features/attempts/guard"
 import {
   abandonTrainingSession,
@@ -83,7 +83,8 @@ vi.mock("@/features/attempts/guard", async (orig) => {
 vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   const actual =
     await orig<typeof import("@/features/questions/answer-key-lock")>()
-  mocks.lockFor.mockImplementation(async () =>
+  // `vi.fn(impl)` : `mockReset` restaure l'implémentation au lieu de l'effacer.
+  mocks.lockFor = vi.fn(async () =>
     actual.AnswerKeyLock.fromIds(mocks.lockedIds.current),
   )
   return { ...actual, lockFor: mocks.lockFor }
@@ -127,15 +128,10 @@ const refuse = (code: RefusalCode) =>
 beforeEach(() => {
   mocks.session.current = { user: { id: "u1", role: "user" } }
   mocks.lockedIds.current = new Set()
-  mocks.requireAttempt.mockReset().mockResolvedValue(openAttempt())
+  mocks.requireAttempt.mockResolvedValue(openAttempt())
   resetFakeDrizzle([{ id: "s1" }])
-  // Aucune option de config ne restaure les faux timers — d'ou l'afterEach.
   vi.useFakeTimers({ toFake: ["Date"] })
   vi.setSystemTime(NOW)
-})
-
-afterEach(() => {
-  vi.useRealTimers()
 })
 
 describe("lectures gardees", () => {

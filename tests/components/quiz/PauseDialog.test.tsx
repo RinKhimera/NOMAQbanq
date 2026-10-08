@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import { renderToString } from "react-dom/server"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { PauseDialog } from "@/components/quiz/pause-dialog"
 
 describe("PauseDialog", () => {
@@ -52,8 +52,6 @@ describe("PauseDialog", () => {
 })
 
 describe("PauseDialog — décompte", () => {
-  afterEach(() => vi.useRealTimers())
-
   it("ancre le rendu serveur sur initialNow, pas sur Date.now()", () => {
     vi.useFakeTimers()
     const pauseStartedAt = 1_000_000

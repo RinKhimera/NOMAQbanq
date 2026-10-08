@@ -21,7 +21,6 @@ vi.mock("next/navigation", () => ({
 beforeEach(() => {
   mocks.deleteMyAccount.mockResolvedValue({ success: true })
   mocks.signOut.mockResolvedValue({})
-  mocks.replace.mockReset()
 })
 
 describe("ProfileDangerZone", () => {

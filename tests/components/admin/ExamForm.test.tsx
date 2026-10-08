@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   ExamForm,
   type ExamFormProps,
@@ -62,12 +62,6 @@ const typeTitle = (title: string) =>
   fireEvent.change(screen.getByTestId("exam-title-input"), {
     target: { value: title },
   })
-
-beforeEach(() => {
-  push.mockReset()
-  vi.mocked(saveExam).mockReset()
-  vi.mocked(finalizePreparedExam).mockReset()
-})
 
 describe("ExamForm — nouvel examen", () => {
   it("« Enregistrer » sans titre signale le champ sans rien envoyer", () => {

@@ -1,10 +1,8 @@
 import { renderHook } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useAnchoredClock } from "@/hooks/use-anchored-clock"
 
 beforeEach(() => vi.useFakeTimers())
-afterEach(() => vi.useRealTimers())
-
 describe("useAnchoredClock", () => {
   const ANCHOR = 1_700_000_000_000
 

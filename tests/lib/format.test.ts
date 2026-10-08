@@ -157,10 +157,6 @@ describe("formatTimeRemaining", () => {
     vi.setSystemTime(new Date("2024-03-15T12:00:00Z"))
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it.each([
     ["2024-03-16T12:00:00Z", "dans 1 jour"],
     ["2024-03-14T12:00:00Z", "il y a 1 jour"],

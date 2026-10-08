@@ -25,6 +25,7 @@ import {
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 import { env } from "@/lib/env/server"
+import type { TransactionStatus } from "@/schemas/payment"
 import { type AccessType, planRebuild } from "./access-ledger"
 import { TERMINAL_DISPUTE_STATUSES, isOpenDispute } from "./dispute"
 import {
@@ -89,12 +90,10 @@ export const getAccessStatus = cache(
   },
 )
 
-type TxStatus = (typeof transactions.status.enumValues)[number]
-
 export type CheckoutPurchase = {
   productName: string
   /** `completed` : le webhook a écrit l'accès ; `pending` : pas encore passé. */
-  status: TxStatus
+  status: TransactionStatus
   /** Accès couverts par l'achat, examens d'abord ; vide hors `completed`. */
   access: { type: AccessType; expiresAt: number }[]
 }
@@ -280,7 +279,7 @@ export const getAvailableProducts = cache(async (): Promise<ProductView[]> => {
 export type MyTransactionView = {
   id: string
   type: "stripe" | "manual"
-  status: (typeof transactions.status.enumValues)[number]
+  status: TransactionStatus
   /** En cents. */
   amountPaid: number
   currency: "CAD" | "XAF"
@@ -449,7 +448,7 @@ export const getMyTransactions = async ({
 export type AdminTransactionView = {
   id: string
   type: "stripe" | "manual"
-  status: TxStatus
+  status: TransactionStatus
   /** En cents. */
   amountPaid: number
   currency: "CAD" | "XAF"
@@ -651,7 +650,7 @@ export type TransactionClientRow = {
   /** Epoch ms : création de sa transaction la plus récente. */
   lastActivityAt: number
   transactionCount: number
-  lastStatus: TxStatus
+  lastStatus: TransactionStatus
   /** Au moins un litige encore ouvert. */
   openDispute: boolean
 }
@@ -723,7 +722,7 @@ type ClientSqlRow = {
   last_at: Date | string
   n: number
   open_dispute: boolean
-  last_status: TxStatus
+  last_status: TransactionStatus
   name: string
   email: string
   image: string | null
@@ -912,7 +911,7 @@ type FileSqlRow = {
   n: number
   open_dispute: boolean
   ever_paid: boolean
-  last_status: TxStatus
+  last_status: TransactionStatus
   last_type: "stripe" | "manual"
   last_created: Date | string
   last_completed: Date | string | null

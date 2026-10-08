@@ -1,12 +1,10 @@
 import { act, renderHook } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useExamTimer } from "@/components/quiz/runner/use-exam-timer"
 
 // L'arithmétique (crédit de pause, plafond, clamp, zones) est prouvée par
 // `tests/lib/attempt-clock.test.ts` ; ici seuls le tick et ses effets.
 beforeEach(() => vi.useFakeTimers())
-afterEach(() => vi.useRealTimers())
-
 describe("useExamTimer", () => {
   it("chargé en pleine pause : le chrono reste figé à sa valeur du début de la pause", () => {
     const start = 1_000_000

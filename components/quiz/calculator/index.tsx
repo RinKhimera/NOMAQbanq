@@ -9,7 +9,7 @@ import {
   useId,
   useRef,
 } from "react"
-import { useCalculator } from "@/hooks/useCalculator"
+import { formatDisplay, useCalculator } from "@/hooks/useCalculator"
 import { cn } from "@/lib/utils"
 import type { CalculatorOperation } from "./types"
 
@@ -175,7 +175,7 @@ export const Calculator = ({
       <div className="bg-surface-2 border-line border-b px-3.5 pt-3.5 pb-2.5 text-right">
         <div className="text-ink-3 h-4 font-mono text-xs">
           {previousValue !== null && operation
-            ? `${previousValue} ${OPERATOR_SYMBOL[operation]}`
+            ? `${formatDisplay(previousValue)} ${OPERATOR_SYMBOL[operation]}`
             : ""}
         </div>
         <output

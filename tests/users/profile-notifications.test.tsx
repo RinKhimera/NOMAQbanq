@@ -11,7 +11,7 @@ vi.mock("sonner", () => ({
 }))
 
 beforeEach(() => {
-  mocks.update.mockReset().mockResolvedValue({ success: true })
+  mocks.update.mockResolvedValue({ success: true })
 })
 
 describe("ProfileNotifications", () => {
