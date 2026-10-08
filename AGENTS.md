@@ -30,7 +30,7 @@ bun run test             # Tests frontend (NE PAS utiliser `bun test` — runner
 bun run test:coverage    # Tests avec rapport coverage
 bun run test:integration # Tests DAL/Actions sur branche Neon ephemere (cree/migre/detruit)
 bun run test:coverage:full # Couverture AGREGEE frontend + backend (branche Neon ; seuls chiffres couvrant features/** et app/api/**)
-bun run test:e2e         # Tests E2E Playwright (bunx, pas npx)
+bun run test:e2e         # Tests E2E Playwright (toujours via ce script : `bunx playwright test` est flaky)
 bun run e2e:ui           # Playwright UI mode
 bun run db:generate      # Drizzle: genere une migration depuis le schema
 bun run db:migrate       # Drizzle: applique les migrations (cible via DATABASE_URL_UNPOOLED)
@@ -104,7 +104,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Env** : valide via zod (`lib/env/schema.ts`) ; nouvelles vars optionnelles + erreur claire a l'usage. `.env.local` est GÉNÉRÉ (`bun run env:sync` depuis le scope Vercel Development) : nouvelle var = `vercel env add <KEY> development` d'abord, pas d'édition manuelle durable
 - **`.playwright-cli/`** : gitignoré mais parcouru par ESLint. Un script d'audit laissé là fait échouer `bun run check` ; le supprimer après le run.
 - **data-testid** : Obligatoire sur composants quiz interactifs (`components/quiz/`). Convention : `answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`
-- **Usage Vercel (Hobby, 4 h d'Active CPU/mois)** : chaque invocation compte, proxy inclus. `proxy.ts` ne matche que `/`, `/a-propos`, `/domaines` **avec cookie de session** — la zone protégée est gardée par les layouts, ne pas ré-élargir le matcher (verrou : `tests/proxy.test.ts`). Prefetch et session côté client : `.claude/rules/loading-ui.md`. Sentry serveur : `lib/sentry-sampling.ts`. Diagnostic : MCP `vercel` (`get_runtime_logs` `group_by: source`), page Usage. Spec : `docs/superpowers/specs/2026-09-06-usage-vercel-design.md`
+- **Usage Vercel (Hobby, 4 h d'Active CPU/mois)** : chaque invocation compte, proxy inclus. `proxy.ts` ne matche que `/`, `/a-propos`, `/domaines` **avec cookie de session** — la zone protégée est gardée par les layouts, ne pas ré-élargir le matcher (verrou : `tests/proxy.test.ts`). Prefetch et session côté client : `.claude/rules/loading-ui.md`. Sentry serveur : `lib/sentry-sampling.ts`. Diagnostic : MCP `vercel` (`get_runtime_logs` `group_by: source`), page Usage.
 
 ## Instruction Routing
 

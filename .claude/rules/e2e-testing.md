@@ -31,8 +31,6 @@ bunx playwright install chromium        # si « Executable doesn't exist »
   runtime → ~1 run sur 2 échoue à la **collecte** avec `test.describe() not expected
 here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
   (`bun run test:e2e`) ou `node node_modules/@playwright/test/cli.js test`.
-- **`npx playwright test` est cassé ici** : `npm error EOVERRIDE` (les `overrides`
-  du `package.json` sur `@types/react`). Toujours `bun run`.
 - Playwright démarre le serveur lui-même (`webServer` : `bun dev --turbopack` en
   local, `bun run build && bun run start` en CI). Pas besoin de lancer `bun dev`.
 
