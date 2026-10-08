@@ -72,8 +72,7 @@ type Scenario = { userId: string; ids: string[]; at: number[] }
 
 /**
  * Un utilisateur, ses transactions manuelles à montant nul (snapshot à +N
- * jours) et ses lignes `user_access` alignées sur la meilleure couverture de
- * chaque type. Montant nul : un scénario ne pèse ni sur les revenus ni sur le
+ * jours) et ses lignes `user_access`, posées par le registre lui-même. Montant nul : un scénario ne pèse ni sur les revenus ni sur le
  * nombre d'acheteurs.
  */
 const seedScenario = async (
@@ -105,23 +104,7 @@ const seedScenario = async (
     completedAt: new Date(NOW - DAY),
   }))
   await db.insert(transactions).values(rows)
-  for (const accessType of ["exam", "training"] as const) {
-    const covering = rows.filter(
-      (r, i) =>
-        r.status === "completed" &&
-        (txs[i].kind === "combo" || r.accessType === accessType),
-    )
-    if (covering.length === 0) continue
-    const best = covering.reduce((a, b) =>
-      a.accessExpiresAt > b.accessExpiresAt ? a : b,
-    )
-    await db.insert(userAccess).values({
-      userId,
-      accessType,
-      expiresAt: best.accessExpiresAt,
-      lastTransactionId: best.id,
-    })
-  }
+  await db.transaction((t) => rebuildFromTransactions(t, { userId }))
   return {
     userId,
     ids: rows.map((r) => r.id),

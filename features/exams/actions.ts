@@ -271,7 +271,7 @@ const datesAndAudienceErrors = (d: {
  */
 const finalizeInTx = async (tx: Tx, examId: string, now: number) => {
   // En séquence : une transaction tient une seule connexion, qui n'exécute
-  // qu'une requête à la fois (pg@9 refuse d'empiler).
+  // qu'une requête à la fois (pg met les suivantes en file, pg@9 les refusera).
   const [exam] = await tx
     .select({
       startDate: exams.startDate,

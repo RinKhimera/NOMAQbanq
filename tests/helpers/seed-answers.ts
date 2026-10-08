@@ -6,18 +6,15 @@ const ANSWERED_AT = new Date(Date.UTC(2020, 0, 1))
 
 /**
  * Une première réponse d'entraînement par choix, chacune d'un nouvel étudiant
- * dans une session terminée : la population que lisent les taux de réussite et
- * la détection de clé suspecte. Trois inserts groupés quel que soit le nombre
- * de réponses.
+ * dans une session terminée, contre la clé `A` : la population que lisent les
+ * taux de réussite et la détection de clé suspecte. Trois inserts groupés quel
+ * que soit le nombre de réponses.
  */
 export const seedAnswers = async (
   questionId: string,
   choices: string[],
-  opts: { key?: string; answeredAt?: Date } = {},
 ): Promise<void> => {
   if (choices.length === 0) return
-  const key = opts.key ?? "A"
-  const answeredAt = opts.answeredAt ?? ANSWERED_AT
   const rows = choices.map((selected) => ({
     userId: createId(),
     sessionId: createId(),
@@ -37,8 +34,8 @@ export const seedAnswers = async (
       status: "completed" as const,
       mode: "test" as const,
       questionCount: 1,
-      startedAt: answeredAt,
-      expiresAt: new Date(answeredAt.getTime() + 3600_000),
+      startedAt: ANSWERED_AT,
+      expiresAt: new Date(ANSWERED_AT.getTime() + 3600_000),
     })),
   )
   await db.insert(trainingSessionItems).values(
@@ -47,8 +44,8 @@ export const seedAnswers = async (
       questionId,
       position: 0,
       selectedAnswer: selected,
-      isCorrect: selected === key,
-      answeredAt,
+      isCorrect: selected === "A",
+      answeredAt: ANSWERED_AT,
     })),
   )
 }

@@ -480,8 +480,9 @@ describe("réconciliation montant/devise au fulfillment", () => {
     { userId: string; txId: string; sessionId: string; status: string }
   >()
 
-  // Les suites précédentes du fichier ont déjà encaissé : la ligne de base,
-  // prise avant les fulfillments de cette suite, isole leur part.
+  // Les autres suites du fichier encaissent aussi, dans un ordre tiré au
+  // hasard : la ligne de base, prise avant les fulfillments de cette suite,
+  // isole sa part.
   let statsBefore: TransactionStatsView
   let revenueTodayBefore: { CAD: number; XAF: number }
   // Jour de l'Est, comme les buckets de getRevenueByDay : en UTC, la soirée
