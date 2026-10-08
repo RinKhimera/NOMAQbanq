@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
 import { db } from "@/db"
 import { user } from "@/db/schema"
 import {
@@ -30,11 +30,6 @@ beforeAll(async () => {
       deletedAt: new Date(),
     },
   ])
-})
-
-afterAll(async () => {
-  await db.delete(user).where(eq(user.id, uid))
-  await db.delete(user).where(eq(user.id, deletedUid))
 })
 
 describe("désabonnement par jeton", () => {

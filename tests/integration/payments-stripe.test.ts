@@ -1,7 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
+import { transactions, user, userAccess } from "@/db/schema"
 import {
   type TransactionStatsView,
   getRevenueByDay,
@@ -16,38 +16,28 @@ import {
 import { toAppZoneCalendarDay } from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { seedProduct } from "../helpers/seed-payments"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 
-const PEXAM = createId() // produit exam non-combo
-const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 14 }, () => createId())
-const [
-  U_HAPPY,
-  U_COMBO,
-  U_FAIL,
-  U_FAILDONE,
-  U_PROMO,
-  U_XAF,
-  U_DEGNULL,
-  U_DEGUSD,
-  U_PROMO100,
-  U_RACE,
-  U_PRESENT,
-  U_NOPRESENT,
-  U_DISPUTE,
-  U_CONFIRM,
-] = U
+let PEXAM = "" // produit exam non-combo
+let PCOMBO = "" // produit combo (exam + training)
+
+const newUser = async (over: Partial<typeof user.$inferInsert> = {}) => {
+  const id = createId()
+  await db.insert(user).values({
+    id,
+    name: `Stripe ${id}`,
+    email: `stripe-${id}@test.invalid`,
+    ...over,
+  })
+  return id
+}
 
 const accessOf = (userId: string, accessType: "exam" | "training") =>
   db
@@ -103,75 +93,46 @@ const seedPending = (o: {
     createdAt: new Date(),
   })
 
+/** Un pending d'accès examen 90 j, sur un utilisateur neuf. */
+const seedExamPending = async () => {
+  const userId = await newUser()
+  const txId = createId()
+  const sessionId = `cs_${txId}`
+  await seedPending({
+    id: txId,
+    userId,
+    productId: PEXAM,
+    sessionId,
+    accessType: "exam",
+    durationDays: 90,
+  })
+  return { userId, txId, sessionId }
+}
+
 // Instant de fulfillment injecté : les expirations se comparent à l'exact.
 const NOW = new Date("2026-09-18T12:00:00.000Z")
 const at = (days: number) => new Date(NOW.getTime() + days * DAY)
 
 beforeAll(async () => {
-  await db.insert(user).values(
-    U.map((id, i) => ({
-      id,
-      name: `Stripe ${suffix} ${i}`,
-      email: `${id.slice(0, 6)}-${suffix}@test.invalid`,
-    })),
-  )
-  await db.insert(products).values([
-    {
-      id: PEXAM,
-      code: "exam_access",
-      name: `Exam ${suffix}`,
-      description: "desc",
-      priceCad: 5000,
-      durationDays: 90,
-      accessType: "exam",
-      isCombo: false,
-      stripeProductId: `prod_e_${suffix}`,
-      stripePriceId: `price_e_${suffix}`,
-      stripePriceLookupKey: `price_e_${suffix}`,
-    },
-    {
-      id: PCOMBO,
-      code: "premium_access",
-      name: `Combo ${suffix}`,
-      description: "desc",
-      priceCad: 9000,
-      durationDays: 30,
-      accessType: "exam",
-      isCombo: true,
-      stripeProductId: `prod_c_${suffix}`,
-      stripePriceId: `price_c_${suffix}`,
-      stripePriceLookupKey: `price_c_${suffix}`,
-    },
-  ])
-})
-
-afterAll(async () => {
-  await db.delete(userAccess).where(inArray(userAccess.userId, U))
-  await db.delete(transactions).where(inArray(transactions.userId, U))
-  await db.delete(products).where(inArray(products.id, [PEXAM, PCOMBO]))
-  await db.delete(user).where(inArray(user.id, U))
+  PEXAM = await seedProduct("exam_access", { name: "Exam", durationDays: 90 })
+  PCOMBO = await seedProduct("premium_access", {
+    name: "Combo",
+    priceCad: 9000,
+    durationDays: 30,
+  })
 })
 
 describe("completeStripeTransaction", () => {
-  // Adaptive Pricing : le client voit des FCFA, l'evenement arrive en CAD. Le
+  // Adaptive Pricing : le client voit des FCFA, l'événement arrive en CAD. Le
   // montant local ne vit que dans `presentment_details` — sans persistance, un
-  // client qui ecrit « j'ai paye 228 000 FCFA » n'est recoupable par personne.
+  // client qui écrit « j'ai payé 228 000 FCFA » n'est recoupable par personne.
   it("persiste le montant présenté sans toucher au montant encaissé", async () => {
-    const txId = createId()
-    const sid = `sess_present_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_PRESENT,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
+    const { txId, sessionId } = await seedExamPending()
 
     await completeStripeTransaction({
-      stripeSessionId: sid,
+      stripeSessionId: sessionId,
       stripePaymentIntentId: "pi_present",
-      stripeEventId: `evt_present_${suffix}`,
+      stripeEventId: "evt_present",
       amountTotal: 5000,
       currency: "cad",
       presentmentAmount: 2280000,
@@ -187,21 +148,12 @@ describe("completeStripeTransaction", () => {
   })
 
   it("client sans conversion (pas de presentment_details) → colonnes nulles", async () => {
-    const txId = createId()
-    const sid = `sess_nopresent_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_NOPRESENT,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
+    const { txId, sessionId } = await seedExamPending()
 
     await completeStripeTransaction({
-      stripeSessionId: sid,
+      stripeSessionId: sessionId,
       stripePaymentIntentId: "pi_nopresent",
-      stripeEventId: `evt_nopresent_${suffix}`,
+      stripeEventId: "evt_nopresent",
       amountTotal: 5000,
       currency: "cad",
     })
@@ -213,13 +165,14 @@ describe("completeStripeTransaction", () => {
   })
 
   it("non-combo : complète la transaction et crédite l'accès (now + durée du SNAPSHOT)", async () => {
+    const userId = await newUser()
     const txId = createId()
-    const sid = `sess_happy_${suffix}`
+    const sid = "sess_happy"
     // Durée du pending ≠ durée courante du produit (90) : c'est le snapshot de
     // la transaction qui doit être octroyé, pas le catalogue du jour.
     await seedPending({
       id: txId,
-      userId: U_HAPPY,
+      userId,
       productId: PEXAM,
       sessionId: sid,
       accessType: "exam",
@@ -229,7 +182,7 @@ describe("completeStripeTransaction", () => {
     const res = await completeStripeTransaction({
       stripeSessionId: sid,
       stripePaymentIntentId: "pi_happy",
-      stripeEventId: `evt_happy_${suffix}`,
+      stripeEventId: "evt_happy",
       now: NOW,
     })
     expect(res).toMatchObject({ status: "completed", transactionId: txId })
@@ -241,41 +194,44 @@ describe("completeStripeTransaction", () => {
     // Le précalcul du pending est écrasé par le snapshot du fulfillment.
     expect(tx?.accessExpiresAt).toEqual(at(45))
 
-    const acc = await accessOf(U_HAPPY, "exam")
+    const acc = await accessOf(userId, "exam")
     expect(acc?.lastTransactionId).toBe(txId)
     expect(acc?.expiresAt).toEqual(at(45))
   })
 
-  it("idempotent : même event rejoué → already_processed, pas de double crédit", async () => {
-    const before = await accessOf(U_HAPPY, "exam")
-    const res = await completeStripeTransaction({
-      stripeSessionId: `sess_happy_${suffix}`,
-      stripePaymentIntentId: "pi_happy",
-      stripeEventId: `evt_happy_${suffix}`,
-    })
-    expect(res).toEqual({ status: "already_processed" })
-    const after = await accessOf(U_HAPPY, "exam")
-    expect(after?.expiresAt.getTime()).toBe(before?.expiresAt.getTime())
-  })
+  it.each([
+    { name: "même event rejoué", replayEventId: "evt_first" },
+    {
+      name: "transaction déjà complétée (autre event)",
+      replayEventId: "evt_other",
+    },
+  ])(
+    "idempotent : $name → already_processed, pas de double crédit",
+    async ({ replayEventId }) => {
+      const { userId, sessionId } = await seedExamPending()
+      const deliver = (stripeEventId: string) =>
+        completeStripeTransaction({
+          stripeSessionId: sessionId,
+          stripePaymentIntentId: "pi_idem",
+          stripeEventId: `${stripeEventId}_${sessionId}`,
+          now: NOW,
+        })
+      expect((await deliver("evt_first")).status).toBe("completed")
 
-  it("idempotent : transaction déjà complétée (autre event) → already_processed", async () => {
-    const before = await accessOf(U_HAPPY, "exam")
-    const res = await completeStripeTransaction({
-      stripeSessionId: `sess_happy_${suffix}`,
-      stripePaymentIntentId: "pi_happy",
-      stripeEventId: `evt_happy_other_${suffix}`,
-    })
-    expect(res).toEqual({ status: "already_processed" })
-    const after = await accessOf(U_HAPPY, "exam")
-    expect(after?.expiresAt.getTime()).toBe(before?.expiresAt.getTime())
-  })
+      expect(await deliver(replayEventId)).toEqual({
+        status: "already_processed",
+      })
+      expect((await accessOf(userId, "exam"))?.expiresAt).toEqual(at(90))
+    },
+  )
 
   it("combo : crédite exam ET training (now + durée du snapshot)", async () => {
+    const userId = await newUser()
     const txId = createId()
-    const sid = `sess_combo_${suffix}`
+    const sid = "sess_combo"
     await seedPending({
       id: txId,
-      userId: U_COMBO,
+      userId,
       productId: PCOMBO,
       sessionId: sid,
       accessType: "exam",
@@ -285,13 +241,13 @@ describe("completeStripeTransaction", () => {
     const res = await completeStripeTransaction({
       stripeSessionId: sid,
       stripePaymentIntentId: "pi_combo",
-      stripeEventId: `evt_combo_${suffix}`,
+      stripeEventId: "evt_combo",
       now: NOW,
     })
     expect(res.status).toBe("completed")
 
-    const exam = await accessOf(U_COMBO, "exam")
-    const training = await accessOf(U_COMBO, "training")
+    const exam = await accessOf(userId, "exam")
+    const training = await accessOf(userId, "training")
     expect(exam?.expiresAt).toEqual(at(15))
     expect(training?.expiresAt).toEqual(at(15))
     expect(exam?.lastTransactionId).toBe(txId)
@@ -300,66 +256,53 @@ describe("completeStripeTransaction", () => {
 
   it("session inconnue → not_found", async () => {
     const res = await completeStripeTransaction({
-      stripeSessionId: `sess_ghost_${suffix}`,
+      stripeSessionId: "sess_ghost",
       stripePaymentIntentId: "pi_ghost",
-      stripeEventId: `evt_ghost_${suffix}`,
+      stripeEventId: "evt_ghost",
     })
     expect(res).toEqual({ status: "not_found" })
   })
 
-  it("deux fulfillments concurrents (2 tx distinctes, même user non-combo) → accès CUMULÉ 180j (verrou FOR UPDATE)", async () => {
-    const sidA = `sess_raceA_${suffix}`
-    const sidB = `sess_raceB_${suffix}`
+  it("même événement livré deux fois en même temps → un seul octroi (idempotence sous verrou)", async () => {
+    const userId = await newUser()
+    const sid = "sess_race"
     await seedPending({
       id: createId(),
-      userId: U_RACE,
+      userId,
       productId: PEXAM,
-      sessionId: sidA,
+      sessionId: sid,
       accessType: "exam",
       durationDays: 90,
     })
-    await seedPending({
-      id: createId(),
-      userId: U_RACE,
-      productId: PEXAM,
-      sessionId: sidB,
-      accessType: "exam",
-      durationDays: 90,
-    })
+    const delivery = () =>
+      completeStripeTransaction({
+        stripeSessionId: sid,
+        stripePaymentIntentId: "pi_race",
+        stripeEventId: "evt_race",
+        amountTotal: 5000,
+        currency: "cad",
+        now: NOW,
+      })
 
-    await Promise.all([
-      completeStripeTransaction({
-        stripeSessionId: sidA,
-        stripePaymentIntentId: `pi_a_${suffix}`,
-        stripeEventId: `evt_a_${suffix}`,
-        amountTotal: 5000,
-        currency: "cad",
-        now: NOW,
-      }),
-      completeStripeTransaction({
-        stripeSessionId: sidB,
-        stripePaymentIntentId: `pi_b_${suffix}`,
-        stripeEventId: `evt_b_${suffix}`,
-        amountTotal: 5000,
-        currency: "cad",
-        now: NOW,
-      }),
+    const results = await Promise.all([delivery(), delivery()])
+
+    expect(results.map((r) => r.status).sort()).toEqual([
+      "already_processed",
+      "completed",
     ])
-
     const rows = await db
-      .select()
+      .select({ expiresAt: userAccess.expiresAt })
       .from(userAccess)
-      .where(eq(userAccess.userId, U_RACE))
-    expect(rows).toHaveLength(1)
-    // Cumul des deux durées (90 + 90). Tombe à 90 si le verrou FOR UPDATE saute.
-    expect(rows[0].expiresAt).toEqual(at(180))
+      .where(eq(userAccess.userId, userId))
+    expect(rows).toEqual([{ expiresAt: at(90) }])
   })
 
   it("completed → retourne les données du courriel de confirmation", async () => {
+    const userId = await newUser()
     const tx = createId()
     await seedPending({
       id: tx,
-      userId: U_CONFIRM,
+      userId,
       productId: PEXAM,
       sessionId: `cs_confirm_${tx}`,
       accessType: "exam",
@@ -379,26 +322,33 @@ describe("completeStripeTransaction", () => {
 
     expect(result.status).toBe("completed")
     if (result.status !== "completed") return
-    expect(result.confirmation.userEmail).toMatch(/@test\.invalid$/)
-    expect(typeof result.confirmation.userName).toBe("string")
-    expect(result.confirmation.productName).toBe(`Exam ${suffix}`)
-    expect(result.confirmation.amountPaid).toBe(5000)
-    expect(result.confirmation.currency).toBe("CAD")
-    expect(result.confirmation.presentmentAmount).toBe(2280000)
-    expect(result.confirmation.presentmentCurrency).toBe("XAF")
-    expect(result.confirmation.completedAt).toEqual(NOW)
-    expect(result.confirmation.grantedAccess).toEqual([
-      { accessType: "exam", expiresAt: at(90) },
-    ])
+    expect(result.confirmation).toMatchObject({
+      userEmail: `stripe-${userId}@test.invalid`,
+      userName: `Stripe ${userId}`,
+      productName: "Exam",
+      amountPaid: 5000,
+      currency: "CAD",
+      presentmentAmount: 2280000,
+      presentmentCurrency: "XAF",
+      completedAt: NOW,
+      grantedAccess: [{ accessType: "exam", expiresAt: at(90) }],
+    })
   })
 
   // Un combo pose `now + durée` sur la transaction, mais l'accès exam existant
-  // (90 j ci-dessus) est plus long : le courriel doit annoncer la date réelle.
+  // (90 j) est plus long : le courriel doit annoncer la date réelle.
   it("combo par-dessus un accès plus long → grantedAccess porte les expirations effectives", async () => {
+    const { userId, sessionId: examSession } = await seedExamPending()
+    await completeStripeTransaction({
+      stripeSessionId: examSession,
+      stripePaymentIntentId: `pi_${examSession}`,
+      stripeEventId: `evt_${examSession}`,
+      now: NOW,
+    })
     const tx = createId()
     await seedPending({
       id: tx,
-      userId: U_CONFIRM,
+      userId,
       productId: PCOMBO,
       sessionId: `cs_confirm_combo_${tx}`,
       accessType: "exam",
@@ -421,14 +371,11 @@ describe("completeStripeTransaction", () => {
   })
 
   it("compte anonymisé → userEmail null (aucun courriel à envoyer)", async () => {
-    await db
-      .update(user)
-      .set({ anonymizedAt: new Date() })
-      .where(eq(user.id, U_CONFIRM))
+    const userId = await newUser({ anonymizedAt: new Date() })
     const tx = createId()
     await seedPending({
       id: tx,
-      userId: U_CONFIRM,
+      userId,
       productId: PEXAM,
       sessionId: `cs_anon_${tx}`,
       accessType: "exam",
@@ -449,47 +396,29 @@ describe("completeStripeTransaction", () => {
 
 describe("failStripeTransaction", () => {
   it("expired : marque la transaction failed", async () => {
-    const txId = createId()
-    const sid = `sess_fail_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_FAIL,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
+    const { userId, txId, sessionId } = await seedExamPending()
 
     const res = await failStripeTransaction({
-      stripeSessionId: sid,
-      stripeEventId: `evt_fail_${suffix}`,
+      stripeSessionId: sessionId,
+      stripeEventId: "evt_fail",
     })
     expect(res).toEqual({ status: "failed", transactionId: txId })
     expect((await txStatus(txId))?.status).toBe("failed")
     // Aucun accès crédité.
-    expect(await accessOf(U_FAIL, "exam")).toBeUndefined()
+    expect(await accessOf(userId, "exam")).toBeUndefined()
   })
 
   it("ne touche pas une transaction déjà complétée", async () => {
-    const txId = createId()
-    const sid = `sess_faildone_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_FAILDONE,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
+    const { txId, sessionId } = await seedExamPending()
     await completeStripeTransaction({
-      stripeSessionId: sid,
+      stripeSessionId: sessionId,
       stripePaymentIntentId: "pi_fd",
-      stripeEventId: `evt_fd_complete_${suffix}`,
+      stripeEventId: "evt_fd_complete",
     })
 
     const res = await failStripeTransaction({
-      stripeSessionId: sid,
-      stripeEventId: `evt_fd_expire_${suffix}`,
+      stripeSessionId: sessionId,
+      stripeEventId: "evt_fd_expire",
     })
     expect(res).toEqual({ status: "already_processed" })
     expect((await txStatus(txId))?.status).toBe("completed")
@@ -497,8 +426,63 @@ describe("failStripeTransaction", () => {
 })
 
 describe("réconciliation montant/devise au fulfillment", () => {
-  // Baseline capturée à l'entrée du describe : les deltas n'incluent que les
-  // transactions insérées ici (fichiers séquentiels, fileParallelism: false).
+  type Case = {
+    name: string
+    amountTotal: number | null
+    currency: string
+    paymentIntent: string
+    expected: { amountPaid: number; currency: "CAD" | "XAF"; pi: string | null }
+  }
+  const cases: Case[] = [
+    {
+      name: "code promo : amountPaid = montant réellement débité, pas le prix catalogue",
+      amountTotal: 4000,
+      currency: "cad",
+      paymentIntent: "pi_promo",
+      expected: { amountPaid: 4000, currency: "CAD", pi: "pi_promo" },
+    },
+    {
+      // Stripe envoie le XAF en zéro-décimal (francs entiers) ; l'app stocke
+      // tous les montants en centièmes → 32 500 FCFA doit devenir 3 250 000.
+      name: "Adaptive Pricing : devise et montant XAF enregistrés",
+      amountTotal: 32500,
+      currency: "xaf",
+      paymentIntent: "pi_xaf",
+      expected: { amountPaid: 3250000, currency: "XAF", pi: "pi_xaf" },
+    },
+    {
+      name: "amount_total null : valeurs provisoires conservées, fulfillment réussi",
+      amountTotal: null,
+      currency: "cad",
+      paymentIntent: "pi_degnull",
+      expected: { amountPaid: 5000, currency: "CAD", pi: "pi_degnull" },
+    },
+    {
+      name: "devise hors enum (usd) : valeurs provisoires conservées, fulfillment réussi",
+      amountTotal: 4200,
+      currency: "usd",
+      paymentIntent: "pi_degusd",
+      expected: { amountPaid: 5000, currency: "CAD", pi: "pi_degusd" },
+    },
+    {
+      // Une session no_payment_required n'a pas de PaymentIntent → "" côté
+      // webhook. 0 ne doit PAS être avalé par la garde de réconciliation
+      // (!= null) : le provisoire (5000) serait un sur-rapport de revenus.
+      name: "promo 100 % : session à montant nul → completed, amountPaid = 0, accès accordé",
+      amountTotal: 0,
+      currency: "cad",
+      paymentIntent: "",
+      expected: { amountPaid: 0, currency: "CAD", pi: null },
+    },
+  ]
+  const fulfilled = new Map<
+    string,
+    { userId: string; txId: string; sessionId: string; status: string }
+  >()
+
+  // Les autres suites du fichier encaissent aussi, dans un ordre tiré au
+  // hasard : la ligne de base, prise avant les fulfillments de cette suite,
+  // isole sa part.
   let statsBefore: TransactionStatsView
   let revenueTodayBefore: { CAD: number; XAF: number }
   // Jour de l'Est, comme les buckets de getRevenueByDay : en UTC, la soirée
@@ -515,157 +499,41 @@ describe("réconciliation montant/devise au fulfillment", () => {
 
   beforeAll(async () => {
     vi.mocked(requireRole).mockResolvedValue({
-      user: { id: U_PROMO, role: "admin" },
+      user: { id: "admin", role: "admin" },
     } as never)
     statsBefore = await getTransactionStats()
     revenueTodayBefore = await revenueOfToday()
+
+    for (const c of cases) {
+      const seeded = await seedExamPending()
+      const res = await completeStripeTransaction({
+        stripeSessionId: seeded.sessionId,
+        stripePaymentIntentId: c.paymentIntent,
+        stripeEventId: `evt_${seeded.sessionId}`,
+        amountTotal: c.amountTotal,
+        currency: c.currency,
+      })
+      fulfilled.set(c.name, { ...seeded, status: res.status })
+    }
   })
 
-  it("code promo : amountPaid = montant réellement débité, pas le prix catalogue", async () => {
-    const txId = createId()
-    const sid = `sess_promo_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_PROMO,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
-
-    const res = await completeStripeTransaction({
-      stripeSessionId: sid,
-      stripePaymentIntentId: "pi_promo",
-      stripeEventId: `evt_promo_${suffix}`,
-      amountTotal: 4000,
-      currency: "cad",
-    })
-    expect(res.status).toBe("completed")
+  it.each(cases)("$name", async ({ name, expected }) => {
+    const { userId, txId, status } = fulfilled.get(name)!
+    expect(status).toBe("completed")
 
     const tx = await txStatus(txId)
-    expect(tx?.status).toBe("completed")
-    expect(tx?.amountPaid).toBe(4000)
-    expect(tx?.currency).toBe("CAD")
-  })
-
-  it("Adaptive Pricing : devise et montant XAF enregistrés", async () => {
-    const txId = createId()
-    const sid = `sess_xaf_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_XAF,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
-
-    // Stripe envoie le XAF en zéro-décimal (francs entiers) ; l'app stocke
-    // tous les montants en centièmes → 32 500 FCFA doit devenir 3 250 000.
-    const res = await completeStripeTransaction({
-      stripeSessionId: sid,
-      stripePaymentIntentId: "pi_xaf",
-      stripeEventId: `evt_xaf_${suffix}`,
-      amountTotal: 32500,
-      currency: "xaf",
-    })
-    expect(res.status).toBe("completed")
-
-    const tx = await txStatus(txId)
-    expect(tx?.amountPaid).toBe(3250000)
-    expect(tx?.currency).toBe("XAF")
-  })
-
-  it("amount_total null : valeurs provisoires conservées, fulfillment réussi", async () => {
-    const txId = createId()
-    const sid = `sess_degnull_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_DEGNULL,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
-
-    const res = await completeStripeTransaction({
-      stripeSessionId: sid,
-      stripePaymentIntentId: "pi_degnull",
-      stripeEventId: `evt_degnull_${suffix}`,
-      amountTotal: null,
-      currency: "cad",
-    })
-    expect(res.status).toBe("completed")
-
-    const tx = await txStatus(txId)
-    expect(tx?.status).toBe("completed")
-    expect(tx?.amountPaid).toBe(5000)
-    expect(tx?.currency).toBe("CAD")
-    expect(await accessOf(U_DEGNULL, "exam")).toBeDefined()
-  })
-
-  it("devise hors enum (usd) : valeurs provisoires conservées, fulfillment réussi", async () => {
-    const txId = createId()
-    const sid = `sess_degusd_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_DEGUSD,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
-
-    const res = await completeStripeTransaction({
-      stripeSessionId: sid,
-      stripePaymentIntentId: "pi_degusd",
-      stripeEventId: `evt_degusd_${suffix}`,
-      amountTotal: 4200,
-      currency: "usd",
-    })
-    expect(res.status).toBe("completed")
-
-    const tx = await txStatus(txId)
-    expect(tx?.amountPaid).toBe(5000)
-    expect(tx?.currency).toBe("CAD")
-    expect(await accessOf(U_DEGUSD, "exam")).toBeDefined()
-  })
-
-  it("promo 100 % : session à montant nul → completed, amountPaid = 0, accès accordé", async () => {
-    const txId = createId()
-    const sid = `sess_promo100_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_PROMO100,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
-
-    // Une session no_payment_required n'a pas de PaymentIntent → "" côté webhook.
-    const res = await completeStripeTransaction({
-      stripeSessionId: sid,
-      stripePaymentIntentId: "",
-      stripeEventId: `evt_promo100_${suffix}`,
-      amountTotal: 0,
-      currency: "cad",
-    })
-    expect(res.status).toBe("completed")
-
-    const tx = await txStatus(txId)
-    expect(tx?.status).toBe("completed")
-    // 0 ne doit PAS être avalé par la garde de réconciliation (!= null) :
-    // le provisoire (5000) serait un sur-rapport de revenus.
-    expect(tx?.amountPaid).toBe(0)
-    expect(tx?.currency).toBe("CAD")
-    expect(tx?.pi).toBeNull()
-    expect(await accessOf(U_PROMO100, "exam")).toBeDefined()
+    expect({
+      status: tx?.status,
+      amountPaid: tx?.amountPaid,
+      currency: tx?.currency,
+      pi: tx?.pi,
+    }).toEqual({ status: "completed", ...expected })
+    expect((await accessOf(userId, "exam"))?.lastTransactionId).toBe(txId)
   })
 
   it("agrégats : promo et XAF ventilés sur le montant réel", async () => {
-    // Deltas attendus depuis la baseline : CAD = 4000 (promo) + 5000 + 5000
-    // (cas dégradés conservés) ; XAF = 32 500 FCFA en centièmes.
+    // CAD = 4000 (promo) + 5000 + 5000 (cas dégradés conservés) + 0 ; XAF =
+    // 32 500 FCFA en centièmes.
     const after = await getTransactionStats()
     expect(
       after.revenueByCurrency.CAD.total -
@@ -682,21 +550,16 @@ describe("réconciliation montant/devise au fulfillment", () => {
   })
 
   it("idempotence : rejouer l'event ne réapplique pas la réconciliation", async () => {
+    const { txId, sessionId } = fulfilled.get(cases[0].name)!
     const res = await completeStripeTransaction({
-      stripeSessionId: `sess_promo_${suffix}`,
+      stripeSessionId: sessionId,
       stripePaymentIntentId: "pi_promo",
-      stripeEventId: `evt_promo_${suffix}`,
+      stripeEventId: `evt_${sessionId}`,
       amountTotal: 999,
       currency: "cad",
     })
     expect(res).toEqual({ status: "already_processed" })
-
-    const [tx] = await db
-      .select({ amountPaid: transactions.amountPaid })
-      .from(transactions)
-      .where(eq(transactions.stripeSessionId, `sess_promo_${suffix}`))
-      .limit(1)
-    expect(tx?.amountPaid).toBe(4000)
+    expect((await txStatus(txId))?.amountPaid).toBe(4000)
   })
 })
 
@@ -712,24 +575,17 @@ describe("recordStripeDispute", () => {
       .limit(1)
       .then((r) => r[0])
 
-  const seedCompleted = async (id: string, paymentIntentId: string) => {
-    await seedPending({
-      id,
-      userId: U_DISPUTE,
-      productId: PEXAM,
-      sessionId: `cs_${id}`,
-      accessType: "exam",
-      durationDays: 90,
-    })
+  const seedCompleted = async () => {
+    const { txId } = await seedExamPending()
     await db
       .update(transactions)
-      .set({ status: "completed", stripePaymentIntentId: paymentIntentId })
-      .where(eq(transactions.id, id))
+      .set({ status: "completed", stripePaymentIntentId: `pi_${txId}` })
+      .where(eq(transactions.id, txId))
+    return txId
   }
 
   it("pose l'id et le statut du litige sur la transaction du payment_intent", async () => {
-    const tx = createId()
-    await seedCompleted(tx, `pi_${tx}`)
+    const tx = await seedCompleted()
 
     const result = await recordStripeDispute({
       stripePaymentIntentId: `pi_${tx}`,
@@ -744,113 +600,68 @@ describe("recordStripeDispute", () => {
     })
   })
 
-  it("même litige : un statut non terminal n'écrase jamais un terminal (ordre de livraison non garanti)", async () => {
-    const tx = createId()
-    await seedCompleted(tx, `pi_${tx}`)
+  // L'ordre de livraison des événements n'est pas garanti, et Stripe documente
+  // « plusieurs litiges par paiement ».
+  it.each([
+    {
+      name: "même litige : un statut non terminal n'écrase jamais un terminal",
+      first: { id: "dp_2", status: "won" },
+      second: { id: "dp_2", status: "under_review" },
+      result: "kept",
+      final: { disputeId: "dp_2", disputeStatus: "won" },
+    },
+    {
+      // Un litige clos ne doit jamais masquer un nouveau chargeback vivant.
+      name: "second litige sur le même paiement : remplace le précédent, même clos",
+      first: { id: "dp_first", status: "won" },
+      second: { id: "dp_second", status: "needs_response" },
+      result: "recorded",
+      final: { disputeId: "dp_second", disputeStatus: "needs_response" },
+    },
+    {
+      // Miroir du cas précédent : un `closed` d'un ANCIEN litige, rejoué en
+      // retard (retry Stripe après un 500), ne masque pas le chargeback en cours.
+      name: "clôture tardive d'un ancien litige : n'écrase pas un litige vivant",
+      first: { id: "dp_live", status: "needs_response" },
+      second: { id: "dp_old", status: "won" },
+      result: "kept",
+      final: { disputeId: "dp_live", disputeStatus: "needs_response" },
+    },
+    {
+      name: "nouveau litige déjà clos (prevented) par-dessus un ancien clos : remplace",
+      first: { id: "dp_first", status: "lost" },
+      second: { id: "dp_next", status: "prevented" },
+      result: "recorded",
+      final: { disputeId: "dp_next", disputeStatus: "prevented" },
+    },
+    {
+      name: "un statut terminal remplace un non terminal",
+      first: { id: "dp_3", status: "under_review" },
+      second: { id: "dp_3", status: "lost" },
+      result: "recorded",
+      final: { disputeId: "dp_3", disputeStatus: "lost" },
+    },
+  ])("$name", async ({ first, second, result, final }) => {
+    const tx = await seedCompleted()
     await recordStripeDispute({
       stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_2",
-      disputeStatus: "won",
+      stripeDisputeId: first.id,
+      disputeStatus: first.status,
     })
 
-    const late = await recordStripeDispute({
+    const res = await recordStripeDispute({
       stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_2",
-      disputeStatus: "under_review",
+      stripeDisputeId: second.id,
+      disputeStatus: second.status,
     })
 
-    expect(late).toEqual({ status: "kept" })
-    expect((await disputeOf(tx)).disputeStatus).toBe("won")
-  })
-
-  // Stripe documente « plusieurs litiges par paiement » : un litige clos ne
-  // doit jamais masquer un nouveau chargeback vivant sur le même paiement.
-  it("second litige sur le même paiement : remplace le précédent, même clos", async () => {
-    const tx = createId()
-    await seedCompleted(tx, `pi_${tx}`)
-    await recordStripeDispute({
-      stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_first",
-      disputeStatus: "won",
-    })
-
-    const second = await recordStripeDispute({
-      stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_second",
-      disputeStatus: "needs_response",
-    })
-
-    expect(second).toEqual({ status: "recorded" })
-    expect(await disputeOf(tx)).toEqual({
-      disputeId: "dp_second",
-      disputeStatus: "needs_response",
-    })
-  })
-
-  // Miroir du cas précédent : un `closed` d'un ANCIEN litige, rejoué en retard
-  // (retry Stripe après un 500), ne doit pas masquer le chargeback en cours.
-  it("clôture tardive d'un ancien litige : n'écrase pas un litige vivant", async () => {
-    const tx = createId()
-    await seedCompleted(tx, `pi_${tx}`)
-    await recordStripeDispute({
-      stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_live",
-      disputeStatus: "needs_response",
-    })
-
-    const late = await recordStripeDispute({
-      stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_old",
-      disputeStatus: "won",
-    })
-
-    expect(late).toEqual({ status: "kept" })
-    expect(await disputeOf(tx)).toEqual({
-      disputeId: "dp_live",
-      disputeStatus: "needs_response",
-    })
-  })
-
-  it("nouveau litige déjà clos (prevented) par-dessus un ancien clos : remplace", async () => {
-    const tx = createId()
-    await seedCompleted(tx, `pi_${tx}`)
-    await recordStripeDispute({
-      stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_first",
-      disputeStatus: "lost",
-    })
-
-    const next = await recordStripeDispute({
-      stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_next",
-      disputeStatus: "prevented",
-    })
-
-    expect(next).toEqual({ status: "recorded" })
-    expect((await disputeOf(tx)).disputeId).toBe("dp_next")
-  })
-
-  it("un statut terminal remplace un non terminal", async () => {
-    const tx = createId()
-    await seedCompleted(tx, `pi_${tx}`)
-    await recordStripeDispute({
-      stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_3",
-      disputeStatus: "under_review",
-    })
-
-    await recordStripeDispute({
-      stripePaymentIntentId: `pi_${tx}`,
-      stripeDisputeId: "dp_3",
-      disputeStatus: "lost",
-    })
-
-    expect((await disputeOf(tx)).disputeStatus).toBe("lost")
+    expect(res).toEqual({ status: result })
+    expect(await disputeOf(tx)).toEqual(final)
   })
 
   it("payment_intent inconnu → not_found, rien d'écrit", async () => {
     const result = await recordStripeDispute({
-      stripePaymentIntentId: `pi_inconnu_${suffix}`,
+      stripePaymentIntentId: "pi_inconnu",
       stripeDisputeId: "dp_4",
       disputeStatus: "needs_response",
     })
@@ -861,15 +672,7 @@ describe("recordStripeDispute", () => {
   // différé) : la transaction est encore `pending`, sans payment_intent. La
   // session Checkout, elle, est connue dès la création du pending.
   it("transaction encore pending (sans payment_intent) → rattachée par la session Checkout", async () => {
-    const tx = createId()
-    await seedPending({
-      id: tx,
-      userId: U_DISPUTE,
-      productId: PEXAM,
-      sessionId: `cs_early_${tx}`,
-      accessType: "exam",
-      durationDays: 90,
-    })
+    const { txId: tx, sessionId } = await seedExamPending()
 
     const byIntent = await recordStripeDispute({
       stripePaymentIntentId: `pi_${tx}`,
@@ -880,7 +683,7 @@ describe("recordStripeDispute", () => {
 
     const bySession = await recordStripeDispute({
       stripePaymentIntentId: `pi_${tx}`,
-      stripeSessionId: `cs_early_${tx}`,
+      stripeSessionId: sessionId,
       stripeDisputeId: "dp_early",
       disputeStatus: "needs_response",
     })
@@ -897,15 +700,7 @@ describe("recordStripeDispute", () => {
 
 describe("markConfirmationEmailSent", () => {
   it("pose le MessageId et l'horodatage d'envoi", async () => {
-    const tx = createId()
-    await seedPending({
-      id: tx,
-      userId: U_DISPUTE,
-      productId: PEXAM,
-      sessionId: `cs_mail_${tx}`,
-      accessType: "exam",
-      durationDays: 90,
-    })
+    const { txId: tx } = await seedExamPending()
 
     await markConfirmationEmailSent({ transactionId: tx, messageId: "ses-123" })
 

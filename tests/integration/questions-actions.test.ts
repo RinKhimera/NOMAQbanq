@@ -1,7 +1,7 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { questionExplanations, questionImages, questions } from "@/db/schema"
+import { questions } from "@/db/schema"
 import {
   createQuestion,
   deleteQuestion,
@@ -22,10 +22,6 @@ import {
   objectiveIdFor,
 } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
@@ -52,11 +48,8 @@ vi.mock("@/lib/storage", async (orig) => {
   }
 })
 
-const suffix = createId().slice(0, 8)
-const created: string[] = []
-
 const base = {
-  question: `Q ${suffix}`,
+  question: "Q",
   options: ["A", "B", "C", "D"],
   correctAnswer: "A",
   explanation: "Exp",
@@ -68,7 +61,6 @@ const base = {
 const makeOne = async () => {
   const res = await createQuestion({ ...base })
   if (!res.success) throw new Error("seed create failed")
-  created.push(res.id)
   return res.id
 }
 
@@ -76,17 +68,6 @@ beforeAll(() => {
   vi.mocked(requireRole).mockResolvedValue({
     user: { id: "admin", role: "admin" },
   } as never)
-})
-
-afterAll(async () => {
-  if (created.length === 0) return
-  await db
-    .delete(questionImages)
-    .where(inArray(questionImages.questionId, created))
-  await db
-    .delete(questionExplanations)
-    .where(inArray(questionExplanations.questionId, created))
-  await db.delete(questions).where(inArray(questions.id, created))
 })
 
 describe("createQuestion", () => {
@@ -103,7 +84,7 @@ describe("createQuestion", () => {
   })
 
   it("refuse un objectif hors du référentiel ou à corriger", async () => {
-    const toFix = await objectiveIdFor(`- ${suffix}`, { needsFix: true })
+    const toFix = await objectiveIdFor("- à corriger", { needsFix: true })
     for (const objectiveId of ["inconnu", toFix]) {
       expect(await createQuestion({ ...base, objectiveId })).toEqual({
         success: false,
@@ -117,32 +98,16 @@ describe("createQuestion", () => {
     })
   })
 
-  it("refuse une bonne réponse hors des options", async () => {
-    const res = await createQuestion({
-      ...base,
-      options: ["A", "B"],
-      correctAnswer: "Z",
-    })
-    expect(res.success).toBe(false)
-  })
-
-  it("refuse deux options identiques, casse et espaces de bord ignorés", async () => {
-    const question = `Doublon ${suffix}`
+  it("refuse un domaine hors de la liste officielle", async () => {
+    const question = "Domaine hors liste"
     const res = await createQuestion({
       ...base,
       question,
-      options: ["A", "B", " b ", "C"],
+      domain: "Gastroentérologie",
     })
-    expect(res).toMatchObject({ success: false })
-    const page = await getQuestionsWithFilters({ search: question, limit: 10 })
-    expect(page.items).toHaveLength(0)
-  })
-
-  it("refuse un domaine hors de la liste officielle", async () => {
-    const res = await createQuestion({ ...base, domain: "Gastroentérologie" })
     expect(res.success).toBe(false)
-    const page = await getQuestionsWithFilters({ search: suffix, limit: 100 })
-    expect(page.items.map((q) => q.domain)).not.toContain("Gastroentérologie")
+    const page = await getQuestionsWithFilters({ search: question, limit: 10 })
+    expect(page.items).toEqual([])
   })
 })
 
@@ -180,27 +145,6 @@ describe("updateQuestion", () => {
     expect(q?.correctAnswer).toBe("A ")
   })
 
-  it("refuse une option faite d'espaces", async () => {
-    const id = await makeOne()
-    const res = await updateQuestion({
-      ...base,
-      id,
-      options: ["A", "B", "C", "  "],
-    })
-    expect(res.success).toBe(false)
-  })
-
-  it("refuse d'enregistrer des options en double", async () => {
-    const id = await makeOne()
-    const res = await updateQuestion({
-      ...base,
-      id,
-      options: ["A", "B", "C", "a"],
-    })
-    expect(res.success).toBe(false)
-    expect((await getQuestionById(id))?.options).toEqual(["A", "B", "C", "D"])
-  })
-
   it("refuse de déplacer une question vers un domaine hors liste", async () => {
     const id = await makeOne()
     const res = await updateQuestion({ ...base, id, domain: "Cardio" })
@@ -222,7 +166,6 @@ describe("normalisation de la correction à l'enregistrement", () => {
     })
     expect(res.success).toBe(true)
     if (!res.success) return
-    created.push(res.id)
 
     const q = await getQuestionById(res.id)
     expect(q?.explanation).toBe(
@@ -317,17 +260,14 @@ describe("deleteQuestion", () => {
     expect(res).toEqual({ success: true, mode: "hard" })
 
     expect(await getQuestionById(id)).toBeNull()
-    const page = await getQuestionsWithFilters({ search: suffix, limit: 100 })
-    expect(page.items.map((q) => q.id)).not.toContain(id)
   })
 })
 
 describe("setQuestionImages", () => {
   it("remplace l'ensemble des images (positions)", async () => {
     const id = await makeOne()
-    // Chemins réalistes : une image conservée porte toujours le préfixe de SA
-    // question ET de son `kind` (`questions/{id}/statement/…`) — la garde de
-    // préfixe le requiert depuis la namespacing par kind (défaut statement).
+    // Une image conservée porte le préfixe de SA question et de son `kind`
+    // (`questions/{id}/statement/…`) : la garde de préfixe l'exige.
     const a = `questions/${id}/statement/a.jpg`
     const b = `questions/${id}/statement/b.jpg`
 
@@ -400,7 +340,7 @@ describe("setQuestionImages", () => {
     ])
   })
 
-  it("rejette un storagePath final hors du préfixe de la question (F2)", async () => {
+  it("rejette un storagePath final hors du préfixe de la question", async () => {
     const id = await makeOne()
     const other = await makeOne()
     vi.mocked(copyInS3).mockClear()
@@ -421,7 +361,7 @@ describe("setQuestionImages", () => {
     expect(q?.images).toEqual([])
   })
 
-  it("copie OK mais écriture DB en échec → nettoie les finaux copiés, pas d'orphelin (F4)", async () => {
+  it("copie OK mais écriture DB en échec → nettoie les finaux copiés, pas d'orphelin", async () => {
     // Question inexistante : la transaction lève `Q_NOT_FOUND` APRÈS la copie
     // tmp/ → final. Le final déjà copié DOIT alors être supprimé (sinon orphelin
     // dans `questions/`). C'est le cœur de la garantie anti-orphelin sur l'échec DB.
@@ -443,7 +383,7 @@ describe("setQuestionImages", () => {
     expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith(finalPath)
   })
 
-  it("rejette un storagePath malformé (path traversal) sans aucune I/O S3 (F4)", async () => {
+  it("rejette un storagePath malformé (path traversal) sans aucune I/O S3", async () => {
     const id = await makeOne()
     vi.mocked(copyInS3).mockClear()
     vi.mocked(tryDeleteFromStorage).mockClear()

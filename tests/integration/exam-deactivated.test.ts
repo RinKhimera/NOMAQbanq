@@ -1,5 +1,5 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAudience,
@@ -23,23 +23,16 @@ import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 
 const ADMIN_ID = createId()
 // Membres de l'audience restreinte : la sélection vaut accès, sans abonnement.
 const NEWCOMER_ID = createId()
 const RUNNER_ID = createId()
 const qIds = [createId(), createId()]
-
-const createdExams: string[] = []
 
 const asUser = (id: string, role: "user" | "admin" = "user") =>
   vi
@@ -50,10 +43,9 @@ const asUser = (id: string, role: "user" | "admin" = "user") =>
 const seedExam = async ({ closed = false }: { closed?: boolean } = {}) => {
   const now = Date.now()
   const examId = createId()
-  createdExams.push(examId)
   await db.insert(exams).values({
     id: examId,
-    title: `Désactivé ${suffix}`,
+    title: "Désactivé",
     startDate: new Date(now - 10 * DAY),
     endDate: closed ? new Date(now - DAY) : new Date(now + DAY),
     completionTime: 3600,
@@ -82,37 +74,29 @@ beforeAll(async () => {
     {
       id: ADMIN_ID,
       name: "Dés admin",
-      email: `des-adm-${suffix}@test.invalid`,
+      email: "des-adm@test.invalid",
     },
     {
       id: NEWCOMER_ID,
       name: "Dés nouveau",
-      email: `des-new-${suffix}@test.invalid`,
+      email: "des-new@test.invalid",
     },
     {
       id: RUNNER_ID,
       name: "Dés en cours",
-      email: `des-run-${suffix}@test.invalid`,
+      email: "des-run@test.invalid",
     },
   ])
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `Q désactivé ${i} ${suffix}`,
+      question: `Q désactivé ${i}`,
       correctAnswer: "A",
       options: ["A", "B"],
       objectiveId: TEST_OBJECTIVE_ID,
       domain: "Cardiologie",
     })),
   )
-})
-
-afterAll(async () => {
-  await db.delete(exams).where(inArray(exams.id, createdExams))
-  await db.delete(questions).where(inArray(questions.id, qIds))
-  await db
-    .delete(user)
-    .where(inArray(user.id, [ADMIN_ID, NEWCOMER_ID, RUNNER_ID]))
 })
 
 describe("examen désactivé", () => {

@@ -1,20 +1,17 @@
-import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
   examParticipations,
   examQuestions,
   exams,
-  products,
   questionExplanations,
   questionImages,
   questions,
   trainingSessionItems,
   trainingSessions,
-  transactions,
   user,
-  userAccess,
 } from "@/db/schema"
 import {
   getMyDashboard,
@@ -24,9 +21,7 @@ import {
   deactivateExam,
   deleteParticipation,
   finalizeExam,
-  pauseExam,
   reactivateExam,
-  resumeExam,
   saveExamAnswer,
   startExam,
 } from "@/features/exams/actions"
@@ -42,24 +37,26 @@ import {
 import { getTrainingHistory } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
-import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
+import {
+  createFinalizedExam,
+  saveAndFinalize,
+  saveExamSettings,
+} from "../helpers/exam-form"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 import { seedExam } from "../helpers/seed-exam"
+import { seedAccess } from "../helpers/seed-payments"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 const STUDENT_ID = createId()
+// Passe les examens de bout en bout : ses participations complétées restent
+// hors du tableau de bord de STUDENT, dont l'historique est borné à 5.
+const TAKER_ID = createId()
 const INTRUDER_ID = createId()
 const NOACCESS_ID = createId()
-const PID = createId()
 // 11 questions : q0..q5 examens, q6 = témoin non autorisé, q7 = training seul,
 // q8 = chevauchement training + examen clos, q9 = training + examen ouvert,
 // q10 = examen clos SEUL (aucun chevauchement).
@@ -74,6 +71,7 @@ const setSession = (id: string, role: "user" | "admin") =>
     .mockResolvedValue({ user: { id, role } } as never)
 const asAdmin = () => setSession(ADMIN_ID, "admin")
 const asStudent = () => setSession(STUDENT_ID, "user")
+const asTaker = () => setSession(TAKER_ID, "user")
 
 /** Score écrit par `finalizeExam` : il ne repart pas vers le navigateur. */
 const persistedScore = async (examId: string) => {
@@ -83,7 +81,7 @@ const persistedScore = async (examId: string) => {
     .where(
       and(
         eq(examParticipations.examId, examId),
-        eq(examParticipations.userId, STUDENT_ID),
+        eq(examParticipations.userId, TAKER_ID),
       ),
     )
   return p?.score
@@ -91,142 +89,225 @@ const persistedScore = async (examId: string) => {
 const asIntruder = () => setSession(INTRUDER_ID, "user")
 const asNoAccess = () => setSession(NOACCESS_ID, "user")
 
-const grantExamAccess = async (userId: string) => {
-  const txId = createId()
-  await db.insert(transactions).values({
-    id: txId,
-    userId,
-    productId: PID,
-    type: "manual",
-    status: "completed",
-    amountPaid: 5000,
-    currency: "CAD",
-    accessType: "exam",
-    durationDays: 90,
-    accessExpiresAt: new Date(Date.now() + 90 * DAY),
-  })
-  await db.insert(userAccess).values({
-    userId,
-    accessType: "exam",
-    expiresAt: new Date(Date.now() + 10 * DAY),
-    lastTransactionId: txId,
-  })
-}
+const grantExamAccess = (userId: string) =>
+  seedAccess(userId, "exam", new Date(Date.now() + 10 * DAY))
 
 const makeExam = async (opts: {
   questionIds: string[]
-  enablePause?: boolean
   startDate?: number
   endDate?: number
-  pauseDurationMinutes?: number
 }): Promise<string> => {
   const now = Date.now()
   return seedExam({
     createdBy: ADMIN_ID,
-    title: `Exam ${suffix} ${createId().slice(0, 4)}`,
+    title: `Exam ${createId().slice(0, 4)}`,
     startDate: opts.startDate ?? now - 3600_000,
     endDate: opts.endDate ?? now + 3600_000,
     questionIds: opts.questionIds,
-    enablePause: opts.enablePause ?? false,
-    pauseDurationMinutes: opts.pauseDurationMinutes,
   })
 }
 
-let noPauseId: string
-let pauseId: string
+// Examen ouvert que l'étudiant a déjà terminé (100), réponses comprises : il
+// retient la correction de toute question qu'il partage. Semé le premier, il
+// ferme avant tout autre examen ouvert de l'étudiant.
+let completedOpenId: string
+// Examen clos complété (50) dont q0 chevauche completedOpenId.
 let pastExamId: string
+// Examen clos complété (100) sur q10, qu'aucun examen ouvert ne partage.
 let closedOnlyExamId: string
-let pauseOrderedIds: string[] = []
+
+/** Examen ouvert neuf (q0..q5) que TAKER vient de démarrer. */
+const startedExam = async () => {
+  const examId = await makeExam({ questionIds: examQIds })
+  asTaker()
+  const res = await startExam({ examId })
+  if (!res.success) throw new Error(res.error)
+  return examId
+}
+
+/**
+ * Sur un examen démarré : 3 bonnes (A), 1 mauvaise (B), 1 hors options
+ * refusée, 1 sans réponse, puis finalisation → 3/6 = 50.
+ */
+const answerAndFinalize = async (examId: string) => {
+  asTaker()
+  for (const questionId of examQIds.slice(0, 3)) {
+    await saveExamAnswer({ examId, questionId, selectedAnswer: "A" })
+  }
+  await saveExamAnswer({
+    examId,
+    questionId: examQIds[3],
+    selectedAnswer: "B",
+  })
+  const orphan = await saveExamAnswer({
+    examId,
+    questionId: examQIds[4],
+    selectedAnswer: "Z",
+  })
+  const finalized = await finalizeExam({ examId })
+  return { orphan, finalized }
+}
 
 beforeAll(async () => {
   await db.insert(user).values([
-    { id: ADMIN_ID, name: "IT admin", email: `adm-${suffix}@test.invalid` },
+    { id: ADMIN_ID, name: "IT admin", email: "adm@test.invalid" },
     {
       id: STUDENT_ID,
       name: "IT student",
-      username: `it-stu-${suffix}`,
-      email: `stu-${suffix}@test.invalid`,
+      username: "it-stu",
+      email: "stu@test.invalid",
     },
-    { id: INTRUDER_ID, name: "IT intru", email: `int-${suffix}@test.invalid` },
-    { id: NOACCESS_ID, name: "IT noacc", email: `noa-${suffix}@test.invalid` },
+    { id: TAKER_ID, name: "IT taker", email: "tak@test.invalid" },
+    { id: INTRUDER_ID, name: "IT intru", email: "int@test.invalid" },
+    { id: NOACCESS_ID, name: "IT noacc", email: "noa@test.invalid" },
   ])
-  await db.insert(products).values({
-    id: PID,
-    code: "exam_access",
-    name: "Exam",
-    description: "desc",
-    priceCad: 5000,
-    durationDays: 90,
-    accessType: "exam",
-    stripeProductId: `prod_${suffix}`,
-    stripePriceId: `price_${suffix}`,
-    stripePriceLookupKey: `price_${suffix}`,
-  })
   await grantExamAccess(STUDENT_ID)
+  await grantExamAccess(TAKER_ID)
   await grantExamAccess(INTRUDER_ID)
 
   await db.insert(questions).values(
     [...qIds, ...crudQIds].map((id, i) => ({
       id,
-      question: `Q ${i} ${suffix} ?`,
+      question: `Q ${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
-      domain: `EXAM-${suffix}`,
+      domain: "EXAM",
     })),
   )
   await db.insert(questionExplanations).values(
     qIds.map((id, i) => ({
       questionId: id,
-      explanation: `Explication ${i} ${suffix}`,
+      explanation: `Explication ${i}`,
       references: i === 0 ? ["Ref 1"] : null,
     })),
   )
   await db
     .insert(questionImages)
-    .values([
-      { questionId: qIds[0], storagePath: `t/${suffix}/0.jpg`, position: 0 },
-    ])
+    .values([{ questionId: qIds[0], storagePath: "t/0.jpg", position: 0 }])
 
-  noPauseId = await makeExam({ questionIds: examQIds })
-  pauseId = await makeExam({ questionIds: examQIds, enablePause: true })
-})
+  completedOpenId = await makeExam({ questionIds: examQIds })
+  const completedId = createId()
+  await db.insert(examParticipations).values({
+    id: completedId,
+    examId: completedOpenId,
+    userId: STUDENT_ID,
+    status: "completed",
+    score: 100,
+    startedAt: new Date(Date.now() - 2000),
+    completedAt: new Date(Date.now() - 1000),
+  })
+  await db.insert(examAnswers).values(
+    examQIds.map((questionId) => ({
+      participationId: completedId,
+      questionId,
+      selectedAnswer: "A",
+      isCorrect: true,
+    })),
+  )
 
-afterAll(async () => {
-  // Supprimer les examens cascade participations/réponses/jonctions.
-  await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
-  // Sessions training (cascade items) avant les questions (FK restrict sur items).
-  const uids = [ADMIN_ID, STUDENT_ID, INTRUDER_ID, NOACCESS_ID]
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.userId, uids))
-  await db.delete(userAccess).where(inArray(userAccess.userId, uids))
-  await db.delete(transactions).where(inArray(transactions.userId, uids))
-  await db
-    .delete(questionImages)
-    .where(inArray(questionImages.questionId, qIds))
-  await db
-    .delete(questionExplanations)
-    .where(inArray(questionExplanations.questionId, qIds))
-  await db
-    .delete(questions)
-    .where(inArray(questions.id, [...qIds, ...crudQIds]))
-  await db.delete(products).where(eq(products.id, PID))
-  await db.delete(user).where(inArray(user.id, uids))
+  const now = Date.now()
+  closedOnlyExamId = await makeExam({
+    questionIds: [qIds[10]],
+    startDate: now - 3 * DAY,
+    endDate: now - DAY,
+  })
+  const closedOnlyPartId = createId()
+  await db.insert(examParticipations).values({
+    id: closedOnlyPartId,
+    examId: closedOnlyExamId,
+    userId: STUDENT_ID,
+    status: "completed",
+    score: 100,
+    startedAt: new Date(now - 3 * DAY + 1000),
+    completedAt: new Date(now - 2 * DAY),
+  })
+  await db.insert(examAnswers).values({
+    id: createId(),
+    participationId: closedOnlyPartId,
+    questionId: qIds[10],
+    selectedAnswer: "A",
+    isCorrect: true,
+  })
+  // Participation seedée directement : startExam refuserait hors fenêtre.
+  pastExamId = await makeExam({
+    questionIds: examQIds,
+    startDate: now - 3 * DAY,
+    endDate: now - DAY,
+  })
+  const pastPartId = createId()
+  await db.insert(examParticipations).values({
+    id: pastPartId,
+    examId: pastExamId,
+    userId: STUDENT_ID,
+    status: "completed",
+    score: 50,
+    startedAt: new Date(now - 3 * DAY + 1000),
+    completedAt: new Date(now - 2 * DAY),
+  })
+  await db.insert(examAnswers).values([
+    {
+      id: createId(),
+      participationId: pastPartId,
+      questionId: examQIds[0],
+      selectedAnswer: "A",
+      isCorrect: true,
+    },
+    {
+      id: createId(),
+      participationId: pastPartId,
+      questionId: examQIds[1],
+      selectedAnswer: "B",
+      isCorrect: false,
+    },
+  ])
+  // Session training complétée contenant q7 → autorise q7 via la branche
+  // training de getExamQuestionExplanations (q7 n'appartient à aucun examen).
+  const tsId = createId()
+  await db.insert(trainingSessions).values({
+    id: tsId,
+    userId: STUDENT_ID,
+    status: "completed",
+    questionCount: 1,
+    startedAt: new Date(now - DAY),
+    completedAt: new Date(now - DAY + 1000),
+    expiresAt: new Date(now + DAY),
+  })
+  await db.insert(trainingSessionItems).values({
+    id: createId(),
+    sessionId: tsId,
+    questionId: qIds[7],
+    position: 0,
+    selectedAnswer: "A",
+    isCorrect: true,
+  })
 })
 
 describe("Admin CRUD", () => {
-  it("la création refuse une question inexistante", async () => {
+  it("la création refuse une question supprimée (INVALID_QUESTIONS)", async () => {
+    const deletedId = createId()
+    await db.insert(questions).values({
+      id: deletedId,
+      question: "Q supprimée ?",
+      correctAnswer: "A",
+      options: ["A", "B", "C", "D"],
+      objectiveId: TEST_OBJECTIVE_ID,
+      domain: "EXAM",
+      deletedAt: new Date(),
+    })
     asAdmin()
     const now = Date.now()
     const res = await createFinalizedExam({
-      title: `Bad ${suffix}`,
+      title: "Bad",
       startDate: now,
       endDate: now + DAY,
-      questionIds: [...crudQIds.slice(0, 9), createId()],
+      questionIds: [...crudQIds.slice(0, 9), deletedId],
       enablePause: false,
     })
-    expect(res.success).toBe(false)
+    expect(res).toEqual({
+      success: false,
+      error: "Certaines questions sélectionnées sont introuvables.",
+    })
   })
 
   it("la modification sur un examen sans participation change le titre + questions", async () => {
@@ -235,7 +316,7 @@ describe("Admin CRUD", () => {
     const now = Date.now()
     const res = await saveAndFinalize({
       id,
-      title: `Updated ${suffix}`,
+      title: "Updated",
       startDate: now - 1000,
       endDate: now + DAY,
       questionIds: crudQIds.slice(0, 11), // passe de 10 à 11 questions
@@ -244,7 +325,7 @@ describe("Admin CRUD", () => {
     expect(res.success).toBe(true)
 
     const view = await getExamWithQuestions(id)
-    expect(view?.exam.title).toBe(`Updated ${suffix}`)
+    expect(view?.exam.title).toBe("Updated")
     expect(view?.questions).toHaveLength(11)
     expect(view?.exam.completionTime).toBe(11 * 83)
   })
@@ -255,11 +336,13 @@ describe("Admin CRUD", () => {
 
     const now = Date.now()
     const [, start] = await Promise.all([
+      // `saveExam` seul : la finalisation qui suivrait relirait la session
+      // courante, déjà basculée sur l'étudiant par l'autre branche.
       (async () => {
         asAdmin()
-        return saveAndFinalize({
+        return saveExamSettings({
           id,
-          title: `Race ${suffix}`,
+          title: "Race",
           startDate: now - 1000,
           endDate: now + DAY,
           questionIds: newSet,
@@ -311,85 +394,56 @@ describe("Admin CRUD", () => {
 
 describe("Passation sans pause (scoring serveur)", () => {
   it("startExam crée la participation et pré-crée les réponses", async () => {
-    asStudent()
-    const res = await startExam({ examId: noPauseId })
+    const examId = await makeExam({ questionIds: examQIds })
+    asTaker()
+    const res = await startExam({ examId })
     expect(res.success).toBe(true)
     if (!res.success) return
     expect(res.participationId).toBeTruthy()
-    // startExam ne retourne plus pausePhase
-    expect(res).not.toHaveProperty("pausePhase")
 
     // Idempotent : 2e appel → même participation.
-    const again = await startExam({ examId: noPauseId })
+    const again = await startExam({ examId })
     expect(again.success && again.participationId).toBe(res.participationId)
   })
 
   it("getExamWithQuestions masque correctAnswer pour l'étudiant", async () => {
-    asStudent()
-    const view = await getExamWithQuestions(noPauseId)
+    const examId = await startedExam()
+    const view = await getExamWithQuestions(examId)
     expect(view?.questions).toHaveLength(6)
     expect(view?.questions[0]).not.toHaveProperty("correctAnswer")
     expect(view?.questions[0].images).toHaveLength(1)
   })
 
   it("getExamSession renvoie in_progress et isPaused=false", async () => {
-    asStudent()
-    const s = await getExamSession(noPauseId)
+    const examId = await startedExam()
+    const s = await getExamSession(examId)
     expect(s?.status).toBe("in_progress")
     expect(s?.isPaused).toBe(false)
-    expect(s).not.toHaveProperty("pausePhase")
-    expect(s).not.toHaveProperty("pauseEndedAt")
-    expect(s).not.toHaveProperty("isPauseCutShort")
   })
 
   it("saveExamAnswer + finalizeExam calcule le score (3/6 = 50)", async () => {
-    asStudent()
-    const view = await getExamWithQuestions(noPauseId)
-    const ids = view!.questions.map((q) => q._id)
-    // 3 bonnes (A), 1 mauvaise (B), 2 non répondues → score = 3/6 = 50
-    await saveExamAnswer({
-      examId: noPauseId,
-      questionId: ids[0],
-      selectedAnswer: "A",
-    })
-    await saveExamAnswer({
-      examId: noPauseId,
-      questionId: ids[1],
-      selectedAnswer: "A",
-    })
-    await saveExamAnswer({
-      examId: noPauseId,
-      questionId: ids[2],
-      selectedAnswer: "A",
-    })
-    await saveExamAnswer({
-      examId: noPauseId,
-      questionId: ids[3],
-      selectedAnswer: "B",
-    })
+    const examId = await startedExam()
+    const { orphan, finalized } = await answerAndFinalize(examId)
     // Hors options : refusé sans écriture (l'admin voit 4 réponses, plus bas).
-    const orphan = await saveExamAnswer({
-      examId: noPauseId,
-      questionId: ids[4],
-      selectedAnswer: "Z",
-    })
     expect(orphan.success).toBe(false)
-
-    const res = await finalizeExam({ examId: noPauseId })
     // Le décompte des justes ne repart pas vers le navigateur : lu en base.
-    expect(res).toEqual({ success: true })
-    expect(await persistedScore(noPauseId)).toBe(50)
+    expect(finalized).toEqual({ success: true })
+    expect(await persistedScore(examId)).toBe(50)
   })
 
   it("startExam refuse une 2e passation (déjà passé)", async () => {
     asStudent()
-    const res = await startExam({ examId: noPauseId })
-    expect(res.success).toBe(false)
+    expect(await startExam({ examId: completedOpenId })).toEqual({
+      success: false,
+      error: "Vous avez déjà passé cet examen.",
+    })
   })
 
   it("getParticipantExamResults (admin) révèle correctAnswer + réponses", async () => {
+    const examId = await startedExam()
+    await answerAndFinalize(examId)
     asAdmin()
-    const r = await getParticipantExamResults(noPauseId, STUDENT_ID)
+    const r = await getParticipantExamResults(examId, TAKER_ID)
     expect(r && "participant" in r).toBe(true)
     if (!r || "error" in r) return
     expect(r.participant.score).toBe(50)
@@ -402,125 +456,31 @@ describe("Passation sans pause (scoring serveur)", () => {
 
   it("getParticipantExamResults (étudiant, examen actif) → null avant endDate", async () => {
     asStudent()
-    expect(await getParticipantExamResults(noPauseId, STUDENT_ID)).toBeNull()
-  })
-})
-
-describe("Machine de pause", () => {
-  it("startExam crée la participation (sans pausePhase)", async () => {
-    asStudent()
-    const res = await startExam({ examId: pauseId })
-    expect(res.success).toBe(true)
-    expect(res).not.toHaveProperty("pausePhase")
-    const view = await getExamWithQuestions(pauseId)
-    pauseOrderedIds = view!.questions.map((q) => q._id)
-  })
-
-  it("pauseExam démarre la pause", async () => {
-    asStudent()
-    const res = await pauseExam({ examId: pauseId })
-    expect(res.success).toBe(true)
-    if (!res.success) return
-    expect(res.pauseStartedAt).toBeGreaterThan(0)
-
-    const s = await getExamSession(pauseId)
-    expect(s?.isPaused).toBe(true)
-  })
-
-  it("saveExamAnswer refusé pendant la pause", async () => {
-    asStudent()
-    const res = await saveExamAnswer({
-      examId: pauseId,
-      questionId: pauseOrderedIds[0],
-      selectedAnswer: "A",
-    })
-    expect(res.success).toBe(false)
-  })
-
-  it("pauseExam refuse une 2e pause (déjà en pause)", async () => {
-    asStudent()
-    const res = await pauseExam({ examId: pauseId })
-    expect(res.success).toBe(false)
-  })
-
-  it("resumeExam reprend après la pause (durée enregistrée)", async () => {
-    asStudent()
-    const res = await resumeExam({ examId: pauseId })
-    expect(res.success).toBe(true)
-    if (!res.success) return
-    expect(res.totalPauseDurationMs).toBeGreaterThanOrEqual(0)
-    const s = await getExamSession(pauseId)
-    expect(s?.isPaused).toBe(false)
-  })
-
-  it("pauseExam refuse une 2e utilisation (pause déjà utilisée)", async () => {
-    asStudent()
-    const res = await pauseExam({ examId: pauseId })
-    expect(res.success).toBe(false)
-  })
-
-  it("saveExamAnswer accepte le texte exact d'une option, espace de fin compris", async () => {
-    asStudent()
-    const questionId = pauseOrderedIds[0]
-    await db
-      .update(questions)
-      .set({ options: ["A ", "B", "C", "D"], correctAnswer: "A " })
-      .where(eq(questions.id, questionId))
-    try {
-      const trimmed = await saveExamAnswer({
-        examId: pauseId,
-        questionId,
-        selectedAnswer: "A",
-      })
-      expect(trimmed.success).toBe(false)
-      const exact = await saveExamAnswer({
-        examId: pauseId,
-        questionId,
-        selectedAnswer: "A ",
-      })
-      expect(exact.success).toBe(true)
-    } finally {
-      await db
-        .update(questions)
-        .set({ options: ["A", "B", "C", "D"], correctAnswer: "A" })
-        .where(eq(questions.id, questionId))
-    }
-  })
-
-  it("saveExamAnswer + finalizeExam → 100 après reprise", async () => {
-    asStudent()
-    for (const qId of pauseOrderedIds) {
-      await saveExamAnswer({
-        examId: pauseId,
-        questionId: qId,
-        selectedAnswer: "A",
-      })
-    }
-    const res = await finalizeExam({ examId: pauseId })
-    expect(res).toEqual({ success: true })
-    expect(await persistedScore(pauseId)).toBe(100)
+    expect(
+      await getParticipantExamResults(completedOpenId, STUDENT_ID),
+    ).toBeNull()
   })
 })
 
 describe("Leaderboard", () => {
   it("admin voit le classement trié par score", async () => {
     asAdmin()
-    const lb = await getExamLeaderboard(pauseId)
-    expect(lb.length).toBeGreaterThanOrEqual(1)
+    const lb = await getExamLeaderboard(completedOpenId)
+    expect(lb).toHaveLength(1)
     expect(lb[0].user?.id).toBe(STUDENT_ID)
-    expect(lb[0].user?.username).toBe(`it-stu-${suffix}`)
+    expect(lb[0].user?.username).toBe("it-stu")
     expect(lb[0].score).toBe(100)
   })
 
   it("le classement complet est réservé à l'admin", async () => {
     asStudent()
-    await expect(getExamLeaderboard(pauseId)).rejects.toThrow()
+    await expect(getExamLeaderboard(completedOpenId)).rejects.toThrow()
   })
 })
 
 describe("Explications lazy (autorisation)", () => {
   it("étudiant : examen OUVERT complété → pas d'explication (anti-fuite avant endDate)", async () => {
-    // L'étudiant a complété noPauseId, mais cet examen est encore OUVERT
+    // L'étudiant a complété completedOpenId, mais cet examen est encore OUVERT
     // (endDate dans le futur) → ses explications ne doivent pas être révélées
     // avant l'ouverture des résultats. (Révélation testée après endDate plus bas.)
     asStudent()
@@ -541,13 +501,14 @@ describe("Explications lazy (autorisation)", () => {
 describe("IDOR / accès", () => {
   it("startExam refusé sans accès payant (non-admin)", async () => {
     asNoAccess()
-    const res = await startExam({ examId: noPauseId })
+    const res = await startExam({ examId: completedOpenId })
     expect(res.success).toBe(false)
   })
 
   it("un intrus ne peut pas lire les résultats d'autrui", async () => {
+    // Examen clos : seule la propriété (ou le rôle admin) retient la lecture.
     asIntruder()
-    expect(await getParticipantExamResults(noPauseId, STUDENT_ID)).toBeNull()
+    expect(await getParticipantExamResults(pastExamId, STUDENT_ID)).toBeNull()
   })
 
   /** Examen de 10 questions dont l'étudiant a une participation. */
@@ -569,7 +530,7 @@ describe("IDOR / accès", () => {
     const now = Date.now()
     const res = await saveAndFinalize({
       id,
-      title: `Titre maj ${suffix}`,
+      title: "Titre maj",
       startDate: now - 1000,
       endDate: now + DAY,
       questionIds: crudQIds.slice(0, 10), // jeu de questions inchangé
@@ -584,7 +545,7 @@ describe("IDOR / accès", () => {
     const now = Date.now()
     const res = await saveAndFinalize({
       id,
-      title: `Nope ${suffix}`,
+      title: "Nope",
       startDate: now - 1000,
       endDate: now + DAY,
       questionIds: crudQIds.slice(1, 11), // set modifié
@@ -600,8 +561,18 @@ describe("IDOR / accès", () => {
 
 describe("deleteParticipation (admin)", () => {
   it("supprime la participation → résultats NO_PARTICIPATION", async () => {
+    const examId = await makeExam({ questionIds: examQIds })
+    await db.insert(examParticipations).values({
+      id: createId(),
+      examId,
+      userId: TAKER_ID,
+      status: "completed",
+      score: 50,
+      startedAt: new Date(Date.now() - 2000),
+      completedAt: new Date(Date.now() - 1000),
+    })
     asAdmin()
-    const r = await getParticipantExamResults(noPauseId, STUDENT_ID)
+    const r = await getParticipantExamResults(examId, TAKER_ID)
     if (!r || !("participant" in r)) throw new Error("participation attendue")
 
     const del = await deleteParticipation({
@@ -609,96 +580,15 @@ describe("deleteParticipation (admin)", () => {
     })
     expect(del.success).toBe(true)
 
-    const after = await getParticipantExamResults(noPauseId, STUDENT_ID)
+    const after = await getParticipantExamResults(examId, TAKER_ID)
     expect(after && "error" in after && after.error).toBe("NO_PARTICIPATION")
   })
 })
 
-describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
-  beforeAll(async () => {
-    const now = Date.now()
-    // Examen clos SEUL (q10, aucun chevauchement avec un examen ouvert) +
-    // participation complétée : le témoin « révélation après endDate ».
-    closedOnlyExamId = await makeExam({
-      questionIds: [qIds[10]],
-      startDate: now - 3 * DAY,
-      endDate: now - DAY,
-    })
-    const closedOnlyPartId = createId()
-    await db.insert(examParticipations).values({
-      id: closedOnlyPartId,
-      examId: closedOnlyExamId,
-      userId: STUDENT_ID,
-      status: "completed",
-      score: 100,
-      startedAt: new Date(now - 3 * DAY + 1000),
-      completedAt: new Date(now - 2 * DAY),
-    })
-    await db.insert(examAnswers).values({
-      id: createId(),
-      participationId: closedOnlyPartId,
-      questionId: qIds[10],
-      selectedAnswer: "A",
-      isCorrect: true,
-    })
-    // Examen terminé (endDate dans le passé) + participation complétée seedée
-    // directement (startExam refuserait hors fenêtre).
-    pastExamId = await makeExam({
-      questionIds: examQIds,
-      startDate: now - 3 * DAY,
-      endDate: now - DAY,
-    })
-    const partId = createId()
-    await db.insert(examParticipations).values({
-      id: partId,
-      examId: pastExamId,
-      userId: STUDENT_ID,
-      status: "completed",
-      score: 50,
-      startedAt: new Date(now - 3 * DAY + 1000),
-      completedAt: new Date(now - 2 * DAY),
-    })
-    await db.insert(examAnswers).values([
-      {
-        id: createId(),
-        participationId: partId,
-        questionId: examQIds[0],
-        selectedAnswer: "A",
-        isCorrect: true,
-      },
-      {
-        id: createId(),
-        participationId: partId,
-        questionId: examQIds[1],
-        selectedAnswer: "B",
-        isCorrect: false,
-      },
-    ])
-    // Session training complétée contenant q7 → autorise q7 via le branch training
-    // de getExamQuestionExplanations (q7 n'appartient à aucun examen).
-    const tsId = createId()
-    await db.insert(trainingSessions).values({
-      id: tsId,
-      userId: STUDENT_ID,
-      status: "completed",
-      questionCount: 1,
-      startedAt: new Date(now - DAY),
-      completedAt: new Date(now - DAY + 1000),
-      expiresAt: new Date(now + DAY),
-    })
-    await db.insert(trainingSessionItems).values({
-      id: createId(),
-      sessionId: tsId,
-      questionId: qIds[7],
-      position: 0,
-      selectedAnswer: "A",
-      isCorrect: true,
-    })
-  })
-
+describe("Gardes d'accès post-endDate + TIME_UP", () => {
   it("étudiant : ses propres résultats sont visibles après endDate, score retenu tant qu'une réponse chevauche un examen ouvert", async () => {
-    // examQIds[0] est aussi dans noPauseId/pauseId, ouverts, où STUDENT a
-    // participé : la réponse est différée et le score (50) avec elle.
+    // examQIds[0] est aussi dans completedOpenId, ouvert, où STUDENT a
+    // répondu : la réponse est différée et le score (50) avec elle.
     asStudent()
     const r = await getParticipantExamResults(pastExamId, STUDENT_ID)
     expect(r && "participant" in r).toBe(true)
@@ -734,7 +624,7 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
     await db.insert(examParticipations).values({
       id: partId,
       examId: activeId,
-      userId: STUDENT_ID,
+      userId: TAKER_ID,
       status: "in_progress",
       score: 0,
       startedAt: new Date(Date.now() - 10 * DAY), // budget largement dépassé
@@ -750,7 +640,7 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
         isFlagged: false,
       })),
     )
-    asStudent()
+    asTaker()
     const ko = await finalizeExam({ examId: activeId })
     expect(ko.success).toBe(false)
 
@@ -823,9 +713,10 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
     })
     withheldTrainingId = await seedCompletedTraining(STUDENT_ID, qIds[9], 40)
     // INTRUDER : participation in_progress + training sur q1.
+    const intruderOpenId = await makeExam({ questionIds: examQIds })
     await db.insert(examParticipations).values({
       id: createId(),
-      examId: noPauseId,
+      examId: intruderOpenId,
       userId: INTRUDER_ID,
       status: "in_progress",
       score: 0,
@@ -948,18 +839,17 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(
         list.find((e) => e.id === pastExamId)?.userParticipation?.score,
       ).toBeNull()
-      // « Publié à la fermeture de … » nomme l'examen ouvert qui retient :
-      // la branche titre de `withheldByOpenExamTitle`, corrélée au milieu de
-      // trois jointures, s'exécute ici sur un vrai Postgres.
-      const openTitles = (
-        await db
-          .select({ title: exams.title })
-          .from(exams)
-          .where(inArray(exams.id, [noPauseId, pauseId]))
-      ).map((e) => e.title)
-      expect(openTitles).toContain(
+      // « Publié à la fermeture de … » nomme l'examen ouvert qui retient, le
+      // premier à fermer : la branche titre de `withheldByOpenExamTitle`,
+      // corrélée au milieu de trois jointures, s'exécute ici sur un vrai
+      // Postgres.
+      const [completedOpen] = await db
+        .select({ title: exams.title })
+        .from(exams)
+        .where(eq(exams.id, completedOpenId))
+      expect(
         list.find((e) => e.id === pastExamId)?.userParticipation?.withheldBy,
-      )
+      ).toBe(completedOpen.title)
       const recent = await getMyRecentParticipations()
       expect(recent.find((h) => h.examId === pastExamId)?.score).toBeNull()
       const curve = (await getMyDashboard("tout"))?.exams.history ?? []
@@ -984,12 +874,11 @@ describe("score retenu — participation sans réponse", () => {
   const emptyOpenId = createId()
   const emptyClosedId = createId()
   const emptyAdminOpenId = createId()
-  let emptyExamIds: string[]
 
   const makeBareExam = (id: string, endDate: Date, questionId: string) => ({
     exam: {
       id,
-      title: `Empty ${suffix} ${id.slice(0, 4)}`,
+      title: `Empty ${id.slice(0, 4)}`,
       startDate: new Date(Date.now() - DAY),
       endDate,
       createdBy: ADMIN_ID,
@@ -1013,7 +902,7 @@ describe("score retenu — participation sans réponse", () => {
     await db.insert(user).values({
       id: EMPTY_ID,
       name: "IT empty",
-      email: `empty-${suffix}@test.invalid`,
+      email: "empty@test.invalid",
     })
     await grantExamAccess(EMPTY_ID)
     // Clos une minute avant le seed (lisible) ou ouvert une minute après
@@ -1026,7 +915,6 @@ describe("score retenu — participation sans réponse", () => {
       makeBareExam(emptyClosedId, new Date(Date.now() - 60_000), qIds[3]),
       makeBareExam(emptyAdminOpenId, new Date(Date.now() + 60_000), qIds[4]),
     ]
-    emptyExamIds = specs.map((s) => s.exam.id)
     await db.insert(exams).values(specs.map((s) => s.exam))
     await db.insert(examQuestions).values(
       specs.map((s) => ({
@@ -1042,13 +930,6 @@ describe("score retenu — participation sans réponse", () => {
         participation(emptyClosedId, EMPTY_ID),
         participation(emptyAdminOpenId, ADMIN_ID),
       ])
-  })
-
-  afterAll(async () => {
-    await db.delete(exams).where(inArray(exams.id, emptyExamIds))
-    await db.delete(userAccess).where(eq(userAccess.userId, EMPTY_ID))
-    await db.delete(transactions).where(eq(transactions.userId, EMPTY_ID))
-    await db.delete(user).where(eq(user.id, EMPTY_ID))
   })
 
   it("liste des examens : null sur l'examen ouvert, 0 sur l'examen clos", async () => {

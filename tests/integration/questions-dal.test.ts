@@ -1,5 +1,4 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examQuestions,
@@ -12,7 +11,6 @@ import {
 import { getExamsForPicker } from "@/features/exams/dal"
 import { getObjectiveOptions } from "@/features/objectives/dal"
 import {
-  type QuestionStats,
   getQuestionById,
   getQuestionStats,
   getQuestionsForExport,
@@ -22,19 +20,14 @@ import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 import { objectiveIdFor } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
-const DOMAIN = `DOM-${suffix}`
-const OBJ = `OBJ-${suffix}`
+const DOMAIN = "Domaine test"
+const OBJ = "Objectif test"
 
 const q1 = createId() // 2 images, "alpha"
 const q2 = createId() // 0 image, "beta"
@@ -42,12 +35,10 @@ const q3 = createId() // 0 image, "gamma"
 const examId = createId() // examen qui utilise UNIQUEMENT q1
 const creatorId = createId() // créateur de l'examen (FK createdBy)
 
-let baseline: QuestionStats
-
 const mkQuestion = async (id: string, label: string, createdAt: Date) =>
   db.insert(questions).values({
     id,
-    question: `Question ${label} ${suffix} ?`,
+    question: `Question ${label} ?`,
     correctAnswer: "A",
     options: ["A", "B", "C", "D"],
     objectiveId: await objectiveIdFor(OBJ),
@@ -60,10 +51,8 @@ beforeAll(async () => {
     user: { id: "admin", role: "admin" },
   } as never)
 
-  baseline = await getQuestionStats()
-
   const now = Date.now()
-  await mkQuestion(q1, `alpha${suffix}`, new Date(now - 3 * DAY))
+  await mkQuestion(q1, "alpha", new Date(now - 3 * DAY))
   await mkQuestion(q2, "beta", new Date(now - 2 * DAY))
   await mkQuestion(q3, "gamma", new Date(now - 1 * DAY))
 
@@ -78,20 +67,20 @@ beforeAll(async () => {
   ])
 
   await db.insert(questionImages).values([
-    { questionId: q1, storagePath: `p/${suffix}/1.jpg`, position: 1 },
-    { questionId: q1, storagePath: `p/${suffix}/0.jpg`, position: 0 },
+    { questionId: q1, storagePath: "p/1.jpg", position: 1 },
+    { questionId: q1, storagePath: "p/0.jpg", position: 0 },
   ])
 
   // Fixtures d'usage : un examen qui référence UNIQUEMENT q1.
   await db.insert(user).values({
     id: creatorId,
-    name: `Creator ${suffix}`,
-    email: `creator-${suffix}@test.invalid`,
+    name: "Creator",
+    email: "creator@test.invalid",
     role: "admin",
   })
   await db.insert(exams).values({
     id: examId,
-    title: `Examen ${suffix}`,
+    title: "Examen",
     startDate: new Date(now - 5 * DAY),
     endDate: new Date(now + 5 * DAY),
     completionTime: 3600,
@@ -100,19 +89,6 @@ beforeAll(async () => {
     finalizedAt: new Date(),
   })
   await db.insert(examQuestions).values({ examId, questionId: q1, position: 0 })
-})
-
-afterAll(async () => {
-  const ids = [q1, q2, q3]
-  // FK restrict : enfants avant parents (examQuestions avant exams/questions).
-  await db.delete(examQuestions).where(eq(examQuestions.examId, examId))
-  await db.delete(exams).where(eq(exams.id, examId))
-  await db.delete(user).where(eq(user.id, creatorId))
-  await db.delete(questionImages).where(inArray(questionImages.questionId, ids))
-  await db
-    .delete(questionExplanations)
-    .where(inArray(questionExplanations.questionId, ids))
-  await db.delete(questions).where(inArray(questions.id, ids))
 })
 
 describe("getQuestionsWithFilters", () => {
@@ -173,8 +149,7 @@ describe("getQuestionsWithFilters", () => {
 
   it("getExamsForPicker liste l'examen fixture", async () => {
     const options = await getExamsForPicker()
-    expect(options.find((e) => e.id === examId)?.title).toBe(`Examen ${suffix}`)
-    expect(options.length).toBeLessThanOrEqual(500)
+    expect(options.map((e) => [e.id, e.title])).toEqual([[examId, "Examen"]])
   })
 
   it("export : la recherche matche aussi objectifCMC", async () => {
@@ -216,7 +191,7 @@ describe("getQuestionsWithFilters", () => {
   })
 
   it("recherche ILIKE sur le texte", async () => {
-    const page = await getQuestionsWithFilters({ search: `alpha${suffix}` })
+    const page = await getQuestionsWithFilters({ search: "alpha" })
     expect(page.items.map((q) => q.id)).toEqual([q1])
   })
 })
@@ -244,17 +219,17 @@ describe("getObjectiveOptions", () => {
   })
 
   it("ne propose jamais une entrée à corriger", async () => {
-    const id = await objectiveIdFor(`- ${suffix}`, { needsFix: true })
+    const id = await objectiveIdFor("- à corriger", { needsFix: true })
     const { objectives } = await getObjectiveOptions()
     expect(objectives.map((o) => o.id)).not.toContain(id)
   })
 })
 
-describe("getQuestionStats (delta)", () => {
+describe("getQuestionStats", () => {
   it("total + répartition domaine", async () => {
-    const after = await getQuestionStats()
-    expect(after.totalCount - baseline.totalCount).toBe(3)
-    const myDomain = after.domainStats.find((d) => d.domain === DOMAIN)
-    expect(myDomain?.count).toBe(3)
+    expect(await getQuestionStats()).toEqual({
+      totalCount: 3,
+      domainStats: [{ domain: DOMAIN, count: 3 }],
+    })
   })
 })

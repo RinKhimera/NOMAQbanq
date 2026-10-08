@@ -1,31 +1,18 @@
-import { eq, inArray } from "drizzle-orm"
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examParticipations,
   examQuestions,
   exams,
-  products,
-  questionBookmarks,
   questionExplanations,
   questionImages,
   questions,
   trainingSessionItems,
   trainingSessions,
-  transactions,
   user,
-  userAccess,
 } from "@/db/schema"
 import {
-  abandonTrainingSession,
   completeTrainingSession,
   createTrainingSession,
   deleteTrainingSession,
@@ -43,18 +30,14 @@ import {
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { objectiveIdFor } from "../helpers/objective"
+import { seedAccess } from "../helpers/seed-payments"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
-const suffix = createId().slice(0, 8)
 const USER_ID = createId()
-const DOMAIN = `TRAIN-${suffix}`
-const OBJ = `Obj ${suffix}`
+const DOMAIN = "TRAIN"
+const OBJ = "Objectif entraînement"
 const qIds = Array.from({ length: 8 }, () => createId())
 
 const asAdmin = () =>
@@ -62,20 +45,52 @@ const asAdmin = () =>
     user: { id: USER_ID, role: "admin" },
   } as never)
 
-let activeSessionId: string
-let sessionQuestionIds: string[] = []
+/**
+ * Admin neuf, sans série : la règle « une seule série en cours » ne lie pas un
+ * test à un autre.
+ */
+const asNewAdmin = async () => {
+  const id = createId()
+  await db
+    .insert(user)
+    .values({ id, name: "IT training", email: `admin-${id}@test.invalid` })
+  vi.mocked(getCurrentSession).mockResolvedValue({
+    user: { id, role: "admin" },
+  } as never)
+  return id
+}
+
+/** Session close (abandonnée) avec un item, posée sans passer par l'action. */
+const seedClosedSession = async (userId: string) => {
+  const id = createId()
+  const now = Date.now()
+  await db.insert(trainingSessions).values({
+    id,
+    userId,
+    status: "abandoned",
+    mode: "test",
+    questionCount: 1,
+    startedAt: new Date(now - 3600_000),
+    completedAt: new Date(now - 1000),
+    expiresAt: new Date(now + 3600_000),
+  })
+  await db
+    .insert(trainingSessionItems)
+    .values({ sessionId: id, questionId: qIds[0], position: 0 })
+  return id
+}
 
 beforeAll(async () => {
   await db.insert(user).values({
     id: USER_ID,
     name: "IT training",
-    email: `training-${suffix}@test.invalid`,
+    email: "training@test.invalid",
   })
   const objectiveId = await objectiveIdFor(OBJ)
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `Q ${i} ${suffix} ?`,
+      question: `Q ${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId,
@@ -85,39 +100,22 @@ beforeAll(async () => {
   await db.insert(questionExplanations).values(
     qIds.map((id, i) => ({
       questionId: id,
-      explanation: `Explication ${i} ${suffix}`,
+      explanation: `Explication ${i}`,
       references: i === 0 ? ["Ref 1"] : null,
     })),
   )
   await db
     .insert(questionImages)
-    .values([
-      { questionId: qIds[0], storagePath: `t/${suffix}/0.jpg`, position: 0 },
-    ])
+    .values([{ questionId: qIds[0], storagePath: "t/0.jpg", position: 0 }])
 })
 
 beforeEach(() => {
   asAdmin()
 })
 
-afterAll(async () => {
-  await db
-    .delete(questionBookmarks)
-    .where(eq(questionBookmarks.userId, USER_ID))
-  await db.delete(trainingSessions).where(eq(trainingSessions.userId, USER_ID))
-  await db
-    .delete(questionImages)
-    .where(inArray(questionImages.questionId, qIds))
-  await db
-    .delete(questionExplanations)
-    .where(inArray(questionExplanations.questionId, qIds))
-  await db.delete(questions).where(inArray(questions.id, qIds))
-  await db.delete(user).where(eq(user.id, USER_ID))
-})
-
 describe("signets sur la vue de session", () => {
   it("la vue expose les signets de l'utilisateur", async () => {
-    asAdmin()
+    await asNewAdmin()
     const created = await createTrainingSession({
       questionCount: 5,
       domain: DOMAIN,
@@ -126,26 +124,22 @@ describe("signets sur la vue de session", () => {
     expect(created.success).toBe(true)
     if (!created.success) return
 
-    try {
-      const before = await getTrainingSessionById(created.sessionId)
-      expect(before?.bookmarkedIds).toEqual([])
-      const questionId = before!.questions[0]._id
+    const before = await getTrainingSessionById(created.sessionId)
+    expect(before?.bookmarkedIds).toEqual([])
+    const questionId = before!.questions[0]._id
 
-      await setQuestionBookmark({ questionId, isBookmarked: true })
+    await setQuestionBookmark({ questionId, isBookmarked: true })
 
-      const after = await getTrainingSessionById(created.sessionId)
-      expect(after?.bookmarkedIds).toContain(questionId)
-    } finally {
-      await abandonTrainingSession({ sessionId: created.sessionId })
-      await db
-        .delete(questionBookmarks)
-        .where(eq(questionBookmarks.userId, USER_ID))
-    }
+    const after = await getTrainingSessionById(created.sessionId)
+    expect(after?.bookmarkedIds).toEqual([questionId])
   })
 })
 
-describe("parcours complet (création → réponses → fin → résultats)", () => {
-  it("createTrainingSession : crée la session + 5 items", async () => {
+describe("parcours complet", () => {
+  it("création → réponses → fin → résultats → historique", async () => {
+    await asNewAdmin()
+
+    // Création : la session et ses 5 items.
     const res = await createTrainingSession({
       questionCount: 5,
       domain: DOMAIN,
@@ -153,148 +147,142 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
     })
     expect(res.success).toBe(true)
     if (!res.success) return
-    activeSessionId = res.sessionId
+    const sessionId = res.sessionId
 
-    const view = await getTrainingSessionById(activeSessionId)
-    expect(view?.session.status).toBe("in_progress")
-    expect(view?.questions).toHaveLength(5)
-    sessionQuestionIds = view!.questions.map((q) => q._id)
-  })
+    const created = await getTrainingSessionById(sessionId)
+    expect(created?.session.status).toBe("in_progress")
+    expect(created?.questions).toHaveLength(5)
+    const questionIds = created!.questions.map((q) => q._id)
 
-  it("getActiveTrainingSession : renvoie la session reprenable", async () => {
+    // Reprise : la session en cours est proposée.
     const active = await getActiveTrainingSession()
-    expect(active?.session.id).toBe(activeSessionId)
+    expect(active?.session.id).toBe(sessionId)
     expect(active?.canResume).toBe(true)
     expect(active?.session.questionCount).toBe(5)
-  })
 
-  it("getTrainingSessionById : correctAnswer masqué en cours", async () => {
-    const view = await getTrainingSessionById(activeSessionId)
-    expect(view?.questions[0]).not.toHaveProperty("correctAnswer")
-    expect(view?.answers).toEqual({})
-  })
+    // En cours : correctAnswer masqué, aucune réponse.
+    expect(created?.questions[0]).not.toHaveProperty("correctAnswer")
+    expect(created?.answers).toEqual({})
 
-  it("saveTrainingAnswer : enregistre la réponse (mode test — isCorrect non exposé)", async () => {
+    // Mode test : isCorrect ne voyage pas sur le fil (anti-triche).
     const ok = await saveTrainingAnswer({
-      sessionId: activeSessionId,
-      questionId: sessionQuestionIds[0],
+      sessionId,
+      questionId: questionIds[0],
       selectedAnswer: "A",
     })
-    // Mode test : isCorrect ne voyage pas sur le fil (anti-triche)
     expect(ok).toEqual({ success: true })
-    expect((ok as Record<string, unknown>).isCorrect).toBeUndefined()
-
     const ko = await saveTrainingAnswer({
-      sessionId: activeSessionId,
-      questionId: sessionQuestionIds[1],
+      sessionId,
+      questionId: questionIds[1],
       selectedAnswer: "B",
     })
     expect(ko).toEqual({ success: true })
-    expect((ko as Record<string, unknown>).isCorrect).toBeUndefined()
 
-    const view = await getTrainingSessionById(activeSessionId)
-    expect(Object.keys(view!.answers)).toHaveLength(2)
-    // Mode test in_progress : isCorrect masqué dans answers (anti-triche)
-    expect(view?.answers[sessionQuestionIds[0]]).toEqual({
-      selectedAnswer: "A",
-    })
-  })
+    // Mode test en cours : isCorrect masqué dans answers.
+    const answered = await getTrainingSessionById(sessionId)
+    expect(Object.keys(answered!.answers)).toHaveLength(2)
+    expect(answered?.answers[questionIds[0]]).toEqual({ selectedAnswer: "A" })
 
-  it("saveTrainingAnswer : refuse une question hors session", async () => {
-    const res = await saveTrainingAnswer({
-      sessionId: activeSessionId,
+    // Question hors session, texte qui n'est pas une option : refusés sans
+    // rien écrire.
+    const outside = await saveTrainingAnswer({
+      sessionId,
       questionId: createId(),
       selectedAnswer: "A",
     })
-    expect(res.success).toBe(false)
-  })
-
-  it("saveTrainingAnswer : refuse un texte qui n'est pas une option, sans rien écrire", async () => {
-    const res = await saveTrainingAnswer({
-      sessionId: activeSessionId,
-      questionId: sessionQuestionIds[2],
+    expect(outside.success).toBe(false)
+    const notAnOption = await saveTrainingAnswer({
+      sessionId,
+      questionId: questionIds[2],
       selectedAnswer: "Z",
     })
-    expect(res.success).toBe(false)
-    const view = await getTrainingSessionById(activeSessionId)
-    expect(view?.answers[sessionQuestionIds[2]]).toBeUndefined()
-  })
+    expect(notAnOption.success).toBe(false)
+    const unchanged = await getTrainingSessionById(sessionId)
+    expect(unchanged?.answers[questionIds[2]]).toBeUndefined()
+    expect(Object.keys(unchanged!.answers)).toHaveLength(2)
 
-  it("saveTrainingAnswer : compare le texte exact, espaces de fin compris", async () => {
-    const questionId = sessionQuestionIds[2]
-    await db
-      .update(questions)
-      .set({ options: ["A", "B ", "C", "D"] })
-      .where(eq(questions.id, questionId))
-    try {
-      const trimmed = await saveTrainingAnswer({
-        sessionId: activeSessionId,
-        questionId,
-        selectedAnswer: "B",
-      })
-      expect(trimmed.success).toBe(false)
-      const exact = await saveTrainingAnswer({
-        sessionId: activeSessionId,
-        questionId,
-        selectedAnswer: "B ",
-      })
-      expect(exact).toEqual({ success: true })
-    } finally {
-      await db
-        .update(questions)
-        .set({ options: ["A", "B", "C", "D"] })
-        .where(eq(questions.id, questionId))
-    }
-  })
-
-  it("completeTrainingSession : score = % bonnes réponses, lu en base", async () => {
-    const res = await completeTrainingSession({ sessionId: activeSessionId })
-    // Le décompte des justes ne repart pas vers le navigateur.
-    expect(res).toEqual({ success: true })
-    const [s] = await db
+    // Fin : 1 juste sur 5 = 20 %, lu en base ; le décompte ne repart pas vers
+    // le navigateur.
+    expect(await completeTrainingSession({ sessionId })).toEqual({
+      success: true,
+    })
+    const [row] = await db
       .select({ score: trainingSessions.score })
       .from(trainingSessions)
-      .where(eq(trainingSessions.id, activeSessionId))
-    expect(s?.score).toBe(20)
-  })
+      .where(eq(trainingSessions.id, sessionId))
+    expect(row?.score).toBe(20)
 
-  it("getTrainingSessionById : correctAnswer révélé après complétion", async () => {
-    const view = await getTrainingSessionById(activeSessionId)
-    expect(view?.session.status).toBe("completed")
-    expect(view?.questions[0]).toHaveProperty("correctAnswer", "A")
-  })
+    // Après complétion : correctAnswer révélé.
+    const done = await getTrainingSessionById(sessionId)
+    expect(done?.session.status).toBe("completed")
+    expect(done?.questions[0]).toHaveProperty("correctAnswer", "A")
 
-  it("getTrainingSessionResults : score + explication + réponses", async () => {
-    const results = await getTrainingSessionResults(activeSessionId)
+    const results = await getTrainingSessionResults(sessionId)
     expect(results && "session" in results).toBe(true)
     if (!results || "error" in results) return
     expect(results.session.score).toBe(20)
-    const q0 = results.questions.find((q) => q._id === sessionQuestionIds[0])
+    const q0 = results.questions.find((q) => q._id === questionIds[0])
     expect(q0?.correctAnswer).toBe("A")
     expect(q0?.explanation).toContain("Explication")
-    expect(results.answers[sessionQuestionIds[0]]?.isCorrect).toBe(true)
-  })
+    expect(results.answers[questionIds[0]]?.isCorrect).toBe(true)
 
-  it("getTrainingHistory : reflète la session complétée, son mode et le total", async () => {
+    // Historique : la seule série de l'utilisateur, son mode et le total ;
+    // une page hors bornes est vide, le total inchangé.
     const history = await getTrainingHistory({ page: 1 })
-    const row = history.items.find((s) => s.id === activeSessionId)
-    expect(row).toMatchObject({ mode: "test", score: 20 })
-    expect(history.total).toBeGreaterThanOrEqual(1)
-    expect(history.total).toBeGreaterThanOrEqual(history.items.length)
-  })
-
-  it("getTrainingHistory : une page hors bornes est vide, le total inchangé", async () => {
-    const first = await getTrainingHistory({ page: 1, pageSize: 1 })
+    expect(history.items).toHaveLength(1)
+    expect(history.items[0]).toMatchObject({
+      id: sessionId,
+      mode: "test",
+      score: 20,
+    })
+    expect(history.total).toBe(1)
     const beyond = await getTrainingHistory({ page: 99, pageSize: 1 })
     expect(beyond.items).toEqual([])
-    expect(beyond.total).toBe(first.total)
+    expect(beyond.total).toBe(1)
+  })
+
+  it("saveTrainingAnswer compare le texte exact, espaces de fin compris", async () => {
+    await asNewAdmin()
+    // Domaine propre, chaque question y porte l'option « B » à espace final.
+    const objectiveId = await objectiveIdFor(OBJ)
+    const questionIds = Array.from({ length: 5 }, () => createId())
+    await db.insert(questions).values(
+      questionIds.map((id, i) => ({
+        id,
+        question: `Q espaces ${i} ?`,
+        correctAnswer: "A",
+        options: ["A", "B ", "C", "D"],
+        objectiveId,
+        domain: "TRAIN-ESPACES",
+      })),
+    )
+    const res = await createTrainingSession({
+      questionCount: 5,
+      domain: "TRAIN-ESPACES",
+      mode: "test",
+    })
+    expect(res.success).toBe(true)
+    if (!res.success) return
+    const questionId = questionIds[0]
+
+    const trimmed = await saveTrainingAnswer({
+      sessionId: res.sessionId,
+      questionId,
+      selectedAnswer: "B",
+    })
+    expect(trimmed.success).toBe(false)
+    const exact = await saveTrainingAnswer({
+      sessionId: res.sessionId,
+      questionId,
+      selectedAnswer: "B ",
+    })
+    expect(exact).toEqual({ success: true })
   })
 })
 
 describe("gardes", () => {
   it("refuse une 2e session si une est déjà en cours", async () => {
-    // Tirage borné au domaine du fichier : il ne prend jamais une question
-    // qu'un autre test devra supprimer (FK restrict sur les items).
+    await asNewAdmin()
     const s2 = await createTrainingSession({
       questionCount: 5,
       domain: DOMAIN,
@@ -308,16 +296,24 @@ describe("gardes", () => {
       domain: DOMAIN,
       mode: "test",
     })
-    expect(s3.success).toBe(false)
-
-    const abandon = await abandonTrainingSession({ sessionId: s2.sessionId })
-    expect(abandon.success).toBe(true)
+    expect(s3).toEqual({
+      success: false,
+      error:
+        "Vous avez déjà une série en cours. Terminez-la ou abandonnez-la pour en commencer une autre.",
+    })
   })
 
   it("supprime une session terminée (items en cascade)", async () => {
-    const res = await deleteTrainingSession({ sessionId: activeSessionId })
+    const sid = await seedClosedSession(USER_ID)
+    const res = await deleteTrainingSession({ sessionId: sid })
     expect(res.success).toBe(true)
-    expect(await getTrainingSessionResults(activeSessionId)).toBeNull()
+    expect(await getTrainingSessionResults(sid)).toBeNull()
+    expect(
+      await db
+        .select({ id: trainingSessionItems.id })
+        .from(trainingSessionItems)
+        .where(eq(trainingSessionItems.sessionId, sid)),
+    ).toEqual([])
   })
 
   it("refuse si pas assez de questions disponibles", async () => {
@@ -326,24 +322,24 @@ describe("gardes", () => {
       domain: DOMAIN,
       mode: "test",
     })
-    expect(res.success).toBe(false)
+    expect(res).toEqual({
+      success: false,
+      error:
+        "Seulement 8 questions disponibles avec ces filtres. Élargissez la sélection.",
+    })
   })
 
   it("filtre objectif CMC inexistant → 0 disponible", async () => {
     const res = await createTrainingSession({
       questionCount: 5,
-      objectiveIds: [`ghost-${suffix}`],
+      objectiveIds: ["objectif-fantome"],
       mode: "test",
     })
-    expect(res.success).toBe(false)
-  })
-
-  it("refuse un utilisateur sans accès training (non-admin)", async () => {
-    vi.mocked(getCurrentSession).mockResolvedValue({
-      user: { id: `ghost-${suffix}`, role: "user" },
-    } as never)
-    const res = await createTrainingSession({ questionCount: 5, mode: "test" })
-    expect(res.success).toBe(false)
+    expect(res).toEqual({
+      success: false,
+      error:
+        "Aucune question ne correspond à ces filtres. Élargissez la sélection.",
+    })
   })
 })
 
@@ -361,7 +357,7 @@ describe("domaines + objectifs (config form)", () => {
 
 describe("IDOR / propriété", () => {
   it("un autre utilisateur ne peut ni lire ni répondre à la session d'autrui", async () => {
-    // Session créée par USER_ID (admin via beforeEach).
+    await asNewAdmin()
     const res = await createTrainingSession({
       questionCount: 5,
       domain: DOMAIN,
@@ -373,7 +369,7 @@ describe("IDOR / propriété", () => {
 
     // Bascule sur un intrus (non-admin, non-propriétaire).
     vi.mocked(getCurrentSession).mockResolvedValue({
-      user: { id: `intruder-${suffix}`, role: "user" },
+      user: { id: "intrus", role: "user" },
     } as never)
 
     expect(await getTrainingSessionById(sid)).toBeNull()
@@ -387,18 +383,10 @@ describe("IDOR / propriété", () => {
   })
 
   it("un autre utilisateur ne supprime pas la session close d'autrui : introuvable, la ligne survit", async () => {
-    // La session in_progress du test précédent (une seule à la fois) — close
-    // d'abord, la suppression d'une session en cours étant refusée à tous.
-    const active = await getActiveTrainingSession()
-    expect(active?.session.id).toBeDefined()
-    if (!active) return
-    const sid = active.session.id
-    expect((await abandonTrainingSession({ sessionId: sid })).success).toBe(
-      true,
-    )
+    const sid = await seedClosedSession(USER_ID)
 
     vi.mocked(getCurrentSession).mockResolvedValue({
-      user: { id: `intruder-${suffix}`, role: "user" },
+      user: { id: "intrus", role: "user" },
     } as never)
     expect(await deleteTrainingSession({ sessionId: sid })).toEqual({
       success: false,
@@ -429,7 +417,7 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
     const examId = createId()
     await db.insert(exams).values({
       id: examId,
-      title: `Exam lock ${suffix}`,
+      title: "Examen verrou",
       startDate: new Date(Date.now() - DAY),
       endDate,
       completionTime: 3600,
@@ -477,46 +465,14 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
     )
   }
 
-  const PID2 = createId()
-  const TXID2 = createId()
-
   beforeAll(async () => {
     await db.insert(user).values({
       id: STUDENT2_ID,
       name: "IT training lock",
-      email: `training-lock-${suffix}@test.invalid`,
+      email: "training-lock@test.invalid",
     })
-    // Accès training réel : saveTrainingAnswer exige hasAccess pour un non-admin.
-    await db.insert(products).values({
-      id: PID2,
-      code: "training_access",
-      name: `Training ${suffix}`,
-      description: "desc",
-      priceCad: 3000,
-      durationDays: 30,
-      accessType: "training",
-      stripeProductId: `prod_t_${suffix}`,
-      stripePriceId: `price_t_${suffix}`,
-      stripePriceLookupKey: `price_t_${suffix}`,
-    })
-    await db.insert(transactions).values({
-      id: TXID2,
-      userId: STUDENT2_ID,
-      productId: PID2,
-      type: "manual",
-      status: "completed",
-      amountPaid: 3000,
-      currency: "CAD",
-      accessType: "training",
-      durationDays: 30,
-      accessExpiresAt: new Date(Date.now() + 30 * DAY),
-    })
-    await db.insert(userAccess).values({
-      userId: STUDENT2_ID,
-      accessType: "training",
-      expiresAt: new Date(Date.now() + 30 * DAY),
-      lastTransactionId: TXID2,
-    })
+    // saveTrainingAnswer exige un accès training pour un non-admin.
+    await seedAccess(STUDENT2_ID, "training", new Date(Date.now() + 30 * DAY))
     await seedExam(new Date(Date.now() + DAY), qIds[0])
     await seedExam(new Date(Date.now() - DAY), qIds[1])
     await seedSession({
@@ -531,17 +487,6 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
       status: "in_progress",
       questionIds: [qIds[0], qIds[2]],
     })
-  })
-
-  afterAll(async () => {
-    await db
-      .delete(trainingSessions)
-      .where(eq(trainingSessions.userId, STUDENT2_ID))
-    await db.delete(exams).where(eq(exams.createdBy, STUDENT2_ID))
-    await db.delete(userAccess).where(eq(userAccess.userId, STUDENT2_ID))
-    await db.delete(transactions).where(eq(transactions.userId, STUDENT2_ID))
-    await db.delete(products).where(eq(products.id, PID2))
-    await db.delete(user).where(eq(user.id, STUDENT2_ID))
   })
 
   const byId = <T extends { _id: string }>(qs: T[], id: string) =>

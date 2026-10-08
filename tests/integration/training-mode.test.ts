@@ -3,15 +3,9 @@
  * Vérifie la révélation immédiate en mode tuteur et l'absence de fuite
  * isCorrect/correctAnswer en mode test in_progress.
  */
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import {
-  questionExplanations,
-  questions,
-  trainingSessions,
-  user,
-} from "@/db/schema"
+import { questionExplanations, questions, user } from "@/db/schema"
 import {
   abandonTrainingSession,
   createTrainingSession,
@@ -22,16 +16,11 @@ import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
-const suffix = createId().slice(0, 8)
 const USER_ID = createId()
-const DOMAIN = `TM-${suffix}`
+const DOMAIN = "TM"
 const qIds = Array.from({ length: 6 }, () => createId())
 
 const asAdmin = () =>
@@ -43,12 +32,12 @@ beforeAll(async () => {
   await db.insert(user).values({
     id: USER_ID,
     name: "IT training-mode",
-    email: `tm-${suffix}@test.invalid`,
+    email: "tm@test.invalid",
   })
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `TM Q${i} ${suffix}?`,
+      question: `TM Q${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
@@ -58,20 +47,11 @@ beforeAll(async () => {
   await db.insert(questionExplanations).values(
     qIds.map((id, i) => ({
       questionId: id,
-      explanation: `Explication TM ${i} ${suffix}`,
+      explanation: `Explication TM ${i}`,
       references: i === 0 ? ["Ref TM 1"] : null,
     })),
   )
   asAdmin()
-})
-
-afterAll(async () => {
-  await db.delete(trainingSessions).where(eq(trainingSessions.userId, USER_ID))
-  await db
-    .delete(questionExplanations)
-    .where(inArray(questionExplanations.questionId, qIds))
-  await db.delete(questions).where(inArray(questions.id, qIds))
-  await db.delete(user).where(eq(user.id, USER_ID))
 })
 
 describe("mode entraînement", () => {
@@ -98,7 +78,7 @@ describe("mode entraînement", () => {
       })
       expect(res.success).toBe(true)
       if (!res.success) return
-      expect(typeof res.isCorrect).toBe("boolean")
+      expect(res.isCorrect).toBe(true)
       expect(res.reveal).toEqual(
         expect.objectContaining({ correctAnswer: "A" }),
       )

@@ -1,19 +1,19 @@
-import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
+import { transactions, user, userAccess } from "@/db/schema"
 import {
   applyGrant,
   rebuildFromTransactions,
 } from "@/features/payments/access-ledger"
 import { createId } from "@/lib/ids"
+import { seedProduct } from "../helpers/seed-payments"
 
 type AccessType = "exam" | "training"
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = new Date("2026-09-18T12:00:00.000Z")
 const SENT = new Date("2026-09-01T00:00:00.000Z")
-const suffix = createId().slice(0, 8)
 
 const at = (days: number) => new Date(NOW.getTime() + days * DAY)
 
@@ -23,15 +23,11 @@ const P = {
   combo: { id: createId(), accessType: "exam" as const, isCombo: true },
 }
 
-const seededUsers: string[] = []
 const newUser = async () => {
   const id = createId()
-  await db.insert(user).values({
-    id,
-    name: `Ledger ${id.slice(0, 6)}`,
-    email: `ledger-${id.slice(0, 6)}-${suffix}@test.invalid`,
-  })
-  seededUsers.push(id)
+  await db
+    .insert(user)
+    .values({ id, name: `Ledger ${id}`, email: `ledger-${id}@test.invalid` })
   return id
 }
 
@@ -124,39 +120,9 @@ const setStatus = (id: string, status: "completed" | "refunded") =>
   db.update(transactions).set({ status }).where(eq(transactions.id, id))
 
 beforeAll(async () => {
-  await db.insert(products).values(
-    (
-      [
-        ["exam", "exam_access", P.exam],
-        ["training", "training_access", P.training],
-        ["combo", "premium_access", P.combo],
-      ] as const
-    ).map(([key, code, p]) => ({
-      id: p.id,
-      code,
-      name: `Ledger ${key}`,
-      description: "d",
-      priceCad: 5000,
-      durationDays: 30,
-      accessType: p.accessType,
-      isCombo: p.isCombo,
-      stripeProductId: `prod_ledger_${key}_${suffix}`,
-      stripePriceId: `price_ledger_${key}_${suffix}`,
-      stripePriceLookupKey: `price_ledger_${key}_${suffix}`,
-    })),
-  )
-})
-
-afterAll(async () => {
-  await db.delete(userAccess).where(inArray(userAccess.userId, seededUsers))
-  await db.delete(transactions).where(inArray(transactions.userId, seededUsers))
-  await db.delete(products).where(
-    inArray(
-      products.id,
-      Object.values(P).map((p) => p.id),
-    ),
-  )
-  await db.delete(user).where(inArray(user.id, seededUsers))
+  await seedProduct("exam_access", { id: P.exam.id })
+  await seedProduct("training_access", { id: P.training.id })
+  await seedProduct("premium_access", { id: P.combo.id })
 })
 
 // ---------------------------------------------------------------------------

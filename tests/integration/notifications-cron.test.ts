@@ -1,13 +1,12 @@
 import { eq, sql } from "drizzle-orm"
 import { readFileSync } from "node:fs"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
   examParticipations,
   examQuestions,
   exams,
-  products,
   questions,
   session,
   trainingSessions,
@@ -24,11 +23,10 @@ import {
   sendInactivityReminders,
 } from "@/features/notifications/cron"
 import { sendOnce } from "@/features/notifications/one-shot"
-import { grantManualAccess } from "@/features/payments/lib"
-import { completeStripeTransaction } from "@/features/payments/stripe"
 import { createId } from "@/lib/ids"
 import { fakeMailer } from "../helpers/fake-mailer"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
+import { seedAccess, seedProduct } from "../helpers/seed-payments"
 
 vi.mock("@/email", () =>
   import("../helpers/fake-mailer").then((m) => m.fakeMailer),
@@ -57,7 +55,9 @@ const now = Date.now()
 const past = new Date(now - 86400000)
 const future = new Date(now + 86400000)
 
-beforeAll(async () => {
+// Rattaché au describe de l'envoi : le backfill et les comptes suspendus
+// balaient eux aussi les examens clos de la base du fichier.
+const seedExamResults = async () => {
   await db.insert(user).values([
     { id: creator, name: "Créateur", email: `c-${creator}@test.invalid` },
     { id: optIn, name: "Opt In", email: `in-${optIn}@test.invalid` },
@@ -156,34 +156,13 @@ beforeAll(async () => {
     selectedAnswer: "A",
     isCorrect: true,
   })
-})
-
-afterAll(async () => {
-  await db.delete(examAnswers).where(eq(examAnswers.questionId, lockedQuestion))
-  await db
-    .delete(examQuestions)
-    .where(eq(examQuestions.questionId, lockedQuestion))
-  await db
-    .delete(examParticipations)
-    .where(eq(examParticipations.examId, closedExam))
-  await db
-    .delete(examParticipations)
-    .where(eq(examParticipations.examId, openExam))
-  await db.delete(exams).where(eq(exams.id, closedExam))
-  await db.delete(exams).where(eq(exams.id, openExam))
-  await db.delete(questions).where(eq(questions.id, lockedQuestion))
-  await db.delete(user).where(eq(user.id, optInLocked))
-  await db.delete(user).where(eq(user.id, creator))
-  await db.delete(user).where(eq(user.id, optIn))
-  await db.delete(user).where(eq(user.id, optOut))
-})
+}
 
 describe("sendExamResultsNotifications", () => {
+  beforeAll(seedExamResults)
+
   it("envoie aux opt-in d'examens clos, marque tout, ignore les examens ouverts", async () => {
-    // Le balayage est GLOBAL (toute la base) → on n'assert PAS de compteur
-    // absolu (d'autres tests créent des participations éligibles), mais
-    // l'effet précis sur NOS fixtures.
-    await sendExamResultsNotifications()
+    expect(await sendExamResultsNotifications()).toBe(2)
 
     // Opt-in de l'examen clos : email envoyé ; opt-out : jamais.
     expect(examResults).toHaveBeenCalledWith(
@@ -204,7 +183,7 @@ describe("sendExamResultsNotifications", () => {
       }),
     )
 
-    // Marqueur posé sur les 2 participations de l'examen CLOS (opt-in + opt-out) ;
+    // Marqueur posé sur les 3 participations de l'examen CLOS, opt-out compris ;
     // PAS sur l'examen OUVERT (résultats encore bloqués → non éligible).
     const closed = await db
       .select({ notifiedAt: examParticipations.resultsNotifiedAt })
@@ -228,46 +207,14 @@ describe("sendExamResultsNotifications", () => {
 describe("sendAccessExpiryReminders", () => {
   it("envoie pour un accès ≤ 7 j avec l'échéance en jours, marque", async () => {
     const uid = createId()
-    const pid = createId()
-    const tid = createId()
     await db.insert(user).values({
       id: uid,
       name: "Accès",
       email: `acc-${uid}@test.invalid`,
     })
-    await db.insert(products).values({
-      id: pid,
-      code: "exam_access",
-      name: "Examens",
-      description: "Accès examens",
-      priceCad: 1000,
-      durationDays: 180,
-      accessType: "exam",
-      stripeProductId: `prod_${pid}`,
-      stripePriceId: `price_${pid}`,
-      stripePriceLookupKey: `price_${pid}`,
-    })
-    await db.insert(transactions).values({
-      id: tid,
-      userId: uid,
-      productId: pid,
-      type: "manual",
-      status: "completed",
-      amountPaid: 1000,
-      currency: "CAD",
-      accessType: "exam",
-      durationDays: 180,
-      accessExpiresAt: new Date(now + 5 * 86400000),
-    })
-    await db.insert(userAccess).values({
-      userId: uid,
-      accessType: "exam",
-      expiresAt: new Date(now + 5 * 86400000), // dans 5 j → ≤ 7 j
-      lastTransactionId: tid,
-    })
+    await seedAccess(uid, "exam", new Date(now + 5 * 86400000))
 
-    const sent = await sendAccessExpiryReminders()
-    expect(sent).toBeGreaterThanOrEqual(1)
+    expect(await sendAccessExpiryReminders()).toBe(1)
     expect(accessExpiring).toHaveBeenCalledWith({
       to: `acc-${uid}@test.invalid`,
       name: "Accès",
@@ -286,63 +233,22 @@ describe("sendAccessExpiryReminders", () => {
     expect(await candidateIds(accessExpiryReminderSpec())).not.toContain(
       access?.id,
     )
-
-    await db.delete(userAccess).where(eq(userAccess.userId, uid))
-    await db.delete(transactions).where(eq(transactions.id, tid))
-    await db.delete(products).where(eq(products.id, pid))
-    await db.delete(user).where(eq(user.id, uid))
   })
 })
 
 describe("garde du rappel de fin d'accès : échéance = valeur lue", () => {
-  const seedAccess = async (expiresAt: Date) => {
+  const seedClaimable = async (expiresAt: Date) => {
     const uid = createId()
-    const pid = createId()
-    const tid = createId()
     await db.insert(user).values({
       id: uid,
       name: "Claim",
       email: `claim-${uid}@test.invalid`,
     })
-    await db.insert(products).values({
-      id: pid,
-      code: "exam_access",
-      name: "Examens",
-      description: "Accès examens",
-      priceCad: 1000,
-      durationDays: 180,
-      accessType: "exam",
-      stripeProductId: `prod_${pid}`,
-      stripePriceId: `price_${pid}`,
-      stripePriceLookupKey: `price_${pid}`,
-    })
-    await db.insert(transactions).values({
-      id: tid,
-      userId: uid,
-      productId: pid,
-      type: "manual",
-      status: "completed",
-      amountPaid: 1000,
-      currency: "CAD",
-      accessType: "exam",
-      durationDays: 180,
-      accessExpiresAt: expiresAt,
-    })
+    await seedAccess(uid, "exam", expiresAt)
     const [access] = await db
-      .insert(userAccess)
-      .values({
-        userId: uid,
-        accessType: "exam",
-        expiresAt,
-        lastTransactionId: tid,
-      })
-      .returning({ id: userAccess.id })
-    const cleanup = async () => {
-      await db.delete(userAccess).where(eq(userAccess.userId, uid))
-      await db.delete(transactions).where(eq(transactions.id, tid))
-      await db.delete(products).where(eq(products.id, pid))
-      await db.delete(user).where(eq(user.id, uid))
-    }
+      .select({ id: userAccess.id })
+      .from(userAccess)
+      .where(eq(userAccess.userId, uid))
     const marker = async () => {
       const [row] = await db
         .select({ marker: userAccess.expiryReminderSentAt })
@@ -351,7 +257,7 @@ describe("garde du rappel de fin d'accès : échéance = valeur lue", () => {
         .limit(1)
       return row?.marker ?? null
     }
-    return { accessId: access.id, cleanup, marker }
+    return { accessId: access.id, marker }
   }
 
   // La course lecture → renouvellement → claim n'est pas injectable dans
@@ -365,7 +271,7 @@ describe("garde du rappel de fin d'accès : échéance = valeur lue", () => {
   }
 
   it("échéance inchangée depuis la lecture : claim posé, courriel envoyé", async () => {
-    const a = await seedAccess(new Date(now + 5 * 86400000))
+    const a = await seedClaimable(new Date(now + 5 * 86400000))
     const row = await readRow(a.accessId)
     const claimAt = new Date(now)
 
@@ -377,11 +283,10 @@ describe("garde du rappel de fin d'accès : échéance = valeur lue", () => {
 
     expect(sent).toBe(1)
     expect(await a.marker()).toEqual(claimAt)
-    await a.cleanup()
   })
 
   it("échéance prolongée entre la lecture et le claim : refusé, marqueur intact (le prochain run rappellera la nouvelle échéance)", async () => {
-    const a = await seedAccess(new Date(now + 5 * 86400000))
+    const a = await seedClaimable(new Date(now + 5 * 86400000))
     const row = await readRow(a.accessId)
     // Un renouvellement concurrent (applyGrant) a fait avancer l'expiration et
     // ré-armé le marqueur après le SELECT du cron.
@@ -402,263 +307,6 @@ describe("garde du rappel de fin d'accès : échéance = valeur lue", () => {
     expect(sent).toBe(0)
     expect(accessExpiring).not.toHaveBeenCalled()
     expect(await a.marker()).toBeNull()
-    await a.cleanup()
-  })
-})
-
-describe("reset du marqueur de rappel au renouvellement", () => {
-  it("completeStripeTransaction (Stripe) remet expiryReminderSentAt à null", async () => {
-    const uid = createId()
-    const pid = createId()
-    const oldTid = createId()
-    const newTid = createId()
-    const sessionId = `cs_test_${uid}`
-    await db.insert(user).values({
-      id: uid,
-      name: "Renew Stripe",
-      email: `renew-stripe-${uid}@test.invalid`,
-    })
-    await db.insert(products).values({
-      id: pid,
-      code: "exam_access",
-      name: "Examens",
-      description: "Accès examens",
-      priceCad: 1000,
-      durationDays: 180,
-      accessType: "exam",
-      stripeProductId: `prod_${pid}`,
-      stripePriceId: `price_${pid}`,
-      stripePriceLookupKey: `price_${pid}`,
-    })
-    // Transaction initiale + accès existant DÉJÀ notifié (marqueur posé).
-    await db.insert(transactions).values({
-      id: oldTid,
-      userId: uid,
-      productId: pid,
-      type: "manual",
-      status: "completed",
-      amountPaid: 1000,
-      currency: "CAD",
-      accessType: "exam",
-      durationDays: 180,
-      accessExpiresAt: new Date(now + 2 * 86400000),
-    })
-    await db.insert(userAccess).values({
-      userId: uid,
-      accessType: "exam",
-      expiresAt: new Date(now + 2 * 86400000),
-      lastTransactionId: oldTid,
-      expiryReminderSentAt: new Date(now - 86400000),
-    })
-    // Nouvelle transaction Stripe PENDING (le webhook la complète = renouvellement).
-    await db.insert(transactions).values({
-      id: newTid,
-      userId: uid,
-      productId: pid,
-      type: "stripe",
-      status: "pending",
-      amountPaid: 1000,
-      currency: "CAD",
-      accessType: "exam",
-      durationDays: 180,
-      accessExpiresAt: new Date(now + 180 * 86400000),
-      stripeSessionId: sessionId,
-    })
-
-    const res = await completeStripeTransaction({
-      stripeSessionId: sessionId,
-      stripePaymentIntentId: `pi_${uid}`,
-      stripeEventId: `evt_${uid}`,
-    })
-    expect(res.status).toBe("completed")
-
-    const [row] = await db
-      .select({ marker: userAccess.expiryReminderSentAt })
-      .from(userAccess)
-      .where(eq(userAccess.userId, uid))
-      .limit(1)
-    expect(row?.marker).toBeNull()
-
-    // FK restrict : userAccess avant transactions.
-    await db.delete(userAccess).where(eq(userAccess.userId, uid))
-    await db.delete(transactions).where(eq(transactions.userId, uid))
-    await db.delete(products).where(eq(products.id, pid))
-    await db.delete(user).where(eq(user.id, uid))
-  })
-
-  it("grantManualAccess (manuel) remet expiryReminderSentAt à null", async () => {
-    const uid = createId()
-    const pid = createId()
-    const oldTid = createId()
-    await db.insert(user).values({
-      id: uid,
-      name: "Renew Manual",
-      email: `renew-manual-${uid}@test.invalid`,
-    })
-    await db.insert(products).values({
-      id: pid,
-      code: "exam_access",
-      name: "Examens",
-      description: "Accès examens",
-      priceCad: 1000,
-      durationDays: 180,
-      accessType: "exam",
-      stripeProductId: `prod_${pid}`,
-      stripePriceId: `price_${pid}`,
-      stripePriceLookupKey: `price_${pid}`,
-    })
-    // Transaction initiale (FK de l'accès existant) + accès DÉJÀ notifié.
-    await db.insert(transactions).values({
-      id: oldTid,
-      userId: uid,
-      productId: pid,
-      type: "manual",
-      status: "completed",
-      amountPaid: 1000,
-      currency: "CAD",
-      accessType: "exam",
-      durationDays: 180,
-      accessExpiresAt: new Date(now + 2 * 86400000),
-    })
-    await db.insert(userAccess).values({
-      userId: uid,
-      accessType: "exam",
-      expiresAt: new Date(now + 2 * 86400000),
-      lastTransactionId: oldTid,
-      expiryReminderSentAt: new Date(now - 86400000),
-    })
-
-    // grantManualAccess insère sa PROPRE transaction et upsert userAccess.
-    await db.transaction(async (tx) => {
-      await grantManualAccess(tx, {
-        userId: uid,
-        product: {
-          id: pid,
-          accessType: "exam",
-          durationDays: 180,
-          isCombo: false,
-        },
-        amountPaid: 1000,
-        currency: "CAD",
-        paymentMethod: "interac",
-        recordedBy: uid,
-      })
-    })
-
-    const [row] = await db
-      .select({ marker: userAccess.expiryReminderSentAt })
-      .from(userAccess)
-      .where(eq(userAccess.userId, uid))
-      .limit(1)
-    expect(row?.marker).toBeNull()
-
-    await db.delete(userAccess).where(eq(userAccess.userId, uid))
-    await db.delete(transactions).where(eq(transactions.userId, uid))
-    await db.delete(products).where(eq(products.id, pid))
-    await db.delete(user).where(eq(user.id, uid))
-  })
-
-  it("combo : ne ré-arme PAS le rappel d'un type dont l'expiration n'avance pas", async () => {
-    const uid = createId()
-    const pid = createId()
-    const examTid = createId()
-    const trainingTid = createId()
-    const reminded = new Date(now - 86400000) // marqueur déjà posé
-    await db.insert(user).values({
-      id: uid,
-      name: "Combo Asym",
-      email: `combo-${uid}@test.invalid`,
-    })
-    await db.insert(products).values({
-      id: pid,
-      code: "premium_access",
-      name: "Combo",
-      description: "Accès combo",
-      priceCad: 1500,
-      durationDays: 90,
-      accessType: "exam",
-      isCombo: true,
-      stripeProductId: `prod_${pid}`,
-      stripePriceId: `price_${pid}`,
-      stripePriceLookupKey: `price_${pid}`,
-    })
-    await db.insert(transactions).values([
-      {
-        id: examTid,
-        userId: uid,
-        productId: pid,
-        type: "manual",
-        status: "completed",
-        amountPaid: 1500,
-        currency: "CAD",
-        accessType: "exam",
-        durationDays: 90,
-        accessExpiresAt: new Date(now + 2 * 86400000),
-      },
-      {
-        id: trainingTid,
-        userId: uid,
-        productId: pid,
-        type: "manual",
-        status: "completed",
-        amountPaid: 1500,
-        currency: "CAD",
-        accessType: "training",
-        durationDays: 400,
-        accessExpiresAt: new Date(now + 400 * 86400000),
-      },
-    ])
-    // exam expire bientôt (marqueur posé) ; training expire très loin (marqueur posé).
-    await db.insert(userAccess).values([
-      {
-        userId: uid,
-        accessType: "exam",
-        expiresAt: new Date(now + 2 * 86400000),
-        lastTransactionId: examTid,
-        expiryReminderSentAt: reminded,
-      },
-      {
-        userId: uid,
-        accessType: "training",
-        expiresAt: new Date(now + 400 * 86400000),
-        lastTransactionId: trainingTid,
-        expiryReminderSentAt: reminded,
-      },
-    ])
-
-    // Achat combo 90 j : exam est prolongé (2 j → 90 j) ; training NON (400 j > 90 j).
-    await db.transaction(async (tx) => {
-      await grantManualAccess(tx, {
-        userId: uid,
-        product: {
-          id: pid,
-          accessType: "exam",
-          durationDays: 90,
-          isCombo: true,
-        },
-        amountPaid: 1500,
-        currency: "CAD",
-        paymentMethod: "interac",
-        recordedBy: uid,
-      })
-    })
-
-    const rows = await db
-      .select({
-        accessType: userAccess.accessType,
-        marker: userAccess.expiryReminderSentAt,
-      })
-      .from(userAccess)
-      .where(eq(userAccess.userId, uid))
-    const exam = rows.find((r) => r.accessType === "exam")
-    const training = rows.find((r) => r.accessType === "training")
-    expect(exam?.marker).toBeNull() // prolongé → ré-armé
-    expect(training?.marker).not.toBeNull() // inchangé → PAS ré-armé
-
-    await db.delete(userAccess).where(eq(userAccess.userId, uid))
-    await db.delete(transactions).where(eq(transactions.userId, uid))
-    await db.delete(products).where(eq(products.id, pid))
-    await db.delete(user).where(eq(user.id, uid))
   })
 })
 
@@ -734,23 +382,11 @@ describe("backfill 0010 (anti-blast historique)", () => {
       .limit(1)
     expect(closedRow?.m).not.toBeNull() // examen clos → marqué (pas de blast)
     expect(openRow?.m).toBeNull() // examen ouvert → épargné (notifié à sa clôture)
-
-    await db
-      .delete(examParticipations)
-      .where(eq(examParticipations.examId, closedBf))
-    await db
-      .delete(examParticipations)
-      .where(eq(examParticipations.examId, openBf))
-    await db.delete(exams).where(eq(exams.id, closedBf))
-    await db.delete(exams).where(eq(exams.id, openBf))
-    await db.delete(user).where(eq(user.id, creatorBf))
   })
 })
 
 describe("comptes suspendus", () => {
   const banned = createId()
-  const bannedProduct = createId()
-  let bannedTxId: string
 
   beforeAll(async () => {
     await db.insert(user).values({
@@ -760,57 +396,29 @@ describe("comptes suspendus", () => {
       banned: true,
       banReason: "test",
     })
+    const bannedExam = createId()
+    await db.insert(exams).values({
+      id: bannedExam,
+      title: "Examen Clos Suspendu",
+      startDate: past,
+      endDate: past,
+      completionTime: 3600,
+      createdBy: banned,
+      targetQuestionCount: 10,
+      finalizedAt: new Date(),
+    })
     await db.insert(examParticipations).values({
       id: createId(),
-      examId: closedExam,
+      examId: bannedExam,
       userId: banned,
       score: 70,
       status: "completed",
       completedAt: past,
     })
-    await db.insert(products).values({
-      id: bannedProduct,
-      code: "exam_access",
-      name: "Exam court",
-      description: "d",
-      priceCad: 100,
-      durationDays: 3,
-      accessType: "exam",
-      stripeProductId: `prod_ban_${banned}`,
-      stripePriceId: `price_ban_${banned}`,
-      stripePriceLookupKey: `price_ban_${banned}`,
-    })
-    ;({ transactionId: bannedTxId } = await db.transaction((tx) =>
-      grantManualAccess(tx, {
-        userId: banned,
-        product: {
-          id: bannedProduct,
-          accessType: "exam",
-          durationDays: 3,
-          isCombo: false,
-        },
-        amountPaid: 100,
-        currency: "CAD",
-        paymentMethod: "interac",
-        recordedBy: banned,
-      }),
-    ))
-  })
-
-  afterAll(async () => {
-    await db.delete(userAccess).where(eq(userAccess.userId, banned))
-    await db.delete(transactions).where(eq(transactions.id, bannedTxId))
-    await db.delete(products).where(eq(products.id, bannedProduct))
-    await db
-      .delete(examParticipations)
-      .where(eq(examParticipations.userId, banned))
-    await db.delete(user).where(eq(user.id, banned))
+    await seedAccess(banned, "exam", new Date(now + 3 * 86400000))
   })
 
   it("aucun courriel, aucun marqueur posé : le rappel repart si la suspension est levée", async () => {
-    examResults.mockClear()
-    accessExpiring.mockClear()
-
     await sendExamResultsNotifications()
     await sendAccessExpiryReminders()
 
@@ -836,45 +444,56 @@ describe("comptes suspendus", () => {
 describe("sendInactivityReminders", () => {
   const DAY = 86400000
   const old = new Date(now - 30 * DAY)
-  const ids = {
-    eligible: createId(),
-    liveSession: createId(),
-    recentLogin: createId(),
-    recentTraining: createId(),
-    optOut: createId(),
-    stale: createId(),
-    staleBuyer: createId(),
-    admin: createId(),
-    unverified: createId(),
-  }
-  const pid = createId()
+  const inactive = (id: string, name: string) => ({
+    id,
+    name,
+    email: `inact-${id}@test.invalid`,
+    emailVerified: true,
+    createdAt: old,
+  })
   const calledFor = () =>
     inactivity.mock.calls.map((c) => (c[0] as { userId: string }).userId)
 
-  beforeAll(async () => {
-    const base = (id: string, name: string) => ({
-      id,
-      name,
-      email: `inact-${id}@test.invalid`,
-      emailVerified: true,
-      createdAt: old,
-    })
+  it("plafonne un passage à 50 relances, le suivant reprend l'arriéré", async () => {
+    const ids = Array.from({ length: 51 }, () => createId())
+    await db.insert(user).values(ids.map((id) => inactive(id, "Arriéré")))
+
+    expect(await sendInactivityReminders()).toBe(50)
+    expect(await sendInactivityReminders()).toBe(1)
+    expect(new Set(calledFor())).toEqual(new Set(ids))
+  })
+
+  it("relance les inactifs consentants", async () => {
+    const ids = {
+      eligible: createId(),
+      liveSession: createId(),
+      recentLogin: createId(),
+      recentTraining: createId(),
+      optOut: createId(),
+      stale: createId(),
+      staleBuyer: createId(),
+      admin: createId(),
+      unverified: createId(),
+    }
     await db.insert(user).values([
-      base(ids.eligible, "Éligible"),
-      base(ids.liveSession, "Session vivante"),
+      inactive(ids.eligible, "Éligible"),
+      inactive(ids.liveSession, "Session vivante"),
       {
-        ...base(ids.recentLogin, "Connexion récente"),
+        ...inactive(ids.recentLogin, "Connexion récente"),
         lastLoginAt: new Date(now - 2 * DAY),
       },
-      base(ids.recentTraining, "Entraînement récent"),
-      { ...base(ids.optOut, "Refus"), notifyMarketing: false },
-      { ...base(ids.stale, "Ancien"), createdAt: new Date(now - 200 * DAY) },
+      inactive(ids.recentTraining, "Entraînement récent"),
+      { ...inactive(ids.optOut, "Refus"), notifyMarketing: false },
       {
-        ...base(ids.staleBuyer, "Ancien acheteur"),
+        ...inactive(ids.stale, "Ancien"),
         createdAt: new Date(now - 200 * DAY),
       },
-      { ...base(ids.admin, "Admin"), role: "admin" as const },
-      { ...base(ids.unverified, "Non vérifié"), emailVerified: false },
+      {
+        ...inactive(ids.staleBuyer, "Ancien acheteur"),
+        createdAt: new Date(now - 200 * DAY),
+      },
+      { ...inactive(ids.admin, "Admin"), role: "admin" as const },
+      { ...inactive(ids.unverified, "Non vérifié"), emailVerified: false },
     ])
     await db.insert(session).values({
       id: createId(),
@@ -891,22 +510,10 @@ describe("sendInactivityReminders", () => {
       startedAt: new Date(now - 3 * DAY),
       expiresAt: future,
     })
-    await db.insert(products).values({
-      id: pid,
-      code: "training_access",
-      name: "Entraînement",
-      description: "Accès entraînement",
-      priceCad: 1000,
-      durationDays: 30,
-      accessType: "training",
-      stripeProductId: `prod_${pid}`,
-      stripePriceId: `price_${pid}`,
-      stripePriceLookupKey: `price_${pid}`,
-    })
     await db.insert(transactions).values({
       id: createId(),
       userId: ids.staleBuyer,
-      productId: pid,
+      productId: await seedProduct("training_access"),
       type: "manual",
       status: "completed",
       amountPaid: 1000,
@@ -917,38 +524,9 @@ describe("sendInactivityReminders", () => {
       createdAt: new Date(now - 10 * DAY),
       completedAt: new Date(now - 10 * DAY),
     })
-  })
 
-  afterAll(async () => {
-    await db.delete(transactions).where(eq(transactions.userId, ids.staleBuyer))
-    await db.delete(products).where(eq(products.id, pid))
-    await db
-      .delete(trainingSessions)
-      .where(eq(trainingSessions.userId, ids.recentTraining))
-    for (const id of Object.values(ids)) {
-      await db.delete(user).where(eq(user.id, id))
-    }
-  })
-
-  it("relance les inactifs consentants", async () => {
-    // Un passage est plafonné à un lot (INACTIVITY_LIMIT) : l'arriéré se vide
-    // en plusieurs passes, comme au cron.
-    for (let pass = 0; pass < 20; pass++) {
-      if ((await sendInactivityReminders()) === 0) break
-    }
-    expect(calledFor()).toContain(ids.eligible)
-    expect(calledFor()).toContain(ids.staleBuyer)
-    for (const id of [
-      ids.liveSession,
-      ids.recentLogin,
-      ids.recentTraining,
-      ids.optOut,
-      ids.stale,
-      ids.admin,
-      ids.unverified,
-    ]) {
-      expect(calledFor()).not.toContain(id)
-    }
+    expect(await sendInactivityReminders()).toBe(2)
+    expect(calledFor().sort()).toEqual([ids.eligible, ids.staleBuyer].sort())
     expect(inactivity).toHaveBeenCalledWith(
       expect.objectContaining({
         to: `inact-${ids.eligible}@test.invalid`,

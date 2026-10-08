@@ -1,15 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import {
-  examParticipations,
-  exams,
-  products,
-  questions,
-  transactions,
-  user,
-  userAccess,
-} from "@/db/schema"
+import { examParticipations, questions, user } from "@/db/schema"
 import {
   finalizeExam,
   saveExamAnswer,
@@ -25,16 +17,12 @@ import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
+import { seedAccess } from "../helpers/seed-payments"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 
 const ADMIN_ID = createId()
 // member : pas d'abonnement examen — la sélection octroie l'accès.
@@ -46,9 +34,9 @@ const OUTSIDER_ID = createId()
 const SUBSCRIBER_ID = createId()
 // nosub : aucun abonnement.
 const NOSUB_ID = createId()
-const PID = createId()
+// Compte supprimé : ni sélectionnable ni admissible dans une audience.
+const DELETED_ID = createId()
 
-// q0..q3 : questions d'examen.
 const qIds = Array.from({ length: 10 }, () => createId())
 
 const setSession = (id: string, role: "user" | "admin") =>
@@ -61,106 +49,63 @@ const asOutsider = () => setSession(OUTSIDER_ID, "user")
 const asSubscriber = () => setSession(SUBSCRIBER_ID, "user")
 const asNoSub = () => setSession(NOSUB_ID, "user")
 
-const grantExamAccess = async (userId: string) => {
-  const txId = createId()
-  await db.insert(transactions).values({
-    id: txId,
-    userId,
-    productId: PID,
-    type: "manual",
-    status: "completed",
-    amountPaid: 5000,
-    currency: "CAD",
-    accessType: "exam",
-    durationDays: 90,
-    accessExpiresAt: new Date(Date.now() + 90 * DAY),
-  })
-  await db.insert(userAccess).values({
-    userId,
-    accessType: "exam",
-    expiresAt: new Date(Date.now() + 10 * DAY),
-    lastTransactionId: txId,
-  })
-}
-
-const allUserIds = [
-  ADMIN_ID,
-  MEMBER_ID,
-  MEMBER2_ID,
-  OUTSIDER_ID,
-  SUBSCRIBER_ID,
-  NOSUB_ID,
-]
-
 beforeAll(async () => {
+  // Tous les noms contiennent « Aud » ; l'ordre alphabétique est celui des
+  // lettres de tête.
   await db.insert(user).values([
     {
       id: ADMIN_ID,
       name: "ZAud admin",
-      email: `aud-adm-${suffix}@test.invalid`,
+      email: "aud-adm@test.invalid",
+      role: "admin",
     },
     {
       id: MEMBER_ID,
       name: "AAud Alice Dupont",
-      email: `aud-alice-${suffix}@test.invalid`,
+      email: "aud-alice@test.invalid",
     },
     {
       id: MEMBER2_ID,
       name: "BAud Bob Martin",
-      email: `aud-bob-${suffix}@test.invalid`,
+      email: "aud-bob@test.invalid",
     },
     {
       id: OUTSIDER_ID,
       name: "CAud outsider",
-      email: `aud-out-${suffix}@test.invalid`,
+      email: "aud-out@test.invalid",
     },
     {
       id: SUBSCRIBER_ID,
       name: "DAud subscriber",
-      email: `aud-sub-${suffix}@test.invalid`,
+      email: "aud-sub@test.invalid",
     },
     {
       id: NOSUB_ID,
       name: "EAud nosub",
-      email: `aud-nosub-${suffix}@test.invalid`,
+      email: "aud-nosub@test.invalid",
+    },
+    {
+      id: DELETED_ID,
+      name: "0Aud supprimé",
+      email: "aud-del@test.invalid",
+      deletedAt: new Date(Date.now() - DAY),
     },
   ])
-  await db.insert(products).values({
-    id: PID,
-    code: "exam_access",
-    name: "Exam",
-    description: "desc",
-    priceCad: 5000,
-    durationDays: 90,
-    accessType: "exam",
-    stripeProductId: `prod_aud_${suffix}`,
-    stripePriceId: `price_aud_${suffix}`,
-    stripePriceLookupKey: `price_aud_${suffix}`,
-  })
   // outsider + subscriber ont un abonnement examen actif ; member/member2/nosub n'en ont pas.
-  await grantExamAccess(OUTSIDER_ID)
-  await grantExamAccess(SUBSCRIBER_ID)
+  const expires = new Date(Date.now() + 10 * DAY)
+  await seedAccess(OUTSIDER_ID, "exam", expires)
+  await seedAccess(SUBSCRIBER_ID, "exam", expires)
 
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `AudQ ${i} ${suffix} ?`,
+      question: `AudQ ${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
-      domain: `AUD-${suffix}`,
+      domain: "AUD",
     })),
   )
-})
-
-afterAll(async () => {
-  // delete exams cascade : participations, réponses, examQuestions, examAudience.
-  await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
-  await db.delete(userAccess).where(inArray(userAccess.userId, allUserIds))
-  await db.delete(transactions).where(inArray(transactions.userId, allUserIds))
-  await db.delete(questions).where(inArray(questions.id, qIds))
-  await db.delete(products).where(eq(products.id, PID))
-  await db.delete(user).where(inArray(user.id, allUserIds))
 })
 
 const now = () => Date.now()
@@ -169,7 +114,7 @@ const makeRestrictedExam = async (userIds: string[]): Promise<string> => {
   asAdmin()
   const t = now()
   const res = await createFinalizedExam({
-    title: `Restreint ${suffix} ${createId().slice(0, 4)}`,
+    title: "Restreint",
     startDate: t - 3600_000,
     endDate: t + 3600_000,
     questionIds: qIds,
@@ -185,7 +130,7 @@ const makeSubscribersExam = async (): Promise<string> => {
   asAdmin()
   const t = now()
   const res = await createFinalizedExam({
-    title: `Abonnes ${suffix} ${createId().slice(0, 4)}`,
+    title: "Abonnés",
     startDate: t - 3600_000,
     endDate: t + 3600_000,
     questionIds: qIds,
@@ -197,43 +142,107 @@ const makeSubscribersExam = async (): Promise<string> => {
   return res.examId
 }
 
+/** L'admin réécrit l'audience d'un examen ouvert, jeu inchangé. */
+const rewriteAudience = async (
+  examId: string,
+  audience: { audienceType: "restricted" | "subscribers"; userIds: string[] },
+) => {
+  asAdmin()
+  const t = now()
+  return saveAndFinalize({
+    id: examId,
+    title: "Restreint maj",
+    startDate: t - 1000,
+    endDate: t + DAY,
+    questionIds: qIds,
+    enablePause: false,
+    audienceType: audience.audienceType,
+    audienceUserIds: audience.userIds,
+  })
+}
+
+/**
+ * Examen restreint à member, qui y démarre sa participation puis est retiré
+ * de l'audience (réécrite vers member2) : sa participation en cours reste
+ * l'autorisation.
+ */
+const memberRemovedMidExam = async () => {
+  const examId = await makeRestrictedExam([MEMBER_ID])
+  asMember()
+  const started = await startExam({ examId })
+  if (!started.success) throw new Error(started.error)
+  const up = await rewriteAudience(examId, {
+    audienceType: "restricted",
+    userIds: [MEMBER2_ID],
+  })
+  if (!up.success) throw new Error(up.error)
+  asMember()
+  return examId
+}
+
+const memberParticipation = (examId: string) =>
+  db
+    .select({ id: examParticipations.id })
+    .from(examParticipations)
+    .where(
+      and(
+        eq(examParticipations.examId, examId),
+        eq(examParticipations.userId, MEMBER_ID),
+      ),
+    )
+
 describe("searchSelectableUsers", () => {
-  it("recherche par nom, exclut admins", async () => {
+  it("recherche par nom, exclut admins et comptes supprimés, triée par nom", async () => {
     asAdmin()
-    const rows = await searchSelectableUsers({
-      query: "Alice Dupont",
-      limit: 10,
-    })
-    expect(rows.some((u) => u.id === MEMBER_ID)).toBe(true)
-    expect(rows.every((u) => u.id !== ADMIN_ID)).toBe(true)
+    const rows = await searchSelectableUsers({ query: "Aud", limit: 10 })
+    expect(rows.map((u) => u.id)).toEqual([
+      MEMBER_ID,
+      MEMBER2_ID,
+      OUTSIDER_ID,
+      SUBSCRIBER_ID,
+      NOSUB_ID,
+    ])
+  })
+
+  it("borne le nombre de lignes à `limit`", async () => {
+    asAdmin()
+    const rows = await searchSelectableUsers({ query: "Aud", limit: 2 })
+    expect(rows.map((u) => u.id)).toEqual([MEMBER_ID, MEMBER2_ID])
   })
 
   it("recherche par email", async () => {
     asAdmin()
-    const rows = await searchSelectableUsers({
-      query: `aud-bob-${suffix}`,
-      limit: 10,
-    })
-    expect(rows.some((u) => u.id === MEMBER2_ID)).toBe(true)
+    const rows = await searchSelectableUsers({ query: "aud-bob", limit: 10 })
+    expect(rows.map((u) => u.id)).toEqual([MEMBER2_ID])
   })
 
   // `escapeLike` n'agit que sur le motif `ilike` : son effet n'est observable
-  // que contre une vraie base, d'où sa place ici plutôt qu'en unitaire.
-  it.each(["%", "_", "\\"])(
+  // que contre une vraie base, d'où sa place ici plutôt qu'en unitaire. Aucun
+  // nom ni courriel semé ne contient ces caractères : un joker actif ramènerait
+  // tout le monde.
+  it.each(["%", "_"])(
     "traite le métacaractère LIKE %s littéralement",
     async (meta) => {
       asAdmin()
-      // Assertion RELATIVE, pas absolue : un métacaractère actif se comporte en
-      // joker et ramène donc TOUT (`%`/`_` matchent n'importe quel nom) ; échappé,
-      // il ne peut ramener que les lignes le contenant littéralement, donc
-      // strictement moins. Compter zéro serait faux — la base peut porter des
-      // lignes contenant réellement le caractère.
-      const all = await searchSelectableUsers({ limit: 50 })
-      const escaped = await searchSelectableUsers({ query: meta, limit: 50 })
-      expect(all.length).toBeGreaterThan(0)
-      expect(escaped.length).toBeLessThan(all.length)
+      expect(await searchSelectableUsers({ query: meta, limit: 50 })).toEqual(
+        [],
+      )
     },
   )
+
+  it("traite la barre oblique inverse littéralement", async () => {
+    // Non échappée, elle échapperait le `%` final du motif (`%\%`) : la
+    // recherche viserait un `%` littéral et manquerait ce compte.
+    const id = createId()
+    await db.insert(user).values({
+      id,
+      name: "Barre\\oblique",
+      email: "barre-oblique@test.invalid",
+    })
+    asAdmin()
+    const rows = await searchSelectableUsers({ query: "\\", limit: 50 })
+    expect(rows.map((u) => u.id)).toEqual([id])
+  })
 })
 
 describe("création d'un examen complet — audience restreinte", () => {
@@ -241,7 +250,7 @@ describe("création d'un examen complet — audience restreinte", () => {
     asAdmin()
     const t = now()
     const res = await createFinalizedExam({
-      title: `Dedup ${suffix}`,
+      title: "Dedup",
       startDate: t,
       endDate: t + DAY,
       questionIds: qIds,
@@ -255,26 +264,29 @@ describe("création d'un examen complet — audience restreinte", () => {
     expect(audience).toHaveLength(2)
   })
 
-  it("refuse une audience restreinte avec un userId inexistant (INVALID_USERS)", async () => {
+  it("refuse une audience restreinte avec un compte supprimé (INVALID_USERS)", async () => {
     asAdmin()
     const t = now()
     const res = await createFinalizedExam({
-      title: `BadUsers ${suffix}`,
+      title: "BadUsers",
       startDate: t,
       endDate: t + DAY,
       questionIds: qIds,
       enablePause: false,
       audienceType: "restricted",
-      audienceUserIds: [MEMBER_ID, createId()],
+      audienceUserIds: [MEMBER_ID, DELETED_ID],
     })
-    expect(res.success).toBe(false)
+    expect(res).toEqual({
+      success: false,
+      error: "Certains utilisateurs sélectionnés sont introuvables.",
+    })
   })
 
   it("refuse une audience restreinte vide (validation zod)", async () => {
     asAdmin()
     const t = now()
     const res = await createFinalizedExam({
-      title: `Empty ${suffix}`,
+      title: "Empty",
       startDate: t,
       endDate: t + DAY,
       questionIds: qIds,
@@ -288,73 +300,20 @@ describe("création d'un examen complet — audience restreinte", () => {
 
 describe("modification d'un examen complet — édition de l'audience", () => {
   it("réécrit l'audience ([member]→[member2]) puis vide en bascule subscribers, participations conservées", async () => {
-    const examId = await makeRestrictedExam([MEMBER_ID])
-    expect((await getExamAudience(examId)).map((u) => u.id)).toEqual([
-      MEMBER_ID,
-    ])
-
-    // member démarre → crée une participation.
-    asMember()
-    const started = await startExam({ examId })
-    expect(started.success).toBe(true)
-
-    // update → restreint [member2].
+    const examId = await memberRemovedMidExam()
     asAdmin()
-    const t = now()
-    const up1 = await saveAndFinalize({
-      id: examId,
-      title: `Restreint maj ${suffix}`,
-      startDate: t - 1000,
-      endDate: t + DAY,
-      questionIds: qIds,
-      enablePause: false,
-      audienceType: "restricted",
-      audienceUserIds: [MEMBER2_ID],
-    })
-    expect(up1.success).toBe(true)
     expect((await getExamAudience(examId)).map((u) => u.id)).toEqual([
       MEMBER2_ID,
     ])
+    expect(await memberParticipation(examId)).toHaveLength(1)
 
-    // Participation de member conservée malgré son retrait de l'audience.
-    const [part] = await db
-      .select({ id: examParticipations.id })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          eq(examParticipations.userId, MEMBER_ID),
-        ),
-      )
-      .limit(1)
-    expect(part).toBeTruthy()
-
-    // update → subscribers → audience vidée.
-    const up2 = await saveAndFinalize({
-      id: examId,
-      title: `Bascule ${suffix}`,
-      startDate: t - 1000,
-      endDate: t + DAY,
-      questionIds: qIds,
-      enablePause: false,
+    const up = await rewriteAudience(examId, {
       audienceType: "subscribers",
-      audienceUserIds: [],
+      userIds: [],
     })
-    expect(up2.success).toBe(true)
+    expect(up.success).toBe(true)
     expect(await getExamAudience(examId)).toHaveLength(0)
-
-    // Participation toujours là après la bascule.
-    const [part2] = await db
-      .select({ id: examParticipations.id })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          eq(examParticipations.userId, MEMBER_ID),
-        ),
-      )
-      .limit(1)
-    expect(part2).toBeTruthy()
+    expect(await memberParticipation(examId)).toHaveLength(1)
   })
 })
 
@@ -372,7 +331,7 @@ describe("startExam — la sélection octroie l'accès (restreint)", () => {
     expect((await startExam({ examId })).success).toBe(true)
   })
 
-  it("subscribers : abonné autorisé, non-abonné refusé (inchangé)", async () => {
+  it("subscribers : abonné autorisé, non-abonné refusé", async () => {
     const examId = await makeSubscribersExam()
 
     asSubscriber()
@@ -383,33 +342,33 @@ describe("startExam — la sélection octroie l'accès (restreint)", () => {
   })
 })
 
-describe("finalizeExam — tolérant au retrait d'audience (#6)", () => {
-  it("un membre démarre un restreint, est retiré de l'audience, puis finalise quand même", async () => {
-    const examId = await makeRestrictedExam([MEMBER_ID])
-
-    asMember()
-    const started = await startExam({ examId })
-    expect(started.success).toBe(true)
-
-    // Admin retire member de l'audience (réécrit vers member2).
-    asAdmin()
-    const t = now()
-    const up = await saveAndFinalize({
-      id: examId,
-      title: `Retrait ${suffix}`,
-      startDate: t - 1000,
-      endDate: t + DAY,
-      questionIds: qIds,
-      enablePause: false,
-      audienceType: "restricted",
-      audienceUserIds: [MEMBER2_ID],
-    })
-    expect(up.success).toBe(true)
-
-    // member, retiré de l'audience mais avec participation in_progress, finalise.
-    asMember()
-    const fin = await finalizeExam({ examId })
-    expect(fin.success).toBe(true)
+describe("membre retiré de l'audience pendant sa participation", () => {
+  it.each([
+    [
+      "finalise quand même",
+      async (examId: string) =>
+        expect(await finalizeExam({ examId })).toEqual({ success: true }),
+    ],
+    [
+      "lit toujours les questions",
+      async (examId: string) =>
+        expect((await getExamWithQuestions(examId))?.questions).toHaveLength(
+          qIds.length,
+        ),
+    ],
+    [
+      "enregistre toujours une réponse",
+      async (examId: string) =>
+        expect(
+          await saveExamAnswer({
+            examId,
+            questionId: qIds[0],
+            selectedAnswer: "A",
+          }),
+        ).toMatchObject({ success: true }),
+    ],
+  ])("%s", async (_, check) => {
+    await check(await memberRemovedMidExam())
   })
 })
 
@@ -446,7 +405,7 @@ describe("getExamWithQuestions — anti-fuite du texte des questions restreintes
     expect(view?.questions).toHaveLength(qIds.length)
   })
 
-  it("subscribers → null pour un utilisateur SANS accès exam actif (C2)", async () => {
+  it("subscribers → null pour un utilisateur SANS accès exam actif", async () => {
     const examId = await makeSubscribersExam()
 
     asNoSub() // aucun abonnement
@@ -456,38 +415,9 @@ describe("getExamWithQuestions — anti-fuite du texte des questions restreintes
     const view = await getExamWithQuestions(examId)
     expect(view?.questions).toHaveLength(qIds.length)
   })
-
-  it("restreint → questions pour un membre RETIRÉ de l'audience mais avec participation in_progress (#6)", async () => {
-    const examId = await makeRestrictedExam([MEMBER_ID])
-
-    // member démarre → participation in_progress.
-    asMember()
-    const started = await startExam({ examId })
-    expect(started.success).toBe(true)
-
-    // Admin retire member de l'audience.
-    asAdmin()
-    const t = now()
-    const up = await saveAndFinalize({
-      id: examId,
-      title: `RetraitQ ${suffix}`,
-      startDate: t - 1000,
-      endDate: t + DAY,
-      questionIds: qIds,
-      enablePause: false,
-      audienceType: "restricted",
-      audienceUserIds: [MEMBER2_ID],
-    })
-    expect(up.success).toBe(true)
-
-    // member n'est plus dans l'audience mais garde l'accès via sa participation.
-    asMember()
-    const view = await getExamWithQuestions(examId)
-    expect(view?.questions).toHaveLength(qIds.length)
-  })
 })
 
-describe("saveExamAnswer — la sélection octroie l'accès (D1)", () => {
+describe("saveExamAnswer — la sélection octroie l'accès", () => {
   it("un membre restreint SANS abonnement peut enregistrer une réponse", async () => {
     const examId = await makeRestrictedExam([MEMBER_ID])
 
@@ -495,45 +425,9 @@ describe("saveExamAnswer — la sélection octroie l'accès (D1)", () => {
     const started = await startExam({ examId })
     expect(started.success).toBe(true)
 
-    const view = await getExamWithQuestions(examId)
-    const qId = view!.questions[0]._id
     const res = await saveExamAnswer({
       examId,
-      questionId: qId,
-      selectedAnswer: "A",
-    })
-    expect(res.success).toBe(true)
-  })
-
-  it("un membre retiré de l'audience en cours peut toujours enregistrer (#6)", async () => {
-    const examId = await makeRestrictedExam([MEMBER_ID])
-
-    asMember()
-    const started = await startExam({ examId })
-    expect(started.success).toBe(true)
-    const view = await getExamWithQuestions(examId)
-    const qId = view!.questions[0]._id
-
-    // Admin retire member de l'audience pendant la passation.
-    asAdmin()
-    const t = now()
-    const up = await saveAndFinalize({
-      id: examId,
-      title: `RetraitSA ${suffix}`,
-      startDate: t - 1000,
-      endDate: t + DAY,
-      questionIds: qIds,
-      enablePause: false,
-      audienceType: "restricted",
-      audienceUserIds: [MEMBER2_ID],
-    })
-    expect(up.success).toBe(true)
-
-    // La participation in_progress reste l'autorisation.
-    asMember()
-    const res = await saveExamAnswer({
-      examId,
-      questionId: qId,
+      questionId: qIds[0],
       selectedAnswer: "A",
     })
     expect(res.success).toBe(true)

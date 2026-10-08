@@ -1,5 +1,5 @@
-import { eq, inArray, sql } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq, sql } from "drizzle-orm"
+import { beforeAll, describe, expect, it } from "vitest"
 import { db } from "@/db"
 import {
   examParticipations,
@@ -16,12 +16,6 @@ import {
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
-
-const suffix = createId().slice(0, 8)
 const USER_ID = createId()
 const OTHER_USER_ID = createId()
 const OPEN_EXAM_ID = createId()
@@ -31,7 +25,6 @@ const qIds = Array.from({ length: 4 }, () => createId())
 
 const asUser: LockViewer = { id: USER_ID, role: "user" }
 const asOther: LockViewer = { id: OTHER_USER_ID, role: "user" }
-const asAdmin: LockViewer = { id: USER_ID, role: "admin" }
 
 /** Ids du jeu de test qui SURVIVENT au prédicat de sélection. */
 const selectable = async (viewer: LockViewer): Promise<string[]> => {
@@ -48,27 +41,27 @@ const selectable = async (viewer: LockViewer): Promise<string[]> => {
 
 beforeAll(async () => {
   await db.insert(user).values([
-    { id: USER_ID, name: "IT verrou", email: `lock-${suffix}@test.invalid` },
+    { id: USER_ID, name: "IT verrou", email: "lock@test.invalid" },
     {
       id: OTHER_USER_ID,
       name: "IT verrou autre",
-      email: `lock-other-${suffix}@test.invalid`,
+      email: "lock-other@test.invalid",
     },
   ])
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `LOCK Q${i} ${suffix}?`,
+      question: `LOCK Q${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
-      domain: `LOCK-${suffix}`,
+      domain: "LOCK",
     })),
   )
   await db.insert(exams).values([
     {
       id: OPEN_EXAM_ID,
-      title: `LOCK ouvert ${suffix}`,
+      title: "LOCK ouvert",
       startDate: new Date("2026-01-01T00:00:00Z"),
       endDate: new Date("2099-01-01T00:00:00Z"),
       completionTime: 3600,
@@ -78,7 +71,7 @@ beforeAll(async () => {
     },
     {
       id: CLOSED_EXAM_ID,
-      title: `LOCK clos ${suffix}`,
+      title: "LOCK clos",
       startDate: new Date("2026-01-01T00:00:00Z"),
       endDate: new Date("2026-01-02T00:00:00Z"),
       completionTime: 3600,
@@ -110,63 +103,37 @@ beforeAll(async () => {
   ])
 })
 
-afterAll(async () => {
-  await db
-    .delete(examParticipations)
-    .where(inArray(examParticipations.examId, [OPEN_EXAM_ID, CLOSED_EXAM_ID]))
-  await db
-    .delete(examQuestions)
-    .where(inArray(examQuestions.examId, [OPEN_EXAM_ID, CLOSED_EXAM_ID]))
-  await db
-    .delete(exams)
-    .where(inArray(exams.id, [OPEN_EXAM_ID, CLOSED_EXAM_ID]))
-  await db.delete(questions).where(inArray(questions.id, qIds))
-  await db.delete(user).where(inArray(user.id, [USER_ID, OTHER_USER_ID]))
+// Les deux entrées du verrou lisent la même règle : ce que `lockFor` retient,
+// `excludeLocked` le retranche de la sélection. Le cas admin, court-circuit
+// JS sans requête, est prouvé en unitaire (`tests/questions/answer-key-lock.test.ts`).
+describe.each<[string, LockViewer, number[]]>([
+  [
+    "participant : les questions de SON examen ouvert, pas d'un examen clos",
+    asUser,
+    [0, 1],
+  ],
+  ["non-participant : rien", asOther, []],
+  ["anonyme : toute question d'un examen ouvert", "anonymous", [0, 1]],
+])("verrou de clé de réponse — %s", (_, viewer, lockedIdx) => {
+  const locked = lockedIdx.map((i) => qIds[i])
+
+  it("lockFor retient exactement ces questions", async () => {
+    const lock = await lockFor(viewer, qIds)
+    expect(qIds.filter((id) => lock.has(id))).toEqual(locked)
+  })
+
+  it("excludeLocked les retranche de la sélection", async () => {
+    expect(await selectable(viewer)).toEqual(
+      qIds.filter((id) => !locked.includes(id)).sort(),
+    )
+  })
 })
 
-describe("verrou de clé de réponse — lockFor (révélation)", () => {
-  it("participant : verrouille les questions de SON examen ouvert, pas celles d'un examen clos", async () => {
-    const lock = await lockFor(asUser, qIds)
-    expect(qIds.filter((id) => lock.has(id))).toEqual([qIds[0], qIds[1]])
-  })
-
-  it("non-participant : rien n'est verrouillé", async () => {
-    const lock = await lockFor(asOther, qIds)
-    expect(qIds.some((id) => lock.has(id))).toBe(false)
-  })
-
-  it("anonyme : toute question d'un examen ouvert, sans dimension utilisateur", async () => {
-    const lock = await lockFor("anonymous", qIds)
-    expect(qIds.filter((id) => lock.has(id))).toEqual([qIds[0], qIds[1]])
-  })
-
-  it("admin : jamais verrouillé", async () => {
-    const lock = await lockFor(asAdmin, qIds)
-    expect(qIds.some((id) => lock.has(id))).toBe(false)
-  })
-
-  it("borné aux candidates", async () => {
+describe("verrou de clé de réponse — bornes", () => {
+  it("lockFor est borné aux candidates", async () => {
     const lock = await lockFor(asUser, [qIds[0], qIds[3]])
     expect(lock.has(qIds[0])).toBe(true)
     expect(lock.has(qIds[1])).toBe(false)
-  })
-})
-
-describe("verrou de clé de réponse — excludeLocked (sélection)", () => {
-  it("participant : même jeu que lockFor, retranché de la sélection", async () => {
-    expect(await selectable(asUser)).toEqual([qIds[2], qIds[3]].sort())
-  })
-
-  it("non-participant : rien n'est retranché", async () => {
-    expect(await selectable(asOther)).toEqual([...qIds].sort())
-  })
-
-  it("anonyme : toute question d'un examen ouvert est retranchée", async () => {
-    expect(await selectable("anonymous")).toEqual([qIds[2], qIds[3]].sort())
-  })
-
-  it("admin : rien n'est retranché", async () => {
-    expect(await selectable(asAdmin)).toEqual([...qIds].sort())
   })
 
   it("un examen qui vient de se clore libère ses questions", async () => {

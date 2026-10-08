@@ -1,13 +1,7 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import {
-  questionExplanations,
-  questionImages,
-  questions,
-  uploadRateLimits,
-  user,
-} from "@/db/schema"
+import { questions, user } from "@/db/schema"
 import { createQuestionImageUpload } from "@/features/questions/actions"
 import {
   confirmAvatarUpload,
@@ -20,10 +14,6 @@ import { createId } from "@/lib/ids"
 import { tryDeleteFromStorage } from "@/lib/storage"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
@@ -56,7 +46,6 @@ vi.mock("@/lib/storage", async (orig) => {
 
 const userId = createId()
 const adminId = createId()
-const createdQuestions: string[] = []
 
 const seedQuestion = async () => {
   const id = createId()
@@ -68,7 +57,6 @@ const seedQuestion = async () => {
     objectiveId: TEST_OBJECTIVE_ID,
     domain: "UPLOAD_DOM",
   })
-  createdQuestions.push(id)
   return id
 }
 
@@ -82,22 +70,6 @@ beforeAll(async () => {
       role: "admin",
     },
   ])
-})
-
-afterAll(async () => {
-  if (createdQuestions.length > 0) {
-    await db
-      .delete(questionImages)
-      .where(inArray(questionImages.questionId, createdQuestions))
-    await db
-      .delete(questionExplanations)
-      .where(inArray(questionExplanations.questionId, createdQuestions))
-    await db.delete(questions).where(inArray(questions.id, createdQuestions))
-  }
-  await db
-    .delete(uploadRateLimits)
-    .where(inArray(uploadRateLimits.userId, [userId, adminId]))
-  await db.delete(user).where(inArray(user.id, [userId, adminId]))
 })
 
 describe("createAvatarUpload + confirmAvatarUpload", () => {

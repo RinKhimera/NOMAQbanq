@@ -1,5 +1,5 @@
-import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, describe, expect, it, vi } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -15,17 +15,9 @@ import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
-const createdUsers: string[] = []
-const createdExams: string[] = []
-const createdQuestions: string[] = []
 
 const asUser = (id: string, role: "user" | "admin" = "user") =>
   vi
@@ -47,21 +39,19 @@ const seedExam = async (
   const now = Date.now()
   const examId = createId()
   const userIds = participants.map(() => createId())
-  createdUsers.push(...userIds)
-  createdExams.push(examId)
 
   await db.insert(user).values(
     participants.map((p, i) => ({
       id: userIds[i],
       name: `Pct ${i}`,
-      email: `pct-${i}-${examId}-${suffix}@test.invalid`,
+      email: `pct-${i}-${examId}@test.invalid`,
       role: p.role ?? "user",
       deletedAt: p.deleted ? new Date(now - DAY) : null,
     })),
   )
   await db.insert(exams).values({
     id: examId,
-    title: `Percentile ${suffix}`,
+    title: "Percentile",
     startDate: new Date(now - 10 * DAY),
     endDate: open ? new Date(now + DAY) : new Date(now - DAY),
     completionTime: 3600,
@@ -91,11 +81,9 @@ const withholdScore = async (examId: string, userId: string) => {
   const now = Date.now()
   const questionId = createId()
   const openExamId = createId()
-  createdQuestions.push(questionId)
-  createdExams.push(openExamId)
   await db.insert(questions).values({
     id: questionId,
-    question: `Q retenue ${suffix}`,
+    question: "Q retenue",
     correctAnswer: "A",
     options: ["A", "B"],
     objectiveId: TEST_OBJECTIVE_ID,
@@ -103,7 +91,7 @@ const withholdScore = async (examId: string, userId: string) => {
   })
   await db.insert(exams).values({
     id: openExamId,
-    title: `Ouvert ${suffix}`,
+    title: "Ouvert",
     startDate: new Date(now - DAY),
     endDate: new Date(now + DAY),
     completionTime: 3600,
@@ -139,155 +127,104 @@ const withholdScore = async (examId: string, userId: string) => {
   })
 }
 
-afterAll(async () => {
-  await db.delete(exams).where(inArray(exams.id, createdExams))
-  await db.delete(questions).where(inArray(questions.id, createdQuestions))
-  await db.delete(user).where(inArray(user.id, createdUsers))
-})
+const five: Participant[] = [
+  { score: 70 },
+  { score: 40 },
+  { score: 50 },
+  { score: 90 },
+  { score: 60 },
+]
 
 describe("percentile d'examen", () => {
-  it("rend la part des autres participants au score strictement inférieur", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-      { score: 60 },
-    ])
-    asUser(userIds[0])
-    // 70 bat 40, 50 et 60 : 3 des 4 autres.
-    expect((await getMyExamPercentiles())[examId]).toBe(75)
-  })
-
-  it("n'existe pas sous 5 participations lisibles", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-    ])
-    asUser(userIds[0])
-    expect((await getMyExamPercentiles())[examId]).toBeNull()
-  })
-
-  it("ne compte pas les ex æquo comme battus", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 60 },
-      { score: 60 },
-      { score: 40 },
-      { score: 80 },
-      { score: 20 },
-    ])
-    asUser(userIds[0])
-    // 60 bat 40 et 20, pas l'autre 60 : 2 des 4 autres.
-    expect((await getMyExamPercentiles())[examId]).toBe(50)
-  })
-
-  it("arrondit à l'entier inférieur, pour ne jamais surestimer la position", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 60 },
-      { score: 65 },
-      { score: 90 },
-      { score: 95 },
-    ])
-    asUser(userIds[0])
-    // 70 bat 4 des 6 autres : 66,67 %.
-    expect((await getMyExamPercentiles())[examId]).toBe(66)
-  })
-
-  it("rend 100 au premier sans ex æquo", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 95 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-      { score: 60 },
-    ])
-    asUser(userIds[0])
-    expect((await getMyExamPercentiles())[examId]).toBe(100)
-  })
-
-  it("n'existe pas pour un examen ouvert", async () => {
-    const { examId, userIds } = await seedExam(
-      [
-        { score: 70 },
-        { score: 40 },
-        { score: 50 },
-        { score: 90 },
+  // Le participant lu est toujours le premier de la liste.
+  it.each<{
+    name: string
+    participants: Participant[]
+    open?: boolean
+    /** Index du participant dont le score est rendu retenu. */
+    withheld?: number
+    expected: number | null | undefined
+  }>([
+    {
+      // 70 bat 40, 50 et 60 : 3 des 4 autres.
+      name: "rend la part des autres participants au score strictement inférieur",
+      participants: five,
+      expected: 75,
+    },
+    {
+      name: "n'existe pas sous 5 participations lisibles",
+      participants: five.slice(0, 4),
+      expected: null,
+    },
+    {
+      // 60 bat 40 et 20, pas l'autre 60 : 2 des 4 autres.
+      name: "ne compte pas les ex æquo comme battus",
+      participants: [
         { score: 60 },
+        { score: 60 },
+        { score: 40 },
+        { score: 80 },
+        { score: 20 },
       ],
-      { open: true },
-    )
+      expected: 50,
+    },
+    {
+      // 70 bat 4 des 6 autres : 66,67 %.
+      name: "arrondit à l'entier inférieur, pour ne jamais surestimer la position",
+      participants: [...five, { score: 65 }, { score: 95 }],
+      expected: 66,
+    },
+    {
+      name: "rend 100 au premier sans ex æquo",
+      participants: [{ score: 95 }, ...five.slice(1)],
+      expected: 100,
+    },
+    {
+      name: "n'existe pas pour un examen ouvert",
+      participants: five,
+      open: true,
+      expected: undefined,
+    },
+    {
+      // 4 étudiants lisibles seulement : sous le seuil.
+      name: "écarte les comptes admin et supprimés du groupe de pairs",
+      participants: [
+        ...five.slice(0, 4),
+        { score: 10, role: "admin" },
+        { score: 20, deleted: true },
+      ],
+      expected: null,
+    },
+    {
+      name: "compte les participations soumises à l'expiration du temps",
+      participants: [
+        ...five.slice(0, 4),
+        { score: 60, status: "auto_submitted" },
+      ],
+      expected: 75,
+    },
+    {
+      name: "ignore une participation encore en cours",
+      participants: [...five.slice(0, 4), { score: 60, status: "in_progress" }],
+      expected: null,
+    },
+    {
+      name: "écarte un pair au score retenu",
+      participants: five,
+      withheld: 4,
+      expected: null,
+    },
+    {
+      name: "n'existe pas quand le score du participant est retenu",
+      participants: [...five, { score: 30 }],
+      withheld: 0,
+      expected: null,
+    },
+  ])("$name", async ({ participants, open, withheld, expected }) => {
+    const { examId, userIds } = await seedExam(participants, { open })
+    if (withheld !== undefined) await withholdScore(examId, userIds[withheld]!)
     asUser(userIds[0])
-    expect((await getMyExamPercentiles())[examId] ?? null).toBeNull()
-  })
-
-  it("écarte les comptes admin et supprimés du groupe de pairs", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-      { score: 10, role: "admin" },
-      { score: 20, deleted: true },
-    ])
-    asUser(userIds[0])
-    // 4 étudiants lisibles seulement : sous le seuil.
-    expect((await getMyExamPercentiles())[examId]).toBeNull()
-  })
-
-  it("compte les participations soumises à l'expiration du temps", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-      { score: 60, status: "auto_submitted" },
-    ])
-    asUser(userIds[0])
-    expect((await getMyExamPercentiles())[examId]).toBe(75)
-  })
-
-  it("ignore une participation encore en cours", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-      { score: 60, status: "in_progress" },
-    ])
-    asUser(userIds[0])
-    expect((await getMyExamPercentiles())[examId]).toBeNull()
-  })
-
-  it("écarte un pair au score retenu", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-      { score: 60 },
-    ])
-    await withholdScore(examId, userIds[4]!)
-    asUser(userIds[0])
-    expect((await getMyExamPercentiles())[examId]).toBeNull()
-  })
-
-  it("n'existe pas quand le score du participant est retenu", async () => {
-    const { examId, userIds } = await seedExam([
-      { score: 70 },
-      { score: 40 },
-      { score: 50 },
-      { score: 90 },
-      { score: 60 },
-      { score: 30 },
-    ])
-    await withholdScore(examId, userIds[0]!)
-    asUser(userIds[0])
-    expect((await getMyExamPercentiles())[examId]).toBeNull()
+    expect((await getMyExamPercentiles())[examId]).toBe(expected)
   })
 })
 

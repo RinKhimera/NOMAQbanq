@@ -1,23 +1,7 @@
-import { eq, inArray } from "drizzle-orm"
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import {
-  examQuestions,
-  exams,
-  questionImages,
-  questions,
-  trainingSessionItems,
-  trainingSessions,
-  user,
-} from "@/db/schema"
+import { examQuestions, exams, questions, user } from "@/db/schema"
 import { getQuestionAnswerBreakdown } from "@/features/analytics/dal"
 import {
   confirmQuestionKey,
@@ -32,11 +16,8 @@ import { requireRole } from "@/lib/auth-guards"
 import { createPresignedUpload } from "@/lib/aws"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID, objectiveIdFor } from "../helpers/objective"
+import { seedAnswers } from "../helpers/seed-answers"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
@@ -59,16 +40,11 @@ vi.mock("@/lib/storage", async (orig) => {
   }
 })
 
-const suffix = createId().slice(0, 8)
 const DOMAIN = "Cardiologie"
 const adminId = createId()
-const createdUsers: string[] = [adminId]
-const createdSessions: string[] = []
-const createdQuestions: string[] = []
-const createdExams: string[] = []
 
 const base = {
-  question: `Clé ${suffix}`,
+  question: "Clé",
   options: ["A", "B", "C", "D"],
   correctAnswer: "A",
   explanation: "Parce que.",
@@ -85,44 +61,12 @@ const asAdmin = () =>
 const newQuestion = async (over: Partial<typeof base> = {}) => {
   const res = await createQuestion({ ...base, ...over })
   if (!res.success) throw new Error(res.error)
-  createdQuestions.push(res.id)
   return res.id
 }
 
-/** Une première réponse d'un nouvel étudiant, en entraînement terminé. */
-const answer = async (questionId: string, selected: string) => {
-  const userId = createId()
-  createdUsers.push(userId)
-  await db.insert(user).values({
-    id: userId,
-    name: "Clé",
-    email: `key-${userId}@test.invalid`,
-    role: "user",
-  })
-  const sessionId = createId()
-  createdSessions.push(sessionId)
-  await db.insert(trainingSessions).values({
-    id: sessionId,
-    userId,
-    status: "completed",
-    mode: "test",
-    questionCount: 1,
-    startedAt: new Date(),
-    expiresAt: new Date(Date.now() + 3600_000),
-  })
-  await db.insert(trainingSessionItems).values({
-    sessionId,
-    questionId,
-    position: 0,
-    selectedAnswer: selected,
-    isCorrect: selected === "A",
-    answeredAt: new Date(),
-  })
-}
-const answerMany = async (questionId: string, a: number, b: number) => {
-  for (let i = 0; i < a; i++) await answer(questionId, "A")
-  for (let i = 0; i < b; i++) await answer(questionId, "B")
-}
+/** `a` premières réponses justes (A) et `b` fausses (B), d'autant d'étudiants. */
+const answerMany = (questionId: string, a: number, b: number) =>
+  seedAnswers(questionId, [...Array(a).fill("A"), ...Array(b).fill("B")])
 
 const inToVerify = async (id: string) =>
   (await getQuestionList({ search: id, toVerify: true, limit: 20 })).items.some(
@@ -131,10 +75,9 @@ const inToVerify = async (id: string) =>
 
 const mkExam = async (questionId: string, endDate: Date) => {
   const id = createId()
-  createdExams.push(id)
   await db.insert(exams).values({
     id,
-    title: `Examen ${suffix}`,
+    title: "Examen",
     startDate: new Date(Date.now() - 86_400_000),
     endDate,
     completionTime: 3600,
@@ -148,26 +91,14 @@ const mkExam = async (questionId: string, endDate: Date) => {
 beforeAll(async () => {
   await db.insert(user).values({
     id: adminId,
-    name: `Admin ${suffix}`,
-    email: `admin-${suffix}@test.invalid`,
+    name: "Admin",
+    email: "admin@test.invalid",
     role: "admin",
   })
 })
 
 beforeEach(() => {
   asAdmin()
-})
-
-afterAll(async () => {
-  await db.delete(exams).where(inArray(exams.id, createdExams))
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.id, createdSessions))
-  await db
-    .delete(questionImages)
-    .where(inArray(questionImages.questionId, createdQuestions))
-  await db.delete(questions).where(inArray(questions.id, createdQuestions))
-  await db.delete(user).where(inArray(user.id, createdUsers))
 })
 
 describe("clé confirmée", () => {
@@ -182,7 +113,7 @@ describe("clé confirmée", () => {
     ).toEqual({ success: true })
     expect(await inToVerify(id)).toBe(false)
     expect((await getQuestionById(id))?.keyConfirmation).toMatchObject({
-      byName: `Admin ${suffix}`,
+      byName: "Admin",
       answerCount: 10,
       note: "Piège classique",
     })
@@ -210,7 +141,7 @@ describe("clé confirmée", () => {
   })
 
   it.each([
-    ["l'énoncé", { question: `Clé reformulée ${suffix}` }],
+    ["l'énoncé", { question: "Clé reformulée" }],
     ["les options", { options: ["A", "B", "C", "D2"] }],
     ["la clé", { correctAnswer: "C" }],
   ])("modifier %s efface la confirmation", async (_, change) => {
@@ -290,7 +221,7 @@ describe("choix figés", () => {
 
     const key = await updateQuestion({ ...base, id, correctAnswer: "B" })
     expect(key).toMatchObject({ success: false })
-    expect(key.error).toContain(`examen ouvert « Examen ${suffix} »`)
+    expect(key.error).toContain("examen ouvert « Examen »")
     expect(
       await updateQuestion({ ...base, id, options: ["A", "B", "C", "D bis"] }),
     ).toMatchObject({ success: false })
@@ -311,7 +242,7 @@ describe("choix figés", () => {
       await updateQuestion({
         ...base,
         id,
-        question: `Énoncé revu ${suffix}`,
+        question: "Énoncé revu",
         explanation: "Explication revue.",
         references: ["R1", "R2"],
         objectiveId: await objectiveIdFor("Objectif revu"),
@@ -319,7 +250,7 @@ describe("choix figés", () => {
       }),
     ).toEqual({ success: true })
     expect(await getQuestionById(id)).toMatchObject({
-      question: `Énoncé revu ${suffix}`,
+      question: "Énoncé revu",
       explanation: "Explication revue.",
       references: ["R1", "R2"],
       domain: "Neurologie",
@@ -344,7 +275,6 @@ describe("nombre de choix", () => {
   ])("%i choix : accepté = %s", async (n, accepted) => {
     const options = ["A", "B", "C", "D", "E", "F"].slice(0, n)
     const res = await createQuestion({ ...base, options })
-    if (res.success) createdQuestions.push(res.id)
     expect(res.success).toBe(accepted)
   })
 })
@@ -371,7 +301,6 @@ describe("images avant la création", () => {
 
     const created = await createQuestion({ ...base, id: reserved })
     expect(created).toEqual({ success: true, id: reserved })
-    createdQuestions.push(reserved)
 
     expect(
       await setQuestionImages({
@@ -389,7 +318,7 @@ describe("images avant la création", () => {
 
   it("une question supprimée ne reçoit plus d'image", async () => {
     const id = await newQuestion()
-    await answer(id, "A") // référencée : archivée, pas supprimée
+    await seedAnswers(id, ["A"]) // référencée : archivée, pas supprimée
     expect(await deleteQuestion(id)).toMatchObject({ mode: "soft" })
     expect(
       await createQuestionImageUpload({

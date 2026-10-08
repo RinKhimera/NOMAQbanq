@@ -1,5 +1,5 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAudience,
@@ -20,15 +20,10 @@ import { createId } from "@/lib/ids"
 import { createFinalizedExam, saveAndFinalize } from "../helpers/exam-form"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 // Membre de l'audience restreinte : aucun abonnement requis pour passer.
 const STUDENT_ID = createId()
@@ -46,13 +41,6 @@ const OPEN_TAKEN_ID = createId()
 const SOURCE_ID = createId()
 const DELETED_QUESTION_ID = createId()
 const DELETED_USER_ID = createId()
-const fixtureExamIds = [
-  CLOSED_TAKEN_ID,
-  CLOSED_EMPTY_ID,
-  OPEN_TAKEN_ID,
-  SOURCE_ID,
-]
-const createdExamIds: string[] = []
 
 const setSession = (id: string, role: "user" | "admin") =>
   vi
@@ -90,44 +78,44 @@ beforeAll(async () => {
     {
       id: ADMIN_ID,
       name: "Reo admin",
-      email: `reo-adm-${suffix}@test.invalid`,
+      email: "reo-adm@test.invalid",
     },
     {
       id: STUDENT_ID,
       name: "Reo étudiant",
-      email: `reo-stu-${suffix}@test.invalid`,
+      email: "reo-stu@test.invalid",
     },
     {
       id: DELETED_USER_ID,
       name: "Reo supprimé",
-      email: `reo-del-${suffix}@test.invalid`,
+      email: "reo-del@test.invalid",
       deletedAt: new Date("2026-05-01T00:00:00Z"),
     },
   ])
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `REO Q${i} ${suffix}?`,
+      question: `REO Q${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
-      domain: `REO-${suffix}`,
+      domain: "REO",
     })),
   )
   await db.insert(questions).values({
     id: DELETED_QUESTION_ID,
-    question: `REO supprimée ${suffix}?`,
+    question: "REO supprimée ?",
     correctAnswer: "A",
     options: ["A", "B", "C", "D"],
     objectiveId: TEST_OBJECTIVE_ID,
-    domain: `REO-${suffix}`,
+    domain: "REO",
     deletedAt: new Date("2026-05-01T00:00:00Z"),
   })
   const now = Date.now()
   await db.insert(exams).values([
     {
       id: CLOSED_TAKEN_ID,
-      title: `REO clos passé ${suffix}`,
+      title: "REO clos passé",
       startDate: CLOSED_START,
       endDate: CLOSED_END,
       completionTime: 3 * 83,
@@ -138,7 +126,7 @@ beforeAll(async () => {
     },
     {
       id: CLOSED_EMPTY_ID,
-      title: `REO clos vide ${suffix}`,
+      title: "REO clos vide",
       startDate: CLOSED_START,
       endDate: CLOSED_END,
       completionTime: 3 * 83,
@@ -148,7 +136,7 @@ beforeAll(async () => {
     },
     {
       id: OPEN_TAKEN_ID,
-      title: `REO ouvert ${suffix}`,
+      title: "REO ouvert",
       startDate: new Date(now - DAY),
       endDate: new Date(now + DAY),
       completionTime: 3 * 83,
@@ -158,7 +146,7 @@ beforeAll(async () => {
     },
     {
       id: SOURCE_ID,
-      title: `REO source ${suffix}`,
+      title: "REO source",
       description: "Épreuve source",
       startDate: CLOSED_START,
       endDate: CLOSED_END,
@@ -208,20 +196,6 @@ beforeAll(async () => {
   ])
 })
 
-afterAll(async () => {
-  const ids = [...fixtureExamIds, ...createdExamIds]
-  await db
-    .delete(examParticipations)
-    .where(inArray(examParticipations.examId, ids))
-  await db.delete(exams).where(inArray(exams.id, ids))
-  await db
-    .delete(questions)
-    .where(inArray(questions.id, [...qIds, DELETED_QUESTION_ID]))
-  await db
-    .delete(user)
-    .where(inArray(user.id, [ADMIN_ID, STUDENT_ID, DELETED_USER_ID]))
-})
-
 describe("modification d'un examen complet — les dates d'un examen clos", () => {
   it("refuse de repousser dans le futur la fin d'un examen clos qui a des participations, sans rien écrire", async () => {
     asAdmin()
@@ -230,7 +204,7 @@ describe("modification d'un examen complet — les dates d'un examen clos", () =
 
     const res = await saveAndFinalize({
       id: CLOSED_TAKEN_ID,
-      title: `REO renommé ${suffix}`,
+      title: "REO renommé",
       startDate: now,
       endDate: now + 7 * DAY,
       questionIds: examQIds,
@@ -252,7 +226,7 @@ describe("modification d'un examen complet — les dates d'un examen clos", () =
     const now = Date.now()
     const res = await saveAndFinalize({
       id: CLOSED_TAKEN_ID,
-      title: `REO clos passé ${suffix}`,
+      title: "REO clos passé",
       startDate: now,
       endDate: now + 7 * DAY,
       questionIds: [...examQIds.slice(1), qIds[10]],
@@ -271,7 +245,7 @@ describe("modification d'un examen complet — les dates d'un examen clos", () =
     asAdmin()
     const res = await saveAndFinalize({
       id: CLOSED_TAKEN_ID,
-      title: `REO clos passé ${suffix}`,
+      title: "REO clos passé",
       startDate: CLOSED_START.getTime(),
       endDate: CLOSED_END.getTime() + DAY,
       questionIds: examQIds,
@@ -291,7 +265,7 @@ describe("modification d'un examen complet — les dates d'un examen clos", () =
     const now = Date.now()
     const res = await saveAndFinalize({
       id: CLOSED_EMPTY_ID,
-      title: `REO clos vide ${suffix}`,
+      title: "REO clos vide",
       startDate: now + DAY,
       endDate: now + 7 * DAY,
       questionIds: examQIds,
@@ -309,7 +283,7 @@ describe("modification d'un examen complet — les dates d'un examen clos", () =
     const now = Date.now()
     const res = await saveAndFinalize({
       id: OPEN_TAKEN_ID,
-      title: `REO ouvert ${suffix}`,
+      title: "REO ouvert",
       startDate: now - DAY,
       endDate: now + 3 * DAY,
       questionIds: examQIds,
@@ -330,7 +304,7 @@ describe("getExamReopeningSource — ce qu'une réouverture reprend", () => {
 
     expect(source).toEqual({
       exam: {
-        title: `REO source ${suffix}`,
+        title: "REO source",
         description: "Épreuve source",
         endDate: CLOSED_END.getTime(),
         enablePause: true,
@@ -343,7 +317,7 @@ describe("getExamReopeningSource — ce qu'une réouverture reprend", () => {
         {
           id: STUDENT_ID,
           name: "Reo étudiant",
-          email: `reo-stu-${suffix}@test.invalid`,
+          email: "reo-stu@test.invalid",
         },
       ],
     })
@@ -360,7 +334,7 @@ describe("réouverture — une copie créée par le formulaire", () => {
     asAdmin()
     const now = Date.now()
     const created = await createFinalizedExam({
-      title: `REO clos passé ${suffix} (réouverture)`,
+      title: "REO clos passé (réouverture)",
       startDate: now - 60_000,
       endDate: now + 7 * DAY,
       questionIds: examQIds,
@@ -370,7 +344,6 @@ describe("réouverture — une copie créée par le formulaire", () => {
     })
     expect(created.success).toBe(true)
     if (!created.success) return
-    createdExamIds.push(created.examId)
 
     asStudent()
     const source = await getParticipantExamResults(CLOSED_TAKEN_ID, STUDENT_ID)

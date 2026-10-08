@@ -1,7 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
+import { transactions, user, userAccess } from "@/db/schema"
 import {
   getAccessStatus,
   getMyTransactions,
@@ -10,12 +10,8 @@ import {
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { seedProduct } from "../helpers/seed-payments"
 
-// `cache()` de React → identité (pas de contexte RSC en test node).
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 // Session mockée : on isole la logique DB.
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(),
@@ -24,50 +20,42 @@ vi.mock("@/lib/auth-guards", () => ({
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
+const EXAM_EXPIRES = new Date(Date.now() + 10 * DAY)
 const uid = createId()
-const pid = createId()
+let pid = ""
 const sameTsIds = [createId(), createId(), createId()]
 const pendingTxId = createId()
 const accessTxId = createId()
 const otherUid = createId()
 const otherTxId = createId()
 
+const completedTx = (id: string, createdAt: Date, userId = uid) => ({
+  id,
+  userId,
+  productId: pid,
+  type: "manual" as const,
+  status: "completed" as const,
+  amountPaid: 5000,
+  currency: "CAD" as const,
+  accessType: "exam" as const,
+  durationDays: 90,
+  accessExpiresAt: new Date(Date.now() + 90 * DAY),
+  createdAt,
+})
+
 beforeAll(async () => {
   await db.insert(user).values([
     { id: uid, name: "IT User", email: `it-${uid}@test.invalid` },
     { id: otherUid, name: "Autre", email: `it-${otherUid}@test.invalid` },
   ])
-  await db.insert(products).values({
-    id: pid,
-    code: "exam_access",
-    name: "Exam",
-    description: "desc",
-    priceCad: 5000,
-    durationDays: 90,
-    accessType: "exam",
-    stripeProductId: "prod_it",
-    stripePriceId: "price_it",
-    stripePriceLookupKey: "price_it",
-  })
+  pid = await seedProduct("exam_access", { durationDays: 90 })
 
-  // 3 transactions complétées au MÊME createdAt → force le tie-break (createdAt, id)
-  // du curseur keyset (c'est exactement le scénario du correctif H2).
+  // 3 transactions complétées au MÊME createdAt → force le tie-break
+  // (createdAt, id) du curseur keyset.
   const sameTs = new Date("2026-01-01T00:00:00.000Z")
-  for (const id of sameTsIds) {
-    await db.insert(transactions).values({
-      id,
-      userId: uid,
-      productId: pid,
-      type: "manual",
-      status: "completed",
-      amountPaid: 5000,
-      currency: "CAD",
-      accessType: "exam",
-      durationDays: 90,
-      accessExpiresAt: new Date(Date.now() + 90 * DAY),
-      createdAt: sameTs,
-    })
-  }
+  await db
+    .insert(transactions)
+    .values(sameTsIds.map((id) => completedTx(id, sameTs)))
   // 1 pending (doit être masquée).
   await db.insert(transactions).values({
     id: pendingTxId,
@@ -116,7 +104,7 @@ beforeAll(async () => {
     {
       userId: uid,
       accessType: "exam",
-      expiresAt: new Date(Date.now() + 10 * DAY),
+      expiresAt: EXAM_EXPIRES,
       lastTransactionId: accessTxId,
     },
     {
@@ -128,15 +116,6 @@ beforeAll(async () => {
   ])
 })
 
-afterAll(async () => {
-  await db.delete(userAccess).where(eq(userAccess.userId, uid))
-  await db
-    .delete(transactions)
-    .where(inArray(transactions.userId, [uid, otherUid]))
-  await db.delete(products).where(eq(products.id, pid))
-  await db.delete(user).where(inArray(user.id, [uid, otherUid]))
-})
-
 describe("getAccessStatus", () => {
   const signedInAs = (id: string) =>
     vi.mocked(getCurrentSession).mockResolvedValue({ user: { id } } as never)
@@ -144,10 +123,10 @@ describe("getAccessStatus", () => {
   it("retourne l'accès exam actif et ignore le training expiré", async () => {
     signedInAs(uid)
     const status = await getAccessStatus(uid)
-    expect(status).not.toBeNull()
-    expect(status?.examAccess).not.toBeNull()
-    expect(status?.examAccess?.daysRemaining).toBeGreaterThan(0)
-    expect(status?.trainingAccess).toBeNull()
+    expect(status).toEqual({
+      examAccess: { expiresAt: EXAM_EXPIRES.getTime(), daysRemaining: 10 },
+      trainingAccess: null,
+    })
     expect(requireRole).not.toHaveBeenCalled()
   })
 
@@ -216,8 +195,27 @@ describe("getMyTransactions (pagination keyset)", () => {
   })
 
   it("10 lignes par page par défaut", async () => {
+    // Acheteur dédié : 11 transactions, une de plus que la page.
+    const buyer = createId()
+    await db.insert(user).values({
+      id: buyer,
+      name: "Acheteur",
+      email: `it-${buyer}@test.invalid`,
+    })
+    await db
+      .insert(transactions)
+      .values(
+        Array.from({ length: 11 }, () =>
+          completedTx(createId(), new Date("2025-06-01T00:00:00.000Z"), buyer),
+        ),
+      )
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      user: { id: buyer, role: "user" },
+    } as never)
+
     const page = await getMyTransactions()
-    expect(page.items.length).toBeLessThanOrEqual(10)
+    expect(page.items).toHaveLength(10)
+    expect(page.nextCursor).not.toBeNull()
   })
 })
 

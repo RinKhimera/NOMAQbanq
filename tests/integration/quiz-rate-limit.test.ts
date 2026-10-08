@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 import { headers } from "next/headers"
-import { afterAll, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { quizRateLimits } from "@/db/schema"
 import { createId } from "@/lib/ids"
@@ -15,35 +15,45 @@ vi.mock("next/headers", () => ({ headers: vi.fn() }))
 const mockHeaders = (h: Record<string, string>) =>
   vi.mocked(headers).mockResolvedValue(new Headers(h) as never)
 
-const keyA = `test-key-${createId()}`
-const keyB = `test-key-${createId()}`
+const HOUR = 60 * 60 * 1000
 
-afterAll(async () => {
-  for (const key of [keyA, keyB]) {
-    await db.delete(quizRateLimits).where(eq(quizRateLimits.key, key))
-  }
-})
+const seedCounter = (
+  key: string,
+  action: "load" | "score",
+  count: number,
+  windowStart = new Date(),
+) => db.insert(quizRateLimits).values({ key, action, count, windowStart })
+
+const counterOf = async (key: string) =>
+  db
+    .select({ action: quizRateLimits.action, count: quizRateLimits.count })
+    .from(quizRateLimits)
+    .where(eq(quizRateLimits.key, key))
 
 describe("consumeQuizRateLimit", () => {
   it("autorise 30 appels/h puis refuse le 31e ; une autre clé n'est pas affectée", async () => {
+    const key = createId()
+    const other = createId()
     for (let i = 0; i < 30; i++) {
-      expect(await consumeQuizRateLimit(keyA, "load")).toBe(true)
+      expect(await consumeQuizRateLimit(key, "load")).toBe(true)
     }
-    expect(await consumeQuizRateLimit(keyA, "load")).toBe(false)
-    expect(await consumeQuizRateLimit(keyB, "load")).toBe(true)
+    expect(await consumeQuizRateLimit(key, "load")).toBe(false)
+    expect(await consumeQuizRateLimit(other, "load")).toBe(true)
+    expect(await counterOf(key)).toEqual([{ action: "load", count: 30 }])
   })
 
   it("compte load et score indépendamment", async () => {
-    // keyA est épuisée en "load" (test précédent) mais vierge en "score".
-    expect(await consumeQuizRateLimit(keyA, "score")).toBe(true)
+    const key = createId()
+    await seedCounter(key, "load", 30)
+    expect(await consumeQuizRateLimit(key, "score")).toBe(true)
+    expect(await consumeQuizRateLimit(key, "load")).toBe(false)
   })
 
   it("réinitialise le compteur quand la fenêtre expire", async () => {
-    await db
-      .update(quizRateLimits)
-      .set({ windowStart: new Date(Date.now() - 61 * 60 * 1000) })
-      .where(eq(quizRateLimits.key, keyA))
-    expect(await consumeQuizRateLimit(keyA, "load")).toBe(true)
+    const key = createId()
+    await seedCounter(key, "load", 30, new Date(Date.now() - HOUR - 60_000))
+    expect(await consumeQuizRateLimit(key, "load")).toBe(true)
+    expect(await counterOf(key)).toEqual([{ action: "load", count: 1 }])
   })
 })
 
@@ -75,22 +85,13 @@ describe("getClientIpKey", () => {
 
 describe("cleanupQuizRateLimits", () => {
   it("purge les fenêtres de plus de 24 h, conserve les récentes", async () => {
-    await db
-      .update(quizRateLimits)
-      .set({ windowStart: new Date(Date.now() - 25 * 60 * 60 * 1000) })
-      .where(eq(quizRateLimits.key, keyB))
-    await cleanupQuizRateLimits()
+    const stale = createId()
+    const recent = createId()
+    await seedCounter(stale, "load", 3, new Date(Date.now() - 25 * HOUR))
+    await seedCounter(recent, "load", 3, new Date(Date.now() - 23 * HOUR))
 
-    const gone = await db
-      .select({ id: quizRateLimits.id })
-      .from(quizRateLimits)
-      .where(eq(quizRateLimits.key, keyB))
-    expect(gone).toHaveLength(0)
-
-    const kept = await db
-      .select({ id: quizRateLimits.id })
-      .from(quizRateLimits)
-      .where(eq(quizRateLimits.key, keyA))
-    expect(kept.length).toBeGreaterThan(0)
+    expect(await cleanupQuizRateLimits()).toEqual({ deletedCount: 1 })
+    expect(await counterOf(stale)).toEqual([])
+    expect(await counterOf(recent)).toEqual([{ action: "load", count: 3 }])
   })
 })

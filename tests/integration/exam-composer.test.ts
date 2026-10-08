@@ -1,18 +1,13 @@
-import { asc, eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { asc, eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAudience,
   examParticipations,
   examQuestions,
   exams,
-  products,
   questions,
-  trainingSessionItems,
-  trainingSessions,
-  transactions,
   user,
-  userAccess,
 } from "@/db/schema"
 import {
   addExamQuestions,
@@ -42,11 +37,9 @@ import {
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
+import { seedAnswers } from "../helpers/seed-answers"
+import { seedAccess } from "../helpers/seed-payments"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),
@@ -54,21 +47,16 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
-// Domaine propre au fichier : les questions des autres tests n'entrent dans
-// aucune assertion par domaine.
-const DOMAIN = `COMPO-${suffix}`
-// Examens les plus récents de la base : ce sont eux qui font les questions
-// récentes (les trois derniers examens finalisés, par date d'ouverture).
+const DOMAIN = "COMPO"
+// Postérieurs aux examens datés d'aujourd'hui que créent certains tests : ce
+// sont eux qui font les questions récentes (les trois derniers examens
+// finalisés, par date d'ouverture), quel que soit l'ordre des tests.
 const at = (days: number) => new Date(Date.UTC(2099, 0, 1) + days * DAY)
 
 const ADMIN_ID = createId()
 const STUDENTS = Array.from({ length: 4 }, () => createId())
 const DELETED_ID = createId()
 const BANNED_ID = createId()
-const PRODUCT_ID = createId()
-const answerers: string[] = []
-const sessions: string[] = []
 
 // Anciennes (c), récentes (r), clés à vérifier (v).
 const c = Array.from({ length: 5 }, () => createId())
@@ -84,7 +72,7 @@ const asAdmin = () =>
 
 const mkQuestion = (id: string, label: string, domain = DOMAIN) => ({
   id,
-  question: `Compositeur ${label} ${suffix}`,
+  question: `Compositeur ${label}`,
   correctAnswer: "A",
   options: ["A", "B", "C", "D"],
   objectiveId: TEST_OBJECTIVE_ID,
@@ -101,7 +89,7 @@ const mkExam = async (
   const id = createId()
   await db.insert(exams).values({
     id,
-    title: `${title} ${suffix}`,
+    title,
     startDate: startDays === null ? null : at(startDays),
     endDate: startDays === null ? null : at(startDays + 4),
     completionTime: startDays === null ? null : questionIds.length * 83,
@@ -121,36 +109,6 @@ const mkExam = async (
   return id
 }
 
-/** Une première réponse d'entraînement d'un nouvel étudiant. */
-const answer = async (questionId: string, selected: string) => {
-  const userId = createId()
-  answerers.push(userId)
-  await db.insert(user).values({
-    id: userId,
-    name: "Répondant",
-    email: `compo-ans-${userId}@test.invalid`,
-  })
-  const sessionId = createId()
-  sessions.push(sessionId)
-  await db.insert(trainingSessions).values({
-    id: sessionId,
-    userId,
-    status: "completed",
-    mode: "test",
-    questionCount: 1,
-    startedAt: new Date(Date.UTC(2020, 0, 1)),
-    expiresAt: new Date(Date.UTC(2020, 0, 2)),
-  })
-  await db.insert(trainingSessionItems).values({
-    sessionId,
-    questionId,
-    position: 0,
-    selectedAnswer: selected,
-    isCorrect: selected === "A",
-    answeredAt: new Date(Date.UTC(2020, 0, 1)),
-  })
-}
-
 const ids = {} as Record<
   "e1" | "e2Inactive" | "e3" | "e4" | "prep" | "full",
   string
@@ -161,24 +119,24 @@ beforeAll(async () => {
     {
       id: ADMIN_ID,
       name: "Compo admin",
-      email: `compo-adm-${suffix}@test.invalid`,
+      email: "compo-adm@test.invalid",
       role: "admin",
     },
     ...STUDENTS.map((id, i) => ({
       id,
       name: `Compo étudiant ${i}`,
-      email: `compo-stu-${i}-${suffix}@test.invalid`,
+      email: `compo-stu-${i}@test.invalid`,
     })),
     {
       id: DELETED_ID,
       name: "Compo supprimé",
-      email: `compo-del-${suffix}@test.invalid`,
+      email: "compo-del@test.invalid",
       deletedAt: new Date(),
     },
     {
       id: BANNED_ID,
       name: "Compo suspendu",
-      email: `compo-ban-${suffix}@test.invalid`,
+      email: "compo-ban@test.invalid",
       banned: true,
     },
   ])
@@ -188,12 +146,11 @@ beforeAll(async () => {
       ...c.map((id, i) => mkQuestion(id, `ancienne ${i}`)),
       ...r.map((id, i) => mkQuestion(id, `récente ${i}`)),
       ...v.map((id, i) => mkQuestion(id, `clé à vérifier ${i}`)),
-      ...filler.map((id, i) => mkQuestion(id, `jeu ${i}`, `FILL-${suffix}`)),
+      ...filler.map((id, i) => mkQuestion(id, `jeu ${i}`, "FILL")),
     ])
   // Clé suspecte : B (6) plus choisie que la clé A (4), sur 10 réponses.
   for (const q of v)
-    for (const choice of [...Array(4).fill("A"), ...Array(6).fill("B")])
-      await answer(q, choice)
+    await seedAnswers(q, [...Array(4).fill("A"), ...Array(6).fill("B")])
 
   // Les trois derniers examens finalisés portent r0, r1 (désactivé), r2 ; le
   // quatrième porte c4 ; un examen en préparation plus récent porte c3.
@@ -208,39 +165,11 @@ beforeAll(async () => {
   })
 })
 
-afterAll(async () => {
-  await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.id, sessions))
-  await db
-    .delete(userAccess)
-    .where(inArray(userAccess.userId, [...STUDENTS, DELETED_ID, BANNED_ID]))
-  await db
-    .delete(transactions)
-    .where(inArray(transactions.userId, [...STUDENTS, DELETED_ID, BANNED_ID]))
-  await db.delete(products).where(eq(products.id, PRODUCT_ID))
-  await db
-    .delete(questions)
-    .where(inArray(questions.id, [...c, ...r, ...v, ...filler]))
-  await db
-    .delete(user)
-    .where(
-      inArray(user.id, [
-        ADMIN_ID,
-        ...STUDENTS,
-        DELETED_ID,
-        BANNED_ID,
-        ...answerers,
-      ]),
-    )
-})
-
 /** Examen en préparation, visé 10, composé des questions données. */
 const prepared = async (questionIds: string[] = []) => {
   asAdmin()
   const res = await saveExam({
-    title: `Composé ${suffix}`,
+    title: "Composé",
     targetQuestionCount: 10,
     startDate: null,
     endDate: null,
@@ -323,6 +252,7 @@ describe("dernière utilisation", () => {
     const order = items.map((q) => q.id)
     expect(order).not.toContain(c[0])
     expect(total).toBe(c.length + r.length + v.length - 1)
+    expect(order).toHaveLength(total)
     // c4 (dans E4) après toutes les jamais utilisées, r2 (E3) avant r0 (E1).
     expect(order.indexOf(c[4])).toBeGreaterThan(order.indexOf(c[1]))
     expect(order.indexOf(r[2])).toBeLessThan(order.indexOf(r[0]))
@@ -352,27 +282,23 @@ describe("dernière utilisation", () => {
 describe("question supprimée dans le jeu", () => {
   it("la sélection la signale, la banque ne la propose plus", async () => {
     const gone = createId()
-    await db.insert(questions).values(mkQuestion(gone, "supprimée"))
+    // Hors du domaine du fichier : elle n'entre dans aucun compte par domaine.
+    await db.insert(questions).values(mkQuestion(gone, "supprimée", "GONE"))
     const examId = await prepared([c[0], gone])
     await db
       .update(questions)
       .set({ deletedAt: new Date() })
       .where(eq(questions.id, gone))
-    try {
-      const selection = await getExamSelection(examId)
-      expect(
-        Object.fromEntries(selection.map((q) => [q.id, q.deleted])),
-      ).toEqual({ [c[0]]: false, [gone]: true })
-      expect((await getAdminExam(examId))?.exam).toMatchObject({
-        questionCount: 2,
-        deletedQuestionCount: 1,
-      })
-      const item = (await getExamsOverview()).find((e) => e.id === examId)
-      expect(item?.deletedQuestionCount).toBe(1)
-    } finally {
-      await db.delete(exams).where(eq(exams.id, examId))
-      await db.delete(questions).where(eq(questions.id, gone))
-    }
+    const selection = await getExamSelection(examId)
+    expect(Object.fromEntries(selection.map((q) => [q.id, q.deleted]))).toEqual(
+      { [c[0]]: false, [gone]: true },
+    )
+    expect((await getAdminExam(examId))?.exam).toMatchObject({
+      questionCount: 2,
+      deletedQuestionCount: 1,
+    })
+    const item = (await getExamsOverview()).find((e) => e.id === examId)
+    expect(item?.deletedQuestionCount).toBe(1)
   })
 })
 
@@ -469,7 +395,7 @@ describe("ajout et retrait", () => {
     const examId = await prepared(filler.slice(0, 10))
     await saveExam({
       id: examId,
-      title: `Composé ${suffix}`,
+      title: "Composé",
       targetQuestionCount: 10,
       startDate: Date.now() - DAY,
       endDate: Date.now() + 7 * DAY,
@@ -621,43 +547,12 @@ describe("chiffres d'un examen et classement", () => {
 
   it("éligibles d'un examen aux abonnés : accès actif, hors comptes supprimés ou suspendus", async () => {
     asAdmin()
-    const before = await getEligibleSubscriberCount()
     const expires = new Date(Date.now() + 30 * DAY)
-    await db.insert(products).values({
-      id: PRODUCT_ID,
-      code: "exam_access",
-      name: "Exam",
-      description: "desc",
-      priceCad: 5000,
-      durationDays: 30,
-      accessType: "exam",
-      stripeProductId: `prod_${suffix}`,
-      stripePriceId: `price_${suffix}`,
-      stripePriceLookupKey: `price_${suffix}`,
-    })
-    for (const userId of [STUDENTS[3], DELETED_ID, BANNED_ID]) {
-      const txId = createId()
-      await db.insert(transactions).values({
-        id: txId,
-        userId,
-        productId: PRODUCT_ID,
-        type: "manual",
-        status: "completed",
-        amountPaid: 5000,
-        currency: "CAD",
-        accessType: "exam",
-        durationDays: 30,
-        accessExpiresAt: expires,
-      })
-      await db.insert(userAccess).values({
-        userId,
-        accessType: "exam",
-        expiresAt: expires,
-        lastTransactionId: txId,
-      })
-    }
-    expect(await getEligibleSubscriberCount()).toBe(before + 1)
-    expect((await getExamFigures(ids.e1))?.eligible).toBe(before + 1)
+    for (const userId of [STUDENTS[3], DELETED_ID, BANNED_ID])
+      await seedAccess(userId, "exam", expires)
+    // Seul STUDENTS[3] : les deux autres sont supprimé et suspendu.
+    expect(await getEligibleSubscriberCount()).toBe(1)
+    expect((await getExamFigures(ids.e1))?.eligible).toBe(1)
   })
 
   it("le classement et la copie disent si la soumission était automatique", async () => {

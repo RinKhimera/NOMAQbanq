@@ -19,6 +19,17 @@ const vitestArgs = process.argv
   .slice(2)
   .filter((arg) => arg !== "--keep" && arg !== "--")
 
+// Le projet `integration` mélange l'ordre des tests ; vitest n'affiche pas la
+// graine qu'il tire. Tirée ici et affichée, elle rend un échec rejouable.
+const seedIndex = vitestArgs.findIndex((arg) =>
+  arg.startsWith("--sequence.seed"),
+)
+const seed =
+  seedIndex === -1
+    ? String(Math.floor(Math.random() * 1e6))
+    : (vitestArgs[seedIndex].split("=")[1] ?? vitestArgs[seedIndex + 1])
+if (seedIndex === -1) vitestArgs.push(`--sequence.seed=${seed}`)
+
 // Ctrl+C atteint aussi vitest, qui s'arrête de lui-même. Ignoré ici :
 // l'orchestrateur survit au signal, `spawnSync` rend la main et le `finally`
 // supprime le conteneur.
@@ -36,8 +47,11 @@ console.log("[test-integration] démarrage de Postgres…")
 const postgres = await startTestPostgres()
 console.log(`[test-integration] ${postgres.name} prêt (${postgres.url})`)
 
-const run = (command: string, args: string[], env: NodeJS.ProcessEnv): number =>
-  spawnSync(command, args, { env, stdio: "inherit", shell: true }).status ?? 1
+// Sans shell : un shell redécouperait `-t "deux fois"` aux espaces et, sous
+// Windows, abîmerait les accents — le filtre ciblerait d'autres tests sans
+// erreur. L'exécutable de bun courant évite d'avoir à résoudre `bun.cmd`.
+const run = (args: string[], env: NodeJS.ProcessEnv): number =>
+  spawnSync(process.execPath, args, { env, stdio: "inherit" }).status ?? 1
 
 let exitCode = 1
 try {
@@ -49,17 +63,19 @@ try {
   }
 
   console.log("[test-integration] migrations…")
-  if (run("bun", ["run", "db:migrate"], env) !== 0) {
+  if (run(["run", "db:migrate"], env) !== 0) {
     throw new Error("db:migrate a échoué sur la base de test.")
   }
 
-  console.log("[test-integration] tests…")
+  console.log(
+    `[test-integration] tests… (ordre : graine ${seed}, rejouer avec -- --sequence.seed=${seed})`,
+  )
   // `--project` explicite (couverture complète : frontend + integration) prime sur
   // le ciblage par défaut, sinon les deux se cumuleraient.
   const projectArgs = vitestArgs.includes("--project")
     ? []
     : ["--project", "integration"]
-  exitCode = run("bunx", ["vitest", "run", ...projectArgs, ...vitestArgs], env)
+  exitCode = run(["x", "vitest", "run", ...projectArgs, ...vitestArgs], env)
 } finally {
   if (keep) {
     console.log(

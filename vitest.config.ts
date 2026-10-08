@@ -116,13 +116,16 @@ export default defineConfig({
         // Opt-in : lancés UNIQUEMENT via `bun run test:integration` (orchestrateur
         // qui démarre le conteneur + pose INTEGRATION_CONTAINER). Exclus de `bun run test`.
         // Fichiers en parallèle, chaque worker sur sa propre base
-        // (`tests/helpers/worker-database.ts`).
+        // (`tests/helpers/worker-database.ts`). Ordre des tests mélangé à chaque
+        // run : un test qui compte sur l'état laissé par un autre finit par
+        // rougir ; `--sequence.seed=<n>` rejoue l'ordre d'un échec.
         extends: true,
         test: {
           name: "integration",
           environment: "node",
           include: ["tests/integration/**/*.test.ts"],
           setupFiles: ["./vitest.setup.integration.ts"],
+          sequence: { shuffle: { files: false, tests: true } },
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },

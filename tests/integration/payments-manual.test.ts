@@ -1,12 +1,13 @@
-import { and, eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { and, eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
+import { transactions, user, userAccess } from "@/db/schema"
 import {
   type ProductForGrant,
   grantManualAccess,
 } from "@/features/payments/lib"
 import { createId } from "@/lib/ids"
+import { seedProduct } from "../helpers/seed-payments"
 
 // Ce fichier couvre ce qui appartient en propre à `grantManualAccess` : la
 // transaction manuelle qu'il insère et le mapping vers `applyGrant`. La règle de
@@ -15,7 +16,6 @@ import { createId } from "@/lib/ids"
 const DAY = 24 * 60 * 60 * 1000
 const NOW = new Date("2026-09-18T12:00:00.000Z")
 const at = (days: number) => new Date(NOW.getTime() + days * DAY)
-const suffix = createId().slice(0, 8)
 
 const pExam: ProductForGrant = {
   id: createId(),
@@ -64,44 +64,17 @@ beforeAll(async () => {
     Object.entries(users).map(([k, id]) => ({
       id,
       name: `IT ${k}`,
-      email: `manual-${k}-${suffix}@test.invalid`,
+      email: `manual-${k}@test.invalid`,
     })),
   )
-  await db.insert(products).values([
-    {
-      id: pExam.id,
-      code: "exam_access",
-      name: "Exam",
-      description: "d",
-      priceCad: 5000,
-      durationDays: pExam.durationDays,
-      accessType: "exam",
-      stripeProductId: `prod_exam_${suffix}`,
-      stripePriceId: `price_exam_${suffix}`,
-      stripePriceLookupKey: `price_exam_${suffix}`,
-    },
-    {
-      id: pCombo.id,
-      code: "premium_access",
-      name: "Combo",
-      description: "d",
-      priceCad: 9000,
-      durationDays: pCombo.durationDays,
-      accessType: "exam",
-      isCombo: true,
-      stripeProductId: `prod_combo_${suffix}`,
-      stripePriceId: `price_combo_${suffix}`,
-      stripePriceLookupKey: `price_combo_${suffix}`,
-    },
-  ])
-})
-
-afterAll(async () => {
-  const ids = Object.values(users)
-  await db.delete(userAccess).where(inArray(userAccess.userId, ids))
-  await db.delete(transactions).where(inArray(transactions.userId, ids))
-  await db.delete(products).where(inArray(products.id, [pExam.id, pCombo.id]))
-  await db.delete(user).where(inArray(user.id, ids))
+  await seedProduct("exam_access", {
+    id: pExam.id,
+    durationDays: pExam.durationDays,
+  })
+  await seedProduct("premium_access", {
+    id: pCombo.id,
+    durationDays: pCombo.durationDays,
+  })
 })
 
 describe("grantManualAccess", () => {

@@ -1,19 +1,15 @@
-import { inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   account,
   examParticipations,
   exams,
-  products,
-  questionBookmarks,
   trainingSessions,
   transactions,
   user,
   userAccess,
 } from "@/db/schema"
 import {
-  type UsersHeadline,
   getUserFile,
   getUsersForExport,
   getUsersHeadline,
@@ -21,11 +17,8 @@ import {
 } from "@/features/users/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { seedProduct } from "../helpers/seed-payments"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
@@ -34,7 +27,6 @@ vi.mock("@/lib/auth-guards", () => ({
 const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.now()
 const suffix = createId().slice(0, 8) // jeton unique → isole mes users via `search`
-const pid = createId()
 
 // Exam actif (20 j), training expirant (3 j), exam expiré (−10 j), jamais
 // d'accès, suspendu sans accès, admin sans accès.
@@ -79,13 +71,10 @@ const allIds = [
   ...dateUsers.map((u) => u.id),
 ]
 
-let baseline: UsersHeadline
-
 beforeAll(async () => {
   vi.mocked(requireRole).mockResolvedValue({
     user: { id: uAdmin, role: "admin" },
   } as never)
-  baseline = await getUsersHeadline()
 
   await db.insert(user).values([
     {
@@ -156,18 +145,7 @@ beforeAll(async () => {
     },
   ])
 
-  await db.insert(products).values({
-    id: pid,
-    code: "exam_access",
-    name: `Exam ${suffix}`,
-    description: "d",
-    priceCad: 5000,
-    durationDays: 90,
-    accessType: "exam",
-    stripeProductId: `prod_${suffix}`,
-    stripePriceId: `price_${suffix}`,
-    stripePriceLookupKey: `price_${suffix}`,
-  })
+  const pid = await seedProduct("exam_access")
 
   const mkTx = (
     id: string,
@@ -256,20 +234,6 @@ beforeAll(async () => {
       expiresAt: new Date(NOW),
     },
   ])
-})
-
-afterAll(async () => {
-  await db.delete(exams).where(inArray(exams.id, [examId]))
-  await db
-    .delete(trainingSessions)
-    .where(inArray(trainingSessions.userId, allIds))
-  await db
-    .delete(questionBookmarks)
-    .where(inArray(questionBookmarks.userId, allIds))
-  await db.delete(userAccess).where(inArray(userAccess.userId, allIds))
-  await db.delete(transactions).where(inArray(transactions.userId, allIds))
-  await db.delete(products).where(inArray(products.id, [pid]))
-  await db.delete(user).where(inArray(user.id, allIds))
 })
 
 const ids = (items: { id: string }[]) => new Set(items.map((u) => u.id))
@@ -420,13 +384,11 @@ describe("getUsersForExport — selon les filtres courants", () => {
 })
 
 describe("getUsersHeadline", () => {
-  it("comptes et nouveaux sur 30 jours (écart à la ligne de base)", async () => {
-    const after = await getUsersHeadline()
-    expect(after.total - baseline.total).toBe(allIds.length)
+  it("comptes et nouveaux sur 30 jours", async () => {
+    const headline = await getUsersHeadline()
+    expect(headline.total).toBe(allIds.length)
     // Le jeu « plage de dates » est daté de juillet 2026.
-    expect(after.newLast30Days - baseline.newLast30Days).toBe(
-      mine.length + pageUsers.length,
-    )
+    expect(headline.newLast30Days).toBe(mine.length + pageUsers.length)
   })
 })
 

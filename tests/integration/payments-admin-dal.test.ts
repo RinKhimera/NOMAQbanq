@@ -1,23 +1,18 @@
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
+import { transactions, user, userAccess } from "@/db/schema"
 import { rebuildFromTransactions } from "@/features/payments/access-ledger"
 import {
   type AccessImpact,
-  type TransactionStatsView,
   getAllTransactions,
   getTransactionAccessImpact,
   getTransactionStats,
 } from "@/features/payments/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { seedProduct } from "../helpers/seed-payments"
 
-// `cache()` de React → identité (pas de contexte RSC en test node).
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 // Garde admin mockée : on isole la logique DB.
 vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
@@ -25,11 +20,18 @@ vi.mock("@/lib/auth-guards", () => ({
 }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
+const NOW = Date.now()
+// Snapshot commun aux transactions de `uid` : l'échéance restaurée se compare
+// à la milliseconde.
+const AT_90 = new Date(NOW + 90 * DAY)
+const AT_10 = new Date(NOW + 10 * DAY)
 const uid = createId()
 // Accès offert (montant nul) : ne fait pas un acheteur.
 const freeUid = createId()
-const pid = createId()
+// Deux transactions à montant nul : l'une en litige ouvert, l'autre sans.
+const disputeUid = createId()
+let pid = ""
+let comboPid = ""
 
 // Jeu connu : 4 complétées (CAD old 10000, CAD stripe recent 5000, XAF manual
 // recent 300000, CAD manual recent 1), 1 remboursée (exclue stats), 1 pending.
@@ -39,9 +41,8 @@ const txXafManualRecent = createId()
 const txRefunded = createId()
 const txPending = createId()
 const lastTxId = createId()
-
-// Baseline capturé AVANT seed : les assertions portent sur l'écart, pas sur un total.
-let baseline: TransactionStatsView
+const txDisputed = createId()
+const txUndisputed = createId()
 
 const insertTx = (o: {
   id: string
@@ -62,46 +63,82 @@ const insertTx = (o: {
     currency: o.currency,
     accessType: "exam",
     durationDays: 90,
-    accessExpiresAt: new Date(Date.now() + 90 * DAY),
+    accessExpiresAt: AT_90,
     createdAt: o.createdAt,
     completedAt: o.completedAt,
   })
+
+type Scenario = { userId: string; ids: string[]; at: number[] }
+
+/**
+ * Un utilisateur, ses transactions manuelles à montant nul (snapshot à +N
+ * jours) et ses lignes `user_access`, posées par le registre lui-même. Montant nul : un scénario ne pèse ni sur les revenus ni sur le
+ * nombre d'acheteurs.
+ */
+const seedScenario = async (
+  txs: {
+    kind: "combo" | "exam" | "training"
+    days: number
+    status?: "completed" | "refunded"
+  }[],
+): Promise<Scenario> => {
+  const userId = createId()
+  await db.insert(user).values({
+    id: userId,
+    name: "IT Scénario",
+    email: `scenario-${userId}@test.invalid`,
+  })
+  const rows = txs.map((t) => ({
+    id: createId(),
+    userId,
+    productId: t.kind === "combo" ? comboPid : pid,
+    type: "manual" as const,
+    status: t.status ?? ("completed" as const),
+    amountPaid: 0,
+    currency: "CAD" as const,
+    accessType:
+      t.kind === "training" ? ("training" as const) : ("exam" as const),
+    durationDays: t.days,
+    accessExpiresAt: new Date(NOW + t.days * DAY),
+    createdAt: new Date(NOW - DAY),
+    completedAt: new Date(NOW - DAY),
+  }))
+  await db.insert(transactions).values(rows)
+  await db.transaction((t) => rebuildFromTransactions(t, { userId }))
+  return {
+    userId,
+    ids: rows.map((r) => r.id),
+    at: rows.map((r) => r.accessExpiresAt.getTime()),
+  }
+}
+
+// Tout le jeu est posé ici et seuls les tests de reconstruction écrivent, dans
+// `user_access` de leur propre scénario : les comptes globaux de
+// `getTransactionStats` ne dépendent pas de l'ordre des tests.
+let soleFarthest: Scenario
+let comboSoleTraining: Scenario
+let comboBoth: Scenario
+let refundedFarthest: Scenario
 
 beforeAll(async () => {
   vi.mocked(requireRole).mockResolvedValue({
     user: { id: uid, role: "admin" },
   } as never)
 
-  baseline = await getTransactionStats()
-
   await db.insert(user).values([
+    { id: uid, name: "IT Admin", email: `admin-${uid}@test.invalid` },
+    { id: freeUid, name: "IT Offert", email: `offert-${freeUid}@test.invalid` },
     {
-      id: uid,
-      name: `IT Admin ${suffix}`,
-      email: `admin-${suffix}@test.invalid`,
-    },
-    {
-      id: freeUid,
-      name: `IT Offert ${suffix}`,
-      email: `offert-${suffix}@test.invalid`,
+      id: disputeUid,
+      name: "IT Litige",
+      email: `litige-${disputeUid}@test.invalid`,
     },
   ])
-  await db.insert(products).values({
-    id: pid,
-    code: "exam_access",
-    name: "Exam",
-    description: "d",
-    priceCad: 5000,
-    durationDays: 90,
-    accessType: "exam",
-    stripeProductId: `prod_${suffix}`,
-    stripePriceId: `price_${suffix}`,
-    stripePriceLookupKey: `price_${suffix}`,
-  })
+  pid = await seedProduct("exam_access", { name: "Exam", durationDays: 90 })
+  comboPid = await seedProduct("premium_access", { durationDays: 60 })
 
-  const now = Date.now()
-  const recent = new Date(now - DAY) // < 30 jours
-  const old = new Date(now - 60 * DAY) // > 30 jours
+  const recent = new Date(NOW - DAY) // < 30 jours
+  const old = new Date(NOW - 60 * DAY) // > 30 jours
 
   await insertTx({
     id: txCadManualOld,
@@ -158,68 +195,84 @@ beforeAll(async () => {
     completedAt: recent,
   })
 
-  await db.insert(transactions).values({
-    id: createId(),
-    userId: freeUid,
+  const zeroAmount = {
     productId: pid,
-    type: "manual",
-    status: "completed",
+    status: "completed" as const,
     amountPaid: 0,
-    currency: "CAD",
-    notes: "Accès offert",
-    accessType: "exam",
+    currency: "CAD" as const,
+    accessType: "exam" as const,
     durationDays: 90,
-    accessExpiresAt: new Date(now + 90 * DAY),
+    accessExpiresAt: AT_90,
     createdAt: recent,
     completedAt: recent,
-  })
+  }
+  await db.insert(transactions).values([
+    {
+      ...zeroAmount,
+      id: createId(),
+      userId: freeUid,
+      type: "manual",
+      notes: "Accès offert",
+    },
+    {
+      ...zeroAmount,
+      id: txDisputed,
+      userId: disputeUid,
+      type: "stripe",
+      stripeDisputeId: "dp_admin",
+      disputeStatus: "needs_response",
+    },
+    { ...zeroAmount, id: txUndisputed, userId: disputeUid, type: "manual" },
+  ])
 
   await db.insert(userAccess).values({
     userId: uid,
     accessType: "exam",
-    expiresAt: new Date(now + 10 * DAY),
+    expiresAt: AT_10,
     lastTransactionId: lastTxId,
   })
-})
 
-afterAll(async () => {
-  await db.delete(userAccess).where(eq(userAccess.userId, uid))
-  await db
-    .delete(transactions)
-    .where(inArray(transactions.userId, [uid, freeUid]))
-  await db.delete(products).where(eq(products.id, pid))
-  await db.delete(user).where(inArray(user.id, [uid, freeUid]))
+  // La transaction à +200 j porte seule l'échéance courante.
+  soleFarthest = await seedScenario([
+    { kind: "exam", days: 90 },
+    { kind: "exam", days: 200 },
+  ])
+  // exam : un achat simple à +90 j couvre plus loin que le combo (+60 j) ;
+  // training : seul le combo le couvre.
+  comboSoleTraining = await seedScenario([
+    { kind: "combo", days: 60 },
+    { kind: "exam", days: 90 },
+  ])
+  comboBoth = await seedScenario([
+    { kind: "combo", days: 200 },
+    { kind: "exam", days: 90 },
+    { kind: "training", days: 30 },
+  ])
+  refundedFarthest = await seedScenario([
+    { kind: "exam", days: 90 },
+    { kind: "exam", days: 200, status: "refunded" },
+  ])
 })
 
 describe("getTransactionStats (agrégation SQL FILTER + fenêtre 30j)", () => {
-  it("agrège revenus et compteurs par devise (delta vs baseline)", async () => {
-    const after = await getTransactionStats()
+  it("agrège revenus et compteurs par devise", async () => {
+    const stats = await getTransactionStats()
 
-    // CAD : total = 10000 + 5000 + 1 (remboursée et pending exclues).
-    expect(
-      after.revenueByCurrency.CAD.total - baseline.revenueByCurrency.CAD.total,
-    ).toBe(15001)
-    // CAD récent (≤30j) : 5000 + 1 (la 10000 est vieille de 60j).
-    expect(
-      after.revenueByCurrency.CAD.recent -
-        baseline.revenueByCurrency.CAD.recent,
-    ).toBe(5001)
-    // XAF : total et récent = 300000.
-    expect(
-      after.revenueByCurrency.XAF.total - baseline.revenueByCurrency.XAF.total,
-    ).toBe(300000)
-    expect(
-      after.revenueByCurrency.XAF.recent -
-        baseline.revenueByCurrency.XAF.recent,
-    ).toBe(300000)
+    expect(stats.revenueByCurrency).toEqual({
+      // Total = 10000 + 5000 + 1 (remboursée, pending et montants nuls
+      // exclus ou sans poids) ; récent (≤ 30 j) sans la 10000, vieille de 60 j.
+      CAD: { total: 15001, recent: 5001 },
+      XAF: { total: 300000, recent: 300000 },
+    })
   })
 
   it("compte les acheteurs (montant > 0) et toutes les transactions, tous statuts", async () => {
-    const after = await getTransactionStats()
-    // uid a payé ; freeUid n'a reçu qu'un accès offert.
-    expect(after.buyerCount - baseline.buyerCount).toBe(1)
-    // 6 transactions pour uid (remboursée et pending comprises) + 1 offerte.
-    expect(after.transactionCount - baseline.transactionCount).toBe(7)
+    const stats = await getTransactionStats()
+    // Seul uid a payé : les autres utilisateurs n'ont que des montants nuls.
+    expect(stats.buyerCount).toBe(1)
+    // uid 6 (remboursée et pending comprises) + offerte 1 + litige 2
+    // + scénarios 2 + 2 + 3 + 2.
+    expect(stats.transactionCount).toBe(18)
   })
 })
 
@@ -228,7 +281,7 @@ describe("getAllTransactions (admin : filtres + keyset)", () => {
     const page = await getAllTransactions({ userId: uid })
     expect(page.items).toHaveLength(6)
     expect(
-      page.items.every((t) => t.user?.email === `admin-${suffix}@test.invalid`),
+      page.items.every((t) => t.user?.email === `admin-${uid}@test.invalid`),
     ).toBe(true)
     expect(page.items.every((t) => t.product?.name === "Exam")).toBe(true)
   })
@@ -249,14 +302,9 @@ describe("getAllTransactions (admin : filtres + keyset)", () => {
   })
 
   it("expose le statut de litige de chaque transaction", async () => {
-    await db
-      .update(transactions)
-      .set({ stripeDisputeId: "dp_admin", disputeStatus: "needs_response" })
-      .where(eq(transactions.id, txCadStripeRecent))
-
-    const page = await getAllTransactions({ userId: uid, limit: 50 })
-    const disputed = page.items.find((t) => t.id === txCadStripeRecent)
-    const clean = page.items.find((t) => t.id === txCadManualOld)
+    const page = await getAllTransactions({ userId: disputeUid })
+    const disputed = page.items.find((t) => t.id === txDisputed)
+    const clean = page.items.find((t) => t.id === txUndisputed)
 
     expect(disputed?.disputeStatus).toBe("needs_response")
     expect(clean?.disputeStatus).toBeNull()
@@ -274,9 +322,12 @@ describe("getTransactionAccessImpact", () => {
     // transactions complétées couvrent ~ +90 j : la retirer n'ABAISSE pas
     // l'accès : un critère `lastTransactionId === txId` mentirait ici.
     const exam = impactOn(await getTransactionAccessImpact(lastTxId), "exam")
-    expect(exam?.willAffectAccess).toBe(false)
-    expect(exam?.currentAccessExpiresAt).not.toBeNull()
-    expect(exam?.restoredExpiresAt).not.toBeNull()
+    expect(exam).toEqual({
+      accessType: "exam",
+      willAffectAccess: false,
+      currentAccessExpiresAt: AT_10.getTime(),
+      restoredExpiresAt: AT_90.getTime(),
+    })
   })
 
   it("willAffectAccess=false pour une transaction non déterminante", async () => {
@@ -285,22 +336,19 @@ describe("getTransactionAccessImpact", () => {
   })
 
   it("willAffectAccess=true quand la transaction porte seule l'échéance courante", async () => {
-    // lastTxId devient l'unique couverture à +200 j : sans elle, l'accès
-    // retomberait à ~ +90 j (le max des transactions restantes).
-    const farOut = new Date(Date.now() + 200 * DAY)
-    await db
-      .update(transactions)
-      .set({ accessExpiresAt: farOut })
-      .where(eq(transactions.id, lastTxId))
-    await db
-      .update(userAccess)
-      .set({ expiresAt: farOut })
-      .where(eq(userAccess.userId, uid))
-
-    const exam = impactOn(await getTransactionAccessImpact(lastTxId), "exam")
-    expect(exam?.willAffectAccess).toBe(true)
-    expect(exam?.restoredExpiresAt).not.toBeNull()
-    expect(exam!.restoredExpiresAt!).toBeLessThan(exam!.currentAccessExpiresAt!)
+    // Sans la transaction à +200 j, l'accès retomberait à +90 j (le max des
+    // transactions restantes).
+    const [at90, at200] = soleFarthest.at
+    const exam = impactOn(
+      await getTransactionAccessImpact(soleFarthest.ids[1]),
+      "exam",
+    )
+    expect(exam).toEqual({
+      accessType: "exam",
+      willAffectAccess: true,
+      currentAccessExpiresAt: at200,
+      restoredExpiresAt: at90,
+    })
   })
 
   it("renvoie null pour une transaction inexistante", async () => {
@@ -312,96 +360,6 @@ describe("getTransactionAccessImpact", () => {
 // Un combo est enregistré avec `accessType: "exam"` mais couvre les DEUX types :
 // l'aperçu doit annoncer, type par type, ce que la reconstruction fera ensuite.
 describe("getTransactionAccessImpact — combo", () => {
-  const comboPid = createId()
-  const comboUsers: string[] = []
-
-  beforeAll(async () => {
-    await db.insert(products).values({
-      id: comboPid,
-      code: "premium_access",
-      name: "Premium",
-      description: "d",
-      priceCad: 9000,
-      durationDays: 60,
-      accessType: "exam",
-      isCombo: true,
-      stripeProductId: `prod_combo_${suffix}`,
-      stripePriceId: `price_combo_${suffix}`,
-      stripePriceLookupKey: `price_combo_${suffix}`,
-    })
-  })
-
-  afterAll(async () => {
-    await db.delete(userAccess).where(inArray(userAccess.userId, comboUsers))
-    await db
-      .delete(transactions)
-      .where(inArray(transactions.userId, comboUsers))
-    await db.delete(products).where(eq(products.id, comboPid))
-    await db.delete(user).where(inArray(user.id, comboUsers))
-  })
-
-  /**
-   * Un utilisateur, ses transactions `completed` (snapshot à +N jours) et ses
-   * lignes `user_access` alignées sur la meilleure couverture de chaque type.
-   */
-  const seed = async (
-    txs: {
-      kind: "combo" | "exam" | "training"
-      days: number
-      status?: "completed" | "refunded"
-    }[],
-  ) => {
-    const userId = createId()
-    comboUsers.push(userId)
-    await db.insert(user).values({
-      id: userId,
-      name: `IT Combo ${suffix}`,
-      email: `combo-${userId}@test.invalid`,
-    })
-    const now = Date.now()
-    const rows = txs.map((t) => ({
-      id: createId(),
-      userId,
-      productId: t.kind === "combo" ? comboPid : pid,
-      type: "manual" as const,
-      status: t.status ?? ("completed" as const),
-      amountPaid: 1,
-      currency: "CAD" as const,
-      accessType:
-        t.kind === "training" ? ("training" as const) : ("exam" as const),
-      durationDays: t.days,
-      accessExpiresAt: new Date(now + t.days * DAY),
-      createdAt: new Date(now - DAY),
-      completedAt: new Date(now - DAY),
-    }))
-    await db.insert(transactions).values(rows)
-    for (const accessType of ["exam", "training"] as const) {
-      const covering = rows.filter(
-        (r, i) =>
-          r.status === "completed" &&
-          (txs[i].kind === "combo" || r.accessType === accessType),
-      )
-      if (covering.length === 0) continue
-      const best = covering.reduce((a, b) =>
-        a.accessExpiresAt > b.accessExpiresAt ? a : b,
-      )
-      await db.insert(userAccess).values({
-        userId,
-        accessType,
-        expiresAt: best.accessExpiresAt,
-        lastTransactionId: best.id,
-      })
-    }
-    return { userId, ids: rows.map((r) => r.id) }
-  }
-
-  const snapshotOf = (transactionId: string) =>
-    db
-      .select({ at: transactions.accessExpiresAt })
-      .from(transactions)
-      .where(eq(transactions.id, transactionId))
-      .then((r) => r[0].at.getTime())
-
   /** Applique la vraie reconstruction et relit `user_access` par type. */
   const accessAfterRebuild = async (userId: string, excluded: string) => {
     await db.transaction((tx) =>
@@ -419,13 +377,9 @@ describe("getTransactionAccessImpact — combo", () => {
   }
 
   it("annonce le retrait de l'accès entraînement quand le combo en est la seule couverture", async () => {
-    // exam : un achat simple à +90 j couvre plus loin que le combo (+60 j) ;
-    // training : seul le combo le couvre.
-    const { userId, ids } = await seed([
-      { kind: "combo", days: 60 },
-      { kind: "exam", days: 90 },
-    ])
-    const [comboId, examId] = ids
+    const { userId, ids, at } = comboSoleTraining
+    const [comboId] = ids
+    const [, examAt] = at
 
     const impacts = await getTransactionAccessImpact(comboId)
     expect(impactOn(impacts, "exam")?.willAffectAccess).toBe(false)
@@ -436,18 +390,13 @@ describe("getTransactionAccessImpact — combo", () => {
 
     const after = await accessAfterRebuild(userId, comboId)
     expect(after("training")).toBeNull()
-    expect(after("exam")).toBe(await snapshotOf(examId))
+    expect(after("exam")).toBe(examAt)
   })
 
   it("annonce le raccourcissement des deux accès quand le combo porte les deux échéances", async () => {
-    const { userId, ids } = await seed([
-      { kind: "combo", days: 200 },
-      { kind: "exam", days: 90 },
-      { kind: "training", days: 30 },
-    ])
-    const [comboId, examId, trainingId] = ids
-    const examAt = await snapshotOf(examId)
-    const trainingAt = await snapshotOf(trainingId)
+    const { userId, ids, at } = comboBoth
+    const [comboId] = ids
+    const [, examAt, trainingAt] = at
 
     const impacts = await getTransactionAccessImpact(comboId)
     expect(impactOn(impacts, "exam")).toMatchObject({
@@ -465,12 +414,9 @@ describe("getTransactionAccessImpact — combo", () => {
   })
 
   it("transaction remboursée : aucun type annoncé touché, la reconstruction ne change rien", async () => {
-    const { userId, ids } = await seed([
-      { kind: "exam", days: 90 },
-      { kind: "exam", days: 200, status: "refunded" },
-    ])
-    const [examId, refundedId] = ids
-    const examAt = await snapshotOf(examId)
+    const { userId, ids, at } = refundedFarthest
+    const [, refundedId] = ids
+    const [examAt] = at
 
     const impacts = await getTransactionAccessImpact(refundedId)
     expect(impacts?.some((i) => i.willAffectAccess)).toBe(false)

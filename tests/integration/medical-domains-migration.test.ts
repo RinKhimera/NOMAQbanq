@@ -1,7 +1,7 @@
-import { eq, inArray, sql } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
-import { afterAll, describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest"
 import { db } from "@/db"
 import { questions, trainingSessions, user } from "@/db/schema"
 import { createId } from "@/lib/ids"
@@ -25,7 +25,6 @@ const runMigration = async () => {
   }
 }
 
-const suffix = createId().slice(0, 8)
 const userId = createId()
 const questionId = createId()
 const sessionId = createId()
@@ -42,22 +41,16 @@ const domainsOf = async () => {
   return { question: question?.domain, session: session?.domain }
 }
 
-afterAll(async () => {
-  await db.delete(trainingSessions).where(eq(trainingSessions.id, sessionId))
-  await db.delete(questions).where(inArray(questions.id, [questionId]))
-  await db.delete(user).where(eq(user.id, userId))
-})
-
 describe("migration de fusion du domaine Gastro-entérologie", () => {
   it("réécrit l'ancienne graphie dans la banque et dans l'historique d'entraînement, et se rejoue sans effet", async () => {
     await db.insert(user).values({
       id: userId,
       name: "Migration",
-      email: `migration-${suffix}@test.invalid`,
+      email: "migration@test.invalid",
     })
     await db.insert(questions).values({
       id: questionId,
-      question: `Migration ${suffix}`,
+      question: "Migration",
       correctAnswer: "A",
       options: ["A", "B"],
       objectiveId: TEST_OBJECTIVE_ID,

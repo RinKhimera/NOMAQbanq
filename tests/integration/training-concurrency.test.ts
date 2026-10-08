@@ -1,13 +1,5 @@
-import { eq, inArray } from "drizzle-orm"
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   questions,
@@ -25,15 +17,10 @@ import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 const USER_ID = createId()
 // Cinq questions : le plancher d'un tirage aléatoire (createTrainingSession).
 const QIDS = Array.from({ length: 5 }, () => createId())
@@ -43,16 +30,16 @@ beforeAll(async () => {
   await db.insert(user).values({
     id: USER_ID,
     name: "IT concurrence",
-    email: `conc-${suffix}@test.invalid`,
+    email: "conc@test.invalid",
   })
   await db.insert(questions).values(
     QIDS.map((id, i) => ({
       id,
-      question: `Q${i} ${suffix} ?`,
+      question: `Q${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
-      domain: `CONC-${suffix}`,
+      domain: "CONC",
     })),
   )
 })
@@ -125,7 +112,7 @@ describe("clôture de session : gardes de statut + expiration", () => {
     const res = await createTrainingSession({
       questionCount: 5,
       mode: "test",
-      domain: `CONC-${suffix}`,
+      domain: "CONC",
     })
     expect(res.success).toBe(true)
     expect(await statusOf(sid)).toEqual({ status: "abandoned", score: 100 })
@@ -175,10 +162,4 @@ describe("clôture de session : gardes de statut + expiration", () => {
         : { status: "abandoned", score: null },
     )
   })
-})
-
-afterAll(async () => {
-  await db.delete(trainingSessions).where(eq(trainingSessions.userId, USER_ID))
-  await db.delete(questions).where(inArray(questions.id, QIDS))
-  await db.delete(user).where(eq(user.id, USER_ID))
 })

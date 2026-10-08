@@ -404,14 +404,19 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   sales (clé nulle, doublon) ; elle s'applique aussi sur develop avant le
   merge.
 - Les fichiers d'intégration tournent **en parallèle**, chacun sur une base
-  neuve clonée de la base migrée (`tests/helpers/worker-database.ts` : une base
-  par worker vitest, recréée à chaque fichier). Les tests d'un même fichier
-  partagent sa base : fixtures à suffixe unique, agrégat global mesuré en écart
-  avant/après. Cibler un fichier : `bun run test:integration -- <fichier>`.
-- Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
-  enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
-  `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants
-  automatiquement.
+  neuve et vide clonée de la base migrée (`tests/helpers/worker-database.ts` :
+  une base par worker vitest, recréée à chaque fichier). Chaque fichier sème
+  tout ce qu'il lit et compte en valeurs exactes ; aucun nettoyage en fin de
+  fichier. Les tests d'un même fichier partagent sa base mais pas leur ordre :
+  le projet `integration` mélange l'ordre des tests à chaque run (graine
+  affichée en tête, `--sequence.seed=<n>` pour rejouer). Chacun sème donc son
+  propre état ; un test qui modifie un état commun du fichier le remet dans
+  un `finally` (FK `restrict` : enfants avant parents). Cibler un fichier :
+  `bun run test:integration -- <fichier>`.
+- **Fixtures partagées** (`tests/helpers/`) : `seedProduct` / `seedAccess`
+  (`seed-payments.ts`), `seedAnswers` (`seed-answers.ts`), `holdUserLock`
+  (`user-lock.ts`, pour forcer un entrelacement derrière le verrou `user` au
+  lieu d'un sommeil), `seedExam` (`seed-exam.ts`).
 
 ## PII / frontière serveur-client
 

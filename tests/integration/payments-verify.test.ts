@@ -1,15 +1,7 @@
-import { eq, inArray } from "drizzle-orm"
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
+import { transactions, user, userAccess } from "@/db/schema"
 import {
   createStripeCheckout,
   verifyStripeCheckout,
@@ -18,15 +10,12 @@ import { getCheckoutPurchase } from "@/features/payments/dal"
 import { completeStripeTransaction } from "@/features/payments/stripe"
 import { createId } from "@/lib/ids"
 import { stripeBox } from "../helpers/fake-stripe"
+import { seedProduct } from "../helpers/seed-payments"
 
 const { mocks } = vi.hoisted(() => ({
   mocks: { sessionUserId: { current: "" } },
 }))
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(async () => ({
     user: { id: mocks.sessionUserId.current, email: "verify@test.invalid" },
@@ -38,32 +27,10 @@ vi.mock("@/lib/stripe", () =>
 )
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
-const suffix = createId().slice(0, 8)
 const BUYER = createId()
 const OTHER = createId()
-const EXAM_PID = createId()
-const COMBO_PID = createId()
-const EXAM_KEY = `verify_exam_${suffix}`
-const COMBO_KEY = `verify_combo_${suffix}`
-
-const product = (
-  id: string,
-  code: "exam_access" | "premium_access",
-  key: string,
-  combo: boolean,
-) => ({
-  id,
-  code,
-  name: combo ? `Pack Premium ${suffix}` : `Examens ${suffix}`,
-  description: "desc",
-  priceCad: 5000,
-  durationDays: 30,
-  accessType: "exam" as const,
-  isCombo: combo,
-  stripeProductId: `prod_${key}`,
-  stripePriceId: `price_${key}`,
-  stripePriceLookupKey: key,
-})
+const EXAM_KEY = "verify_exam"
+const COMBO_KEY = "verify_combo"
 
 /** Passe par le vrai checkout : la transaction `pending` et la session Stripe naissent ensemble. */
 const checkout = async (productCode: "exam_access" | "premium_access") => {
@@ -89,23 +56,17 @@ const fulfil = (stripeSessionId: string) =>
 
 beforeAll(async () => {
   await db.insert(user).values([
-    {
-      id: BUYER,
-      name: `Buyer ${suffix}`,
-      email: `buyer-${suffix}@test.invalid`,
-    },
-    {
-      id: OTHER,
-      name: `Other ${suffix}`,
-      email: `other-${suffix}@test.invalid`,
-    },
+    { id: BUYER, name: "Buyer", email: "buyer@test.invalid" },
+    { id: OTHER, name: "Other", email: "other@test.invalid" },
   ])
-  await db
-    .insert(products)
-    .values([
-      product(EXAM_PID, "exam_access", EXAM_KEY, false),
-      product(COMBO_PID, "premium_access", COMBO_KEY, true),
-    ])
+  await seedProduct("exam_access", {
+    name: "Examens",
+    stripePriceLookupKey: EXAM_KEY,
+  })
+  await seedProduct("premium_access", {
+    name: "Pack Premium",
+    stripePriceLookupKey: COMBO_KEY,
+  })
 })
 
 beforeEach(async () => {
@@ -123,15 +84,6 @@ beforeEach(async () => {
   await db.delete(transactions).where(eq(transactions.userId, BUYER))
 })
 
-afterAll(async () => {
-  await db.delete(userAccess).where(eq(userAccess.userId, BUYER))
-  await db
-    .delete(transactions)
-    .where(inArray(transactions.userId, [BUYER, OTHER]))
-  await db.delete(products).where(inArray(products.id, [EXAM_PID, COMBO_PID]))
-  await db.delete(user).where(inArray(user.id, [BUYER, OTHER]))
-})
-
 describe("verifyStripeCheckout — achat lu en base", () => {
   it("webhook pas encore passé : produit connu, accès non activé", async () => {
     const sessionId = await checkout("exam_access")
@@ -142,7 +94,7 @@ describe("verifyStripeCheckout — achat lu en base", () => {
       success: true,
       status: "paid",
       purchase: {
-        productName: `Examens ${suffix}`,
+        productName: "Examens",
         status: "pending",
         access: [],
       },
@@ -175,7 +127,7 @@ describe("verifyStripeCheckout — achat lu en base", () => {
     const res = await verifyStripeCheckout(sessionId)
 
     if (!res.success) throw new Error(res.error)
-    expect(res.purchase?.productName).toBe(`Pack Premium ${suffix}`)
+    expect(res.purchase?.productName).toBe("Pack Premium")
     expect(res.purchase?.access.map((a) => a.type)).toEqual([
       "exam",
       "training",

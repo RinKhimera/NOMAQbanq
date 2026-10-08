@@ -16,13 +16,12 @@
  * (la copie tmp→final est réservée aux `tmp/`, et `tryDeleteFromStorage` est un
  * no-op quand S3 n'est pas configuré).
  */
-import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { eq } from "drizzle-orm"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
   examAnswers,
   examParticipations,
-  exams,
   questionExplanations,
   questionImages,
   questions,
@@ -44,10 +43,6 @@ import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 import { seedExam } from "../helpers/seed-exam"
 
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),
@@ -55,10 +50,9 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
-const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 const STUDENT_ID = createId()
-const DOMAIN = `EXPL-${suffix}`
+const DOMAIN = "Domaine explication"
 
 // qBoth : statement + explanation ; qStmtOnly : statement seul ;
 // qExplOnly : explanation seul ; qExam : pour la participation examen complétée ;
@@ -86,17 +80,17 @@ let trainingSessionId: string
 
 beforeAll(async () => {
   await db.insert(user).values([
-    { id: ADMIN_ID, name: "EX admin", email: `ex-adm-${suffix}@test.invalid` },
+    { id: ADMIN_ID, name: "EX admin", email: "ex-adm@test.invalid" },
     {
       id: STUDENT_ID,
       name: "EX student",
-      email: `ex-stu-${suffix}@test.invalid`,
+      email: "ex-stu@test.invalid",
     },
   ])
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
-      question: `EX Q${i} ${suffix}?`,
+      question: `EX Q${i} ?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
       objectiveId: TEST_OBJECTIVE_ID,
@@ -106,7 +100,7 @@ beforeAll(async () => {
   await db.insert(questionExplanations).values(
     qIds.map((id, i) => ({
       questionId: id,
-      explanation: `Explication EXPL ${i} ${suffix}`,
+      explanation: `Explication EXPL ${i}`,
       references: i === 0 ? ["Ref EXPL 1"] : null,
     })),
   )
@@ -155,7 +149,7 @@ beforeAll(async () => {
   const now = Date.now()
   examId = await seedExam({
     createdBy: ADMIN_ID,
-    title: `EX Exam ${suffix}`,
+    title: "EX Exam",
     startDate: now - 3 * DAY,
     endDate: now - DAY,
     questionIds: [qExam],
@@ -201,25 +195,6 @@ beforeAll(async () => {
     isCorrect: true,
   })
   trainingSessionId = tsId
-})
-
-afterAll(async () => {
-  // Examen cascade participations/réponses/jonctions.
-  await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
-  // Sessions training (cascade items) avant questions (FK restrict sur items).
-  await db
-    .delete(trainingSessions)
-    .where(eq(trainingSessions.userId, STUDENT_ID))
-  // questionImages/questionExplanations cascade via questions, mais on nettoie
-  // explicitement pour l'ordre/robustesse.
-  await db
-    .delete(questionImages)
-    .where(inArray(questionImages.questionId, qIds))
-  await db
-    .delete(questionExplanations)
-    .where(inArray(questionExplanations.questionId, qIds))
-  await db.delete(questions).where(inArray(questions.id, qIds))
-  await db.delete(user).where(inArray(user.id, [ADMIN_ID, STUDENT_ID]))
 })
 
 describe("setQuestionImages scopé par kind", () => {
@@ -327,20 +302,18 @@ describe("compteurs/filtres admin = images d'énoncé seulement", () => {
       hasImages: true,
       limit: 100,
     })
-    const ids = withImages.items.map((i) => i.id)
-    expect(ids).toContain(qBoth)
-    expect(ids).toContain(qStmtOnly)
-    expect(ids).not.toContain(qExplOnly)
+    expect(withImages.items.map((i) => i.id).sort()).toEqual(
+      [qBoth, qStmtOnly].sort(),
+    )
 
     const withoutImages = await getQuestionsWithFilters({
       domain: DOMAIN,
       hasImages: false,
       limit: 100,
     })
-    const idsNo = withoutImages.items.map((i) => i.id)
-    expect(idsNo).toContain(qExplOnly)
-    expect(idsNo).not.toContain(qBoth)
-    expect(idsNo).not.toContain(qStmtOnly)
+    expect(withoutImages.items.map((i) => i.id).sort()).toEqual(
+      [qExplOnly, qExam, qTrain].sort(),
+    )
   })
 })
 
