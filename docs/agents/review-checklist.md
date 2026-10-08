@@ -45,7 +45,7 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
     clé actuelle : une reformulation par un admin réécrit tout l'historique.
 13. **Test qui passe que la garde existe ou non.** Il ne teste pas la garde : écrire par
     paires jumelles ; un faux `tx` identique au faux `db`, ou un compteur absolu sur un
-    balayage global de la branche, rendent l'assertion tautologique.
+    balayage global de la base, rendent l'assertion tautologique.
 14. **Bouton sans `type` dans un `<form>`.** Un `<button>` vaut `type="submit"` par
     défaut : un composant réutilisable (tri, défilement, menu d'un tableau) monté dans
     un formulaire le soumet au clic. Tout bouton d'un composant partagé porte un `type`
@@ -107,3 +107,10 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
     un échec qui n'en est pas un. Ordonner par l'instant de l'événement
     (`coalesce(refunded_at, completed_at, created_at)`), et semer en test des
     lignes dont l'ordre de création diffère de l'ordre des événements.
+26. **Filtre ou plafond testé sur une base vide.** La base d'intégration ne
+    contient que les fixtures du fichier : un filtre par propriétaire
+    (`eq(userId, …)`) testé avec un seul utilisateur, un plafond (`.limit`,
+    `slice`) testé sous son seuil, un seuil (`score >= …`) testé avec des
+    lignes toutes du même côté passent encore si on les retire. Semer une
+    ligne d'un autre propriétaire, plus de lignes que le plafond, des lignes
+    des deux côtés du seuil, et asserter une valeur exacte, pas `<=`.

@@ -55,10 +55,10 @@ vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)
-// Domaine propre au fichier : la banque partagée de la branche n'entre dans
+// Domaine propre au fichier : les questions des autres tests n'entrent dans
 // aucune assertion par domaine.
 const DOMAIN = `COMPO-${suffix}`
-// Examens les plus récents de la branche : ce sont eux qui font les questions
+// Examens les plus récents de la base : ce sont eux qui font les questions
 // récentes (les trois derniers examens finalisés, par date d'ouverture).
 const at = (days: number) => new Date(Date.UTC(2099, 0, 1) + days * DAY)
 

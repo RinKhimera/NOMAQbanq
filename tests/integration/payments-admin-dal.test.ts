@@ -40,7 +40,7 @@ const txRefunded = createId()
 const txPending = createId()
 const lastTxId = createId()
 
-// Baseline capturé AVANT seed (la branche éphémère hérite des données de `develop`).
+// Baseline capturé AVANT seed : les assertions portent sur l'écart, pas sur un total.
 let baseline: TransactionStatsView
 
 const insertTx = (o: {

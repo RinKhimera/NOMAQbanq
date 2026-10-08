@@ -162,7 +162,7 @@ afterAll(async () => {
 beforeEach(async () => {
   vi.mocked(captureServerError).mockClear()
   // Nettoyage borné aux fixtures (jamais de DELETE de table entière, même sur
-  // une branche jetable : le fichier doit rester sûr en `test:integration:keep`).
+  // une base jetable : le fichier doit rester sûr en `test:integration:keep`).
   await db.delete(userBans).where(inArray(userBans.userId, FIXTURE_IDS))
   await db.delete(sessionTable).where(eq(sessionTable.userId, targetId))
   await db.delete(sessionTable).where(eq(sessionTable.userId, bystanderId))

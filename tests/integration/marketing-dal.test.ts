@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { examParticipations, exams, user } from "@/db/schema"
@@ -18,25 +18,12 @@ vi.mock("react", async (orig) => {
 const suffix = createId().slice(0, 8)
 const examId = createId()
 const creatorId = createId()
-// Assez de participations pour franchir le seuil de volume à coup sûr.
-const N = MIN_COMPLETED_PARTICIPATIONS + 10
-const userIds = Array.from({ length: N }, () => createId())
-
-const baselineAgg = async () => {
-  const [row] = await db
-    .select({
-      completed:
-        sql<number>`count(*) filter (where status in ('completed','auto_submitted'))`.mapWith(
-          Number,
-        ),
-      passed:
-        sql<number>`count(*) filter (where status in ('completed','auto_submitted') and score >= ${PASS_THRESHOLD})`.mapWith(
-          Number,
-        ),
-    })
-    .from(examParticipations)
-  return row ?? { completed: 0, passed: 0 }
-}
+// Assez de participations pour franchir le seuil de volume à coup sûr, dont
+// une part sous le seuil de réussite : sans elle, retirer le filtre sur le
+// score donnerait le même taux.
+const PASSED = MIN_COMPLETED_PARTICIPATIONS + 10
+const FAILED = 10
+const userIds = Array.from({ length: PASSED + FAILED }, () => createId())
 
 beforeAll(async () => {
   await db.insert(user).values({
@@ -64,11 +51,11 @@ beforeAll(async () => {
     })),
   )
   await db.insert(examParticipations).values(
-    userIds.map((uid) => ({
+    userIds.map((uid, i) => ({
       examId,
       userId: uid,
       status: "completed" as const,
-      score: 90, // ≥ PASS_THRESHOLD → réussite
+      score: i < PASSED ? PASS_THRESHOLD + 30 : PASS_THRESHOLD - 1,
       completedAt: new Date(),
     })),
   )
@@ -94,15 +81,23 @@ describe("getMarketingStats — successRate calculé", () => {
     ])
   })
 
-  it("câble l'agrégat SQL sur resolveSuccessRate (oracle exact, baseline quelconque)", async () => {
-    // Sans hypothèse sur la baseline (d'autres participations peuvent exister) :
-    // l'oracle recalcule l'agrégat réel et exige
-    // l'égalité avec la bascule — exact quelle que soit la baseline. Un if/else
-    // qui rejouerait la logique de `resolveSuccessRate` serait tautologique.
-    const agg = await baselineAgg()
+  it("publie le taux des seules participations au-dessus du seuil", async () => {
     const stats = await getMarketingStats()
-    expect(stats.successRate).toBe(resolveSuccessRate(agg))
-    // Nos N insertions garantissent le franchissement du seuil de volume.
-    expect(agg.completed).toBeGreaterThanOrEqual(MIN_COMPLETED_PARTICIPATIONS)
+    const expected = resolveSuccessRate({
+      completed: PASSED + FAILED,
+      passed: PASSED,
+    })
+    expect(stats.successRate).toBe(expected)
+    expect(expected).not.toBe(
+      resolveSuccessRate({
+        completed: PASSED + FAILED,
+        passed: PASSED + FAILED,
+      }),
+    )
+  })
+
+  it("arrondit le nombre d'inscrits au palier marketing", async () => {
+    // Le créateur + 70 participants.
+    expect((await getMarketingStats()).totalUsers).toBe("100+")
   })
 })

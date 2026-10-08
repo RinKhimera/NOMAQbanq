@@ -4,24 +4,12 @@ import "server-only"
 import { db } from "@/db"
 import { examParticipations, questions, user } from "@/db/schema"
 import { PASS_THRESHOLD } from "@/lib/score"
-import { resolveSuccessRate } from "./lib"
+import { formatMarketingStat, resolveSuccessRate } from "./lib"
 
 export type MarketingStats = {
   totalQuestions: string
   totalUsers: string
   successRate: string
-}
-
-// Arrondit un nombre brut vers un palier marketing supérieur + suffixe "+".
-// Ex: 167 → "200+", 2875 → "3000+".
-const formatMarketingStat = (n: number): string => {
-  if (n <= 0) return "0"
-  let step: number
-  if (n < 200) step = 50
-  else if (n < 1000) step = 100
-  else if (n < 5000) step = 500
-  else step = 1000
-  return `${Math.ceil(n / step) * step}+`
 }
 
 /**

@@ -20,8 +20,8 @@ import { TEST_OBJECTIVE_ID } from "../helpers/objective"
 // une fois ; les appelants (actions, crons, démarrage de session) ne portent
 // que le mapping vers ce verbe.
 //
-// Fixtures datées en 1990 : la branche éphémère hérite de `develop`, et un
-// `expiredBefore` en 1991 ne peut attraper qu'elles.
+// Fixtures datées en 1990 : un `expiredBefore` en 1991 ne peut attraper
+// qu'elles, jamais les tentatives d'aujourd'hui des autres tests du fichier.
 const DAY = 24 * 60 * 60 * 1000
 const NOW = new Date("2026-09-19T12:00:00.000Z")
 const ENDED = new Date("1990-06-01T00:00:00.000Z")

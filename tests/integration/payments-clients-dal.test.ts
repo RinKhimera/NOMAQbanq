@@ -20,9 +20,9 @@ vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(),
 }))
 
-// La branche éphémère hérite des clients de `develop` : chaque requête filtre
-// sur le suffixe unique des comptes semés, et les compteurs des filtres (qui
-// portent sur l'ensemble) se lisent en écart à la ligne de base.
+// Chaque requête filtre sur le suffixe unique des comptes semés, et les
+// compteurs des filtres (qui portent sur l'ensemble) se lisent en écart à la
+// ligne de base.
 
 const DAY = 24 * 60 * 60 * 1000
 const MINUTE = 60 * 1000
