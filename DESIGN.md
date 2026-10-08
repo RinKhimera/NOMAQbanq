@@ -91,7 +91,7 @@ Lucide uniquement, trait 1.75, 14–18 px, couleur `--ink-3` ou sémantique. Une
 - Ton de coach sobre : **aucun superlatif** (« #1 », « révolutionnaire », « SANS LIMITES »). Les chiffres suffisent.
 - Casse de phrase partout ; capitales réservées aux libellés mono.
 - Unités compactes en mono : « 42j restants », « Question 12 / 50 », « 01:24:36 », « 5 h 18 ».
-- Montants : « 350,00 $ », « 65 000 XAF ». Dates : « 21 sept. 2026 » ; heures « 16 h 42 » ; fuseau « heure de l'Est » pour les examens.
+- Montants : « 350 $ » pour un montant rond, « 49,50 $ » avec des cents (jamais « 49,5 $ »), « 65 000 XAF ». Dates : « 21 sept. 2026 » ; heures « 16 h 42 » ; fuseau « heure de l'Est » pour les examens.
 
 ### Chiffres publics (source unique)
 

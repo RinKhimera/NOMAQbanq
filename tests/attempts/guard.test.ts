@@ -27,7 +27,6 @@ const exec = { execute } as unknown as Executor
 
 beforeEach(() => {
   rows = []
-  execute.mockClear()
   mocks.hasActiveAccess.mockResolvedValue(true)
 })
 

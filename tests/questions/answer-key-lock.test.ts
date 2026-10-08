@@ -5,12 +5,13 @@ import {
   AnswerKeyLock,
   excludeLocked,
   lockFor,
+  scoreWithheldForOwner,
   viewerOf,
 } from "@/features/questions/answer-key-lock"
 
-// Seuls les court-circuits sans requête vivent ici : la lecture du verrou, les
-// fragments SQL et la retenue du score sont prouvés sur une vraie base
-// (tests/integration/exam-lock-source.test.ts, exams.test.ts).
+// Vivent ici les court-circuits sans requête et la borne stricte des fragments
+// SQL ; la lecture du verrou et la retenue du score sont prouvées sur une vraie
+// base (tests/integration/exam-lock-source.test.ts, exams.test.ts).
 const mocks = vi.hoisted(() => ({ db: { selectDistinct: vi.fn() } }))
 
 vi.mock("@/db", () => ({ db: mocks.db }))
@@ -126,5 +127,36 @@ describe("excludeLocked — court-circuit admin", () => {
       excludeLocked({ id: "adm", role: "admin" }, sql`q.id`),
     )
     expect(text).toBe("true")
+  })
+})
+
+describe("borne stricte `end_date > now()` des fragments SQL", () => {
+  // Un examen dont la fin tombe à l'instant même est CLOS : sa clé et son score
+  // redeviennent lisibles. Une base ne prouve pas cette égalité (l'horloge JS
+  // du seed et celle de Postgres divergent), d'où la lecture du SQL rendu.
+  const render = (fragment: SQL) => new PgDialect().sqlToQuery(fragment).sql
+  const answered = sql`select a.question_id from exam_answers a`
+
+  it.each([
+    ["excludeLocked anonyme", excludeLocked("anonymous", sql`q.id`), 1],
+    [
+      "excludeLocked utilisateur",
+      excludeLocked({ id: "u1", role: "user" }, sql`q.id`),
+      1,
+    ],
+    [
+      "score d'une session d'entraînement",
+      scoreWithheldForOwner(sql`s.user_id`, answered),
+      1,
+    ],
+    [
+      "score d'une participation (examen propre + réponses)",
+      scoreWithheldForOwner(sql`p.user_id`, answered, sql`p.exam_id`),
+      2,
+    ],
+  ] as const)("%s : %i borne(s) stricte(s), jamais >=", (_, fragment, n) => {
+    const text = render(fragment)
+    expect(text.match(/end_date > now\(\)/g)).toHaveLength(n)
+    expect(text).not.toMatch(/end_date >= /)
   })
 })

@@ -88,5 +88,5 @@ it("la page d'un domaine lit ses objectifs en cache", () => {
     "utf8",
   )
   expect(source).toContain("getCachedDomainObjectives")
-  expect(source).not.toMatch(/getPublicDomainObjectives/)
+  expect(source).not.toMatch(/\bgetPublicDomainObjectives\b/)
 })

@@ -42,7 +42,7 @@ describe("conventions des tests d'intégration", () => {
     expect(
       offenders((s) =>
         callArguments(s, "afterAll").some((body) =>
-          /\.delete\(|delete\s+from|^\s*\w*clean\w*\s*$/i.test(body),
+          /\.delete\(|\bdelete\s+from\b|^\s*\w*clean\w*\s*$/i.test(body),
         ),
       ),
     ).toEqual([])

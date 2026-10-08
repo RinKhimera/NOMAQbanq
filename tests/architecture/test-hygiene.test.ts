@@ -1,5 +1,6 @@
+import ts from "typescript"
 import { describe, expect, it } from "vitest"
-import { callArguments, readSource, walk } from "./source-files"
+import { readSource, walk } from "./source-files"
 
 // La config (`mockReset`, `restoreMocks`, `unstubEnvs`, `unstubGlobals`) et
 // `vitest.setup.common.ts` (vrais timers) remettent l'état entre deux tests :
@@ -15,6 +16,75 @@ const offenders = (pattern: RegExp, allowed: string[] = []) =>
       ({ path, source }) => pattern.test(source) && !allowed.includes(path),
     )
     .map(({ path }) => path)
+
+const DEFAULT_SETTER =
+  /^mock(Implementation|ReturnValue|ResolvedValue|RejectedValue)(Once)?$/
+const RUNS_AT_LOAD = /^(describe|beforeAll|afterAll|vi\.mock|vi\.hoisted)\b/
+const RUNS_PER_TEST = /^(it|test|beforeEach|afterEach)\b/
+
+const isCallback = (node: ts.Node) =>
+  ts.isArrowFunction(node) || ts.isFunctionExpression(node)
+
+/**
+ * Chaque appel `.méthode(…)` avec l'appel de framework qui l'exécute : `it`,
+ * `beforeEach`… ou `describe`, `vi.mock`… ; `null` au niveau du module. Un
+ * rappel passé à autre chose (`act`, `.map`) hérite du contexte ; une fonction
+ * déclarée à part (helper) est appelée depuis un test, à un moment que
+ * l'analyse ne connaît pas : `"helper"`, ignorée. Le contexte descend avec le
+ * parcours : les pointeurs `parent` de l'AST ne sont pas fiables ici.
+ */
+const unitCalls = (
+  method: (name: string) => boolean,
+  offending: (callee: string | null) => boolean,
+) =>
+  testFiles
+    .filter(({ path }) => !path.startsWith("tests/integration/"))
+    .flatMap(({ path, source }) => {
+      const file = ts.createSourceFile(
+        path,
+        source,
+        ts.ScriptTarget.Latest,
+        false,
+        path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+      )
+      const found: string[] = []
+      const visit = (node: ts.Node, context: string | null) => {
+        if (!ts.isCallExpression(node)) {
+          const inner =
+            isCallback(node) ||
+            ts.isFunctionDeclaration(node) ||
+            ts.isMethodDeclaration(node)
+              ? "helper"
+              : context
+          ts.forEachChild(node, (child) => visit(child, inner))
+          return
+        }
+        if (
+          ts.isPropertyAccessExpression(node.expression) &&
+          method(node.expression.name.text) &&
+          context !== "helper" &&
+          offending(context)
+        ) {
+          const { line } = file.getLineAndCharacterOfPosition(
+            node.getStart(file),
+          )
+          found.push(`${path}:${line + 1} .${node.expression.name.text}`)
+        }
+        const callee = node.expression.getText(file)
+        const framework =
+          RUNS_AT_LOAD.test(callee) || RUNS_PER_TEST.test(callee)
+        visit(node.expression, context)
+        for (const arg of node.arguments) {
+          if (!isCallback(arg)) visit(arg, context)
+          else
+            ts.forEachChild(arg, (child) =>
+              visit(child, framework ? callee : context),
+            )
+        }
+      }
+      visit(file, null)
+      return found
+    })
 
 describe("hygiène des tests", () => {
   it("aucun reset global recopié : la config les applique déjà", () => {
@@ -33,27 +103,37 @@ describe("hygiène des tests", () => {
     expect(offenders(/\.mockReset\(\)/, integration)).toEqual([])
   })
 
-  it("aucune implémentation par défaut posée au chargement : `mockReset` l'efface", () => {
-    // `vi.fn(impl)` survit au reset (il revient à `impl`) ; un
-    // `vi.fn().mockResolvedValue(…)` d'une factory ou d'une constante de module
-    // rend `undefined` dès le premier test, sans qu'aucun test ne rougisse.
-    const loadTimeDefault =
-      /vi\.fn(<[^>]*>)?\(\)\s*\.mock(Implementation|ReturnValue|ResolvedValue|RejectedValue)\(/
-    const moduleConstant = new RegExp(
-      String.raw`^(export )?const \w+ = ${loadTimeDefault.source}`,
-      "m",
-    )
-    const offending = testFiles
-      .filter(({ path }) => !path.startsWith("tests/integration/"))
-      .filter(
-        ({ source }) =>
-          moduleConstant.test(source) ||
-          callArguments(source, String.raw`vi\.mock`).some((factory) =>
-            loadTimeDefault.test(factory),
-          ),
-      )
-      .map(({ path }) => path)
-    expect(offending).toEqual([])
+  it("aucune implémentation posée au chargement : `mockReset` l'efface avant le test", () => {
+    // `vi.fn(impl)` survit au reset (il revient à `impl`) ; un `.mockX(…)` posé
+    // au niveau du module, d'un `describe`, d'un `beforeAll` ou d'une factory
+    // `vi.mock` rend `undefined` dès le premier test, sans que rien ne rougisse.
+    expect(
+      unitCalls(
+        (name) => DEFAULT_SETTER.test(name),
+        (callee) => (callee === null ? true : RUNS_AT_LOAD.test(callee)),
+      ),
+    ).toEqual([])
+  })
+
+  it("aucun mockClear() en beforeEach/afterEach : la config le fait déjà", () => {
+    expect(
+      unitCalls(
+        (name) => name === "mockClear",
+        (callee) => callee !== null && /^(beforeEach|afterEach)\b/.test(callee),
+      ),
+    ).toEqual([])
+  })
+
+  it("aucun caractère de contrôle invisible", () => {
+    // Un `\b` écrit par un script (Python, sed) devient l'octet 0x08 : la regex
+    // qui le porte ne correspond plus à rien et son assertion passe à vide.
+    const isControl = (char: string) =>
+      char.charCodeAt(0) < 0x20 && !"\n\r\t".includes(char)
+    expect(
+      testFiles
+        .filter(({ source }) => [...source].some(isControl))
+        .map(({ path }) => path),
+    ).toEqual([])
   })
 
   it("aucun afterEach qui ne fait que rendre les vrais timers", () => {

@@ -68,10 +68,12 @@ describe("ActiveSeriesCard", () => {
     const expiry = () => screen.getByText(/^Expire dans/)
     expect(expiry()).toHaveTextContent("Expire dans 50 min")
     expect(expiry()).toHaveAttribute("data-tone", "warning")
+    expect(expiry()).toHaveClass("text-warning-ink")
     unmount()
     render(<ActiveSeriesCard session={session} initialNow={NOW} />)
     expect(expiry()).toHaveTextContent("Expire dans 21 h 46")
     expect(expiry()).toHaveAttribute("data-tone", "neutral")
+    expect(expiry()).not.toHaveClass("text-warning-ink")
   })
 
   it("abandonner : confirmation, action, rafraîchissement", async () => {
