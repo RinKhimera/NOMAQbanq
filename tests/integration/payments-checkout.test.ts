@@ -92,8 +92,7 @@ describe("createStripeCheckout", () => {
     expect(created.metadata?.userId).toBe(USER_ID)
     expect(created.metadata?.productId).toBe(PID)
 
-    // Transaction pending retrouvable par le webhook via stripeSessionId
-    // (invariants robustes, indépendants du produit résolu).
+    // Transaction pending retrouvable par le webhook via stripeSessionId.
     const [tx] = await db
       .select()
       .from(transactions)

@@ -19,9 +19,9 @@ const vitestArgs = process.argv
   .slice(2)
   .filter((arg) => arg !== "--keep" && arg !== "--")
 
-// Ctrl+C atteint aussi vitest, qui s'arrête de lui-même. Ignoré ici, le signal
-// ne tue plus l'orchestrateur avant son `finally` : `spawnSync` rend la main
-// et le conteneur est supprimé.
+// Ctrl+C atteint aussi vitest, qui s'arrête de lui-même. Ignoré ici :
+// l'orchestrateur survit au signal, `spawnSync` rend la main et le `finally`
+// supprime le conteneur.
 process.on("SIGINT", () => {})
 process.on("SIGTERM", () => {})
 

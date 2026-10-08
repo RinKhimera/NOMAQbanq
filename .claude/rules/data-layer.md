@@ -4,6 +4,7 @@ paths:
   - "app/**"
   - "components/**"
   - "tests/integration/**"
+  - "drizzle/**"
 ---
 
 # Data Layer (Drizzle) + Server Actions / Components

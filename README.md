@@ -128,7 +128,7 @@ NOMAQbanq/
 │   ├── marketing/                # Marketing page components
 │   └── seo/                      # SEO components (JSON-LD)
 ├── email/                        # AWS SES client + React Email templates
-├── tests/                        # Frontend (happy-dom) + integration (Neon branch)
+├── tests/                        # Frontend (happy-dom) + integration (Postgres container)
 ├── e2e/                          # Playwright tests + POMs
 ├── schemas/                      # Zod validation schemas
 ├── hooks/                        # Custom React hooks
