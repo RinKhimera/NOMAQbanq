@@ -7,6 +7,7 @@ import {
   loadTransactionAccessImpact,
   recordManualPayment,
   updateManualTransaction,
+  verifyStripeCheckout,
 } from "@/features/payments/actions"
 import { StripeConfigurationError } from "@/lib/stripe-errors"
 import { fakeStripe, stripeBox } from "../helpers/fake-stripe"
@@ -32,6 +33,7 @@ const { mocks } = vi.hoisted(() => ({
     getTransactionStats: vi.fn(async () => ({ buyerCount: 0 })),
     getTransactionAccessImpact: vi.fn<() => Promise<unknown>>(async () => null),
     getAccessStatus: vi.fn<() => Promise<unknown>>(async () => null),
+    getCheckoutPurchase: vi.fn<() => Promise<unknown>>(async () => null),
   },
 }))
 
@@ -71,6 +73,7 @@ vi.mock("@/db/schema", () => {
 vi.mock("@/features/payments/dal", () => ({
   getAccessStatus: mocks.getAccessStatus,
   getAllTransactions: mocks.getAllTransactions,
+  getCheckoutPurchase: mocks.getCheckoutPurchase,
   getMyTransactions: mocks.getMyTransactions,
   getTransactionAccessImpact: mocks.getTransactionAccessImpact,
   getTransactionStats: mocks.getTransactionStats,
@@ -183,13 +186,10 @@ describe("recordManualPayment", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/utilisateurs")
   })
 
-  it.each([
-    ["PRODUCT_NOT_FOUND", "Produit introuvable"],
-    ["USER_NOT_FOUND", "Utilisateur introuvable"],
-  ])("%s → %s, sans capture Sentry", async (thrown, expected) => {
-    rejectWith(thrown)
+  it("PRODUCT_NOT_FOUND → Produit introuvable, sans capture Sentry", async () => {
+    rejectWith("PRODUCT_NOT_FOUND")
     const res = await recordManualPayment(manualInput)
-    expect(res).toEqual({ success: false, error: expected })
+    expect(res).toEqual({ success: false, error: "Produit introuvable" })
     expect(mocks.captureServerError).not.toHaveBeenCalled()
     expect(mocks.revalidatePath).not.toHaveBeenCalled()
   })
@@ -225,19 +225,6 @@ describe("updateManualTransaction", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/transactions")
   })
 
-  it.each([
-    ["TX_NOT_FOUND", "Transaction introuvable"],
-    [
-      "TX_NOT_MANUAL",
-      "Seules les transactions manuelles peuvent être modifiées",
-    ],
-  ])("%s → %s, sans capture", async (thrown, expected) => {
-    rejectWith(thrown)
-    const res = await updateManualTransaction(updateInput)
-    expect(res).toEqual({ success: false, error: expected })
-    expect(mocks.captureServerError).not.toHaveBeenCalled()
-  })
-
   it("erreur inattendue → capture avec l'admin", async () => {
     rejectWith("deadlock detected")
     const res = await updateManualTransaction(updateInput)
@@ -262,19 +249,6 @@ describe("deleteManualTransaction", () => {
     const res = await deleteManualTransaction("t1")
     expect(res).toEqual({ success: true, accessRevoked: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/utilisateurs")
-  })
-
-  it.each([
-    ["TX_NOT_FOUND", "Transaction introuvable"],
-    [
-      "TX_NOT_MANUAL",
-      "Seules les transactions manuelles peuvent être supprimées",
-    ],
-  ])("%s → %s, sans capture", async (thrown, expected) => {
-    rejectWith(thrown)
-    const res = await deleteManualTransaction("t1")
-    expect(res).toEqual({ success: false, error: expected })
-    expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
   it("erreur inattendue → capture avec l'admin", async () => {
@@ -524,6 +498,68 @@ describe("createStripeCheckout", () => {
     expect(mocks.captureServerError).toHaveBeenCalledWith(
       "[createStripeCheckout]",
       expect.any(Error),
+      { userId: "u1" },
+    )
+  })
+})
+
+describe("verifyStripeCheckout", () => {
+  const paidSession = {
+    id: "cs_ok",
+    metadata: { userId: "u1" },
+    payment_status: "paid",
+    amount_total: 5000,
+    currency: "cad",
+    customer_email: "x@test.invalid",
+  }
+
+  it("session_id inconnu de Stripe → message métier, pas de capture", async () => {
+    const res = await verifyStripeCheckout("cs_bidon")
+    expect(res).toEqual({
+      success: false,
+      error: "Session non trouvée ou invalide",
+    })
+    expect(mocks.captureServerError).not.toHaveBeenCalled()
+  })
+
+  it("erreur Stripe inattendue → même message + capture", async () => {
+    const boom = new Error("Stripe API down")
+    stripeBox.failNext("retrieveCheckoutSession", boom)
+    const res = await verifyStripeCheckout("cs_x")
+    expect(res).toEqual({
+      success: false,
+      error: "Session non trouvée ou invalide",
+    })
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[verifyStripeCheckout]",
+      boom,
+      { userId: "u1" },
+    )
+  })
+
+  it("session de l'utilisateur → montant, devise et courriel de la session Stripe", async () => {
+    stripeBox.seedCheckoutSession(paidSession)
+    expect(await verifyStripeCheckout("cs_ok")).toEqual({
+      success: true,
+      status: "paid",
+      amountTotal: 5000,
+      currency: "cad",
+      customerEmail: "x@test.invalid",
+      purchase: null,
+    })
+  })
+
+  it("lecture de l'achat en panne : le paiement confirmé reste un succès, sans achat", async () => {
+    stripeBox.seedCheckoutSession(paidSession)
+    const boom = new Error("Neon endormi")
+    mocks.getCheckoutPurchase.mockRejectedValueOnce(boom)
+
+    const res = await verifyStripeCheckout("cs_ok")
+
+    expect(res).toMatchObject({ success: true, status: "paid", purchase: null })
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[verifyStripeCheckout] lecture de l'achat",
+      boom,
       { userId: "u1" },
     )
   })

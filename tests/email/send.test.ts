@@ -45,13 +45,10 @@ const react = createElement("div", null, "x")
 const lastInput = () => commandSpy.mock.calls[0]?.[0] as SesInput
 
 beforeEach(() => {
-  sendSpy.mockReset().mockResolvedValue({ MessageId: "msg-123" })
-  renderSpy
-    .mockReset()
-    .mockImplementation((_el: unknown, opts?: { plainText?: boolean }) =>
-      Promise.resolve(opts?.plainText ? "texte brut" : "<p>html</p>"),
-    )
-  commandSpy.mockReset()
+  sendSpy.mockResolvedValue({ MessageId: "msg-123" })
+  renderSpy.mockImplementation((_el: unknown, opts?: { plainText?: boolean }) =>
+    Promise.resolve(opts?.plainText ? "texte brut" : "<p>html</p>"),
+  )
   envMock.current = { EMAIL_FROM: "NOMAQbanq <noreply@nomaqbanq.ca>" }
 })
 

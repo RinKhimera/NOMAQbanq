@@ -2,13 +2,15 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { StudentShell } from "@/components/shared/shell/student-shell"
 import { authClient } from "@/lib/auth-client"
 import type { SessionUser } from "@/lib/session-user"
 
 const push = vi.fn()
 
+// Le vrai Link ne laisse aucune trace de `prefetch` dans le DOM : le stub
+// l'expose pour vérifier `prefetch={false}`.
 vi.mock("next/link", () => ({
   default: ({
     children,
@@ -25,9 +27,6 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }))
-vi.mock("next/image", () => ({
-  default: ({ alt }: { alt: string }) => <img alt={alt} />,
-}))
 vi.mock("next/navigation", () => ({
   usePathname: vi.fn(),
   useRouter: () => ({ push }),
@@ -37,7 +36,7 @@ vi.mock("next-themes", () => ({
 }))
 // Sans `useSession` : la coquille ne doit lire la session que par ses props.
 vi.mock("@/lib/auth-client", () => ({
-  authClient: { signOut: vi.fn().mockResolvedValue({}) },
+  authClient: { signOut: vi.fn(async () => ({})) },
 }))
 vi.mock("@/components/shared/link-pending-indicator", () => ({
   LinkPendingIndicator: () => <span data-testid="pending-indicator" />,
@@ -63,10 +62,6 @@ const studentNav = () =>
   screen.getByRole("navigation", { name: "Navigation de l'espace étudiant" })
 
 describe("StudentShell", () => {
-  beforeEach(() => {
-    push.mockReset()
-  })
-
   it("liste les liens de l'espace étudiant, sans page encore absente", () => {
     renderShell("/tableau-de-bord")
 

@@ -1,47 +1,20 @@
 import { type SQL, sql } from "drizzle-orm"
 import { PgDialect } from "drizzle-orm/pg-core"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   AnswerKeyLock,
   excludeLocked,
   lockFor,
-  scoreWithheldFor,
   scoreWithheldForOwner,
   viewerOf,
 } from "@/features/questions/answer-key-lock"
 
-const mocks = vi.hoisted(() => {
-  const rows: { current: { questionId: string }[] } = { current: [] }
-  const calls = { selectDistinct: 0, innerJoin: 0 }
-  const chain = () => {
-    const c: Record<string, unknown> = {}
-    c.from = () => c
-    c.innerJoin = () => {
-      calls.innerJoin++
-      return c
-    }
-    c.where = () => Promise.resolve(rows.current)
-    return c
-  }
-  return {
-    rows,
-    calls,
-    db: {
-      selectDistinct: vi.fn(() => {
-        calls.selectDistinct++
-        return chain()
-      }),
-    },
-  }
-})
+// Vivent ici les court-circuits sans requête et la borne stricte des fragments
+// SQL ; la lecture du verrou et la retenue du score sont prouvées sur une vraie
+// base (tests/integration/exam-lock-source.test.ts, exams.test.ts).
+const mocks = vi.hoisted(() => ({ db: { selectDistinct: vi.fn() } }))
 
 vi.mock("@/db", () => ({ db: mocks.db }))
-
-beforeEach(() => {
-  mocks.rows.current = []
-  mocks.calls.selectDistinct = 0
-  mocks.calls.innerJoin = 0
-})
 
 const row = {
   correctAnswer: "B",
@@ -132,61 +105,22 @@ describe("viewerOf — projection de l'utilisateur de session", () => {
   })
 })
 
-describe("lockFor — requête et bypass", () => {
+describe("lockFor — court-circuits sans requête", () => {
   it("admin : aucun verrou, aucune requête", async () => {
     const lock = await lockFor({ id: "adm", role: "admin" }, ["q1"])
     expect(lock.has("q1")).toBe(false)
-    expect(mocks.calls.selectDistinct).toBe(0)
+    expect(mocks.db.selectDistinct).not.toHaveBeenCalled()
   })
 
   it("aucune candidate : aucun verrou, aucune requête", async () => {
     const lock = await lockFor({ id: "u1", role: "user" }, [])
     expect(lock.has("q1")).toBe(false)
-    expect(mocks.calls.selectDistinct).toBe(0)
-  })
-
-  it("utilisateur : verrouille les ids renvoyés par la requête", async () => {
-    mocks.rows.current = [{ questionId: "q1" }]
-    const lock = await lockFor({ id: "u1", role: "user" }, ["q1", "q2"])
-    expect(lock.has("q1")).toBe(true)
-    expect(lock.has("q2")).toBe(false)
-    expect(mocks.calls.selectDistinct).toBe(1)
-  })
-
-  it("anonyme : verrouille sans dimension utilisateur (une seule jointure)", async () => {
-    mocks.rows.current = [{ questionId: "q2" }]
-    const lock = await lockFor("anonymous", ["q1", "q2"])
-    expect(lock.has("q2")).toBe(true)
-    expect(mocks.calls.innerJoin).toBe(1)
-  })
-
-  it("utilisateur : joint les participations (deux jointures)", async () => {
-    await lockFor({ id: "u1", role: "user" }, ["q1"])
-    expect(mocks.calls.innerJoin).toBe(2)
+    expect(mocks.db.selectDistinct).not.toHaveBeenCalled()
   })
 })
 
-describe("excludeLocked — exclusion à la sélection (fragment SQL)", () => {
+describe("excludeLocked — court-circuit admin", () => {
   const render = (fragment: SQL) => new PgDialect().sqlToQuery(fragment)
-
-  it("anonyme : not exists sur les examens ouverts, sans participation", () => {
-    const { sql: text, params } = render(excludeLocked("anonymous", sql`q.id`))
-    expect(text).toMatch(/not exists/i)
-    expect(text).toMatch(/exam_questions/)
-    expect(text).toMatch(/end_date > now\(\)/)
-    expect(text).not.toMatch(/exam_participations/)
-    expect(params).toEqual([])
-  })
-
-  it("utilisateur : borné à ses participations", () => {
-    const { sql: text, params } = render(
-      excludeLocked({ id: "u1", role: "user" }, sql`q.id`),
-    )
-    expect(text).toMatch(/not exists/i)
-    expect(text).toMatch(/exam_participations/)
-    expect(text).toMatch(/user_id = \$1/)
-    expect(params).toEqual(["u1"])
-  })
 
   it("admin : aucune exclusion", () => {
     const { sql: text } = render(
@@ -196,42 +130,33 @@ describe("excludeLocked — exclusion à la sélection (fragment SQL)", () => {
   })
 })
 
-describe("scoreWithheldForOwner — retenue du score (fragment SQL)", () => {
-  const render = (fragment: SQL) => new PgDialect().sqlToQuery(fragment)
+describe("borne stricte `end_date > now()` des fragments SQL", () => {
+  // Un examen dont la fin tombe à l'instant même est CLOS : sa clé et son score
+  // redeviennent lisibles. Une base ne prouve pas cette égalité (l'horloge JS
+  // du seed et celle de Postgres divergent), d'où la lecture du SQL rendu.
+  const render = (fragment: SQL) => new PgDialect().sqlToQuery(fragment).sql
   const answered = sql`select a.question_id from exam_answers a`
 
-  it("sans examen propre (session d'entraînement) : retenue par les questions répondues seulement", () => {
-    const { sql: text, params } = render(
+  it.each([
+    ["excludeLocked anonyme", excludeLocked("anonymous", sql`q.id`), 1],
+    [
+      "excludeLocked utilisateur",
+      excludeLocked({ id: "u1", role: "user" }, sql`q.id`),
+      1,
+    ],
+    [
+      "score d'une session d'entraînement",
       scoreWithheldForOwner(sql`s.user_id`, answered),
-    )
-    expect(text.match(/end_date > now\(\)/g)).toHaveLength(1)
-    expect(text).toMatch(/exam_questions/)
-    expect(params).toEqual([])
-  })
-
-  it("avec examen propre (participation) : retenu aussi tant que cet examen est ouvert, réponses ou non — même borne que le verrou", () => {
-    const { sql: text, params } = render(
+      1,
+    ],
+    [
+      "score d'une participation (examen propre + réponses)",
       scoreWithheldForOwner(sql`p.user_id`, answered, sql`p.exam_id`),
-    )
-    // Deux clauses, chacune sur la borne stricte `end_date > now()` :
-    // `end_date = now()` est clos (lisible), `end_date = now() + 1 ms` ouvert.
-    expect(text.match(/end_date > now\(\)/g)).toHaveLength(2)
-    expect(text).toMatch(/id = p\.exam_id/)
-    expect(params).toEqual([])
-  })
-
-  it("forme lecteur : un admin n'est jamais retenu, examen propre ou non", () => {
-    const { sql: text } = render(
-      scoreWithheldFor({ id: "adm", role: "admin" }, answered, sql`p.exam_id`),
-    )
-    expect(text).toBe("false")
-  })
-
-  it("forme lecteur : un utilisateur porte les deux clauses sur son propre id", () => {
-    const { sql: text, params } = render(
-      scoreWithheldFor({ id: "u1", role: "user" }, answered, sql`p.exam_id`),
-    )
-    expect(text.match(/end_date > now\(\)/g)).toHaveLength(2)
-    expect(params).toEqual(["u1"])
+      2,
+    ],
+  ] as const)("%s : %i borne(s) stricte(s), jamais >=", (_, fragment, n) => {
+    const text = render(fragment)
+    expect(text.match(/end_date > now\(\)/g)).toHaveLength(n)
+    expect(text).not.toMatch(/end_date >= /)
   })
 })

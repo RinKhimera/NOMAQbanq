@@ -273,7 +273,7 @@ describe("QuizRunner — alertes et temps écoulé", () => {
   })
 
   it("hors ligne : une alerte prévient que les réponses ne s'enregistrent pas", () => {
-    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false)
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false)
     render(
       <QuizRunner
         questions={questions}
@@ -285,7 +285,6 @@ describe("QuizRunner — alertes et temps écoulé", () => {
     expect(screen.getByTestId("offline-alert")).toHaveTextContent(
       "Connexion perdue",
     )
-    onLine.mockRestore()
   })
 
   it("en ligne : aucune alerte de connexion", () => {
@@ -310,6 +309,9 @@ describe("QuizRunner — alertes et temps écoulé", () => {
         callbacks={callbacks()}
       />,
     )
+    expect(
+      screen.getByRole("timer", { name: "Temps restant" }),
+    ).toHaveAttribute("data-zone", "critical")
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
     expect(screen.queryByTestId("time-up-dialog")).not.toBeInTheDocument()
   })

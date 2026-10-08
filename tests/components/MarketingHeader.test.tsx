@@ -1,32 +1,10 @@
 import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
 import { type Root, hydrateRoot } from "react-dom/client"
 import { renderToString } from "react-dom/server"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { MarketingHeader } from "@/components/marketing-header"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
-
-vi.mock("next/image", () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => (
-    <img src={src} alt={alt} data-testid="next-image" />
-  ),
-}))
-
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    ...props
-  }: {
-    children: ReactNode
-    href: string
-  }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
-}))
 
 const route = vi.hoisted(() => ({ pathname: "/tarifs" }))
 vi.mock("next/navigation", () => ({

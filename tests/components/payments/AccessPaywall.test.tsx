@@ -1,13 +1,6 @@
 import { render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import { AccessPaywall } from "@/components/shared/payments/access-paywall"
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 describe("AccessPaywall", () => {
   it("sans accès : présentation, prix d'appel du catalogue et tarifs", () => {

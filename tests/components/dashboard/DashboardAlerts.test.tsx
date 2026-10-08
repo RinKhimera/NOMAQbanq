@@ -1,13 +1,6 @@
 import { render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import { DashboardAlerts } from "@/app/(dashboard)/tableau-de-bord/_components/dashboard-alerts"
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.parse("2026-09-27T15:00:00Z")

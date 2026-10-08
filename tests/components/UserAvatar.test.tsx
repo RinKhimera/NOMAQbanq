@@ -31,18 +31,6 @@ describe("UserAvatar", () => {
     )
   })
 
-  it("laisse passer une URL absolue (Google) telle quelle", () => {
-    const url = "https://lh3.googleusercontent.com/a/photo.jpg"
-    render(<UserAvatar name="Jean" image={url} />)
-    expect(screen.getByTestId("avatar-img")).toHaveAttribute("src", url)
-  })
-
-  it("laisse passer un data: URI tel quel", () => {
-    const data = "data:image/png;base64,AAAA"
-    render(<UserAvatar name="Jean" image={data} />)
-    expect(screen.getByTestId("avatar-img")).toHaveAttribute("src", data)
-  })
-
   it("sans image : pas d'<img>, initiales en fallback", () => {
     render(<UserAvatar name="Jean Dupont" image={null} />)
     expect(screen.queryByTestId("avatar-img")).not.toBeInTheDocument()

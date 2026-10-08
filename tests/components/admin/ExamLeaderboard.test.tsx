@@ -1,24 +1,8 @@
-import { render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import { ExamLeaderboard } from "@/app/(admin)/admin/examens/[id]/_components/exam-leaderboard"
 import type { LeaderboardEntry } from "@/features/exams/dal"
-
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    ...props
-  }: {
-    children: ReactNode
-    href: string
-  }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
-}))
 
 const entry = (
   participationId: string,
@@ -52,6 +36,8 @@ const renderLeaderboard = (rows = leaderboard) => {
 }
 
 const search = () => screen.getByPlaceholderText("Rechercher un participant…")
+const searchFor = (text: string) =>
+  fireEvent.change(search(), { target: { value: text } })
 const row = (participationId: string) =>
   screen.getByTestId(`leaderboard-row-${participationId}`).closest("tr")!
 const shownIds = () =>
@@ -122,10 +108,10 @@ describe("ExamLeaderboard — dix premiers", () => {
     expect(shownIds()).toHaveLength(12)
   })
 
-  it("cherche dans tout le classement, au-delà des dix premiers", async () => {
-    const user = renderLeaderboard(many)
+  it("cherche dans tout le classement, au-delà des dix premiers, rang conservé", () => {
+    renderLeaderboard(many)
 
-    await user.type(search(), "Étudiant 12")
+    searchFor("Étudiant 12")
 
     expect(shownIds()).toEqual(["p12"])
     expect(within(row("p12")).getByText("12")).toBeInTheDocument()
@@ -133,29 +119,20 @@ describe("ExamLeaderboard — dix premiers", () => {
 })
 
 describe("ExamLeaderboard — recherche", () => {
-  it("filtre par nom et par @username, sans casse ni accents", async () => {
-    const user = renderLeaderboard()
+  it("filtre par nom et par @username, sans casse ni accents", () => {
+    renderLeaderboard()
 
-    await user.type(search(), "HELENE")
+    searchFor("HELENE")
     expect(shownIds()).toEqual(["p1"])
 
-    await user.clear(search())
-    await user.type(search(), "zorro")
+    searchFor("zorro")
     expect(shownIds()).toEqual(["p3"])
   })
 
-  it("chaque participant garde son rang dans le classement complet", async () => {
-    const user = renderLeaderboard()
+  it("annonce qu'aucun participant ne correspond", () => {
+    renderLeaderboard()
 
-    await user.type(search(), "amine")
-
-    expect(within(row("p3")).getByText("3")).toBeInTheDocument()
-  })
-
-  it("annonce qu'aucun participant ne correspond", async () => {
-    const user = renderLeaderboard()
-
-    await user.type(search(), "inconnu")
+    searchFor("inconnu")
 
     expect(shownIds()).toHaveLength(0)
     expect(

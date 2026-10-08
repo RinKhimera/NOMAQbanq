@@ -1,5 +1,5 @@
 import { toast } from "sonner"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   DEPLOY_SKEW_MESSAGE,
   NETWORK_ERROR_MESSAGE,
@@ -11,11 +11,6 @@ vi.mock("next/navigation", () => ({
     err instanceof Error && err.name === "UnrecognizedActionError",
 }))
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
-
-afterEach(() => {
-  vi.useRealTimers()
-  vi.clearAllMocks()
-})
 
 describe("callAction", () => {
   it("laisse passer un succès inchangé", async () => {

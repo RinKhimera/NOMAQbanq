@@ -1,7 +1,8 @@
 import { renderHook } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { authClient } from "@/lib/auth-client"
+import { CDN_HOST } from "@/lib/cdn"
 import { createMockBetterAuthUser, mockAuthSession } from "../helpers/mocks"
 
 // Mock le client Better Auth : `useCurrentUser` n'est qu'un wrapper autour de
@@ -13,10 +14,6 @@ vi.mock("@/lib/auth-client", () => ({
 }))
 
 const mockedUseSession = vi.mocked(authClient.useSession)
-
-beforeEach(() => {
-  vi.clearAllMocks()
-})
 
 describe("useCurrentUser", () => {
   describe("États de base", () => {
@@ -64,25 +61,18 @@ describe("useCurrentUser", () => {
     })
   })
 
-  describe("Données utilisateur", () => {
-    it("mappe correctement les champs de l'utilisateur", () => {
-      const user = createMockBetterAuthUser({
-        name: "Jean Dupont",
-        email: "jean@example.com",
-        role: "admin",
-        username: "jeand",
-      })
-      mockedUseSession.mockReturnValue(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mockAuthSession({ data: { user }, isPending: false }) as any,
-      )
+  it("résout une clé de stockage d'avatar en URL CDN", () => {
+    const user = createMockBetterAuthUser({ image: "avatars/u/1.jpg" })
+    mockedUseSession.mockReturnValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockAuthSession({ data: { user }, isPending: false }) as any,
+    )
 
-      const { result } = renderHook(() => useCurrentUser())
+    const { result } = renderHook(() => useCurrentUser())
 
-      expect(result.current.currentUser?.name).toBe("Jean Dupont")
-      expect(result.current.currentUser?.email).toBe("jean@example.com")
-      expect(result.current.currentUser?.role).toBe("admin")
-      expect(result.current.currentUser?.username).toBe("jeand")
+    expect(result.current.currentUser).toEqual({
+      ...user,
+      image: `https://${CDN_HOST}/avatars/u/1.jpg`,
     })
   })
 })

@@ -28,16 +28,12 @@ export const inAppZone = (d: Date | number | string) =>
   new TZDate(new Date(d), APP_TIME_ZONE)
 
 /**
- * Heure du jour (0-23) dans le fuseau de la plateforme. Brancher sur
- * `new Date().getHours()` lit l'heure du RUNTIME — serveur en UTC vs navigateur
- * en heure locale — et fait diverger un texte conditionnel entre le SSR et
- * l'hydratation (post-mortem NOMAQBANQ-5 : salutation du tableau de bord, qui
- * cassait l'hydratation 12 h sur 24 en heure avancée).
+ * Année civile dans le fuseau de la plateforme. Brancher sur
+ * `new Date().getFullYear()` lit l'année du RUNTIME — serveur en UTC vs
+ * navigateur en heure locale — et fait diverger le texte entre le SSR et
+ * l'hydratation le soir du 31 décembre (même piège que la salutation du
+ * tableau de bord, post-mortem Sentry NOMAQBANQ-5).
  */
-export const getAppZoneHour = (d: Date | number | string): number =>
-  inAppZone(d).getHours()
-
-/** Année civile dans le fuseau de la plateforme — même piège que `getAppZoneHour`. */
 export const getAppZoneYear = (d: Date | number | string): number =>
   inAppZone(d).getFullYear()
 

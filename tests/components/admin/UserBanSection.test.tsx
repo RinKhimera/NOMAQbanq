@@ -52,7 +52,6 @@ const pastBan: UserBanView = {
 }
 
 beforeEach(() => {
-  Object.values(mocks).forEach((m) => m.mockReset())
   mocks.banUser.mockResolvedValue({ success: true })
   mocks.unbanUser.mockResolvedValue({ success: true })
 })

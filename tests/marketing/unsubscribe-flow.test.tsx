@@ -10,8 +10,8 @@ vi.mock("@/features/notifications/actions", () => ({
 }))
 
 beforeEach(() => {
-  mocks.unsubscribe.mockReset().mockResolvedValue({ success: true })
-  mocks.resubscribe.mockReset().mockResolvedValue({ success: true })
+  mocks.unsubscribe.mockResolvedValue({ success: true })
+  mocks.resubscribe.mockResolvedValue({ success: true })
 })
 
 describe("UnsubscribeFlow", () => {

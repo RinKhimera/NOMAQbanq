@@ -1,13 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { signQuizToken, verifyQuizToken } from "@/features/questions/quiz-token"
 
 vi.mock("@/lib/env/server", () => ({
   env: { BETTER_AUTH_SECRET: "test-secret-please-change-000000000000" },
 }))
-
-afterEach(() => {
-  vi.useRealTimers()
-})
 
 describe("signQuizToken / verifyQuizToken", () => {
   it("aller-retour : les ids signés sont vérifiables, insensibles à l'ordre", () => {

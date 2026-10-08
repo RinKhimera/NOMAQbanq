@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getBaseUrl } from "@/lib/base-url"
 
 const { envMock } = vi.hoisted(() => ({
@@ -18,12 +18,10 @@ const VERCEL_KEYS = [
   "VERCEL_URL",
 ] as const
 
+// Neutralise des variables Vercel déjà présentes dans le processus.
 beforeEach(() => {
   envMock.current = {}
-  for (const k of VERCEL_KEYS) delete process.env[k]
-})
-afterEach(() => {
-  for (const k of VERCEL_KEYS) delete process.env[k]
+  for (const k of VERCEL_KEYS) vi.stubEnv(k, undefined)
 })
 
 describe("getBaseUrl", () => {
@@ -33,21 +31,21 @@ describe("getBaseUrl", () => {
   })
 
   it("derives the production domain on Vercel production", () => {
-    process.env.VERCEL_ENV = "production"
-    process.env.VERCEL_PROJECT_PRODUCTION_URL = "nomaqbanq.ca"
+    vi.stubEnv("VERCEL_ENV", "production")
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "nomaqbanq.ca")
     expect(getBaseUrl()).toBe("https://nomaqbanq.ca")
   })
 
   it("prefers the stable branch URL on Vercel preview", () => {
-    process.env.VERCEL_ENV = "preview"
-    process.env.VERCEL_BRANCH_URL = "nomaqbank-git-feat-team.vercel.app"
-    process.env.VERCEL_URL = "nomaqbank-abc123-team.vercel.app"
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_BRANCH_URL", "nomaqbank-git-feat-team.vercel.app")
+    vi.stubEnv("VERCEL_URL", "nomaqbank-abc123-team.vercel.app")
     expect(getBaseUrl()).toBe("https://nomaqbank-git-feat-team.vercel.app")
   })
 
   it("falls back to the deployment URL when no branch URL", () => {
-    process.env.VERCEL_ENV = "preview"
-    process.env.VERCEL_URL = "nomaqbank-abc123-team.vercel.app"
+    vi.stubEnv("VERCEL_ENV", "preview")
+    vi.stubEnv("VERCEL_URL", "nomaqbank-abc123-team.vercel.app")
     expect(getBaseUrl()).toBe("https://nomaqbank-abc123-team.vercel.app")
   })
 
@@ -57,8 +55,8 @@ describe("getBaseUrl", () => {
 
   it("lets an explicit BETTER_AUTH_URL override the Vercel env", () => {
     envMock.current.BETTER_AUTH_URL = "http://localhost:3000"
-    process.env.VERCEL_ENV = "production"
-    process.env.VERCEL_PROJECT_PRODUCTION_URL = "nomaqbanq.ca"
+    vi.stubEnv("VERCEL_ENV", "production")
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "nomaqbanq.ca")
     expect(getBaseUrl()).toBe("http://localhost:3000")
   })
 })

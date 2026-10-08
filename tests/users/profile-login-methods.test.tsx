@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { ProfileLoginMethods } from "@/components/shared/profile/profile-login-methods"
 
 const { unlinkAccount } = vi.hoisted(() => ({
@@ -13,10 +13,6 @@ vi.mock("@/lib/auth-client", () => ({
     sendVerificationEmail: vi.fn(),
   },
 }))
-
-beforeEach(() => {
-  unlinkAccount.mockClear()
-})
 
 describe("ProfileLoginMethods", () => {
   it("propose de définir un mot de passe pour un compte Google-only", () => {
@@ -54,7 +50,6 @@ describe("ProfileLoginMethods", () => {
     fireEvent.click(screen.getByTestId("login-method-google-unlink"))
     await waitFor(() => expect(unlinkAccount).toHaveBeenCalledTimes(1))
     expect(unlinkAccount).toHaveBeenCalledWith({ accountId: "acc-42" })
-    vi.unstubAllGlobals()
   })
 
   it("propose de lier Google et affiche non vérifié + renvoi", () => {

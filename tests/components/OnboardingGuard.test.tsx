@@ -13,47 +13,23 @@ describe("OnboardingGuard", () => {
   const mockReplace = vi.fn()
 
   beforeEach(() => {
-    vi.clearAllMocks()
     vi.mocked(useRouter).mockReturnValue(mockRouter({ replace: mockReplace }))
   })
 
-  it("redirige vers l'onboarding si l'utilisateur n'a pas de username", () => {
-    vi.mocked(usePathname).mockReturnValue("/tableau-de-bord")
+  it.each([
+    ["/tableau-de-bord", false, "/tableau-de-bord/bienvenue"],
+    ["/tableau-de-bord/bienvenue", false, null],
+    ["/tableau-de-bord/bienvenue", true, "/tableau-de-bord"],
+    ["/tableau-de-bord", true, null],
+    ["/tableau-de-bord/entrainement", true, null],
+  ])(
+    "sur %s, username renseigné = %s → redirection vers %s",
+    (pathname, hasUsername, target) => {
+      vi.mocked(usePathname).mockReturnValue(pathname)
 
-    render(<OnboardingGuard hasUsername={false} />)
+      render(<OnboardingGuard hasUsername={hasUsername} />)
 
-    expect(mockReplace).toHaveBeenCalledWith("/tableau-de-bord/bienvenue")
-  })
-
-  it("ne redirige pas un utilisateur sans username déjà sur l'onboarding", () => {
-    vi.mocked(usePathname).mockReturnValue("/tableau-de-bord/bienvenue")
-
-    render(<OnboardingGuard hasUsername={false} />)
-
-    expect(mockReplace).not.toHaveBeenCalled()
-  })
-
-  it("redirige vers le dashboard si l'utilisateur a un username et est sur l'onboarding", () => {
-    vi.mocked(usePathname).mockReturnValue("/tableau-de-bord/bienvenue")
-
-    render(<OnboardingGuard hasUsername />)
-
-    expect(mockReplace).toHaveBeenCalledWith("/tableau-de-bord")
-  })
-
-  it("ne fait rien si l'utilisateur a un username et est sur le dashboard", () => {
-    vi.mocked(usePathname).mockReturnValue("/tableau-de-bord")
-
-    render(<OnboardingGuard hasUsername />)
-
-    expect(mockReplace).not.toHaveBeenCalled()
-  })
-
-  it("ne redirige pas si l'utilisateur a un username et est sur une autre page", () => {
-    vi.mocked(usePathname).mockReturnValue("/tableau-de-bord/entrainement")
-
-    render(<OnboardingGuard hasUsername />)
-
-    expect(mockReplace).not.toHaveBeenCalled()
-  })
+      expect(mockReplace.mock.calls).toEqual(target ? [[target]] : [])
+    },
+  )
 })

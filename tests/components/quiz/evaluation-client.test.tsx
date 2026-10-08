@@ -4,8 +4,16 @@ import { toast } from "sonner"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { EvaluationClient } from "@/app/(passation)/tableau-de-bord/examen-blanc/[examId]/evaluation/_components/evaluation-client"
 import type { QuizCallbacks, QuizMode } from "@/components/quiz/runner/types"
-import { startExam } from "@/features/exams/actions"
-import { callAction } from "@/lib/safe-action"
+import type { AnswersMap } from "@/components/quiz/runner/types"
+import {
+  finalizeExam,
+  pauseExam,
+  readServerClock,
+  resumeExam,
+  saveExamAnswer,
+  saveExamFlag,
+  startExam,
+} from "@/features/exams/actions"
 
 const push = vi.fn()
 const refresh = vi.fn()
@@ -14,18 +22,26 @@ const refresh = vi.fn()
 let lastMode: QuizMode | undefined
 let lastCallbacks: QuizCallbacks | undefined
 let lastBanners: ReactNode
+let lastInitialAnswers: AnswersMap | undefined
+let lastInitialFlags: Set<string> | undefined
 
 vi.mock("@/components/quiz/runner/quiz-runner", () => ({
   QuizRunner: ({
     mode,
     callbacks,
     banners,
+    initialAnswers,
+    initialFlags,
   }: {
     mode: QuizMode
     callbacks: QuizCallbacks
     banners?: ReactNode
+    initialAnswers: AnswersMap
+    initialFlags?: Set<string>
   }) => {
     lastMode = mode
+    lastInitialAnswers = initialAnswers
+    lastInitialFlags = initialFlags
     lastCallbacks = callbacks
     lastBanners = banners
     return (
@@ -36,13 +52,10 @@ vi.mock("@/components/quiz/runner/quiz-runner", () => ({
   },
 }))
 
-vi.mock("next/navigation", () => ({
+// `callAction` lit `unstable_isUnrecognizedActionError` : seul `useRouter` est remplacé.
+vi.mock("next/navigation", async (orig) => ({
+  ...(await orig<typeof import("next/navigation")>()),
   useRouter: () => ({ push, refresh }),
-}))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
 }))
 
 vi.mock("sonner", () => ({
@@ -61,10 +74,6 @@ vi.mock("@/features/exams/actions", () => ({
   saveExamAnswer: vi.fn(),
   saveExamFlag: vi.fn(),
   startExam: vi.fn(),
-}))
-
-vi.mock("@/lib/safe-action", () => ({
-  callAction: vi.fn(),
 }))
 
 const SERVER_START = 1_700_000_000_000
@@ -132,10 +141,11 @@ const renderClient = ({
   )
 
 beforeEach(() => {
-  vi.clearAllMocks()
   lastMode = undefined
   lastCallbacks = undefined
   lastBanners = undefined
+  lastInitialAnswers = undefined
+  lastInitialFlags = undefined
 })
 
 describe("EvaluationClient — câblage du chrono", () => {
@@ -160,10 +170,23 @@ describe("EvaluationClient — câblage du chrono", () => {
   })
 
   it("réhydrate réponses et marque-pages sans jamais exposer isCorrect", () => {
-    renderClient()
+    // Une ligne qui porterait la correction ne doit rien en transmettre au moteur.
+    const rowWithKey = {
+      questionId: "q1",
+      selectedAnswer: "A",
+      isFlagged: true,
+      isCorrect: true,
+    }
+    renderClient({
+      initialAnswersRaw: [
+        rowWithKey,
+        { questionId: "q2", selectedAnswer: null, isFlagged: false },
+        { questionId: "q3", selectedAnswer: null, isFlagged: true },
+      ],
+    })
 
-    expect(lastMode?.pause).toBeNull()
-    expect(screen.getByTestId("quiz-runner-stub")).toBeTruthy()
+    expect(lastInitialAnswers).toStrictEqual({ q1: { selected: "A" } })
+    expect(lastInitialFlags).toEqual(new Set(["q1", "q3"]))
   })
 
   it("une reprise annonce les réponses conservées, pas un démarrage", () => {
@@ -255,24 +278,7 @@ describe("EvaluationClient — démarrage", () => {
     })
   }
 
-  it("rafraîchit le payload RSC après un démarrage réussi", async () => {
-    vi.mocked(callAction).mockResolvedValue({
-      success: true,
-      startedAt: SERVER_START,
-    } as never)
-
-    await demarrer()
-
-    expect(vi.mocked(callAction)).toHaveBeenCalled()
-    expect(refresh).toHaveBeenCalledTimes(1)
-    expect(push).not.toHaveBeenCalled()
-  })
-
-  it("passe par startExam", async () => {
-    vi.mocked(callAction).mockImplementation(async (fn) => {
-      await (fn as () => Promise<unknown>)()
-      return { success: true, startedAt: SERVER_START } as never
-    })
+  it("démarre par startExam puis rafraîchit le payload RSC", async () => {
     vi.mocked(startExam).mockResolvedValue({
       success: true,
       participationId: "p1",
@@ -282,10 +288,12 @@ describe("EvaluationClient — démarrage", () => {
     await demarrer()
 
     expect(startExam).toHaveBeenCalledWith({ examId: "exam-1" })
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(push).not.toHaveBeenCalled()
   })
 
   it("renvoie vers la liste quand le serveur refuse le démarrage", async () => {
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(startExam).mockResolvedValue({
       success: false,
       error: "Vous avez déjà passé cet examen.",
     } as never)
@@ -312,7 +320,7 @@ describe("EvaluationClient — squelette d'attente", () => {
 describe("EvaluationClient — callbacks", () => {
   it("signale une réponse non enregistrée sans révéler la correction", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(saveExamAnswer).mockResolvedValue({
       success: false,
       error: "Réseau",
     } as never)
@@ -327,7 +335,7 @@ describe("EvaluationClient — callbacks", () => {
 
   it("temps écoulé côté serveur : message distinct (pas « réessayez ») et signal timeUp au moteur", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(saveExamAnswer).mockResolvedValue({
       success: false,
       error: "Temps écoulé.",
       code: "TIME_UP",
@@ -346,7 +354,7 @@ describe("EvaluationClient — callbacks", () => {
 
   it("option modifiée depuis l'ouverture de la page : demande de recharger, pas de réessayer", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(saveExamAnswer).mockResolvedValue({
       success: false,
       error: "Cette question a été modifiée. Rechargez la page.",
       code: "OPTION_CHANGED",
@@ -365,7 +373,7 @@ describe("EvaluationClient — callbacks", () => {
 
   it("relit l'heure du serveur en silence au réveil de l'onglet, et avale l'échec", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(readServerClock).mockResolvedValue({
       success: true,
       serverNow: 12_345,
     } as never)
@@ -374,7 +382,7 @@ describe("EvaluationClient — callbacks", () => {
       serverNow: 12_345,
     })
 
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(readServerClock).mockResolvedValue({
       success: false,
       error: "Réseau",
     } as never)
@@ -385,24 +393,38 @@ describe("EvaluationClient — callbacks", () => {
 
   it("acquitte une réponse enregistrée sans champ de correction", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({ success: true } as never)
+    vi.mocked(saveExamAnswer).mockResolvedValue({ success: true } as never)
 
     expect(await lastCallbacks!.onAnswer!("q1", "A")).toEqual({ ok: true })
+    expect(saveExamAnswer).toHaveBeenCalledWith({
+      examId: "exam-1",
+      questionId: "q1",
+      selectedAnswer: "A",
+    })
   })
 
   it("propage l'échec d'un marque-page", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({ success: false } as never)
+    vi.mocked(saveExamFlag).mockResolvedValue({ success: false } as never)
 
     expect(await lastCallbacks!.onFlag!("q1", true)).toEqual({ ok: false })
+    expect(saveExamFlag).toHaveBeenCalledWith({
+      examId: "exam-1",
+      questionId: "q1",
+      isFlagged: true,
+    })
   })
 
   it("redirige vers la page « soumis » après une remise manuelle", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({ success: true } as never)
+    vi.mocked(finalizeExam).mockResolvedValue({ success: true } as never)
 
     const res = await lastCallbacks!.onFinish!({ isAutoSubmit: false })
 
+    expect(finalizeExam).toHaveBeenCalledWith({
+      examId: "exam-1",
+      isAutoSubmit: false,
+    })
     expect(res).toEqual({
       ok: true,
       redirectTo: `${LISTE}/exam-1/soumis`,
@@ -412,10 +434,14 @@ describe("EvaluationClient — callbacks", () => {
 
   it("annonce la soumission automatique quand le temps est écoulé", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({ success: true } as never)
+    vi.mocked(finalizeExam).mockResolvedValue({ success: true } as never)
 
     await lastCallbacks!.onFinish!({ isAutoSubmit: true })
 
+    expect(finalizeExam).toHaveBeenCalledWith({
+      examId: "exam-1",
+      isAutoSubmit: true,
+    })
     expect(toast.success).toHaveBeenCalledWith(
       expect.stringContaining("Temps écoulé"),
     )
@@ -423,7 +449,7 @@ describe("EvaluationClient — callbacks", () => {
 
   it("renvoie vers la liste quand la participation n'est plus active", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(finalizeExam).mockResolvedValue({
       success: false,
       error: "Vous avez déjà passé cet examen",
     } as never)
@@ -436,7 +462,7 @@ describe("EvaluationClient — callbacks", () => {
 
   it("garde l'utilisateur sur place quand la remise échoue autrement", async () => {
     renderClient()
-    vi.mocked(callAction).mockResolvedValue({ success: false } as never)
+    vi.mocked(finalizeExam).mockResolvedValue({ success: false } as never)
 
     await lastCallbacks!.onFinish!({ isAutoSubmit: false })
 
@@ -456,7 +482,7 @@ describe("EvaluationClient — callbacks", () => {
 
   it("remonte le cumul de pause serveur à la reprise", async () => {
     renderClient({ enablePause: true })
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(resumeExam).mockResolvedValue({
       success: true,
       totalPauseDurationMs: 30_000,
     } as never)
@@ -465,11 +491,12 @@ describe("EvaluationClient — callbacks", () => {
       ok: true,
       totalPauseDurationMs: 30_000,
     })
+    expect(resumeExam).toHaveBeenCalledWith({ examId: "exam-1" })
   })
 
   it("refuse la reprise sans cumul quand le serveur échoue", async () => {
     renderClient({ enablePause: true })
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(resumeExam).mockResolvedValue({
       success: false,
       error: "Réseau",
     } as never)
@@ -480,7 +507,7 @@ describe("EvaluationClient — callbacks", () => {
 
   it("confirme la mise en pause sans toast, et la signale quand elle échoue", async () => {
     renderClient({ enablePause: true })
-    vi.mocked(callAction).mockResolvedValue({
+    vi.mocked(pauseExam).mockResolvedValue({
       success: true,
       pauseStartedAt: 4_000,
       serverNow: 4_000,
@@ -493,8 +520,9 @@ describe("EvaluationClient — callbacks", () => {
       serverNow: 4_000,
     })
     expect(toast.info).not.toHaveBeenCalled()
+    expect(pauseExam).toHaveBeenCalledWith({ examId: "exam-1" })
 
-    vi.mocked(callAction).mockResolvedValue({ success: false } as never)
+    vi.mocked(pauseExam).mockResolvedValue({ success: false } as never)
     expect(await lastCallbacks!.onPause!()).toEqual({ ok: false })
     expect(toast.error).toHaveBeenCalledWith("Erreur lors de la mise en pause")
   })

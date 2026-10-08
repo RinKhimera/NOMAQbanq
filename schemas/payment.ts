@@ -1,21 +1,7 @@
 import * as z from "zod"
+import type { transactionStatus } from "@/db/schema/enums"
 
-export const accessTypeSchema = z.enum(["exam", "training"])
-
-export type AccessType = z.infer<typeof accessTypeSchema>
-
-export const transactionStatusSchema = z.enum([
-  "pending",
-  "completed",
-  "failed",
-  "refunded",
-])
-
-export type TransactionStatus = z.infer<typeof transactionStatusSchema>
-
-export const transactionTypeSchema = z.enum(["stripe", "manual"])
-
-export type TransactionType = z.infer<typeof transactionTypeSchema>
+export type TransactionStatus = (typeof transactionStatus.enumValues)[number]
 
 export const paymentMethodSchema = z.enum([
   "cash",

@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest"
 import { QuestionCard } from "@/components/quiz/question-card"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 
+// Le vrai `Image` réécrit `src` en `/_next/image?url=…` : le stub expose l'URL
+// que la carte lui confie.
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { DEFAULT_QUESTION_LIST } from "@/app/(admin)/admin/questions/_components/question-params"
 import { QuestionsClient } from "@/app/(admin)/admin/questions/_components/questions-client"
 import type { QuestionListPage } from "@/features/questions/dal"
@@ -80,8 +80,6 @@ const renderList = (
       initialNow={NOW}
     />,
   )
-
-afterEach(() => vi.clearAllMocks())
 
 describe("QuestionsClient", () => {
   it("onglets à compteur ; changer d'onglet écrit l'URL et revient en page 1", () => {

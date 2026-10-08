@@ -1,12 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { GET, POST } from "@/app/api/desabonnement/route"
 
 const mocks = vi.hoisted(() => ({ apply: vi.fn() }))
 vi.mock("@/features/notifications/unsubscribe", () => ({
   applyMarketingPreferenceByToken: mocks.apply,
 }))
-
-beforeEach(() => mocks.apply.mockReset())
 
 describe("POST /api/desabonnement (RFC 8058)", () => {
   it("jeton valide → 200 et préférence désactivée", async () => {

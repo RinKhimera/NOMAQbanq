@@ -63,15 +63,6 @@ export const tryDeleteFromStorage = async (
 
 // ---------- Path helpers (dérivés serveur) ----------
 
-export const generateQuestionImagePath = (
-  questionId: string,
-  index: number,
-  extension: string,
-): string => {
-  const cleanExt = extension.replace(/^\./, "").toLowerCase()
-  return `questions/${questionId}/${Date.now()}-${index}.${cleanExt}`
-}
-
 /**
  * Chemin TAMPON (`tmp/questions/{id}/{kind}/…`) pour un upload d'image question
  * avant persistance. L'upload presigned vise ce préfixe ; au save, l'objet est

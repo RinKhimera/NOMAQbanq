@@ -1,23 +1,5 @@
-import { readFileSync, readdirSync } from "node:fs"
-import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-
-const ROOT = process.cwd()
-
-/** Marche récursive : évite d'ajouter une dépendance de glob pour un seul test. */
-const walk = (dir: string): string[] => {
-  const out: string[] = []
-  for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
-    const path = `${dir}/${entry.name}`
-    if (entry.isDirectory()) {
-      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue
-      out.push(...walk(path))
-    } else if (/\.tsx?$/.test(entry.name)) {
-      out.push(path)
-    }
-  }
-  return out
-}
+import { readSource, walk } from "./source-files"
 
 const PALETTE =
   "white|black|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose"
@@ -76,11 +58,15 @@ const FILES = [
   "email",
 ].flatMap((dir) => walk(dir))
 
+const SOURCES = FILES.map((file) => ({
+  file,
+  lines: readSource(file).split("\n"),
+}))
+
 const offenders = (rule: Rule) =>
-  FILES.filter((file) => !EXCEPTIONS[rule]?.[file]).flatMap((file) =>
-    readFileSync(join(ROOT, file), "utf8")
-      .split("\n")
-      .flatMap((line, i) =>
+  SOURCES.filter(({ file }) => !EXCEPTIONS[rule]?.[file]).flatMap(
+    ({ file, lines }) =>
+      lines.flatMap((line, i) =>
         RULES[rule].test(line) ? [`${file}:${i + 1}  ${line.trim()}`] : [],
       ),
   )

@@ -1,5 +1,5 @@
 import type { ReactElement } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import type { ExamFormProps } from "@/app/(admin)/admin/examens/_components/exam-form"
 import AdminCreateExamPage from "@/app/(admin)/admin/examens/creer/page"
 import {
@@ -47,11 +47,6 @@ const renderPage = async (source?: string | string[]) =>
   })) as ReactElement<ExamFormProps>
 
 describe("page de création d'examen", () => {
-  beforeEach(() => {
-    vi.mocked(getExamReopeningSource).mockReset()
-    vi.mocked(getExamSelection).mockReset()
-  })
-
   it("pré-remplit une réouverture depuis une source close : visé de la source, questions non supprimées", async () => {
     vi.mocked(getExamReopeningSource).mockResolvedValue(sourceWithEnd(NOW - 1))
     // q3 a été supprimée depuis : la source ne la reprend pas.

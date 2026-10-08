@@ -49,7 +49,6 @@ vi.mock("next/headers", () => ({ headers: vi.fn() }))
 const VALID = { name: "Sam", username: "sam_p", bio: "" }
 
 beforeEach(() => {
-  mocks.captureServerError.mockClear()
   mocks.limitFn.mockResolvedValue([])
 })
 

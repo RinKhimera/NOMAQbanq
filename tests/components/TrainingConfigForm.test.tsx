@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { TrainingConfigForm } from "@/app/(dashboard)/tableau-de-bord/entrainement/_components/training-config-form"
 
 const {
@@ -65,10 +65,6 @@ const primeActions = () => {
 
 const start = () => screen.getByTestId("btn-start-training")
 const pool = () => screen.getByTestId("training-pool")
-
-beforeEach(() => {
-  vi.clearAllMocks()
-})
 
 describe("TrainingConfigForm — révision ciblée", () => {
   it("affiche les compteurs de révision dans les pastilles", async () => {
@@ -192,19 +188,6 @@ describe("TrainingConfigForm — révision ciblée", () => {
     // Changer un réglage retire l'alerte.
     await userEvent.click(screen.getByTestId("revision-failed"))
     expect(screen.queryByTestId("training-refusal")).not.toBeInTheDocument()
-  })
-
-  it("prévient quand les compteurs sont injoignables", async () => {
-    loadAvailableObjectifsCMC.mockResolvedValue({ objectifs })
-    loadRevisionCounts.mockRejectedValue(new Error("Failed to fetch"))
-
-    render(<TrainingConfigForm {...props} />)
-
-    await waitFor(() => {
-      expect(toastError).toHaveBeenCalledWith(
-        "Impossible de charger vos compteurs de révision. Vérifiez votre réseau.",
-      )
-    })
   })
 })
 
@@ -456,11 +439,15 @@ describe("TrainingConfigForm — domaine et objectifs", () => {
     )
   })
 
-  it("compteurs injoignables : le formulaire repart à vide au lieu de rester grisé", async () => {
+  it("compteurs injoignables : prévient, et le formulaire repart à vide au lieu de rester grisé", async () => {
     loadAvailableObjectifsCMC.mockResolvedValue({ objectifs })
     loadRevisionCounts.mockRejectedValue(new Error("Failed to fetch"))
     render(<TrainingConfigForm {...props} />)
-    await waitFor(() => expect(toastError).toHaveBeenCalled())
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        "Impossible de charger vos compteurs de révision. Vérifiez votre réseau.",
+      ),
+    )
     await waitFor(() => expect(start()).not.toBeDisabled())
     expect(pool()).toHaveTextContent("3 000 questions")
     expect(screen.getByTestId("revision-failed")).toBeDisabled()

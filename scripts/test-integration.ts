@@ -70,7 +70,7 @@ try {
   console.log(
     `[test-integration] tests… (ordre : graine ${seed}, rejouer avec -- --sequence.seed=${seed})`,
   )
-  // `--project` explicite (couverture complète : frontend + integration) prime sur
+  // `--project` explicite (couverture complète : unit + frontend + integration) prime sur
   // le ciblage par défaut, sinon les deux se cumuleraient.
   const projectArgs = vitestArgs.includes("--project")
     ? []

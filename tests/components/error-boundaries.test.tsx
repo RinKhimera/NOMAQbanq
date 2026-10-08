@@ -1,15 +1,11 @@
 import { render } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import AdminError from "@/app/(admin)/error"
 import DashboardError from "@/app/(dashboard)/error"
 import RootError from "@/app/error"
 
 const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }))
 vi.mock("@sentry/nextjs", () => ({ captureException }))
-
-afterEach(() => {
-  captureException.mockClear()
-})
 
 describe.each([
   ["racine", RootError],

@@ -1,14 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { captureServerError } from "@/lib/observability"
 
 const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }))
 vi.mock("@sentry/nextjs", () => ({ captureException }))
-
-afterEach(() => {
-  vi.unstubAllEnvs()
-  vi.restoreAllMocks()
-  captureException.mockClear()
-})
 
 describe("captureServerError", () => {
   it("hors prod : console.error, pas de Sentry", () => {

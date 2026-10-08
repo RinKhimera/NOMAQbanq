@@ -24,20 +24,6 @@ import { inAppZone } from "@/lib/app-zone"
 export const APP_TIME_ZONE_LABEL = "heure de l'Est"
 
 /**
- * Journée civile d'une date issue d'un calendrier, lue dans le fuseau du
- * NAVIGATEUR, comme `formatCalendarDay` et `formatFileTimestamp` : la valeur
- * d'un date picker désigne la case que l'admin vient de cliquer, pas un
- * instant ; un nom de fichier d'export suit l'horloge de celui qui l'enregistre.
- */
-export const toCalendarDay = (d: Date): string => format(d, "yyyy-MM-dd")
-
-/** « 3 juil. 2026 » d'une date de calendrier, même lecture que `toCalendarDay`. */
-export const formatCalendarDay = (
-  d: Date,
-  { year = true }: { year?: boolean } = {},
-): string => format(d, year ? "d MMM yyyy" : "d MMM", { locale: fr })
-
-/**
  * Jour ISO (`yyyy-MM-dd`) d'une série agrégée par jour : « 3 juil. », ou
  * « vendredi 3 juillet 2026 » en `weekday`. Un jour n'est pas un instant, il
  * n'a pas de fuseau à ancrer.
@@ -79,7 +65,9 @@ export const formatCurrency = (
   return new Intl.NumberFormat("fr-CA", {
     style: "currency",
     currency,
-    minimumFractionDigits: 0,
+    // Un montant rond s'affiche sans décimales (« 50 $ »), un montant avec
+    // des cents en montre toujours deux (« 50,50 $ », jamais « 50,5 $ »).
+    minimumFractionDigits: whole || Number.isInteger(amount) ? 0 : 2,
     maximumFractionDigits: whole ? 0 : 2,
   }).format(amount)
 }
@@ -169,7 +157,10 @@ export const formatCountdown = (ms: number): string => {
   return `${minutes} min ${String(seconds % 60).padStart(2, "0")} s`
 }
 
-/** « 27-09-2026_09-05 » — suffixe de nom de fichier d'export. */
+/**
+ * « 27-09-2026_09-05 » — suffixe de nom de fichier d'export, lu dans le fuseau
+ * du NAVIGATEUR : le nom suit l'horloge de celui qui enregistre le fichier.
+ */
 export const formatFileTimestamp = (d: Date): string =>
   format(d, "dd-MM-yyyy_HH-mm")
 

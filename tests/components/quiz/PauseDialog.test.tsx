@@ -1,7 +1,6 @@
-import { act, render, screen } from "@testing-library/react"
-import { fireEvent } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { renderToString } from "react-dom/server"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { PauseDialog } from "@/components/quiz/pause-dialog"
 
 describe("PauseDialog", () => {
@@ -35,30 +34,6 @@ describe("PauseDialog", () => {
     ).toBeInTheDocument()
   })
 
-  it("affiche le timer de pause", () => {
-    render(<PauseDialog {...defaultProps} />)
-
-    expect(screen.getByTestId("pause-timer")).toBeInTheDocument()
-  })
-
-  it("n'affiche plus le modèle abandonné de verrouillage par moitié", () => {
-    render(<PauseDialog {...defaultProps} />)
-
-    expect(
-      screen.queryByText("Première moitié complétée"),
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByText("Seconde moitié verrouillée"),
-    ).not.toBeInTheDocument()
-  })
-
-  it("affiche le bouton Reprendre l'examen", () => {
-    render(<PauseDialog {...defaultProps} />)
-
-    const resumeBtn = screen.getByTestId("btn-resume-exam")
-    expect(resumeBtn).toBeInTheDocument()
-  })
-
   it("appelle onResume au clic sur le bouton reprendre", () => {
     const onResume = vi.fn()
     render(<PauseDialog {...defaultProps} onResume={onResume} />)
@@ -77,8 +52,6 @@ describe("PauseDialog", () => {
 })
 
 describe("PauseDialog — décompte", () => {
-  afterEach(() => vi.useRealTimers())
-
   it("ancre le rendu serveur sur initialNow, pas sur Date.now()", () => {
     vi.useFakeTimers()
     const pauseStartedAt = 1_000_000

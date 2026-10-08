@@ -907,7 +907,7 @@ describe("score retenu — participation sans réponse", () => {
     await grantExamAccess(EMPTY_ID)
     // Clos une minute avant le seed (lisible) ou ouvert une minute après
     // (retenu), aucune question répondue dans les deux cas. La borne exacte
-    // `end_date > now()` (strict) est portée par le test du fragment SQL :
+    // `end_date > now()` (strict) est portée par tests/questions/answer-key-lock.test.ts :
     // une date de fin égale à l'horloge JS du seed dépendrait de l'écart entre
     // cette horloge et celle de Postgres.
     const specs = [

@@ -1,7 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { ExamenBlancClient } from "@/app/(dashboard)/tableau-de-bord/examen-blanc/_components/examen-blanc-client"
 import type { ExamListItem, ExamListParticipation } from "@/features/exams/dal"
 
@@ -15,20 +14,6 @@ const { push, refresh, toastError, startExam } = vi.hoisted(() => ({
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
   useRouter: () => ({ push, refresh }),
-}))
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    ...rest
-  }: {
-    children: ReactNode
-    href: string
-  }) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
 }))
 vi.mock("sonner", () => ({
   toast: { error: toastError, success: vi.fn() },
@@ -78,8 +63,7 @@ const past = (id: string, over: Partial<ExamListItem> = {}) =>
   })
 
 /** Carte de chiffre portant ce libellé (libellé → en-tête → carte). */
-const vital = (label: string) =>
-  screen.getByText(label).parentElement!.parentElement!
+const vital = (label: string) => screen.getByRole("group", { name: label })
 
 const renderList = (
   exams: ExamListItem[],
@@ -95,10 +79,6 @@ const renderList = (
       {...props}
     />,
   )
-
-beforeEach(() => {
-  vi.clearAllMocks()
-})
 
 describe("ExamenBlancClient — chiffres", () => {
   it("passés, réussis sur les scores lisibles, moyenne au plancher", () => {

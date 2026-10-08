@@ -1,20 +1,7 @@
 import { render, screen, within } from "@testing-library/react"
-import { type ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import { SessionResults } from "@/components/quiz/results/session-results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
-
-vi.mock("next/image", () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => (
-    <img src={src} alt={alt} />
-  ),
-}))
 
 // Page de résultats rendue avec la vraie carte : le libellé de chaque carte doit
 // suivre le verdict enregistré, comme le score et les compteurs de la page.

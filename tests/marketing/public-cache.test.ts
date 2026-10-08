@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 const { unstableCache } = vi.hoisted(() => ({
   unstableCache: vi.fn<
@@ -24,10 +24,6 @@ const loadCachedModule = async (deploymentId: string) => {
   const [stats, products, objectives] = unstableCache.mock.calls
   return { stats, products, objectives }
 }
-
-afterEach(() => {
-  vi.unstubAllEnvs()
-})
 
 describe("cache des lectures publiques", () => {
   it("met le déploiement dans chaque clé", async () => {
@@ -92,5 +88,5 @@ it("la page d'un domaine lit ses objectifs en cache", () => {
     "utf8",
   )
   expect(source).toContain("getCachedDomainObjectives")
-  expect(source).not.toMatch(/getPublicDomainObjectives/)
+  expect(source).not.toMatch(/\bgetPublicDomainObjectives\b/)
 })

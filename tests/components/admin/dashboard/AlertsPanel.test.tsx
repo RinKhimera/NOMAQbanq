@@ -1,19 +1,6 @@
 import { render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import { AlertsPanel } from "@/components/admin/dashboard/alerts-panel"
-
-vi.mock("next/image", () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => (
-    <img src={src} alt={alt} data-testid="next-image" />
-  ),
-}))
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 const createExpiringAccess = (
   overrides: {
@@ -37,120 +24,70 @@ describe("AlertsPanel", () => {
   it("affiche l'état vide quand il n'y a pas d'alertes", () => {
     render(<AlertsPanel expiringAccess={[]} failedClientsCount={0} />)
 
+    expect(screen.getByText("Alertes")).toBeInTheDocument()
     expect(screen.getByText("Tout va bien")).toBeInTheDocument()
     expect(screen.getByText(/Aucune alerte à signaler/)).toBeInTheDocument()
   })
 
-  it("affiche le titre 'Alertes' dans les deux cas", () => {
-    const { rerender } = render(
-      <AlertsPanel expiringAccess={[]} failedClientsCount={0} />,
-    )
-    expect(screen.getByText("Alertes")).toBeInTheDocument()
-
-    rerender(
-      <AlertsPanel
-        expiringAccess={[createExpiringAccess()]}
-        failedClientsCount={0}
-      />,
-    )
-    expect(screen.getByText("Alertes")).toBeInTheDocument()
-  })
-
-  it("affiche une alerte pour les accès examens expirant", () => {
+  it.each([
+    ["exam", "Accès examens expirant"],
+    ["training", "Accès entraînement expirant"],
+  ] as const)("accès %s expirant → alerte « %s »", (accessType, title) => {
     render(
       <AlertsPanel
-        expiringAccess={[createExpiringAccess({ accessType: "exam" })]}
+        expiringAccess={[createExpiringAccess({ accessType })]}
         failedClientsCount={0}
       />,
     )
 
-    expect(screen.getByText("Accès examens expirant")).toBeInTheDocument()
+    expect(screen.getByText(title)).toBeInTheDocument()
   })
 
-  it("affiche une alerte pour les accès entraînement expirant", () => {
+  it.each([
+    [
+      "un utilisateur, pluriel",
+      [{ daysRemaining: 5, name: "Marie Martin" }],
+      "Marie Martin - 5j restants",
+    ],
+    [
+      "un utilisateur, singulier à 1 jour",
+      [{ daysRemaining: 1, name: "Paul Tremblay" }],
+      "Paul Tremblay - 1j restant",
+    ],
+    [
+      "nom absent → repli",
+      [{ daysRemaining: 3, name: null }],
+      "1 utilisateur - 3j restants",
+    ],
+    [
+      "plusieurs utilisateurs → minimum",
+      [{ daysRemaining: 5 }, { daysRemaining: 2 }, { daysRemaining: 7 }],
+      "3 utilisateurs, 2j minimum",
+    ],
+  ])("description : %s", (_, items, description) => {
     render(
       <AlertsPanel
-        expiringAccess={[createExpiringAccess({ accessType: "training" })]}
+        expiringAccess={items.map((item) => createExpiringAccess(item))}
         failedClientsCount={0}
       />,
     )
 
-    expect(screen.getByText("Accès entraînement expirant")).toBeInTheDocument()
+    expect(screen.getByText(description)).toBeInTheDocument()
   })
 
-  it("affiche la description pour un seul utilisateur avec accès expirant", () => {
+  it.each([
+    [1, "1 client dont la dernière tentative a échoué"],
+    [4, "4 clients dont la dernière tentative a échoué"],
+  ])("%i paiement(s) échoué(s) → « %s »", (failedClientsCount, description) => {
     render(
       <AlertsPanel
-        expiringAccess={[
-          createExpiringAccess({
-            accessType: "exam",
-            daysRemaining: 5,
-            name: "Marie Martin",
-          }),
-        ]}
-        failedClientsCount={0}
+        expiringAccess={[]}
+        failedClientsCount={failedClientsCount}
       />,
     )
-
-    expect(screen.getByText("Marie Martin - 5j restants")).toBeInTheDocument()
-  })
-
-  it("affiche la description au singulier pour 1 jour restant", () => {
-    render(
-      <AlertsPanel
-        expiringAccess={[
-          createExpiringAccess({
-            accessType: "exam",
-            daysRemaining: 1,
-            name: "Paul Tremblay",
-          }),
-        ]}
-        failedClientsCount={0}
-      />,
-    )
-
-    expect(screen.getByText("Paul Tremblay - 1j restant")).toBeInTheDocument()
-  })
-
-  it("affiche la description pour plusieurs utilisateurs", () => {
-    render(
-      <AlertsPanel
-        expiringAccess={[
-          createExpiringAccess({
-            accessType: "exam",
-            daysRemaining: 5,
-          }),
-          createExpiringAccess({
-            accessType: "exam",
-            daysRemaining: 2,
-          }),
-          createExpiringAccess({
-            accessType: "exam",
-            daysRemaining: 7,
-          }),
-        ]}
-        failedClientsCount={0}
-      />,
-    )
-
-    expect(screen.getByText("3 utilisateurs, 2j minimum")).toBeInTheDocument()
-  })
-
-  it("affiche l'alerte de paiements échoués au singulier", () => {
-    render(<AlertsPanel expiringAccess={[]} failedClientsCount={1} />)
 
     expect(screen.getByText("Paiements échoués")).toBeInTheDocument()
-    expect(
-      screen.getByText("1 client dont la dernière tentative a échoué"),
-    ).toBeInTheDocument()
-  })
-
-  it("affiche l'alerte de paiements échoués au pluriel", () => {
-    render(<AlertsPanel expiringAccess={[]} failedClientsCount={4} />)
-
-    expect(
-      screen.getByText("4 clients dont la dernière tentative a échoué"),
-    ).toBeInTheDocument()
+    expect(screen.getByText(description)).toBeInTheDocument()
   })
 
   it("affiche le nombre en badge pour les alertes avec compteur", () => {
@@ -164,41 +101,22 @@ describe("AlertsPanel", () => {
       />,
     )
 
-    // Badge count pour accès examens
+    expect(screen.getByText("Alertes")).toBeInTheDocument()
     expect(screen.getByText("2")).toBeInTheDocument()
-    // Badge count pour paiements échoués
     expect(screen.getByText("3")).toBeInTheDocument()
   })
 
   it("crée des liens vers les pages appropriées", () => {
-    const { container } = render(
+    render(
       <AlertsPanel
         expiringAccess={[createExpiringAccess({ accessType: "exam" })]}
         failedClientsCount={2}
       />,
     )
 
-    const links = container.querySelectorAll("a")
-    const hrefs = Array.from(links).map((a) => a.getAttribute("href"))
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"))
 
     expect(hrefs).toContain("/admin/utilisateurs?segment=bientot")
     expect(hrefs).toContain("/admin/transactions?filtre=echec")
-  })
-
-  it("utilise le fallback quand le nom de l'utilisateur est null", () => {
-    render(
-      <AlertsPanel
-        expiringAccess={[
-          createExpiringAccess({
-            accessType: "exam",
-            daysRemaining: 3,
-            name: null,
-          }),
-        ]}
-        failedClientsCount={0}
-      />,
-    )
-
-    expect(screen.getByText("1 utilisateur - 3j restants")).toBeInTheDocument()
   })
 })

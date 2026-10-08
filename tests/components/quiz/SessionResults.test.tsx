@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   SessionResults,
@@ -7,26 +6,23 @@ import {
 } from "@/components/quiz/results/session-results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
-
 vi.mock("@/components/quiz/question-card", () => ({
   QuestionCard: ({
     questionNumber,
     userAnswer,
     isFlagged,
+    isExpanded,
   }: {
     questionNumber: number
     userAnswer: string | null
     isFlagged?: boolean
+    isExpanded?: boolean
   }) => (
     <div
       data-testid="question-card"
       data-user-answer={userAnswer ?? "none"}
       data-flagged={isFlagged ? "true" : undefined}
+      data-expanded={isExpanded ? "true" : "false"}
     >
       Q{questionNumber}
     </div>
@@ -527,8 +523,6 @@ describe("SessionResults", () => {
 
       afterEach(() => {
         Element.prototype.scrollIntoView = original
-        scrollIntoView.mockClear()
-        vi.unstubAllGlobals()
       })
 
       const renderFiltered = () => {
@@ -579,10 +573,17 @@ describe("SessionResults", () => {
           answers={denseAnswers}
         />,
       )
-      fireEvent.click(screen.getByText("Tout déplier"))
-      fireEvent.click(screen.getByText("Tout replier"))
-      // pas d'erreur — juste vérifier que ça ne plante pas
-      expect(screen.getAllByTestId("question-card")).toHaveLength(3)
+      const expanded = () =>
+        screen
+          .getAllByTestId("question-card")
+          .map((card) => card.dataset.expanded)
+      expect(expanded()).toEqual(["true", "false", "false"])
+
+      fireEvent.click(screen.getByTestId("btn-expand-all"))
+      expect(expanded()).toEqual(["true", "true", "true"])
+
+      fireEvent.click(screen.getByTestId("btn-collapse-all"))
+      expect(expanded()).toEqual(["false", "false", "false"])
     })
   })
 
@@ -620,72 +621,40 @@ describe("SessionResults", () => {
   })
 
   describe("compat données historiques (answers clairsemées)", () => {
-    /**
-     * Older exam participations only had examAnswers rows for ANSWERED questions.
-     * The "answers" map is sparse: some question IDs are absent.
-     * This test verifies the component treats absent entries as "unanswered".
-     */
-    it("traite les questions absentes de answers comme 'non répondues'", () => {
-      const sparseAnswers: AnswersMap = {
-        // Only q1 is answered; q2 and q3 are absent (no key at all)
-        q1: { selected: "A", isCorrect: true },
-      }
+    // Les anciennes participations n'avaient de ligne que pour les questions
+    // répondues : une question absente de la carte, ou à réponse vide, est
+    // « non répondue » partout (compteur et navigateur).
+    it.each<{ cas: string; answers: AnswersMap }>([
+      {
+        cas: "absentes de la carte",
+        answers: { q1: { selected: "A", isCorrect: true } },
+      },
+      {
+        cas: "à réponse vide ou absentes",
+        answers: {
+          q1: { selected: "A", isCorrect: true },
+          q2: { selected: "", isCorrect: false },
+        },
+      },
+    ])(
+      "questions $cas : comptées et signalées non répondues",
+      ({ answers }) => {
+        render(
+          <SessionResults
+            kind="exam"
+            score={33}
+            questions={questions}
+            answers={answers}
+          />,
+        )
 
-      render(
-        <SessionResults
-          kind="exam"
-          score={33}
-          questions={questions}
-          answers={sparseAnswers}
-        />,
-      )
-
-      expect(screen.getAllByTestId("question-card")).toHaveLength(3)
-      expect(screen.getByTestId("stat-unanswered").textContent).toBe("2")
-    })
-
-    it("le navigateur reçoit le bon compte de non-répondues (sparse)", () => {
-      const sparseAnswers: AnswersMap = {
-        q1: { selected: "A", isCorrect: true },
-        // q2 and q3 absent
-      }
-
-      render(
-        <SessionResults
-          kind="exam"
-          score={33}
-          questions={questions}
-          answers={sparseAnswers}
-        />,
-      )
-
-      expect(unansweredItems()).toEqual([
-        "results-nav-item-1",
-        "results-nav-item-2",
-      ])
-    })
-
-    it("traite les entrées avec selected vide comme 'non répondues'", () => {
-      const answersWithEmptySelected: AnswersMap = {
-        q1: { selected: "A", isCorrect: true },
-        q2: { selected: "", isCorrect: false }, // empty selected = unanswered
-        // q3 absent
-      }
-
-      render(
-        <SessionResults
-          kind="exam"
-          score={33}
-          questions={questions}
-          answers={answersWithEmptySelected}
-        />,
-      )
-
-      // q2 (empty selected) + q3 (absent) = 2 unanswered
-      expect(unansweredItems()).toEqual([
-        "results-nav-item-1",
-        "results-nav-item-2",
-      ])
-    })
+        expect(screen.getAllByTestId("question-card")).toHaveLength(3)
+        expect(screen.getByTestId("stat-unanswered").textContent).toBe("2")
+        expect(unansweredItems()).toEqual([
+          "results-nav-item-1",
+          "results-nav-item-2",
+        ])
+      },
+    )
   })
 })

@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { SignInForm } from "@/app/(auth)/connexion/_components/sign-in-form"
 
 const signInEmail = vi.fn()
@@ -23,25 +22,18 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace }),
 }))
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 async function fillAndSubmit() {
   const user = userEvent.setup()
-  await user.type(screen.getByTestId("auth-email"), "user@example.com")
-  await user.type(screen.getByTestId("auth-password"), "password123")
+  await user.click(screen.getByTestId("auth-email"))
+  await user.paste("user@example.com")
+  await user.click(screen.getByTestId("auth-password"))
+  await user.paste("password123")
   await user.click(screen.getByTestId("auth-submit"))
 }
 
-beforeEach(() => {
-  vi.clearAllMocks()
-})
-
 describe("SignInForm", () => {
-  it("redirige vers /dashboard au succès", async () => {
+  it("redirige vers /tableau-de-bord au succès", async () => {
     signInEmail.mockResolvedValue({ error: null })
     render(<SignInForm />)
     await fillAndSubmit()

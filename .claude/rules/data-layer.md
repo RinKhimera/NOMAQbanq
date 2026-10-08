@@ -54,6 +54,10 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   la dernière version committée et ne se met pas en file derrière un `FOR UPDATE`
   détenu (ex. `saveExamAnswer` vs `finalizeExam` sur la même participation →
   verrou de ligne, pas EXISTS).
+- **Lectures d'une transaction en séquence, jamais `Promise.all` sur `tx`** :
+  une transaction tient une seule connexion, qui n'exécute qu'une requête à
+  la fois (pg met les suivantes en file, pg@9 les refusera). Verrou :
+  `tests/architecture/transaction-queries.test.ts`.
 - **Écriture sur une tentative = `requireAttempt`** (`features/attempts/guard.ts`,
   `docs/adr/0001`). Toute action qui écrit sur une participation ou une session
   d'entraînement ouvre `db.transaction` et appelle
@@ -323,8 +327,11 @@ colonne)` dans le WHERE des canaux de
   s'affiche via `formatDeadline`, qui suffixe « (heure de l'Est) » — sans ça un
   étudiant hors Québec se trompe de plusieurs heures sur la fermeture.
   Exceptions assumées, à ne pas « corriger » sans réfléchir :
-  - date pickers admin : `formatCalendarDay` lit la valeur dans le fuseau du
-    navigateur, cohérente avec ce que l'admin vient de cliquer ;
+  - date pickers admin : `toLocalDay` / `fromLocalDay`
+    (`exam-form-model.ts`) lisent la valeur dans le fuseau du navigateur,
+    cohérente avec ce que l'admin vient de cliquer ;
+  - `formatFileTimestamp` (nom de fichier d'export) : lu dans le fuseau du
+    navigateur, l'horloge de celui qui enregistre le fichier ;
   - `SESSION_DATE_FMT` (`features/users/dal.ts`) : formatage côté DAL, antérieur
     au module et volontairement autonome ;
   - `formatIsoDay` (séries de `getRevenueByDay`) : `parseISO` sur du date-only

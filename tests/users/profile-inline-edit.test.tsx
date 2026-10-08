@@ -45,7 +45,8 @@ describe("InlineEditField", () => {
     await userEvent.click(screen.getByTestId("profile-field-name-edit"))
     const input = screen.getByTestId("profile-field-name-input")
     await userEvent.clear(input)
-    await userEvent.type(input, "Amina D{Enter}")
+    await userEvent.paste("Amina D")
+    await userEvent.keyboard("{Enter}")
     await waitFor(() => expect(onSave).toHaveBeenCalledWith("Amina D"))
     await waitFor(() =>
       expect(screen.getByTestId("profile-field-name-edit")).toHaveFocus(),
@@ -55,10 +56,9 @@ describe("InlineEditField", () => {
   it("une erreur serveur reste affichée et liée au champ", async () => {
     field(vi.fn().mockResolvedValue({ success: false, error: "Nom refusé" }))
     await userEvent.click(screen.getByTestId("profile-field-name-edit"))
-    await userEvent.type(
-      screen.getByTestId("profile-field-name-input"),
-      " X{Enter}",
-    )
+    await userEvent.click(screen.getByTestId("profile-field-name-input"))
+    await userEvent.paste(" X")
+    await userEvent.keyboard("{Enter}")
     expect(await screen.findByRole("alert")).toHaveTextContent("Nom refusé")
     expect(screen.getByTestId("profile-field-name-input")).toHaveAttribute(
       "aria-describedby",
@@ -78,10 +78,9 @@ describe("InlineEditField — pendant l'enregistrement", () => {
     )
     field(onSave)
     await userEvent.click(screen.getByTestId("profile-field-name-edit"))
-    await userEvent.type(
-      screen.getByTestId("profile-field-name-input"),
-      " D{Enter}",
-    )
+    await userEvent.click(screen.getByTestId("profile-field-name-input"))
+    await userEvent.paste(" D")
+    await userEvent.keyboard("{Enter}")
     await userEvent.keyboard("{Enter}")
     await userEvent.keyboard("{Escape}")
     await userEvent.click(screen.getByRole("button", { name: "Annuler" }))

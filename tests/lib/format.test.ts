@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
-  getAppZoneHour,
   getAppZoneYear,
   shiftCalendarDay,
   startOfAppZoneDay,
@@ -9,7 +8,6 @@ import {
   toAppZoneCalendarDay,
 } from "@/lib/app-zone"
 import {
-  formatCalendarDay,
   formatCountdown,
   formatCurrency,
   formatDateTime,
@@ -29,7 +27,6 @@ import {
   formatTimeRemaining,
   formatWeekdayDayMonth,
   formatWeekdayLongDate,
-  toCalendarDay,
 } from "@/lib/format"
 
 // Ces suites tournent sous TZ=UTC (vitest.config.ts) et assertent des valeurs
@@ -71,24 +68,18 @@ describe("formatCurrency", () => {
       expect(normalizeSpaces(formatCurrency(9900))).toBe("99 $")
     })
 
-    it("affiche les centimes si nécessaire", () => {
-      // Le formatage canadien-français peut omettre le zéro trailing
-      const result5050 = normalizeSpaces(formatCurrency(5050))
-      expect(result5050).toMatch(/50,50?\s*\$/)
-      const result9999 = normalizeSpaces(formatCurrency(9999))
-      expect(result9999).toMatch(/99,99?\s*\$/)
-      const result101 = normalizeSpaces(formatCurrency(101))
-      expect(result101).toMatch(/1,01?\s*\$/)
+    it("affiche les centimes sur deux chiffres", () => {
+      expect(normalizeSpaces(formatCurrency(5050))).toBe("50,50 $")
+      expect(normalizeSpaces(formatCurrency(9999))).toBe("99,99 $")
+      expect(normalizeSpaces(formatCurrency(101))).toBe("1,01 $")
     })
 
     it("gère les montants à zéro", () => {
       expect(normalizeSpaces(formatCurrency(0))).toBe("0 $")
     })
 
-    it("gère les grands montants", () => {
-      const result = formatCurrency(100000000) // 1 000 000 $
-      expect(result).toContain("000")
-      expect(result).toContain("$")
+    it("sépare les milliers", () => {
+      expect(normalizeSpaces(formatCurrency(100000000))).toBe("1 000 000 $")
     })
 
     it("gère explicitement la devise CAD", () => {
@@ -117,11 +108,10 @@ describe("formatCurrency", () => {
       expect(normalizeSpaces(formatCurrency(9999, "XAF"))).toBe("100 XAF")
     })
 
-    it("gère les grands montants avec séparateurs", () => {
-      const result = normalizeSpaces(formatCurrency(100000000, "XAF")) // 1 000 000 XAF
-      expect(result).toContain("XAF")
-      // Vérifie que les séparateurs de milliers sont présents
-      expect(result).toMatch(/\d+\s*\d*\s*XAF/)
+    it("sépare les milliers", () => {
+      expect(normalizeSpaces(formatCurrency(100000000, "XAF"))).toBe(
+        "1 000 000 XAF",
+      )
     })
 
     it("gère les montants à zéro", () => {
@@ -153,25 +143,6 @@ describe("formatPresentmentAmount", () => {
 })
 
 describe("formatExpiration", () => {
-  it("formate une date en français", () => {
-    // 15 mars 2024 à 12:00 UTC
-    const timestamp = new Date("2024-03-15T12:00:00Z").getTime()
-    const result = formatExpiration(timestamp)
-
-    expect(result).toContain("15")
-    expect(result).toContain("mars")
-    expect(result).toContain("2024")
-  })
-
-  it("gère différentes dates", () => {
-    const timestamp = new Date("2025-12-20T12:00:00Z").getTime()
-    const result = formatExpiration(timestamp)
-
-    expect(result).toContain("20")
-    expect(result).toContain("décembre")
-    expect(result).toContain("2025")
-  })
-
   it("rend la veille pour un instant UTC déjà passé minuit à Toronto", () => {
     // Minuit UTC le 25 = 19:00 le 24 à Toronto (EST). C'est ce décalage de
     // jour, invisible en UTC, qui cassait l'hydratation.
@@ -186,33 +157,12 @@ describe("formatTimeRemaining", () => {
     vi.setSystemTime(new Date("2024-03-15T12:00:00Z"))
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it("affiche le temps restant pour une date future", () => {
-    // 1 jour dans le futur
-    const futureTimestamp = new Date("2024-03-16T12:00:00Z").getTime()
-    const result = formatTimeRemaining(futureTimestamp)
-
-    expect(result).toContain("dans")
-    expect(result.toLowerCase()).toMatch(/jour|heure/)
-  })
-
-  it("affiche le temps écoulé pour une date passée", () => {
-    // 1 jour dans le passé
-    const pastTimestamp = new Date("2024-03-14T12:00:00Z").getTime()
-    const result = formatTimeRemaining(pastTimestamp)
-
-    expect(result).toContain("il y a")
-  })
-
-  it("gère les intervalles courts", () => {
-    // 30 minutes dans le futur
-    const nearFuture = Date.now() + 30 * 60 * 1000
-    const result = formatTimeRemaining(nearFuture)
-
-    expect(result).toContain("dans")
+  it.each([
+    ["2024-03-16T12:00:00Z", "dans 1 jour"],
+    ["2024-03-14T12:00:00Z", "il y a 1 jour"],
+    ["2024-03-15T12:30:00Z", "dans 30 minutes"],
+  ])("%s → %s", (iso, expected) => {
+    expect(formatTimeRemaining(new Date(iso).getTime())).toBe(expected)
   })
 })
 
@@ -363,22 +313,6 @@ describe("formatTimeOnly", () => {
   })
 })
 
-describe("getAppZoneHour", () => {
-  it("rend l'heure de Toronto, pas celle du runtime", () => {
-    // Horodatage exact de l'event NOMAQBANQ-5 du 2026-07-28 : 03:03 UTC, soit
-    // 23:03 à Toronto. Le serveur lisait 3 (« Bonjour ») et le client 23
-    // (« Bonsoir ») → texte divergent, hydratation cassée.
-    expect(getAppZoneHour(new Date("2026-07-28T03:03:05Z"))).toBe(23)
-  })
-
-  it("reste du bon côté des seuils de salutation", () => {
-    // 16:00 UTC = 12:00 à Toronto : « Bon après-midi » des deux côtés.
-    expect(getAppZoneHour(new Date("2026-07-15T16:00:00Z"))).toBe(12)
-    // 15:59 UTC = 11:59 : encore « Bonjour ».
-    expect(getAppZoneHour(new Date("2026-07-15T15:59:00Z"))).toBe(11)
-  })
-})
-
 describe("getAppZoneYear", () => {
   it("rend l'année de Toronto le soir du 31 décembre", () => {
     // Déjà 2027 en UTC, encore 2026 à Toronto (21:00 le 31/12).
@@ -427,12 +361,6 @@ describe("invariant de fuseau", () => {
 })
 
 describe("bornes de journée civile (filtres de date)", () => {
-  const originalTz = process.env.TZ
-
-  afterEach(() => {
-    process.env.TZ = originalTz
-  })
-
   it("ancre le début de journée sur Toronto, heure d'été comprise", () => {
     // 00:00 à Toronto = 04:00 UTC en EDT, 05:00 UTC en EST.
     expect(startOfAppZoneDay("2026-07-03").toISOString()).toBe(
@@ -497,16 +425,6 @@ describe("bornes de journée civile (filtres de date)", () => {
       "2028-02-29T05:00:00.000Z",
     )
   })
-
-  it("lit la journée du calendrier dans le fuseau du navigateur", () => {
-    // Le date picker rend minuit LOCAL du jour cliqué : c'est cette case-là que
-    // l'admin a désignée, quel que soit le fuseau depuis lequel il filtre.
-    const jours = ["UTC", "America/Toronto", "Asia/Tokyo"].map((tz) => {
-      process.env.TZ = tz
-      return toCalendarDay(new Date(2026, 6, 3))
-    })
-    expect(jours).toEqual(["2026-07-03", "2026-07-03", "2026-07-03"])
-  })
 })
 
 describe("mois civils et décalages de jours (agrégats admin)", () => {
@@ -556,14 +474,6 @@ describe("mois civils et décalages de jours (agrégats admin)", () => {
     expect(
       startOfAppZoneMonth(new Date("2026-08-01T01:00:00Z")).toISOString(),
     ).toBe("2026-07-01T04:00:00.000Z")
-  })
-})
-
-describe("formatCalendarDay", () => {
-  it("formate le jour cliqué dans un calendrier, sans décalage de fuseau", () => {
-    const picked = new Date(2026, 6, 3)
-    expect(formatCalendarDay(picked)).toBe("3 juil. 2026")
-    expect(formatCalendarDay(picked, { year: false })).toBe("3 juil.")
   })
 })
 

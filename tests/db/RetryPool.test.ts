@@ -1,5 +1,5 @@
 import { Pool } from "pg"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { NeonRetryPool, isNeonWakeupError } from "@/db/retry-pool"
 
 const pgError = (code: string) =>
@@ -13,8 +13,6 @@ const makePool = () =>
     { connectionString: "postgres://test@localhost/test" },
     { backoffsMs: [0, 0] },
   )
-
-afterEach(() => vi.restoreAllMocks())
 
 describe("isNeonWakeupError", () => {
   it("reconnaît 53300 et 57P03, refuse le reste", () => {

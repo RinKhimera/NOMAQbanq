@@ -11,14 +11,12 @@ const slots = (container: HTMLElement) =>
   container.querySelectorAll('[data-slot="skeleton"]')
 
 describe("SkeletonText", () => {
-  it("rend le nombre de lignes demandé", () => {
-    const { container } = render(<SkeletonText lines={4} />)
-    expect(slots(container)).toHaveLength(4)
-  })
-
-  it("rend 3 lignes par défaut", () => {
-    const { container } = render(<SkeletonText />)
-    expect(slots(container)).toHaveLength(3)
+  it.each([
+    [4, 4],
+    [undefined, 3],
+  ])("lines=%s → %i lignes", (lines, expected) => {
+    const { container } = render(<SkeletonText lines={lines} />)
+    expect(slots(container)).toHaveLength(expected)
   })
 })
 

@@ -180,7 +180,7 @@ describe("ObjectivesClient", () => {
 
     const field = within(card).getByLabelText("Libellé final, modifiable")
     await user.clear(field)
-    await user.type(field, "Toux  chronique")
+    await user.paste("Toux  chronique")
     await user.click(
       within(card).getByRole("button", { name: /Garder sous ce libellé/ }),
     )
@@ -323,7 +323,7 @@ describe("gestion du référentiel", () => {
     renderScreen({ tab: "done", domain: "" })
     const field = await openRename(user)
     await user.clear(field)
-    await user.type(field, "toux")
+    await user.paste("toux")
     await user.click(screen.getByRole("button", { name: "Renommer" }))
 
     expect(renameObjective).toHaveBeenCalledWith({

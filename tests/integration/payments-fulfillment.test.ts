@@ -212,15 +212,17 @@ describe("fulfillment — octroi", () => {
     expect(mailbox.sent).toEqual([])
     expect(row.confirmationMessageId).toBeNull()
     await result.deferred!()
-    expect(fakeMailer.sendPurchaseConfirmationEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: expect.stringContaining("@test.invalid"),
-        productName: "Exam",
-        amountPaid: 4500,
-        currency: "CAD",
-        grantedAccess: [{ accessType: "exam", expiresAt: access!.expiresAt }],
-      }),
-    )
+    expect(fakeMailer.sendPurchaseConfirmationEmail).toHaveBeenCalledWith({
+      to: `fulfil-${userId}@test.invalid`,
+      name: `Fulfil ${userId}`,
+      productName: "Exam",
+      amountPaid: 4500,
+      currency: "CAD",
+      presentmentAmount: null,
+      presentmentCurrency: null,
+      purchasedAt: row.completedAt,
+      grantedAccess: [{ accessType: "exam", expiresAt: access!.expiresAt }],
+    })
     const marked = await txRow(tx.id)
     expect(marked.confirmationMessageId).toBe("ses-msg-1")
     expect(marked.confirmationSentAt).not.toBeNull()

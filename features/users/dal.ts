@@ -38,6 +38,7 @@ import { USERS_PAGE_SIZE } from "@/features/users/page-size"
 import { startOfAppZoneDay, startOfNextAppZoneDay } from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
+import type { TransactionStatus } from "@/schemas/payment"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -519,7 +520,7 @@ export type UserFile = {
       productName: string | null
       amountPaid: number
       currency: "CAD" | "XAF"
-      status: (typeof transactions.status.enumValues)[number]
+      status: TransactionStatus
       disputeStatus: string | null
     }
   } | null

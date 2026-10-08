@@ -14,7 +14,6 @@ vi.mock("@/hooks/use-media-query", () => ({
 
 afterEach(() => {
   isMobile.current = false
-  vi.clearAllMocks()
 })
 
 const OPTIONS = [

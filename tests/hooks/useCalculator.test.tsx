@@ -1,502 +1,194 @@
 import { act, renderHook } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { CalculatorProvider, useCalculator } from "@/hooks/useCalculator"
 
-describe("useCalculator - Calculator Logic Tests", () => {
-  const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <CalculatorProvider>{children}</CalculatorProvider>
-  )
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <CalculatorProvider>{children}</CalculatorProvider>
+)
 
-  describe("Initial State", () => {
-    it("should start with display showing 0", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-      expect(result.current.display).toBe("0")
-    })
+type Calculator = ReturnType<typeof useCalculator>
 
-    it("should have no operation set initially", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-      expect(result.current.operation).toBeNull()
-      expect(result.current.previousValue).toBeNull()
-    })
+const OPERATORS = ["+", "-", "*", "/"] as const
+type Operator = (typeof OPERATORS)[number]
+const isOperator = (key: string): key is Operator =>
+  (OPERATORS as readonly string[]).includes(key)
+
+const pressKey = (calc: Calculator, key: string) => {
+  if (key === "=") calc.calculate()
+  else if (key === ".") calc.inputDecimal()
+  else if (key === "C") calc.clear()
+  else if (key === "⌫") calc.backspace()
+  else if (isOperator(key)) calc.inputOperator(key)
+  else calc.inputNumber(key)
+}
+
+/**
+ * Une touche par `act` : dans un même `act`, chaque appel lirait l'état du
+ * rendu précédent (fermeture périmée) et la séquence ne serait pas celle tapée.
+ */
+const press = (result: { current: Calculator }, keys: string) => {
+  for (const key of keys.split(" ")) {
+    act(() => pressKey(result.current, key))
+  }
+}
+
+const setup = (keys?: string) => {
+  const { result } = renderHook(() => useCalculator(), { wrapper })
+  if (keys) press(result, keys)
+  return result
+}
+
+describe("useCalculator", () => {
+  it("refuse d'être appelé hors de CalculatorProvider", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    expect(() => renderHook(() => useCalculator())).toThrow(
+      "useCalculator must be used within CalculatorProvider",
+    )
   })
 
-  describe("Single Digit Input", () => {
-    it("should input a single digit", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-
-      expect(result.current.display).toBe("5")
-    })
-
-    it("should replace 0 with first digit", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("7")
-      })
-
-      expect(result.current.display).toBe("7")
-    })
+  it("démarre sur 0, sans opération en attente", () => {
+    const result = setup()
+    expect(result.current.display).toBe("0")
+    expect(result.current.operation).toBeNull()
+    expect(result.current.previousValue).toBeNull()
   })
 
-  describe("Clear Function", () => {
-    it("should reset calculator to 0", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.clear()
-      })
-
-      expect(result.current.display).toBe("0")
-      expect(result.current.previousValue).toBeNull()
-      expect(result.current.operation).toBeNull()
-    })
+  it("remplace le 0 initial par le premier chiffre", () => {
+    expect(setup("7").current.display).toBe("7")
   })
 
-  describe("Decimal Input", () => {
-    it("should add decimal point", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("3")
-      })
-      act(() => {
-        result.current.inputDecimal()
-      })
-      act(() => {
-        result.current.inputNumber("1")
-      })
-
-      expect(result.current.display).toBe("3.1")
-    })
-
-    it("should not allow multiple decimal points", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("3")
-      })
-      act(() => {
-        result.current.inputDecimal()
-      })
-      act(() => {
-        result.current.inputDecimal()
-      })
-      act(() => {
-        result.current.inputNumber("1")
-      })
-
-      expect(result.current.display).toBe("3.1")
-    })
+  it("C remet tout à zéro, opération en attente comprise", () => {
+    const result = setup("5 + 3 C")
+    expect(result.current.display).toBe("0")
+    expect(result.current.previousValue).toBeNull()
+    expect(result.current.operation).toBeNull()
   })
 
-  describe("Backspace", () => {
-    it("should remove last character", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("1")
-      })
-      act(() => {
-        result.current.inputNumber("2")
-      })
-      act(() => {
-        result.current.backspace()
-      })
-
-      expect(result.current.display).toBe("1")
-    })
-
-    it("should show 0 when removing last digit", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.backspace()
-      })
-
-      expect(result.current.display).toBe("0")
-    })
+  it.each([
+    ["3 . 1", "3.1"],
+    ["3 . . 1", "3.1"],
+    ["5 + .", "0."],
+  ])("virgule : %s → %s", (keys, display) => {
+    expect(setup(keys).current.display).toBe(display)
   })
 
-  describe("Addition", () => {
-    it("should add 2 + 3 = 5", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("2")
-      })
-      act(() => {
-        result.current.inputOperator("+")
-      })
-      act(() => {
-        result.current.inputNumber("3")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      expect(result.current.display).toBe("5")
-    })
+  it.each([
+    ["1 2 ⌫", "1"],
+    ["5 ⌫", "0"],
+    ["1 2 + ⌫", "0"],
+    ["1 0 - 2 5 = ⌫", "0"],
+  ])("retour arrière : %s → %s", (keys, display) => {
+    expect(setup(keys).current.display).toBe(display)
   })
 
-  describe("Subtraction", () => {
-    it("should subtract 10 - 4 = 6", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("1")
-      })
-      act(() => {
-        result.current.inputNumber("0")
-      })
-      act(() => {
-        result.current.inputOperator("-")
-      })
-      act(() => {
-        result.current.inputNumber("4")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      expect(result.current.display).toBe("6")
-    })
+  it.each([
+    ["2 + 3 =", "5"],
+    ["1 0 - 4 =", "6"],
+    ["6 * 7 =", "42"],
+    ["2 0 / 5 =", "4"],
+  ])("%s → %s", (keys, display) => {
+    expect(setup(keys).current.display).toBe(display)
   })
 
-  describe("Multiplication", () => {
-    it("should multiply 6 * 7 = 42", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("6")
-      })
-      act(() => {
-        result.current.inputOperator("*")
-      })
-      act(() => {
-        result.current.inputNumber("7")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      expect(result.current.display).toBe("42")
-    })
-  })
-
-  describe("Division", () => {
-    it("should divide 20 / 5 = 4", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("2")
-      })
-      act(() => {
-        result.current.inputNumber("0")
-      })
-      act(() => {
-        result.current.inputOperator("/")
-      })
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      expect(result.current.display).toBe("4")
-    })
-
-    it("should handle division by zero", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("/")
-      })
-      act(() => {
-        result.current.inputNumber("0")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      expect(result.current.display).toBe("Erreur")
-      expect(result.current.previousValue).toBeNull()
-      expect(result.current.operation).toBeNull()
-    })
-  })
-
-  describe("Error Recovery", () => {
-    it("should allow input after error", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("/")
-      })
-      act(() => {
-        result.current.inputNumber("0")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-      act(() => {
-        result.current.inputNumber("3")
-      })
-
-      expect(result.current.display).toBe("3")
-    })
-
-    it("should allow decimal input after error", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("/")
-      })
-      act(() => {
-        result.current.inputNumber("0")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      act(() => {
-        result.current.inputDecimal()
-      })
-
-      expect(result.current.display).toBe("0.")
-    })
-
-    it("should allow backspace after error", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("/")
-      })
-      act(() => {
-        result.current.inputNumber("0")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      act(() => {
-        result.current.backspace()
-      })
-
-      expect(result.current.display).toBe("0")
-    })
-
-    it("should not allow operations when in error state", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("/")
-      })
-      act(() => {
-        result.current.inputNumber("0")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      act(() => {
-        result.current.inputOperator("+")
-      })
-
-      expect(result.current.display).toBe("Erreur")
-      expect(result.current.operation).toBeNull()
-    })
-  })
-
-  describe("Display Limits", () => {
-    it("should not exceed maximum display length", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      const longNumber = "123456789012"
-      for (const digit of longNumber) {
-        act(() => {
-          result.current.inputNumber(digit)
+  describe("chaîne d'opérations, de gauche à droite", () => {
+    it.each([
+      ["2 + 3 *", "5", "4 =", "20", 5, "*"],
+      ["1 0 - 4 -", "6", "3 =", "3", 6, "-"],
+      ["8 / 2 *", "4", "3 =", "12", 4, "*"],
+    ] as const)(
+      "%s affiche %s, puis %s → %s",
+      (keys, partial, rest, total, previousValue, operation) => {
+        const result = setup(keys)
+        expect(result.current).toMatchObject({
+          display: partial,
+          previousValue,
+          operation,
         })
-      }
+        press(result, rest)
+        expect(result.current.display).toBe(total)
+      },
+    )
 
-      expect(result.current.display.length).toBeLessThanOrEqual(12)
+    it("garde la valeur exacte derrière l'affichage arrondi", () => {
+      const result = setup("1 / 3 +")
+      expect(result.current.display).toBe("0.3333333333")
+      expect(result.current.previousValue).toBe(1 / 3)
+    })
+
+    it.each([
+      ["1 / 3 * 3 =", "1"],
+      ["1 / 3 = * 3 =", "1"],
+      ["9 9 9 9 9 9 9 9 9 9 9 9 * 2 / 2 =", "999999999999"],
+    ])("%s → %s : l'arrondi de l'écran ne se propage pas", (keys, total) => {
+      expect(setup(keys).current.display).toBe(total)
     })
   })
 
-  describe("Chained Operations", () => {
-    it("should handle chained operations correctly", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("+")
-      })
-      act(() => {
-        result.current.inputNumber("3")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-      expect(result.current.display).toBe("8")
-
-      act(() => {
-        result.current.inputOperator("-")
-      })
-      act(() => {
-        result.current.inputNumber("2")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      expect(result.current.display).toBe("6")
-    })
-
-    it("should not calculate when shouldResetDisplay is true", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("+")
-      })
-      act(() => {
-        result.current.inputOperator("-")
-      })
-
-      expect(result.current.previousValue).toBe(5)
-      expect(result.current.operation).toBe("-")
-    })
+  it("enchaîne un calcul sur le résultat précédent", () => {
+    const result = setup("5 + 3 =")
+    expect(result.current.display).toBe("8")
+    press(result, "- 2 =")
+    expect(result.current.display).toBe("6")
   })
 
-  describe("Decimal Edge Cases", () => {
-    it("should start with 0. when inputting decimal on shouldResetDisplay", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("+")
-      })
-      act(() => {
-        result.current.inputDecimal()
-      })
-
-      expect(result.current.display).toBe("0.")
-    })
+  it("un second opérateur remplace le premier sans calculer", () => {
+    const result = setup("5 + -")
+    expect(result.current.previousValue).toBe(5)
+    expect(result.current.operation).toBe("-")
   })
 
-  describe("Backspace Edge Cases", () => {
-    it("should reset to 0 when backspacing single negative digit", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("0")
-        result.current.inputOperator("-")
-        result.current.inputNumber("5")
-        result.current.calculate()
-      })
-
-      act(() => {
-        result.current.backspace()
-      })
-
-      expect(result.current.display).toBe("0")
-    })
-
-    it("should reset to 0 when backspace on shouldResetDisplay", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("+")
-      })
-      act(() => {
-        result.current.backspace()
-      })
-
-      expect(result.current.display).toBe("0")
-    })
+  it("= sans opération en attente ne change rien", () => {
+    expect(setup("5 =").current.display).toBe("5")
   })
 
-  describe("Calculate Edge Cases", () => {
-    it("should not calculate when previousValue is null", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
+  it("passe en notation scientifique au-delà de 10¹²", () => {
+    expect(setup("9 9 9 9 9 9 9 9 9 9 9 9 * 2 =").current.display).toBe(
+      "2.00e+12",
+    )
+  })
 
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.calculate()
-      })
+  it("plafonne la saisie à 12 chiffres", () => {
+    expect(setup("1 2 3 4 5 6 7 8 9 0 1 2 3").current.display).toBe(
+      "123456789012",
+    )
+  })
 
-      expect(result.current.display).toBe("5")
+  describe("division par zéro", () => {
+    it.each(["5 / 0 =", "0 / 0 ="])(
+      "%s affiche Erreur et oublie l'opération",
+      (keys) => {
+        const result = setup(keys)
+        expect(result.current.display).toBe("Erreur")
+        expect(result.current.previousValue).toBeNull()
+        expect(result.current.operation).toBeNull()
+      },
+    )
+
+    it.each([
+      ["3", "3"],
+      [".", "0."],
+      ["⌫", "0"],
+    ])("après Erreur, %s repart de zéro → %s", (key, display) => {
+      expect(setup(`5 / 0 = ${key}`).current.display).toBe(display)
     })
 
-    it("should not calculate when operation is null", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      expect(result.current.display).toBe("5")
-    })
-
-    it("should not calculate when display is in error state", () => {
-      const { result } = renderHook(() => useCalculator(), { wrapper })
-
-      act(() => {
-        result.current.inputNumber("5")
-      })
-      act(() => {
-        result.current.inputOperator("/")
-      })
-      act(() => {
-        result.current.inputNumber("0")
-      })
-      act(() => {
-        result.current.calculate()
-      })
-
-      act(() => {
-        result.current.calculate()
-      })
-
+    it("après Erreur, un opérateur est ignoré", () => {
+      const result = setup("5 / 0 = +")
       expect(result.current.display).toBe("Erreur")
+      expect(result.current.operation).toBeNull()
+    })
+
+    it("au milieu d'une chaîne, affiche Erreur et abandonne la chaîne", () => {
+      const result = setup("5 / 0 +")
+      expect(result.current).toMatchObject({
+        display: "Erreur",
+        previousValue: null,
+        operation: null,
+      })
+      press(result, "=")
+      expect(result.current.display).toBe("Erreur")
+      press(result, "4 * 2 =")
+      expect(result.current.display).toBe("8")
     })
   })
 })

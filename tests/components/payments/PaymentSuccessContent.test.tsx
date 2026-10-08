@@ -1,7 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PaymentSuccessContent } from "@/app/(dashboard)/tableau-de-bord/paiement/_components/payment-success-client"
 import {
   type VerifyCheckoutResult,
@@ -15,11 +14,6 @@ const params = { current: new URLSearchParams("session_id=cs_test_1") }
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
   useSearchParams: () => params.current,
-}))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
 }))
 
 const DAY = 24 * 60 * 60 * 1000
@@ -55,10 +49,6 @@ beforeEach(() => {
   params.current = new URLSearchParams("session_id=cs_test_1")
   vi.useFakeTimers({ shouldAdvanceTime: true })
 })
-afterEach(() => {
-  vi.useRealTimers()
-})
-
 describe("PaymentSuccessContent", () => {
   it("vérification : annonce la vérification tant que la réponse n'est pas là", () => {
     verify.mockReturnValue(new Promise(() => {}))

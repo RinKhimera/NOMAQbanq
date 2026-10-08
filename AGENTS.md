@@ -26,9 +26,10 @@ bun run lint             # ESLint strict (--max-warnings 0)
 bun run lint:fix         # Auto-fix ESLint
 bun run format           # Prettier write
 bun run format:check     # Prettier check
-bun run test             # Tests frontend (NE PAS utiliser `bun test` — runner Bun casse vi.mocked/vi.hoisted)
+bun run test             # Tests unitaires + composants (cibler : `bun run test <fichier>` ; NE PAS utiliser `bun test` — runner Bun casse vi.mocked/vi.hoisted)
 bun run test:coverage    # Tests avec rapport coverage
-bun run test:integration # Tests DAL/Actions sur un Postgres Docker jetable (demarre/migre/detruit ; Docker Desktop requis, ~30 s ; cibler : -- <fichier>)
+bun run test:integration # Tests DAL/Actions sur un Postgres Docker jetable (demarre/migre/detruit ; Docker Desktop requis, ~25 s ; cibler : -- <fichier> -t "<titre>" ; ordre des tests melange, graine affichee : -- --sequence.seed=N pour rejouer)
+bun run test:integration -- --experimental.importDurations.print # Diagnostic : modules les plus lents a importer (duree d'une suite)
 bun run test:coverage:full # Couverture AGREGEE frontend + backend (Postgres Docker ; seuls chiffres couvrant features/** et app/api/**)
 bun run test:e2e         # Tests E2E Playwright (toujours via ce script : `bunx playwright test` est flaky)
 bun run e2e:ui           # Playwright UI mode
@@ -79,9 +80,10 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 ## Tests
 
 - Seuil coverage: 80% (statements/branches/functions/lines — `vitest.config.ts`)
-- Frontend: `tests/` (happy-dom) — Integration DAL/Actions: `tests/integration/` (node, Postgres Docker vide et migre via `bun run test:integration`)
+- Unitaires `tests/**/*.test.ts` (Node) · composants/hooks `tests/**/*.test.tsx` (happy-dom) — Integration DAL/Actions: `tests/integration/` (node, Postgres Docker vide et migre via `bun run test:integration`)
 - E2E: `e2e/tests/` (Playwright + auth Better Auth) — POMs dans `e2e/pages/` ; support reset/cleanup via `app/api/e2e`
 - Config: `vitest.config.ts` (exclut `e2e/**`) — `playwright.config.ts` — env `TZ=UTC`
+- Verrous d'architecture : `tests/architecture/` (styles interdits, tonalités, chargement, requêtes en transaction, tests d'intégration, hygiène des tests) — un échec signale une convention enfreinte, pas un test à assouplir
 
 ## Gotchas
 
@@ -119,6 +121,7 @@ Regles specialisees dans `.claude/rules/`:
 | `admin-ui.md`      | `app/(admin)/**`, `components/admin/**`                                      | Master-detail, stat cards, filtres                                                                          |
 | `seo.md`           | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts`                      | Metadata, pages marketing, claims éditoriaux                                                                |
 | `e2e-testing.md`   | `e2e/**`, `playwright.config.ts`, `components/quiz/**`                       | Playwright, data-testid, auth Better Auth, selectors                                                        |
+| `testing.md`       | `tests/**`, `vitest*.ts`                                                     | Environnement par extension, resets portés par la config, défauts `vi.fn(impl)`, assertions prouvées        |
 | `design-system.md` | `app/**`, `components/**`, `hooks/**`                                        | Interdits, jetons sémantiques, hauteurs de contrôles, vocabulaire ; catalogue des composants partagés       |
 
 Ajouter les nouveaux patterns au fichier rules correspondant, pas ici.

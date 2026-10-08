@@ -11,18 +11,14 @@ describe("RelativeTime", () => {
 
   it("rafraîchit le texte au tick périodique", () => {
     vi.useFakeTimers()
-    try {
-      const start = Date.now()
-      render(<RelativeTime timestamp={start} />)
-      expect(screen.getByText("il y a moins d’une minute")).toBeInTheDocument()
+    const start = Date.now()
+    render(<RelativeTime timestamp={start} />)
+    expect(screen.getByText("il y a moins d’une minute")).toBeInTheDocument()
 
-      // Deux ticks de 60 s → le texte relatif avance sans re-render parent.
-      act(() => {
-        vi.advanceTimersByTime(2 * 60 * 1000)
-      })
-      expect(screen.getByText("il y a 2 minutes")).toBeInTheDocument()
-    } finally {
-      vi.useRealTimers()
-    }
+    // Deux ticks de 60 s → le texte relatif avance sans re-render parent.
+    act(() => {
+      vi.advanceTimersByTime(2 * 60 * 1000)
+    })
+    expect(screen.getByText("il y a 2 minutes")).toBeInTheDocument()
   })
 })

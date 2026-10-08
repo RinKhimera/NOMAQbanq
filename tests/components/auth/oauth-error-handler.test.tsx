@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { OAuthErrorHandler } from "@/app/(auth)/connexion/_components/oauth-error-handler"
 
 const replace = vi.fn()
@@ -13,11 +13,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("sonner", () => ({
   toast: { error: (...a: unknown[]) => toastError(...a) },
 }))
-
-beforeEach(() => {
-  replace.mockReset()
-  toastError.mockReset()
-})
 
 describe("OAuthErrorHandler", () => {
   it("ne fait rien sans paramètre error", () => {

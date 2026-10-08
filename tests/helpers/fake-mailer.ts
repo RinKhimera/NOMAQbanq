@@ -21,6 +21,10 @@ export const mailbox = {
   reset() {
     sent.length = 0
     failures.clear()
+    // Le projet `integration` ne remet pas les mocks à zéro (`mockReset:
+    // false`) : un `mockResolvedValueOnce` non consommé fuirait dans le test
+    // suivant. `mockReset` ramène chaque verbe à l'implémentation du faux.
+    for (const send of Object.values(fakeMailer)) send.mockReset()
   },
 }
 

@@ -1,11 +1,11 @@
 import { vi } from "vitest"
 
 /**
- * Faux `db` Drizzle pour les tests d'actions : chaque méthode de la chaîne se
+ * Faux `db` Drizzle pour les tests unitaires : chaque méthode de la chaîne se
  * renvoie elle-même et l'objet est « thenable », donc `await` fonctionne quel
  * que soit le maillon terminal (`.limit()`, `.where()`, `.values()`…). Les
  * lignes servies sont indexées par NOM DE TABLE, ce qui rend les tests
- * indépendants de l'ordre des requêtes dans l'action.
+ * indépendants de l'ordre des requêtes.
  *
  * Usage : `vi.mock("@/db", async () => ({ db: (await import("../helpers/fake-drizzle")).fakeDb }))`
  * et `vi.mock("@/db/schema", …)` avec `table(name)` pour chaque table lue.
@@ -15,15 +15,15 @@ export const state = {
   returning: [] as unknown[],
   /** Dernier payload passé à `.set(...)`. */
   set: undefined as unknown,
-  /** Dernier `WHERE` d'un `delete(...)` : la propriété doit y vivre. */
-  deleteWhere: undefined as unknown,
+  /** `offset()` reçus, dans l'ordre : la page demandée se lit là. */
+  offsets: [] as number[],
   transaction:
     vi.fn<(cb: (tx: unknown) => Promise<unknown>) => Promise<unknown>>(),
 }
 
 export const table = (name: string) => ({ __table: name })
 
-const queryChain = (initialTable?: string, verb?: "delete") => {
+const queryChain = (initialTable?: string) => {
   let target = initialTable
   const chain: Record<string, unknown> = {
     from: (t: { __table?: string }) => {
@@ -32,14 +32,15 @@ const queryChain = (initialTable?: string, verb?: "delete") => {
     },
     innerJoin: () => chain,
     leftJoin: () => chain,
-    where: (condition: unknown) => {
-      if (verb === "delete") state.deleteWhere = condition
-      return chain
-    },
+    where: () => chain,
     orderBy: () => chain,
     groupBy: () => chain,
     for: () => chain,
     limit: () => chain,
+    offset: (n: number) => {
+      state.offsets.push(n)
+      return chain
+    },
     set: (payload: unknown) => {
       state.set = payload
       return chain
@@ -61,9 +62,10 @@ export const fakeDb = {
   transaction: (cb: (tx: unknown) => Promise<unknown>) => state.transaction(cb),
   execute: vi.fn(async () => ({ rows: [] })),
   select: () => queryChain(),
+  selectDistinct: () => queryChain(),
   insert: (t: { __table?: string }) => queryChain(t?.__table),
   update: (t: { __table?: string }) => queryChain(t?.__table),
-  delete: (t: { __table?: string }) => queryChain(t?.__table, "delete"),
+  delete: (t: { __table?: string }) => queryChain(t?.__table),
 }
 
 /**
@@ -78,10 +80,6 @@ export const setRows = (rows: Record<string, unknown[]>) => {
   state.rows = rows
 }
 
-/** Exécute réellement le callback de transaction contre le faux `db`. */
-export const runCallback = () =>
-  state.transaction.mockImplementationOnce(async (cb) => cb(fakeTx))
-
 /** Fait échouer le corps de la transaction avec un code métier. */
 export const rejectWith = (message: string) =>
   state.transaction.mockRejectedValueOnce(new Error(message))
@@ -91,7 +89,6 @@ export const resetFakeDrizzle = (returning: unknown[] = []) => {
   state.rows = {}
   state.returning = returning
   state.set = undefined
-  state.deleteWhere = undefined
-  state.transaction.mockReset()
+  state.offsets = []
   state.transaction.mockImplementation(async (cb) => cb(fakeTx))
 }

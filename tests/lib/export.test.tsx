@@ -30,13 +30,9 @@ describe("timestampedFilename", () => {
   it("suffixe la date ISO courte", () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2024-03-15T12:00:00Z"))
-    try {
-      expect(timestampedFilename("questions-export", "csv")).toBe(
-        "questions-export-2024-03-15.csv",
-      )
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(timestampedFilename("questions-export", "csv")).toBe(
+      "questions-export-2024-03-15.csv",
+    )
   })
 })
 

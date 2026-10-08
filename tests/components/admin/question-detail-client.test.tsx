@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { QuestionDetailClient } from "@/app/(admin)/admin/questions/[questionId]/_components/question-detail-client"
 import { DEFAULT_QUESTION_LIST } from "@/app/(admin)/admin/questions/_components/question-params"
 import type { QuestionFile } from "@/components/admin/question-detail/question-detail-content"
@@ -73,8 +73,6 @@ const renderDetail = (
       {...over}
     />,
   )
-
-afterEach(() => vi.clearAllMocks())
 
 describe("QuestionDetailClient", () => {
   it("précédente / suivante à travers les pages de la liste filtrée", () => {

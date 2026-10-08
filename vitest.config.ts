@@ -23,13 +23,14 @@ export default defineConfig({
   test: {
     env: { TZ: "UTC" },
     globals: true,
-    // Vitest laisse ces quatre options a `false` : sans elles, l'historique d'appels
-    // et les implementations simulees survivent d'un test au suivant dans un meme
+    // Vitest laisse ces options a `false` : sans elles, l'historique d'appels et
+    // les implementations simulees survivent d'un test au suivant dans un meme
     // fichier — un `toHaveBeenCalledTimes` peut alors passer grace au test precedent.
-    // Elles ne couvrent PAS les faux timers : `restoreAllMocks` ne parcourt que le
-    // registre des espions (@vitest/spy), donc un `vi.useFakeTimers()` reste actif
-    // pour les tests suivants — l'`afterEach(() => vi.useRealTimers())` reste requis.
-    clearMocks: true,
+    // `mockReset` vide aussi les files `*Once` et ramene un `vi.fn(impl)` a `impl` :
+    // une implementation par defaut se pose donc par `vi.fn(impl)` ou dans un
+    // `beforeEach`, jamais par un `mockImplementation` au chargement du fichier.
+    // Aucune ne rend l'horloge : `vitest.setup.common.ts` remet les vrais timers.
+    mockReset: true,
     restoreMocks: true,
     unstubEnvs: true,
     unstubGlobals: true,
@@ -100,14 +101,28 @@ export default defineConfig({
         lines: 80,
       },
     },
+    // L'extension choisit l'environnement : un `.test.ts` tourne sous Node, sans
+    // DOM ni jest-dom (moitie de la suite, trois fois plus rapide) ; un test qui
+    // rend un composant, un hook ou touche `document` est un `.test.tsx`. Un test
+    // DOM laisse en `.ts` echoue aussitot (« document is not defined »).
     projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          environment: "node",
+          setupFiles: ["./vitest.setup.common.ts"],
+          include: ["tests/**/*.test.ts"],
+          exclude: ["tests/integration/**"],
+        },
+      },
       {
         extends: true,
         test: {
           name: "frontend",
           environment: "happy-dom",
-          setupFiles: ["./vitest.setup.ts"],
-          include: ["tests/**/*.test.{ts,tsx}"],
+          setupFiles: ["./vitest.setup.common.ts", "./vitest.setup.ts"],
+          include: ["tests/**/*.test.tsx"],
           exclude: ["tests/integration/**"],
         },
       },
@@ -123,8 +138,15 @@ export default defineConfig({
         test: {
           name: "integration",
           environment: "node",
+          // Les mocks de session y sont poses en `beforeAll` (la base se seme une
+          // fois par fichier) : un `mockReset` avant chaque test les effacerait.
+          mockReset: false,
+          clearMocks: true,
           include: ["tests/integration/**/*.test.ts"],
-          setupFiles: ["./vitest.setup.integration.ts"],
+          setupFiles: [
+            "./vitest.setup.common.ts",
+            "./vitest.setup.integration.ts",
+          ],
           sequence: { shuffle: { files: false, tests: true } },
           testTimeout: 30_000,
           hookTimeout: 30_000,

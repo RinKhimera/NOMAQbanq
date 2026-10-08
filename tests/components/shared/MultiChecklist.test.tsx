@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { MultiChecklist } from "@/components/shared/multi-checklist"
 
 type Item = { objectif: string; count: number }
@@ -36,10 +36,6 @@ const renderList = (
       {...props}
     />,
   )
-
-beforeEach(() => {
-  vi.clearAllMocks()
-})
 
 describe("MultiChecklist", () => {
   it("liste chaque option cochable avec son complément", () => {

@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { getCurrentSession } from "@/lib/dal"
 
 const getSession = vi.fn()
-vi.mock("next/headers", () => ({ headers: vi.fn().mockResolvedValue({}) }))
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => ({})) }))
 vi.mock("@/lib/auth", () => ({
   auth: { api: { getSession: (...a: unknown[]) => getSession(...a) } },
 }))
@@ -15,8 +15,6 @@ const session = (banned: boolean | null | undefined) => ({
   session: { id: "s1", token: "t" },
   user: { id: "u1", email: "u@test.invalid", role: "user", banned },
 })
-
-beforeEach(() => getSession.mockReset())
 
 describe("getCurrentSession", () => {
   it("renvoie la session d'un compte non banni", async () => {

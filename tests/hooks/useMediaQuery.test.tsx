@@ -32,28 +32,20 @@ describe("useMediaQuery", () => {
 
   afterEach(() => {
     window.matchMedia = originalMatchMedia
-    vi.restoreAllMocks()
   })
 
-  it("retourne true quand la media query match", () => {
-    const mql = createMatchMediaMock(true)
-    window.matchMedia = vi.fn().mockReturnValue(mql)
+  it.each([true, false])(
+    "rend l'état courant de la media query (%s)",
+    (matches) => {
+      window.matchMedia = vi.fn().mockReturnValue(createMatchMediaMock(matches))
 
-    const { result } = renderHook(() => useMediaQuery("(min-width: 1024px)"))
+      const { result } = renderHook(() => useMediaQuery("(min-width: 1024px)"))
 
-    expect(result.current).toBe(true)
-  })
+      expect(result.current).toBe(matches)
+    },
+  )
 
-  it("retourne false quand la media query ne match pas", () => {
-    const mql = createMatchMediaMock(false)
-    window.matchMedia = vi.fn().mockReturnValue(mql)
-
-    const { result } = renderHook(() => useMediaQuery("(min-width: 1024px)"))
-
-    expect(result.current).toBe(false)
-  })
-
-  it("reagit aux changements de media query", () => {
+  it("réagit aux changements de media query", () => {
     const mql = createMatchMediaMock(false)
     window.matchMedia = vi.fn().mockReturnValue(mql)
 
@@ -61,11 +53,8 @@ describe("useMediaQuery", () => {
 
     expect(result.current).toBe(false)
 
-    // Simuler le changement : la media query match maintenant
     mql.setMatches(true)
-
-    // Declencher les callbacks d'abonnement pour que
-    // useSyncExternalStore rappelle getSnapshot
+    // useSyncExternalStore ne relit getSnapshot qu'à l'appel de ses abonnés.
     act(() => {
       for (const listener of mql.listeners) {
         listener()
@@ -75,44 +64,21 @@ describe("useMediaQuery", () => {
     expect(result.current).toBe(true)
   })
 
-  it("passe la bonne query string a matchMedia", () => {
-    const mql = createMatchMediaMock(false)
-    window.matchMedia = vi.fn().mockReturnValue(mql)
-
-    renderHook(() => useMediaQuery("(prefers-color-scheme: dark)"))
-
-    expect(window.matchMedia).toHaveBeenCalledWith(
-      "(prefers-color-scheme: dark)",
-    )
-  })
-
-  it("s'abonne aux changements via addEventListener", () => {
-    const mql = createMatchMediaMock(false)
-    window.matchMedia = vi.fn().mockReturnValue(mql)
-
-    renderHook(() => useMediaQuery("(min-width: 768px)"))
-
-    expect(mql.addEventListener).toHaveBeenCalledWith(
-      "change",
-      expect.any(Function),
-    )
-  })
-
-  it("se desabonne via removeEventListener au demontage", () => {
+  it("se désabonne au démontage de l'écouteur posé au montage", () => {
     const mql = createMatchMediaMock(false)
     window.matchMedia = vi.fn().mockReturnValue(mql)
 
     const { unmount } = renderHook(() => useMediaQuery("(min-width: 768px)"))
+    expect(mql.listeners).toHaveLength(1)
+    const [listener] = mql.listeners
 
     unmount()
 
-    expect(mql.removeEventListener).toHaveBeenCalledWith(
-      "change",
-      expect.any(Function),
-    )
+    expect(mql.removeEventListener).toHaveBeenCalledWith("change", listener)
+    expect(mql.listeners).toHaveLength(0)
   })
 
-  it("fonctionne avec differentes media queries", () => {
+  it("interroge matchMedia avec la query reçue", () => {
     const mqlDark = createMatchMediaMock(true)
     const mqlWidth = createMatchMediaMock(false)
 

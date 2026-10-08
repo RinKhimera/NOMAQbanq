@@ -3,6 +3,7 @@ import { useLinkStatus } from "next/link"
 import { describe, expect, it, vi } from "vitest"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 
+// Hors d'une navigation réelle, le vrai `useLinkStatus` reste à `pending: false`.
 vi.mock("next/link", () => ({ useLinkStatus: vi.fn() }))
 
 describe("LinkPendingIndicator", () => {

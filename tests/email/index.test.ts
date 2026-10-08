@@ -33,19 +33,10 @@ interface Arg {
 const firstArg = () => sendEmailSpy.mock.calls[0]?.[0] as Arg
 
 beforeEach(() => {
-  sendEmailSpy.mockReset().mockResolvedValue("msg-1")
+  sendEmailSpy.mockResolvedValue("msg-1")
 })
 
-describe("email domain helpers", () => {
-  it("sendVerificationEmail uses the verification subject and a template element", async () => {
-    await sendVerificationEmail({ to: "u@x.com", url: "https://x/v" })
-    expect(sendEmailSpy).toHaveBeenCalledTimes(1)
-    const arg = firstArg()
-    expect(arg.to).toBe("u@x.com")
-    expect(arg.subject).toContain("Confirmez votre adresse")
-    expect(arg.react).toBeTruthy()
-  })
-
+describe("données communes du template", () => {
   it("transmet le prénom (premier mot du nom) et l'URL de base au template", async () => {
     await sendVerificationEmail({
       to: "u@x.com",
@@ -62,37 +53,6 @@ describe("email domain helpers", () => {
     const props = (firstArg().react as { props: Record<string, unknown> }).props
     expect(props.firstName).toBeNull()
     expect(props.baseUrl).toBe("https://nomaqbanq.ca")
-  })
-
-  it("sendResetPassword uses the reset subject", async () => {
-    await sendResetPassword({ to: "u@x.com", url: "https://x/r" })
-    expect(firstArg().subject).toContain("Réinitialisation")
-    expect(firstArg().react).toBeTruthy()
-  })
-
-  it("sendExamResultsEmail met le titre de l'examen dans le sujet", async () => {
-    await sendExamResultsEmail({
-      to: "u@x.com",
-      examTitle: "Examen A",
-      score: 80,
-      resultUrl: "https://x/resultats",
-    })
-    expect(sendEmailSpy).toHaveBeenCalledTimes(1)
-    const arg = firstArg()
-    expect(arg.to).toBe("u@x.com")
-    expect(arg.subject).toContain("Examen A")
-    expect(arg.react).toBeTruthy()
-  })
-
-  it("sendAccessExpiringEmail adapte le libellé selon le type d'accès", async () => {
-    await sendAccessExpiringEmail({
-      to: "u@x.com",
-      accessType: "training",
-      daysRemaining: 3,
-      renewUrl: "https://x/abonnements",
-    })
-    expect(firstArg().subject).toContain("à l'entraînement")
-    expect(firstArg().react).toBeTruthy()
   })
 })
 
@@ -183,7 +143,12 @@ describe("objets des courriels", () => {
     ],
   ])("%s", async (_name, send, subject) => {
     await send()
-    expect(firstArg().subject).toBe(subject)
+    expect(sendEmailSpy).toHaveBeenCalledOnce()
+    expect(firstArg()).toMatchObject({
+      to: "u@x.com",
+      subject,
+      react: expect.anything(),
+    })
   })
 })
 

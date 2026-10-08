@@ -3,7 +3,7 @@ import type {
   AnswersMap,
   QuizQuestion,
 } from "@/components/quiz/runner/types"
-import { TONE_SOFT, TONE_TEXT } from "@/lib/tone"
+import { TONE_TEXT } from "@/lib/tone"
 
 /**
  * AttemptScore — le score d'une tentative et sa lecture. Module pur, partagé
@@ -43,10 +43,6 @@ export const SCORE_TONE_TEXT: Record<ScoreTone, string> = {
 /** Couleur d'un score lisible ; neutre quand il est retenu : la tranche le trahirait. */
 export const scoreTextClass = (score: number | null): string =>
   score === null ? "text-ink-3" : SCORE_TONE_TEXT[scoreTone(score)]
-
-/** Fond doux et filet d'une cellule de score ; neutre quand il est retenu. */
-export const scoreSoftClass = (score: number | null): string =>
-  score === null ? TONE_SOFT.neutral : TONE_SOFT[scoreTone(score)]
 
 /**
  * Score affichable (« 72 % », espace insécable comme `formatPercent`), ou « — »

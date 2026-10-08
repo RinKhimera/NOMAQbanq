@@ -1,7 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { AbonnementsClient } from "@/app/(dashboard)/tableau-de-bord/abonnements/_components/abonnements-client"
 import { createCustomerPortal } from "@/features/payments/actions"
 import type {
@@ -21,11 +20,6 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/tableau-de-bord/abonnements",
 }))
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 const DAY = 24 * 60 * 60 * 1000
 const product = (p: Partial<ProductView>): ProductView => ({
@@ -73,29 +67,7 @@ const renderPage = (
   )
 
 describe("AbonnementsClient", () => {
-  beforeEach(() => vi.mocked(createCustomerPortal).mockReset())
-
-  it("le portail Stripe ne s'ouvre qu'après confirmation", async () => {
-    vi.mocked(createCustomerPortal).mockResolvedValue({
-      success: false,
-      error: "Aucun historique de paiement",
-    } as never)
-    renderPage()
-    await userEvent.click(
-      screen.getByRole("button", { name: /Gérer mes factures/ }),
-    )
-    expect(
-      screen.getByRole("alertdialog", {
-        name: "Ouvrir le portail de facturation",
-      }),
-    ).toBeInTheDocument()
-    expect(createCustomerPortal).not.toHaveBeenCalled()
-
-    await userEvent.click(screen.getByTestId("billing-portal-confirm"))
-    await waitFor(() => expect(createCustomerPortal).toHaveBeenCalledTimes(1))
-  })
-
-  it("une erreur passagère laisse le Dialog ouvert pour réessayer", async () => {
+  it("le portail ne s'ouvre qu'après confirmation ; une erreur laisse le Dialog ouvert", async () => {
     vi.mocked(createCustomerPortal).mockResolvedValue({
       success: false,
       error: "Stripe indisponible",
@@ -104,13 +76,14 @@ describe("AbonnementsClient", () => {
     await userEvent.click(
       screen.getByRole("button", { name: /Gérer mes factures/ }),
     )
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Ouvrir le portail de facturation",
+    })
+    expect(createCustomerPortal).not.toHaveBeenCalled()
+
     await userEvent.click(screen.getByTestId("billing-portal-confirm"))
     await waitFor(() => expect(createCustomerPortal).toHaveBeenCalledTimes(1))
-    expect(
-      screen.getByRole("alertdialog", {
-        name: "Ouvrir le portail de facturation",
-      }),
-    ).toBeInTheDocument()
+    expect(dialog).toBeInTheDocument()
   })
 
   it("annuler rend le focus au bouton qui a ouvert le Dialog", async () => {
