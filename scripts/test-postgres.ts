@@ -91,8 +91,9 @@ export const startTestPostgres = async (): Promise<TestPostgres> => {
     LABEL,
     "--label",
     `${CREATED_LABEL}=${Date.now()}`,
+    // Sans mot de passe : le port n'est publié que sur la boucle locale.
     "--env",
-    "POSTGRES_PASSWORD=postgres",
+    "POSTGRES_HOST_AUTH_METHOD=trust",
     "--env",
     `POSTGRES_DB=${TEST_DATABASE}`,
     // Même collation que Neon : un ORDER BY sur du texte accentué ne trie pas
@@ -123,7 +124,7 @@ export const startTestPostgres = async (): Promise<TestPostgres> => {
     const port = hostPort.slice(hostPort.lastIndexOf(":") + 1)
     return {
       name,
-      url: `postgresql://postgres:postgres@127.0.0.1:${port}/${TEST_DATABASE}`,
+      url: `postgresql://postgres@127.0.0.1:${port}/${TEST_DATABASE}`,
     }
   } catch (error) {
     stopTestPostgres(name)

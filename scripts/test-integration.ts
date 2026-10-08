@@ -19,6 +19,12 @@ const vitestArgs = process.argv
   .slice(2)
   .filter((arg) => arg !== "--keep" && arg !== "--")
 
+// Ctrl+C atteint aussi vitest, qui s'arrête de lui-même. Ignoré ici, le signal
+// ne tue plus l'orchestrateur avant son `finally` : `spawnSync` rend la main
+// et le conteneur est supprimé.
+process.on("SIGINT", () => {})
+process.on("SIGTERM", () => {})
+
 const removed = removeStaleTestContainers()
 if (removed.length > 0) {
   console.log(
