@@ -28,7 +28,7 @@ bun run format           # Prettier write
 bun run format:check     # Prettier check
 bun run test             # Tests frontend (NE PAS utiliser `bun test` — runner Bun casse vi.mocked/vi.hoisted)
 bun run test:coverage    # Tests avec rapport coverage
-bun run test:integration # Tests DAL/Actions sur un Postgres Docker jetable (demarre/migre/detruit ; Docker Desktop requis)
+bun run test:integration # Tests DAL/Actions sur un Postgres Docker jetable (demarre/migre/detruit ; Docker Desktop requis, ~30 s ; cibler : -- <fichier>)
 bun run test:coverage:full # Couverture AGREGEE frontend + backend (Postgres Docker ; seuls chiffres couvrant features/** et app/api/**)
 bun run test:e2e         # Tests E2E Playwright (toujours via ce script : `bunx playwright test` est flaky)
 bun run e2e:ui           # Playwright UI mode
@@ -102,6 +102,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Courriels** : socle dans `email/` (`theme.ts` jetons + identité, `components/`, `templates/email-layout.tsx` à catégories `transactional` / `commercial`). Un courriel commercial exige `unsubscribeUrl` (Loi canadienne anti-pourriel). Les templates ne lisent jamais l'env : `email/index.tsx` passe `baseUrl` et le prénom. Pas de SVG dans un courriel (Gmail/Outlook), pas de thème sombre. Courriels commerciaux (relance d'inactivité, panier abandonné) : préférence `user.notify_marketing`, désabonnement sans connexion sur `/desabonnement?token=` (jeton HMAC `lib/unsubscribe-token.ts`, aucune écriture au rendu, bouton de confirmation puis réactivation) ; en-têtes `List-Unsubscribe` + `List-Unsubscribe-Post` (RFC 8058) pointant sur `POST /api/desabonnement`, sans quoi Gmail n'affiche pas son bouton natif. Marqueurs d'envoi unique sur `user` : `welcome_email_sent_at`, `inactivity_reminder_sent_at`, `cart_reminder_sent_at` (plafond 7 j). `lib/auth.ts` n'importe que `features/notifications/welcome.ts` (pas de cycle)
 - **ESM** : `"type": "module"` — pas de `__dirname`, utiliser `fileURLToPath(import.meta.url)`
 - **Env** : valide via zod (`lib/env/schema.ts`) ; nouvelles vars optionnelles + erreur claire a l'usage. `.env.local` est GÉNÉRÉ (`bun run env:sync` depuis le scope Vercel Development) : nouvelle var = `vercel env add <KEY> development` d'abord, pas d'édition manuelle durable
+- **GitGuardian** (check de PR, non requis) : aucun mot de passe littéral, même de test (`POSTGRES_PASSWORD=postgres` l'a déclenché) ; un incident regroupe une même valeur de secret tous dépôts confondus, d'où des dates antérieures au commit
 - **`.playwright-cli/`** : gitignoré mais parcouru par ESLint. Un script d'audit laissé là fait échouer `bun run check` ; le supprimer après le run.
 - **data-testid** : Obligatoire sur composants quiz interactifs (`components/quiz/`). Convention : `answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`
 - **Usage Vercel (Hobby, 4 h d'Active CPU/mois)** : chaque invocation compte, proxy inclus. `proxy.ts` ne matche que `/`, `/a-propos`, `/domaines` **avec cookie de session** — la zone protégée est gardée par les layouts, ne pas ré-élargir le matcher (verrou : `tests/proxy.test.ts`). Prefetch et session côté client : `.claude/rules/loading-ui.md`. Sentry serveur : `lib/sentry-sampling.ts`. Diagnostic : MCP `vercel` (`get_runtime_logs` `group_by: source`), page Usage.
