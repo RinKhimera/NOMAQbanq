@@ -139,7 +139,7 @@ _Avoid_ : mock exam, test
 **Examen ouvert** :
 Un examen blanc dont la date de fin n'est pas passée. C'est lui qui déclenche
 le verrou de clé de réponse.
-_Avoid_ : examen actif (l'activation est un réglage administrateur distinct)
+_Avoid_ : examen actif (la suspension est un réglage administrateur distinct)
 
 **Réouverture** :
 Un nouvel examen blanc qui reprend le contenu d'un examen clos (questions,
@@ -153,9 +153,9 @@ _Avoid_ : édition, session, prolongation (qui repousse la fin d'un examen encor
 
 **Phase d'examen** :
 Ce qu'un examen blanc affiche à un instant donné : en préparation, à venir, en
-cours, terminé ou désactivé. C'est un terme d'affichage ; un examen à venir ou
-en cours est « ouvert » au sens du verrou. Désactivé prime sur toutes les
-autres phases.
+cours, suspendu ou terminé. C'est un terme d'affichage ; un examen à venir ou
+en cours est « ouvert » au sens du verrou. Suspendu prime sur à venir et en
+cours ; un examen clos est terminé, suspendu ou non.
 _Avoid_ : statut d'examen, état, « ouvert » pour la phase en cours, « finalisé »
 (c'est une action, pas une phase)
 
@@ -166,6 +166,23 @@ pas pour l'étudiant et ne s'ouvre jamais, même à sa date d'ouverture : nul,
 admin compris, ne peut le démarrer. Il ne compte pas dans la dernière
 utilisation d'une question, et ses questions n'ont pas de choix figés.
 _Avoid_ : brouillon, examen non publié
+
+**Examen masqué** :
+Un examen blanc que seuls voient les admins et ses candidats éligibles ; un
+examen non masqué est vu de tous les étudiants, éligibles ou non. Pour une
+audience d'abonnés, est éligible l'étudiant qui a l'accès Examens actif ou qui a
+déjà une participation à cet examen : un candidat dont l'accès expire garde
+l'examen dans son historique. Une audience restreinte est déjà réservée à ses
+membres, que l'examen soit masqué ou non.
+_Avoid_ : caché, privé, confidentiel
+
+**Examen suspendu** :
+Un examen ouvert que plus personne ne peut commencer, admin compris ; qui le
+compose déjà peut terminer. Il reste visible de ceux qui le voyaient. La
+suspension se lève tant que l'examen est ouvert et ne joue plus une fois
+l'examen clos.
+_Avoid_ : désactivé, fermé (c'est un examen clos), en pause (c'est une
+participation)
 
 **Finalisation** :
 L'action d'un admin qui fait passer un examen en préparation à examen prêt à
@@ -243,9 +260,11 @@ ni pour un examen ouvert.
 _Avoid_ : rang global, percentile d'entraînement
 
 **Classement d'examen** :
-Les participations terminées d'un examen blanc, par score décroissant, que
-seul l'admin consulte, sur la fiche de l'examen ; un étudiant n'en voit que son
-percentile, dans ses résultats. Sa population est celle du percentile d'examen
+Les participations terminées d'un examen blanc clos, par score décroissant.
+L'admin le consulte sur la fiche de l'examen et ouvre la copie de chaque
+candidat. Un participant le consulte aussi, chaque candidat identifié par son
+nom d'utilisateur et sa photo, jamais son nom complet ; il n'ouvre que sa propre
+copie. Sa population est celle du percentile d'examen
 (participations d'étudiants, hors comptes admin et supprimés) : rang et
 percentile comptent les mêmes participants. La fiche liste aussi les copies des
 comptes admin et supprimés, signalées et sans rang.
@@ -321,7 +340,7 @@ _Avoid_ : question validée, faux positif
 
 **Dernière utilisation** :
 L'examen blanc le plus récent, par date d'ouverture, dont le lot contient la
-question. Un examen en préparation n'en compte pas ; un examen désactivé, si.
+question. Un examen en préparation n'en compte pas ; un examen suspendu, si.
 _Avoid_ : date d'usage, dernier tirage
 
 **Question récente** :
