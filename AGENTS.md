@@ -28,7 +28,8 @@ bun run format           # Prettier write
 bun run format:check     # Prettier check
 bun run test             # Tests frontend (NE PAS utiliser `bun test` — runner Bun casse vi.mocked/vi.hoisted)
 bun run test:coverage    # Tests avec rapport coverage
-bun run test:integration # Tests DAL/Actions sur un Postgres Docker jetable (demarre/migre/detruit ; Docker Desktop requis, ~30 s ; cibler : -- <fichier>)
+bun run test:integration # Tests DAL/Actions sur un Postgres Docker jetable (demarre/migre/detruit ; Docker Desktop requis, ~25 s ; cibler : -- <fichier> -t "<titre>" ; ordre des tests melange, graine affichee : -- --sequence.seed=N pour rejouer)
+bun run test:integration -- --experimental.importDurations.print # Diagnostic : modules les plus lents a importer (duree d'une suite)
 bun run test:coverage:full # Couverture AGREGEE frontend + backend (Postgres Docker ; seuls chiffres couvrant features/** et app/api/**)
 bun run test:e2e         # Tests E2E Playwright (toujours via ce script : `bunx playwright test` est flaky)
 bun run e2e:ui           # Playwright UI mode

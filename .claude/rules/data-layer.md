@@ -54,6 +54,10 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   la dernière version committée et ne se met pas en file derrière un `FOR UPDATE`
   détenu (ex. `saveExamAnswer` vs `finalizeExam` sur la même participation →
   verrou de ligne, pas EXISTS).
+- **Lectures d'une transaction en séquence, jamais `Promise.all` sur `tx`** :
+  une transaction tient une seule connexion, qui n'exécute qu'une requête à
+  la fois (pg met les suivantes en file, pg@9 les refusera). Verrou :
+  `tests/architecture/transaction-queries.test.ts`.
 - **Écriture sur une tentative = `requireAttempt`** (`features/attempts/guard.ts`,
   `docs/adr/0001`). Toute action qui écrit sur une participation ou une session
   d'entraînement ouvre `db.transaction` et appelle
