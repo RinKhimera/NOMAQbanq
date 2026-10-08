@@ -82,10 +82,11 @@ export const account = pgTable(
     id: text("id").primaryKey(),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
-    // Plus écrite par better-auth depuis 1.7.3 : seules les lignes antérieures
-    // la portent. Gardée nullable le temps de pouvoir revenir à 1.7.2, qui
-    // l'écrit encore ; à supprimer ensuite.
-    issuer: text("issuer"),
+    // `issuer` reste en base (nullable) tant que le code précédent, qui la
+    // déclare et que l'adaptateur de better-auth lit et insère, peut servir du
+    // trafic : la migration tourne au build, avant la bascule. Le prochain
+    // `db:generate` produit son DROP ; ne pas le livrer avant la mise en prod
+    // de ce schéma (#210).
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
