@@ -1,5 +1,11 @@
-import { format, formatDistanceToNow, isValid, parseISO } from "date-fns"
-import { fr } from "date-fns/locale"
+// Chemins directs plutôt que les barrels : `date-fns` et `date-fns/locale`
+// chargent toutes les fonctions et toutes les langues (≈ 1,5 s par fichier de
+// test, que Next évite par son optimisation d'imports mais pas Vitest).
+import { format } from "date-fns/format"
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow"
+import { isValid } from "date-fns/isValid"
+import { fr } from "date-fns/locale/fr"
+import { parseISO } from "date-fns/parseISO"
 import { inAppZone } from "@/lib/app-zone"
 
 /**
