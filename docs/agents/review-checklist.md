@@ -115,3 +115,18 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
     lignes toutes du même côté passent encore si on les retire. Semer une
     ligne d'un autre propriétaire, plus de lignes que le plafond, des lignes
     des deux côtés du seuil, et asserter une valeur exacte, pas `<=`.
+27. **Jumeau qui ne prouve qu'une partie.** Un test supprimé « parce que
+    l'intégration le couvre » vérifiait des champs que le jumeau ne regarde
+    pas : `toHaveBeenCalledWith(expect.objectContaining({…}))` sans le prénom,
+    la date ou le montant local d'un courriel ; une borne exacte
+    (`end_date > now()`) qu'une base ne peut pas atteindre (horloge JS et
+    horloge Postgres diffèrent). Avant de supprimer, comparer les assertions
+    une à une ; un appel se vérifie à l'identique, et une égalité de bornes se
+    fige sur le SQL rendu.
+28. **Assertion qui passe à vide.** Une regex qui ne peut plus rien
+    reconnaître (un `\b` écrit par un script Python non raw devient l'octet
+    0x08), un `not.toMatch` sur un texte absent par construction, un mock dont
+    l'implémentation par défaut est effacée avant le test (`mockReset`) : le
+    test reste vert quel que soit le code. Toute assertion neuve se prouve par
+    mutation, et `tests/architecture/test-hygiene.test.ts` refuse les
+    caractères de contrôle dans `tests/`.
