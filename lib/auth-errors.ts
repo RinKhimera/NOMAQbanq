@@ -35,7 +35,10 @@ export function mapAuthError(
     return { kind: "banned", message: "Ce compte est suspendu." }
   }
 
-  if (code === "INVALID_EMAIL_OR_PASSWORD") {
+  // Better Auth refuse un mot de passe trop long avant même de chercher le
+  // compte : aucun compte ne peut en avoir un (plafond de l'inscription), donc
+  // c'est une faute de frappe, pas une autre erreur.
+  if (code === "INVALID_EMAIL_OR_PASSWORD" || code === "PASSWORD_TOO_LONG") {
     return {
       kind: "invalid_credentials",
       message: "Courriel ou mot de passe incorrect.",

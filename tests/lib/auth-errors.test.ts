@@ -14,6 +14,12 @@ describe("mapAuthError", () => {
     )
   })
 
+  it("classe PASSWORD_TOO_LONG comme des identifiants invalides", () => {
+    const r = mapAuthError({ code: "PASSWORD_TOO_LONG", status: 400 })
+    expect(r.kind).toBe("invalid_credentials")
+    expect(r.message).toBe("Courriel ou mot de passe incorrect.")
+  })
+
   it("classe BANNED_USER en suspension", () => {
     const r = mapAuthError({ code: "BANNED_USER", status: 403 })
     expect(r.kind).toBe("banned")
