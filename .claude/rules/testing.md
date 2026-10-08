@@ -40,3 +40,5 @@ paths:
 - Un script d'édition (Python, sed) qui écrit `\b` hors chaîne brute pose
   l'octet 0x08 : la regex ne reconnaît plus rien et le test passe à vide.
   Écrire le code avec l'outil d'édition, ou en chaîne brute.
+- Vitest n'affiche la console (`console.log`) que pour un test qui échoue :
+  pour déboguer, faire échouer l'assertion plutôt que de chercher un log absent.

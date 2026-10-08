@@ -83,6 +83,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - Unitaires `tests/**/*.test.ts` (Node) · composants/hooks `tests/**/*.test.tsx` (happy-dom) — Integration DAL/Actions: `tests/integration/` (node, Postgres Docker vide et migre via `bun run test:integration`)
 - E2E: `e2e/tests/` (Playwright + auth Better Auth) — POMs dans `e2e/pages/` ; support reset/cleanup via `app/api/e2e`
 - Config: `vitest.config.ts` (exclut `e2e/**`) — `playwright.config.ts` — env `TZ=UTC`
+- Verrous d'architecture : `tests/architecture/` (styles interdits, tonalités, chargement, requêtes en transaction, tests d'intégration, hygiène des tests) — un échec signale une convention enfreinte, pas un test à assouplir
 
 ## Gotchas
 
