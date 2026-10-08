@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import {
   type CopyAnswer,
@@ -25,11 +24,6 @@ vi.mock("@/features/exams/actions", () => ({
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
   useRouter: () => ({ push, refresh: vi.fn() }),
-}))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
 }))
 
 const question = (id: string, domain: string): QuizQuestion =>

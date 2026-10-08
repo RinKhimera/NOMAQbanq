@@ -36,18 +36,12 @@ describe("ProfileAccountSection", () => {
     )
     const toggle = screen.getByTestId("login-method-change-password")
     await userEvent.click(toggle)
-    await userEvent.type(
-      screen.getByTestId("security-current-password"),
-      "AncienPassw0rd!",
-    )
-    await userEvent.type(
-      screen.getByTestId("security-new-password"),
-      "NouveauPassw0rd!",
-    )
-    await userEvent.type(
-      screen.getByTestId("security-confirm-password"),
-      "NouveauPassw0rd!",
-    )
+    await userEvent.click(screen.getByTestId("security-current-password"))
+    await userEvent.paste("AncienPassw0rd!")
+    await userEvent.click(screen.getByTestId("security-new-password"))
+    await userEvent.paste("NouveauPassw0rd!")
+    await userEvent.click(screen.getByTestId("security-confirm-password"))
+    await userEvent.paste("NouveauPassw0rd!")
     await userEvent.click(screen.getByTestId("security-submit"))
     await waitFor(() =>
       expect(screen.queryByTestId("security-submit")).not.toBeInTheDocument(),

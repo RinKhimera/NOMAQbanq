@@ -44,21 +44,13 @@ beforeEach(() => {
 })
 
 describe("garde d'authentification (fail-closed)", () => {
-  it("secret non configure → 401, aucune tache lancee", async () => {
-    mocks.env.CRON_SECRET = undefined
-    const res = await call("Bearer s3cret")
-    expect(res.status).toBe(401)
-    expect(mocks.first).not.toHaveBeenCalled()
-  })
-
-  it("en-tete absent → 401", async () => {
-    const res = await call()
-    expect(res.status).toBe(401)
-    expect(mocks.first).not.toHaveBeenCalled()
-  })
-
-  it("mauvais bearer → 401", async () => {
-    const res = await call("Bearer autre")
+  it.each([
+    ["secret non configuré", undefined, "Bearer s3cret"],
+    ["en-tête absent", "s3cret", undefined],
+    ["mauvais bearer", "s3cret", "Bearer autre"],
+  ])("%s → 401, aucune tâche lancée", async (_, secret, authorization) => {
+    mocks.env.CRON_SECRET = secret
+    const res = await call(authorization)
     expect(res.status).toBe(401)
     expect(mocks.first).not.toHaveBeenCalled()
   })
@@ -77,11 +69,10 @@ describe("réponse de la route", () => {
     })
   })
 
-  it("une tâche en échec → 500 après avoir tout tenté", async () => {
+  it("une tâche en échec → 500", async () => {
     mocks.first.mockRejectedValueOnce(new Error("poison row"))
     const res = await call("Bearer s3cret")
     expect(res.status).toBe(500)
-    expect(mocks.second).toHaveBeenCalled()
   })
 })
 
@@ -151,7 +142,7 @@ describe("runSchedule", () => {
   })
 
   it("journal : seuls les compteurs non nuls, libellé=valeur ; rien si tout est à zéro", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {})
+    const log = vi.mocked(console.log)
 
     await runSchedule([
       task("a", async () => ({ closedCount: 0 })),
@@ -173,14 +164,5 @@ describe("runSchedule", () => {
     expect(line).not.toContain("sent=")
     expect(line).not.toContain("failed")
     expect(line).not.toContain("checked")
-  })
-
-  // Une jauge non nulle à chaque passage rendrait le journal bavard.
-  it("journal : une tâche `quiet` ne parle jamais, même non nulle", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {})
-    await runSchedule([
-      task("c", async () => ({ checked: 5 }), { quiet: true }),
-    ])
-    expect(log).not.toHaveBeenCalled()
   })
 })

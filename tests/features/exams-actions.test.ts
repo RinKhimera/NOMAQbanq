@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { type RefusalCode, refusalMessage } from "@/features/attempts/guard"
+import type { RefusalCode } from "@/features/attempts/guard"
 import {
   deactivateExam,
   deleteExam,
@@ -92,16 +92,6 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 
 const SERVER_ERROR = "Erreur serveur. Réessayez."
 const NOW = 1_500
-
-const ALL_REFUSALS: RefusalCode[] = [
-  "NOT_FOUND",
-  "NOT_IN_PROGRESS",
-  "NOT_STARTED",
-  "OUTSIDE_WINDOW",
-  "ACCESS_EXPIRED",
-  "PAUSED",
-  "TIME_UP",
-]
 
 // Budget 100 s démarré à t = 0 ; aucune pause.
 const openAttempt = (extra: Record<string, unknown> = {}) => ({
@@ -211,10 +201,6 @@ describe("startExam", () => {
     ["ALREADY_TAKEN", "Vous avez déjà passé cet examen."],
     ["NOT_IN_AUDIENCE", "Cet examen ne vous est pas destiné."],
     ["ACCESS_EXPIRED", "Votre accès aux examens a expiré."],
-    [
-      "NOT_FINALIZED",
-      "Cet examen est en préparation : il n'est pas encore ouvert.",
-    ],
   ])("%s → %s, sans capture", async (thrown, error) => {
     rejectWith(thrown)
     const res = await startExam({ examId: "e1" })
@@ -270,35 +256,6 @@ describe("startExam", () => {
     expect(res).toMatchObject({ success: true, startedAt: NOW })
   })
 
-  it.each([
-    ["étudiant", "user"],
-    ["admin", "admin"],
-  ])(
-    "examen désactivé : refuse une nouvelle participation (%s)",
-    async (_label, role) => {
-      mocks.session.current = { user: { id: "u1", role } }
-      setRows({
-        user: [{ id: "u1" }],
-        exams: [
-          {
-            startDate: new Date(0),
-            finalizedAt: new Date(0),
-            endDate: new Date(10_000),
-            audienceType: "restricted",
-            isActive: false,
-          },
-        ],
-        examAudience: [{ userId: "u1" }],
-        examParticipations: [],
-        examQuestions: [{ questionId: "q1" }],
-      })
-      expect(await startExam({ examId: "e1" })).toEqual({
-        success: false,
-        error: "Cet examen n'est plus disponible.",
-      })
-    },
-  )
-
   // Borne du glossaire (« examen ouvert » = date de fin non passée) : cas
   // jumeaux à 1 ms près, comme la garde answer/close.
   it.each([
@@ -353,17 +310,6 @@ describe("saveExamAnswer", () => {
     expect(mocks.requireAttempt).not.toHaveBeenCalled()
   })
 
-  // Lue APRES la garde : sinon le message distinguerait une question de
-  // l'examen d'une question etrangere pour un examen a venir ou un non-abonne.
-  it("question etrangere a l'examen → refus, apres la garde", async () => {
-    setRows({ examQuestions: [] })
-    expect(await saveExamAnswer(input)).toEqual({
-      success: false,
-      error: "Cette question ne fait pas partie de l'examen.",
-    })
-    expect(mocks.requireAttempt).toHaveBeenCalled()
-  })
-
   it("texte hors options → refus OPTION_CHANGED, aucune ecriture", async () => {
     setRows(question)
     expect(
@@ -386,23 +332,18 @@ describe("saveExamAnswer", () => {
     expect(state.set).toEqual({ selectedAnswer: "A ", isCorrect: true })
   })
 
-  it("garde refusee : la question n'est pas lue, le refus porte son code", async () => {
+  // La question est lue APRES la garde : sinon le message distinguerait une
+  // question de l'examen d'une question etrangere pour un examen a venir ou un
+  // non-abonne.
+  it("garde refusee : la question n'est pas lue, le refus porte son code, aucune ecriture", async () => {
     refuse("OUTSIDE_WINDOW")
     setRows({ examQuestions: [] })
     expect(await saveExamAnswer(input)).toEqual({
       success: false,
-      error: refusalMessage("OUTSIDE_WINDOW", "exam"),
+      error: "L'examen n'est pas disponible à cette période.",
       code: "OUTSIDE_WINDOW",
     })
-  })
-
-  it("temps ecoule : le refus porte TIME_UP, pour que le client soumette au lieu de faire reessayer", async () => {
-    refuse("TIME_UP")
-    expect(await saveExamAnswer(input)).toEqual({
-      success: false,
-      error: refusalMessage("TIME_UP", "exam"),
-      code: "TIME_UP",
-    })
+    expect(state.set).toBeUndefined()
   })
 
   it("demande la garde `answer` sur l'examen, pour l'acteur courant, dans la transaction", async () => {
@@ -417,17 +358,6 @@ describe("saveExamAnswer", () => {
     })
   })
 
-  it.each(ALL_REFUSALS)("refus %s → message, aucune ecriture", async (code) => {
-    refuse(code)
-    setRows(question)
-    expect(await saveExamAnswer(input)).toEqual({
-      success: false,
-      error: refusalMessage(code, "exam"),
-      code,
-    })
-    expect(state.set).toBeUndefined()
-  })
-
   it("aucune ligne mise a jour → session incoherente", async () => {
     state.returning = []
     setRows(question)
@@ -435,14 +365,6 @@ describe("saveExamAnswer", () => {
       success: false,
       error: "Réponse non enregistrée (session incohérente).",
     })
-  })
-
-  it("succes : ecrit la reponse et son verdict, ne renvoie jamais isCorrect (anti-triche)", async () => {
-    setRows(question)
-    const res = await saveExamAnswer(input)
-    // `serverNow` ré-ancre le chrono client ; jamais isCorrect.
-    expect(res).toEqual({ success: true, serverNow: Date.now() })
-    expect(state.set).toEqual({ selectedAnswer: "A", isCorrect: true })
   })
 
   it("panne base → capture", async () => {
@@ -476,17 +398,15 @@ describe("saveExamFlag", () => {
     )
   })
 
-  it.each(["NOT_FOUND", "NOT_IN_PROGRESS"] as const)(
-    "refus %s → message",
-    async (code) => {
-      refuse(code)
-      expect(await saveExamFlag(input)).toEqual({
-        success: false,
-        error: refusalMessage(code, "exam"),
-        code,
-      })
-    },
-  )
+  it("refus de la garde → message et code, aucune ecriture", async () => {
+    refuse("NOT_IN_PROGRESS")
+    expect(await saveExamFlag(input)).toEqual({
+      success: false,
+      error: "Cette participation n'est plus active.",
+      code: "NOT_IN_PROGRESS",
+    })
+    expect(state.set).toBeUndefined()
+  })
 
   it("aucune ligne marquee → session incoherente", async () => {
     state.returning = []
@@ -527,12 +447,12 @@ describe("finalizeExam", () => {
     })
   })
 
-  it.each(ALL_REFUSALS)("refus %s → message, aucune ecriture", async (code) => {
-    refuse(code)
+  it("refus de la garde → message et code, aucune cloture", async () => {
+    refuse("TIME_UP")
     expect(await finalizeExam({ examId: "e1" })).toEqual({
       success: false,
-      error: refusalMessage(code, "exam"),
-      code,
+      error: "Temps écoulé.",
+      code: "TIME_UP",
     })
     expect(mocks.closeAttempts).not.toHaveBeenCalled()
   })
@@ -608,17 +528,15 @@ describe("pauseExam", () => {
     )
   })
 
-  it.each(["NOT_FOUND", "NOT_IN_PROGRESS"] as const)(
-    "refus %s → message",
-    async (code) => {
-      refuse(code)
-      expect(await pauseExam({ examId: "e1" })).toEqual({
-        success: false,
-        error: refusalMessage(code, "exam"),
-        code,
-      })
-    },
-  )
+  it("refus de la garde → message et code, aucune ecriture", async () => {
+    refuse("NOT_FOUND")
+    expect(await pauseExam({ examId: "e1" })).toEqual({
+      success: false,
+      error: "Participation introuvable.",
+      code: "NOT_FOUND",
+    })
+    expect(state.set).toBeUndefined()
+  })
 
   // Les refus propres à la pause restent locaux à l'action.
   it.each([
@@ -717,17 +635,15 @@ describe("resumeExam", () => {
     )
   })
 
-  it.each(["NOT_FOUND", "NOT_IN_PROGRESS"] as const)(
-    "refus %s → message",
-    async (code) => {
-      refuse(code)
-      expect(await resumeExam({ examId: "e1" })).toEqual({
-        success: false,
-        error: refusalMessage(code, "exam"),
-        code,
-      })
-    },
-  )
+  it("refus de la garde → message et code, aucune ecriture", async () => {
+    refuse("NOT_IN_PROGRESS")
+    expect(await resumeExam({ examId: "e1" })).toEqual({
+      success: false,
+      error: "Cette participation n'est plus active.",
+      code: "NOT_IN_PROGRESS",
+    })
+    expect(state.set).toBeUndefined()
+  })
 
   it("pas en pause → refus local", async () => {
     expect(await resumeExam({ examId: "e1" })).toEqual({

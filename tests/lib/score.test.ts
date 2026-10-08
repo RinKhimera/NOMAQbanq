@@ -22,15 +22,23 @@ describe("computeScorePercent", () => {
   })
 
   it("half-up exact pour tout total ≤ 500 (parité avec round() SQL numeric)", () => {
+    // Un `expect` par couple coûterait ≈ 125 000 assertions : on collecte les
+    // écarts et on n'en vérifie que la liste.
+    const mismatches: string[] = []
     for (let total = 1; total <= 500; total++) {
       for (let correct = 0; correct <= total; correct++) {
         const hundred = correct * 100
         const remainder = hundred % total
         const base = (hundred - remainder) / total
         const expected = 2 * remainder >= total ? base + 1 : base
-        expect(computeScorePercent(correct, total)).toBe(expected)
+        const actual = computeScorePercent(correct, total)
+        if (actual !== expected)
+          mismatches.push(
+            `${correct}/${total} → ${actual}, attendu ${expected}`,
+          )
       }
     }
+    expect(mismatches).toEqual([])
   })
 })
 

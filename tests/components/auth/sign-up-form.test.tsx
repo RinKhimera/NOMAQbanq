@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { SignUpForm } from "@/app/(auth)/inscription/_components/sign-up-form"
 
 const signUpEmail = vi.fn()
@@ -18,26 +17,20 @@ vi.mock("@/lib/auth-client", () => ({
 }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }))
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 async function fillAndSubmit() {
   const user = userEvent.setup()
-  await user.type(screen.getByTestId("auth-name"), "Marie Dupont")
-  await user.type(screen.getByTestId("auth-email"), "marie@example.com")
-  await user.type(screen.getByTestId("auth-password"), "password123")
+  await user.click(screen.getByTestId("auth-name"))
+  await user.paste("Marie Dupont")
+  await user.click(screen.getByTestId("auth-email"))
+  await user.paste("marie@example.com")
+  await user.click(screen.getByTestId("auth-password"))
+  await user.paste("password123")
   await user.click(screen.getByTestId("auth-submit"))
 }
 
-beforeEach(() => {
-  vi.clearAllMocks()
-})
-
 describe("SignUpForm", () => {
-  it("bascule vers l'écran de vérification au succès (pas de redirection dashboard)", async () => {
+  it("bascule vers l'écran de vérification au succès (pas de redirection vers le tableau de bord)", async () => {
     signUpEmail.mockResolvedValue({ error: null })
     render(<SignUpForm />)
     await fillAndSubmit()

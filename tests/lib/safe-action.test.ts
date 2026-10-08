@@ -14,7 +14,6 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
 
 afterEach(() => {
   vi.useRealTimers()
-  vi.clearAllMocks()
 })
 
 describe("callAction", () => {

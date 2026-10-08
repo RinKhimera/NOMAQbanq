@@ -14,11 +14,10 @@ vi.mock("next/navigation", () => ({
 
 describe("PeriodFilter", () => {
   beforeEach(() => {
-    replace.mockReset()
     search = ""
   })
 
-  it("marque la période courante, 30 jours par défaut", () => {
+  it("marque la période reçue et rend la zone filtrée", () => {
     render(<PeriodFilter value="30">contenu</PeriodFilter>)
     expect(screen.getByRole("button", { name: "30 jours" })).toHaveAttribute(
       "aria-pressed",

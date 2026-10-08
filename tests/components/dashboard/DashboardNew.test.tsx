@@ -1,17 +1,10 @@
 import { render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import {
   DashboardNew,
   accessOffer,
 } from "@/app/(dashboard)/tableau-de-bord/_components/dashboard-new"
 import type { ProductView } from "@/features/payments/dal"
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 const product = (p: Partial<ProductView>): ProductView => ({
   id: p.code ?? "x",

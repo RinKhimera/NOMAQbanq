@@ -1,48 +1,19 @@
 import { render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import {
   AccessBadge,
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
 
-vi.mock("next/image", () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => (
-    <img src={src} alt={alt} data-testid="next-image" />
-  ),
-}))
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
-
-vi.mock("@/lib/format", () => ({
-  formatExpiration: (ts: number) => `formatted-${ts}`,
-}))
-
 describe("AccessBadge", () => {
-  describe("rendu pour chaque statut", () => {
-    it("affiche 'Actif' pour le statut active", () => {
-      render(<AccessBadge accessType="exam" status="active" />)
-      expect(screen.getByText("Actif")).toBeInTheDocument()
-    })
-
-    it("affiche 'Expire bientôt' pour le statut expiring", () => {
-      render(<AccessBadge accessType="exam" status="expiring" />)
-      expect(screen.getByText("Expire bientôt")).toBeInTheDocument()
-    })
-
-    it("affiche 'Expiré' pour le statut expired", () => {
-      render(<AccessBadge accessType="exam" status="expired" />)
-      expect(screen.getByText("Expiré")).toBeInTheDocument()
-    })
-
-    it("affiche 'Aucun accès' pour le statut none", () => {
-      render(<AccessBadge accessType="exam" status="none" />)
-      expect(screen.getByText("Aucun accès")).toBeInTheDocument()
-    })
+  it.each([
+    ["active", "Actif"],
+    ["expiring", "Expire bientôt"],
+    ["expired", "Expiré"],
+    ["none", "Aucun accès"],
+  ] as const)("statut %s sans jours restants → « %s »", (status, label) => {
+    render(<AccessBadge accessType="exam" status={status} />)
+    expect(screen.getByText(label)).toBeInTheDocument()
   })
 
   describe("showDetails", () => {
@@ -64,69 +35,6 @@ describe("AccessBadge", () => {
     })
   })
 
-  describe("affichage de expiresAt", () => {
-    it("affiche la date d'expiration quand showDetails et statut active", () => {
-      const expiresAt = 1700000000000
-      render(
-        <AccessBadge
-          accessType="exam"
-          status="active"
-          expiresAt={expiresAt}
-          showDetails
-        />,
-      )
-      expect(screen.getByText(/formatted-1700000000000/)).toBeInTheDocument()
-    })
-
-    it("affiche la date d'expiration quand showDetails et statut expiring", () => {
-      const expiresAt = 1700000000000
-      render(
-        <AccessBadge
-          accessType="exam"
-          status="expiring"
-          expiresAt={expiresAt}
-          showDetails
-        />,
-      )
-      expect(screen.getByText(/formatted-1700000000000/)).toBeInTheDocument()
-    })
-
-    it("n'affiche pas la date d'expiration quand statut none", () => {
-      render(
-        <AccessBadge
-          accessType="exam"
-          status="none"
-          expiresAt={1700000000000}
-          showDetails
-        />,
-      )
-      expect(screen.queryByText(/formatted-/)).not.toBeInTheDocument()
-    })
-
-    it("n'affiche pas la date d'expiration quand statut expired", () => {
-      render(
-        <AccessBadge
-          accessType="exam"
-          status="expired"
-          expiresAt={1700000000000}
-          showDetails
-        />,
-      )
-      expect(screen.queryByText(/formatted-/)).not.toBeInTheDocument()
-    })
-
-    it("n'affiche pas la date d'expiration sans showDetails", () => {
-      render(
-        <AccessBadge
-          accessType="exam"
-          status="active"
-          expiresAt={1700000000000}
-        />,
-      )
-      expect(screen.queryByText(/formatted-/)).not.toBeInTheDocument()
-    })
-  })
-
   describe("affichage des jours restants", () => {
     it("affiche les jours restants pour le statut expiring", () => {
       render(
@@ -141,52 +49,28 @@ describe("AccessBadge", () => {
       )
       expect(screen.getByText("45j restants")).toBeInTheDocument()
     })
-
-    it("affiche le label par défaut sans daysRemaining pour active", () => {
-      render(<AccessBadge accessType="exam" status="active" />)
-      expect(screen.getByText("Actif")).toBeInTheDocument()
-    })
   })
 })
 
 describe("getAccessStatus", () => {
-  it("retourne 'none' quand expiresAt est null", () => {
-    expect(getAccessStatus(null, 10)).toBe("none")
-  })
+  const DAY = 24 * 60 * 60 * 1000
+  const future = Date.now() + 30 * DAY
+  const past = Date.now() - 100_000
 
-  it("retourne 'none' quand expiresAt est undefined", () => {
-    expect(getAccessStatus(undefined, 10)).toBe("none")
-  })
-
-  it("retourne 'expired' quand daysRemaining est tombé à 0", () => {
-    const pastTimestamp = Date.now() - 100000
-    expect(getAccessStatus(pastTimestamp, 0)).toBe("expired")
-  })
-
-  it("retourne 'expiring' quand daysRemaining <= 7", () => {
-    const futureTimestamp = Date.now() + 7 * 24 * 60 * 60 * 1000
-    expect(getAccessStatus(futureTimestamp, 7)).toBe("expiring")
+  it.each([
+    ["expiresAt null", "none", null, 10],
+    ["expiresAt undefined", "none", undefined, 10],
+    ["daysRemaining tombé à 0", "expired", past, 0],
+    ["daysRemaining = 7", "expiring", future, 7],
+    ["daysRemaining > 7", "active", future, 30],
+    ["daysRemaining null", "active", future, null],
+    ["daysRemaining undefined", "active", future, undefined],
+  ] as const)("%s → %s", (_, expected, expiresAt, daysRemaining) => {
+    expect(getAccessStatus(expiresAt, daysRemaining)).toBe(expected)
   })
 
   it("ne lit pas l'horloge : daysRemaining fait seul foi contre expiresAt", () => {
-    const futureTimestamp = Date.now() + 1000
-    expect(getAccessStatus(futureTimestamp, 0)).toBe("expired")
-    const pastTimestamp = Date.now() - 100000
-    expect(getAccessStatus(pastTimestamp, 30)).toBe("active")
-  })
-
-  it("retourne 'active' quand daysRemaining > 7", () => {
-    const futureTimestamp = Date.now() + 30 * 24 * 60 * 60 * 1000
-    expect(getAccessStatus(futureTimestamp, 30)).toBe("active")
-  })
-
-  it("retourne 'active' quand daysRemaining est null et expiresAt est futur", () => {
-    const futureTimestamp = Date.now() + 30 * 24 * 60 * 60 * 1000
-    expect(getAccessStatus(futureTimestamp, null)).toBe("active")
-  })
-
-  it("retourne 'active' quand daysRemaining est undefined et expiresAt est futur", () => {
-    const futureTimestamp = Date.now() + 30 * 24 * 60 * 60 * 1000
-    expect(getAccessStatus(futureTimestamp, undefined)).toBe("active")
+    expect(getAccessStatus(Date.now() + 1000, 0)).toBe("expired")
+    expect(getAccessStatus(past, 30)).toBe("active")
   })
 })

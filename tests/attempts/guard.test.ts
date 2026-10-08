@@ -456,10 +456,32 @@ describe("requireAttempt — examen", () => {
 })
 
 describe("refusalMessage", () => {
-  it("NOT_FOUND selon le type de tentative", () => {
-    expect(refusalMessage("NOT_FOUND", "training")).toBe("Série introuvable")
-    expect(refusalMessage("NOT_FOUND", "exam")).toBe(
-      "Participation introuvable.",
-    )
+  it.each([
+    ["NOT_FOUND", "training", "Série introuvable"],
+    ["NOT_FOUND", "exam", "Participation introuvable."],
+    ["NOT_IN_PROGRESS", "training", "Cette série n'est plus active"],
+    ["NOT_IN_PROGRESS", "exam", "Cette participation n'est plus active."],
+    ["NOT_STARTED", "training", "Cette série n'a pas encore été commencée"],
+    ["NOT_STARTED", "exam", "L'examen n'a pas encore été démarré."],
+    ["EXPIRED", "training", "Cette série a expiré"],
+    ["EXPIRED", "exam", "Cette participation a expiré."],
+    [
+      "OUTSIDE_WINDOW",
+      "training",
+      "Cette série n'est pas disponible à cette période",
+    ],
+    [
+      "OUTSIDE_WINDOW",
+      "exam",
+      "L'examen n'est pas disponible à cette période.",
+    ],
+    ["ACCESS_EXPIRED", "training", "Votre accès à l'entraînement a expiré."],
+    ["ACCESS_EXPIRED", "exam", "Votre accès aux examens a expiré."],
+    ["PAUSED", "training", "Réponse impossible pendant la pause"],
+    ["PAUSED", "exam", "Réponse impossible pendant la pause."],
+    ["TIME_UP", "training", "Temps écoulé."],
+    ["TIME_UP", "exam", "Temps écoulé."],
+  ] as const)("%s (%s) → « %s »", (code, kind, message) => {
+    expect(refusalMessage(code, kind)).toBe(message)
   })
 })

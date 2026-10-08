@@ -1,14 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PricingGrid } from "@/app/(marketing)/tarifs/_components/pricing-grid"
 import { NETWORK_ERROR_MESSAGE } from "@/lib/safe-action"
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 const push = vi.fn()
 vi.mock("next/navigation", () => ({
@@ -28,7 +21,6 @@ vi.mock("sonner", () => ({
 
 vi.mock("@/lib/format", () => ({
   formatCurrency: (amount: number) => `${(amount / 100).toFixed(0)} $`,
-  formatExpiration: (ts: number) => `exp-${ts}`,
 }))
 
 const products = [

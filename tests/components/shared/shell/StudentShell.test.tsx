@@ -9,6 +9,8 @@ import type { SessionUser } from "@/lib/session-user"
 
 const push = vi.fn()
 
+// Le vrai Link ne laisse aucune trace de `prefetch` dans le DOM : le stub
+// l'expose pour vérifier `prefetch={false}`.
 vi.mock("next/link", () => ({
   default: ({
     children,
@@ -24,9 +26,6 @@ vi.mock("next/link", () => ({
       {children}
     </a>
   ),
-}))
-vi.mock("next/image", () => ({
-  default: ({ alt }: { alt: string }) => <img alt={alt} />,
 }))
 vi.mock("next/navigation", () => ({
   usePathname: vi.fn(),

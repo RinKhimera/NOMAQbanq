@@ -1,23 +1,6 @@
 import { render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import { PageIntro } from "@/components/shared/page-intro"
-
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    ...props
-  }: {
-    children: ReactNode
-    href: string
-    "aria-label"?: string
-  }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
-}))
 
 describe("PageIntro", () => {
   it("le titre est de niveau 1, suivi de sa description", () => {

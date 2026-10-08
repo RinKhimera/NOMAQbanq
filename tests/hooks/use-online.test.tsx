@@ -1,13 +1,9 @@
 import { act, renderHook } from "@testing-library/react"
 import { renderToString } from "react-dom/server"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { useOnline } from "@/hooks/use-online"
 
 const Probe = () => <span>{useOnline() ? "en ligne" : "hors ligne"}</span>
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
 
 describe("useOnline", () => {
   it("vaut true au rendu serveur, quel que soit le navigateur", () => {

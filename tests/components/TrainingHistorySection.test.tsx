@@ -1,7 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { TrainingHistorySection } from "@/app/(dashboard)/tableau-de-bord/entrainement/_components/training-history-section"
 import type {
   TrainingHistoryItem,
@@ -27,11 +26,6 @@ const {
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
   useRouter: () => ({ refresh, push: vi.fn() }),
-}))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
 }))
 vi.mock("sonner", () => ({
   toast: { error: toastError, success: toastSuccess },
@@ -69,10 +63,6 @@ const page = (
 
 // Tableau (≥ 1100 px) et lignes empilées coexistent dans le DOM : on lit le tableau.
 const table = () => within(screen.getByRole("table"))
-
-beforeEach(() => {
-  vi.clearAllMocks()
-})
 
 describe("TrainingHistorySection", () => {
   it("vide : message, sans « Tout supprimer »", () => {

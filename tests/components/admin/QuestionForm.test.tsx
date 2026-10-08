@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   type QuestionEditContext,
   QuestionForm,
@@ -140,10 +140,6 @@ const openEdit = (
 const saveEdit = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByTestId("btn-save-question"))
 
-afterEach(() => {
-  vi.clearAllMocks()
-})
-
 describe("QuestionForm — édition", () => {
   it("enregistre, réécrit les deux jeux d'images et ouvre le détail", async () => {
     const user = userEvent.setup()
@@ -181,7 +177,8 @@ describe("QuestionForm — édition", () => {
   it("la clé suit le renommage de l'option-clé", async () => {
     const user = userEvent.setup()
     openEdit()
-    await user.type(screen.getByTestId("option-input-0"), " bis")
+    await user.click(screen.getByTestId("option-input-0"))
+    await user.paste(" bis")
     await saveEdit(user)
 
     await waitFor(() => expect(updateQuestion).toHaveBeenCalledTimes(1))
@@ -345,7 +342,9 @@ describe("QuestionForm — choix de réponse", () => {
     await saveEdit(user)
     expect(updateQuestion).not.toHaveBeenCalled()
 
-    await user.type(screen.getByTestId("option-input-1"), "2")
+    await user.click(screen.getByTestId("option-input-1"))
+
+    await user.paste("2")
     expect(
       screen.queryByText(/Le choix B est identique/),
     ).not.toBeInTheDocument()
@@ -366,7 +365,9 @@ describe("QuestionForm — choix de réponse", () => {
     const user = userEvent.setup()
     openEdit(filled(), editContext({ pastCounts: [5, 7, 1, 0] }))
 
-    await user.type(screen.getByTestId("option-input-1"), " seulement")
+    await user.click(screen.getByTestId("option-input-1"))
+
+    await user.paste(" seulement")
     expect(
       screen.getByText(
         "Ses 7 réponses passées deviendront « formulation antérieure ».",
@@ -431,7 +432,8 @@ describe("QuestionForm — quitter sans enregistrer", () => {
         />
       </>,
     )
-    await user.type(screen.getByTestId("question-input"), " modifié")
+    await user.click(screen.getByTestId("question-input"))
+    await user.paste(" modifié")
     await user.click(screen.getByRole("link", { name: "Utilisateurs" }))
     expect(
       screen.getByRole("button", { name: "Continuer la saisie" }),
@@ -447,7 +449,8 @@ describe("QuestionForm — quitter sans enregistrer", () => {
   it("le retour arrière est retenu tant que la saisie n'est pas enregistrée", async () => {
     const user = userEvent.setup()
     openEdit()
-    await user.type(screen.getByTestId("question-input"), " modifié")
+    await user.click(screen.getByTestId("question-input"))
+    await user.paste(" modifié")
     window.dispatchEvent(new PopStateEvent("popstate"))
     expect(
       await screen.findByRole("button", { name: "Continuer la saisie" }),

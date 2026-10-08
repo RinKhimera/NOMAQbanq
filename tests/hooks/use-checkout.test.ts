@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { useCheckout } from "@/hooks/use-checkout"
 import { NETWORK_ERROR_MESSAGE } from "@/lib/safe-action"
 
@@ -15,10 +15,6 @@ vi.mock("next/navigation", () => ({
 const paths = { successPath: "/succes", cancelPath: "/tarifs" }
 
 describe("useCheckout", () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
   it("redirige vers l'URL Stripe et marque le produit en attente", async () => {
     const assign = vi
       .spyOn(window.location, "assign")

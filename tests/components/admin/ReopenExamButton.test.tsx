@@ -1,13 +1,6 @@
 import { render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import { ReopenExamButton } from "@/components/admin/reopen-exam-button"
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 const now = Date.parse("2026-10-01T12:00:00Z")
 

@@ -35,47 +35,59 @@ beforeEach(() => {
 })
 
 describe("UserRoleSection", () => {
-  it("affiche « Promouvoir administrateur » pour un utilisateur simple", () => {
-    render(<UserRoleSection user={baseUser} currentUserId="viewer-1" />)
-    expect(screen.getByTestId("role-toggle-open")).toHaveTextContent(
-      "Promouvoir administrateur",
-    )
-  })
+  it.each([
+    ["user", "Promouvoir administrateur", "admin"],
+    ["admin", "Retirer le rôle administrateur", "user"],
+  ] as const)(
+    "rôle %s : bouton « %s », la confirmation demande role=%s",
+    async (role, label, requested) => {
+      render(
+        <UserRoleSection
+          user={{ ...baseUser, role }}
+          currentUserId="viewer-1"
+        />,
+      )
+      expect(screen.getByTestId("role-toggle-open")).toHaveTextContent(label)
 
-  it("affiche « Retirer le rôle administrateur » pour un admin", () => {
-    render(
-      <UserRoleSection
-        user={{ ...baseUser, role: "admin" }}
-        currentUserId="viewer-1"
-      />,
-    )
-    expect(screen.getByTestId("role-toggle-open")).toHaveTextContent(
-      "Retirer le rôle administrateur",
-    )
-  })
+      fireEvent.click(screen.getByTestId("role-toggle-open"))
+      fireEvent.click(screen.getByTestId("role-toggle-confirm"))
+      await waitFor(() =>
+        expect(mocks.updateUserRole).toHaveBeenCalledWith({
+          userId: "user-1",
+          role: requested,
+        }),
+      )
+    },
+  )
 
-  it("sa propre fiche : bouton indisponible, avec son explication", () => {
-    render(<UserRoleSection user={baseUser} currentUserId={baseUser.id} />)
-    expect(screen.getByTestId("role-toggle-open")).toBeDisabled()
-    expect(screen.getByTestId("role-self-note")).toHaveTextContent(
+  it.each([
+    [
+      "sa propre fiche",
+      { currentUserId: baseUser.id, banned: false },
+      "role-self-note",
       "Vous ne pouvez pas modifier votre propre rôle",
-    )
-  })
-
-  it("compte suspendu : promotion indisponible tant que la suspension dure", () => {
-    render(
-      <UserRoleSection
-        user={{ ...baseUser, banned: true }}
-        currentUserId="viewer-1"
-      />,
-    )
-    expect(screen.getByTestId("role-toggle-open")).toBeDisabled()
-    expect(screen.getByTestId("role-banned-note")).toHaveTextContent(
+    ],
+    [
+      "compte suspendu",
+      { currentUserId: "viewer-1", banned: true },
+      "role-banned-note",
       "Levez d'abord la suspension de ce compte.",
-    )
-  })
+    ],
+  ])(
+    "%s : bouton indisponible, avec son explication",
+    (_, { currentUserId, banned }, noteTestId, note) => {
+      render(
+        <UserRoleSection
+          user={{ ...baseUser, banned }}
+          currentUserId={currentUserId}
+        />,
+      )
+      expect(screen.getByTestId("role-toggle-open")).toBeDisabled()
+      expect(screen.getByTestId(noteTestId)).toHaveTextContent(note)
+    },
+  )
 
-  it("confirme la promotion : dialog avec nom + email, appel action, refresh", async () => {
+  it("confirme la promotion : dialog avec nom + email, refresh et toast", async () => {
     render(<UserRoleSection user={baseUser} currentUserId="viewer-1" />)
     fireEvent.click(screen.getByTestId("role-toggle-open"))
     expect(screen.getByRole("alertdialog")).toHaveTextContent("Marie Curie")
@@ -83,32 +95,9 @@ describe("UserRoleSection", () => {
       "marie@exemple.com",
     )
     fireEvent.click(screen.getByTestId("role-toggle-confirm"))
-    await waitFor(() =>
-      expect(mocks.updateUserRole).toHaveBeenCalledWith({
-        userId: "user-1",
-        role: "admin",
-      }),
-    )
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalled())
     expect(mocks.toastSuccess).toHaveBeenCalledWith(
       "Rôle administrateur accordé",
-    )
-  })
-
-  it("demande role=user pour rétrograder un admin", async () => {
-    render(
-      <UserRoleSection
-        user={{ ...baseUser, role: "admin" }}
-        currentUserId="viewer-1"
-      />,
-    )
-    fireEvent.click(screen.getByTestId("role-toggle-open"))
-    fireEvent.click(screen.getByTestId("role-toggle-confirm"))
-    await waitFor(() =>
-      expect(mocks.updateUserRole).toHaveBeenCalledWith({
-        userId: "user-1",
-        role: "user",
-      }),
     )
   })
 

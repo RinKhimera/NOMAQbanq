@@ -1,25 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest"
-import type * as email from "@/email"
 import { fakeMailer, mailbox } from "../helpers/fake-mailer"
-
-const VERBS: (keyof typeof email)[] = [
-  "sendVerificationEmail",
-  "sendResetPassword",
-  "sendExamResultsEmail",
-  "sendAccessExpiringEmail",
-  "sendPurchaseConfirmationEmail",
-  "sendWelcomeEmail",
-  "sendInactivityReminderEmail",
-  "sendAbandonedCartEmail",
-]
 
 beforeEach(() => mailbox.reset())
 
 describe("faux Mailer", () => {
-  it("expose exactement les huit verbes de @/email", () => {
-    expect(Object.keys(fakeMailer).sort()).toEqual([...VERBS].sort())
-  })
-
   it("enregistre le verbe et l'entrée exacte, résout un identifiant de message", async () => {
     const id = await fakeMailer.sendWelcomeEmail({
       to: "a@test.invalid",

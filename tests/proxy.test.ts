@@ -35,21 +35,17 @@ describe("proxy", () => {
     expect(res.status).toBe(307)
   })
 
-  it("laisse passer un visiteur déconnecté sur l'accueil", () => {
-    expect(passThroughSignature(proxy(request("/")))).toEqual({
-      status: 200,
-      location: null,
-      next: "1",
-    })
-  })
-
-  it("ne redirige plus un visiteur déconnecté sur la zone protégée (la garde est dans le layout)", () => {
-    expect(passThroughSignature(proxy(request("/tableau-de-bord")))).toEqual({
-      status: 200,
-      location: null,
-      next: "1",
-    })
-  })
+  // La zone protégée est gardée par son layout, pas par le proxy.
+  it.each(["/", "/tableau-de-bord"])(
+    "laisse passer un visiteur déconnecté sur %s",
+    (path) => {
+      expect(passThroughSignature(proxy(request(path)))).toEqual({
+        status: 200,
+        location: null,
+        next: "1",
+      })
+    },
+  )
 
   it("ne s'exécute que pour un porteur de cookie sur les trois pages vitrine — ne pas élargir sans lire la spec 2026-09-06", () => {
     // Nom calculé par Better Auth : `lib/auth.ts` n'a aucune option `advanced`,

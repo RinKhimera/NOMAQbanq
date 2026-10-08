@@ -9,10 +9,6 @@ export const getInitials = (fullName: string | null | undefined): string => {
   if (!fullName) return "?"
   const parts = fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2)
   if (parts.length === 0) return "?"
-  return (
-    parts
-      .map((p) => p.charAt(0).toUpperCase())
-      .join("")
-      .slice(0, 2) || "?"
-  )
+  // Découpage par point de code : `charAt(0)` couperait un emoji en deux.
+  return parts.map((p) => [...p][0].toUpperCase()).join("")
 }

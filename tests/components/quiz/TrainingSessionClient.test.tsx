@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { TrainingSessionClient } from "@/app/(passation)/tableau-de-bord/entrainement/[sessionId]/_components/training-session-client"
 // Type seulement : le module `server-only` est effacé à la compilation.
 import type { TrainingSessionView } from "@/features/training/dal"
@@ -31,11 +30,6 @@ const {
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
   useRouter: () => ({ push }),
-}))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
 }))
 vi.mock("sonner", () => ({
   toast: { error: toastError, success: toastSuccess },
@@ -97,10 +91,6 @@ const mount = (data: SessionData = initialData) => {
   return runnerProps.current as unknown as CapturedProps
 }
 
-beforeEach(() => {
-  vi.clearAllMocks()
-})
-
 describe("TrainingSessionClient — marquage", () => {
   it("hydrate les signets et persiste la bascule", async () => {
     setQuestionBookmark.mockResolvedValue({ success: true })
@@ -117,12 +107,12 @@ describe("TrainingSessionClient — marquage", () => {
   })
 
   it("signale un échec de marquage au lieu de mentir", async () => {
-    setQuestionBookmark.mockRejectedValue(new Error("Failed to fetch"))
+    // Un refus résolu, pas un rejet : un rejet serait retenté après 1 s réelle
+    // (`retries: 1`). Sa conversion en échec est prouvée par `safe-action.test.ts`.
+    setQuestionBookmark.mockResolvedValue({ success: false })
 
     const props = mount()
 
-    // `callAction` convertit le rejet réseau en `{ success: false }` — le garde
-    // doit le voir passer, pas le laisser filer en rejet non géré.
     const res = await props.callbacks.onFlag("q1", true)
     expect(res.ok).toBe(false)
     expect(toastError).toHaveBeenCalledWith(

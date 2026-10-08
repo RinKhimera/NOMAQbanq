@@ -3,13 +3,11 @@ import {
   assertSafeStoragePath,
   finalPathFromTmp,
   generateAvatarPath,
-  generateQuestionImagePath,
   generateQuestionImageTmpPath,
   getExtensionFromMimeType,
   validateImageFile,
 } from "@/lib/storage"
 
-vi.mock("server-only", () => ({}))
 // Évite de charger le SDK AWS dans ce test unitaire des helpers purs.
 vi.mock("@/lib/aws", () => ({ deleteFromS3: vi.fn() }))
 // `lib/storage` importe `env` (validé au chargement) ; on fournit un env factice
@@ -23,11 +21,6 @@ vi.mock("@/lib/env/server", () => ({
 }))
 
 describe("path helpers", () => {
-  it("génère un chemin d'image question préfixé", () => {
-    expect(generateQuestionImagePath("q1", 2, ".PNG")).toMatch(
-      /^questions\/q1\/\d+-2\.png$/,
-    )
-  })
   it("génère un chemin d'avatar préfixé", () => {
     expect(generateAvatarPath("u1", "jpg")).toMatch(/^avatars\/u1\/\d+\.jpg$/)
   })

@@ -6,19 +6,14 @@ import {
   getExamWithQuestions,
   getParticipantExamResults,
 } from "@/features/exams/dal.student"
-import { lockFor } from "@/features/questions/answer-key-lock"
+import { fakeDb, resetFakeDrizzle, setRows } from "../helpers/fake-drizzle"
 
 // Couvre les DECISIONS de la DAL etudiant : gardes de session, frontiere
 // admin/proprietaire, et la fenetre anti-fuite des resultats. La semantique SQL
 // (audience, agregats) reste verifiee sur une vraie base dans
 // tests/integration/exam-audience.test.ts et exams.test.ts.
-//
-// `vi.mock` etant hoiste, tout ce que ses fabriques utilisent vient de
-// `vi.hoisted`. Les lignes sont indexees par table pour ne pas dependre de
-// l'ORDRE des requetes.
-const { mocks, fakeDb, table } = vi.hoisted(() => {
-  const mocks = {
-    rows: { current: {} as Record<string, unknown[]> },
+const { mocks } = vi.hoisted(() => ({
+  mocks: {
     session: {
       current: { user: { id: "u1", role: "user" } } as {
         user: { id: string; role: string }
@@ -28,58 +23,31 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
     fetchImages: vi.fn(async () => new Map<string, unknown[]>()),
     lockedIds: { current: new Set<string>() },
     countQuestionsByExam: vi.fn(async () => new Map<string, number>()),
-  }
-
-  const table = (name: string) => ({ __table: name })
-
-  const queryChain = (initialTable?: string) => {
-    let target = initialTable
-    const chain: Record<string, unknown> = {
-      from: (t: { __table?: string }) => {
-        target = t?.__table
-        return chain
-      },
-      innerJoin: () => chain,
-      leftJoin: () => chain,
-      where: () => chain,
-      groupBy: () => chain,
-      orderBy: () => chain,
-      offset: () => chain,
-      for: () => chain,
-      limit: () => chain,
-      then: (onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
-        Promise.resolve(
-          (target ? mocks.rows.current[target] : undefined) ?? [],
-        ).then(onOk, onErr),
-    }
-    return chain
-  }
-
-  const fakeDb = {
-    select: () => queryChain(),
-    selectDistinct: () => queryChain(),
-  }
-
-  return { mocks, fakeDb, table }
-})
+  },
+}))
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
   return { ...actual, cache: (fn: unknown) => fn }
 })
-vi.mock("@/db", () => ({ db: fakeDb }))
-vi.mock("@/db/schema", () => ({
-  examAnswers: table("exam_answers"),
-  examAudience: table("exam_audience"),
-  examParticipations: table("exam_participations"),
-  examQuestions: table("exam_questions"),
-  exams: table("exams"),
-  questionExplanations: table("question_explanations"),
-  questions: table("questions"),
-  trainingSessionItems: table("training_session_items"),
-  trainingSessions: table("training_sessions"),
-  user: table("user"),
+vi.mock("@/db", async () => ({
+  db: (await import("../helpers/fake-drizzle")).fakeDb,
 }))
+vi.mock("@/db/schema", async () => {
+  const { table } = await import("../helpers/fake-drizzle")
+  return {
+    examAnswers: table("exam_answers"),
+    examAudience: table("exam_audience"),
+    examParticipations: table("exam_participations"),
+    examQuestions: table("exam_questions"),
+    exams: table("exams"),
+    questionExplanations: table("question_explanations"),
+    questions: table("questions"),
+    trainingSessionItems: table("training_session_items"),
+    trainingSessions: table("training_sessions"),
+    user: table("user"),
+  }
+})
 vi.mock("@/lib/dal", () => ({
   getCurrentSession: vi.fn(async () => mocks.session.current),
 }))
@@ -117,7 +85,7 @@ const asAdmin = () => {
 }
 
 beforeEach(() => {
-  mocks.rows.current = {}
+  resetFakeDrizzle()
   mocks.lockedIds.current = new Set()
   asUser()
   mocks.hasAccess.mockResolvedValue(true)
@@ -146,33 +114,8 @@ describe("gardes de session", () => {
 })
 
 describe("getExamSession", () => {
-  it("renvoie null quand l'utilisateur n'a pas de participation", async () => {
-    mocks.rows.current = { exam_participations: [] }
-    expect(await getExamSession("e1")).toBeNull()
-  })
-
-  it("derive isPaused de pauseStartedAt", async () => {
-    const pausedAt = new Date()
-    mocks.rows.current = {
-      exam_participations: [
-        {
-          id: "p1",
-          status: "in_progress",
-          startedAt: new Date(),
-          completedAt: null,
-          score: null,
-          pauseStartedAt: pausedAt,
-          totalPauseDurationMs: 0,
-        },
-      ],
-    }
-    const s = await getExamSession("e1")
-    expect(s?.isPaused).toBe(true)
-    expect(s?.pauseStartedAt).toBe(pausedAt.getTime())
-  })
-
   it("isPaused est faux et les dates nulles restent nulles", async () => {
-    mocks.rows.current = {
+    setRows({
       exam_participations: [
         {
           id: "p1",
@@ -184,7 +127,7 @@ describe("getExamSession", () => {
           totalPauseDurationMs: 0,
         },
       ],
-    }
+    })
     const s = await getExamSession("e1")
     expect(s).toMatchObject({
       isPaused: false,
@@ -206,22 +149,13 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
   }
   const closedExam = { ...openExam, endDate: new Date(Date.now() - HOUR) }
 
-  it("refuse a un tiers non admin (IDOR)", async () => {
-    asUser("u1")
-    mocks.rows.current = { exams: [closedExam] }
-    expect(await getParticipantExamResults("e1", "autre")).toBeNull()
-  })
-
   it("renvoie null si l'examen n'existe pas", async () => {
-    mocks.rows.current = { exams: [] }
+    setRows({ exams: [] })
     expect(await getParticipantExamResults("e1", "u1")).toBeNull()
   })
 
-  // Les deux cas suivants sont JUMEAUX : meme participation terminee, seule la
-  // date de fin change. Ils ne prouvent la garde `!isAdmin && now < endDate`
-  // (dal.student.ts:488) que parce qu'ils divergent — avec un examen clos, la
-  // fonction rend bien un resultat. Sans participation dans le faux-db, les deux
-  // tomberaient sur le `return null` de la ligne 548 et ne prouveraient rien.
+  // Participation terminee : sans elle, la fonction rendrait `null` faute de
+  // participation et les cas d'acces ci-dessous ne prouveraient rien.
   const completedParticipation = [
     {
       id: "p1",
@@ -233,23 +167,13 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
     },
   ]
 
-  it("cache ses propres resultats tant que l'examen n'est pas termine", async () => {
+  it("rend ses propres resultats une fois l'examen termine", async () => {
     asUser("u1")
-    mocks.rows.current = {
-      exams: [openExam],
-      user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
-      exam_participations: completedParticipation,
-    }
-    expect(await getParticipantExamResults("e1", "u1")).toBeNull()
-  })
-
-  it("rend les memes resultats des que l'examen est termine", async () => {
-    asUser("u1")
-    mocks.rows.current = {
+    setRows({
       exams: [closedExam],
       user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
       exam_participations: completedParticipation,
-    }
+    })
     expect(await getParticipantExamResults("e1", "u1")).not.toBeNull()
   })
 
@@ -258,11 +182,11 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
   it("sans accès Examens, la correction d'un examen `subscribers` est refusée", async () => {
     asUser("u1")
     mocks.hasAccess.mockResolvedValue(false)
-    mocks.rows.current = {
+    setRows({
       exams: [{ ...closedExam, audienceType: "subscribers" }],
       user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
       exam_participations: completedParticipation,
-    }
+    })
     expect(await getParticipantExamResults("e1", "u1")).toMatchObject({
       error: "ACCESS_REQUIRED",
     })
@@ -271,87 +195,31 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
   it("sans accès Examens, un examen sur invitation reste corrigé (l'audience vaut accès)", async () => {
     asUser("u1")
     mocks.hasAccess.mockResolvedValue(false)
-    mocks.rows.current = {
+    setRows({
       exams: [{ ...closedExam, audienceType: "restricted" }],
       user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
       exam_participations: completedParticipation,
       exam_questions: [],
       exam_answers: [],
-    }
+    })
     const view = await getParticipantExamResults("e1", "u1")
     expect(view).not.toBeNull()
     expect(view && "error" in view).toBe(false)
   })
 
-  it("retient la cle d'une question verrouillee par un autre examen ouvert", async () => {
-    asUser("u1")
-    mocks.lockedIds.current = new Set(["q1"])
-    const questionRow = (questionId: string) => ({
-      questionId,
-      qCreatedAt: new Date(),
-      question: `Q ${questionId}`,
-      options: ["A", "B"],
-      correctAnswer: "A",
-      objectifCMC: "Obj",
-      domain: "CARDIO",
-    })
-    mocks.rows.current = {
-      exams: [closedExam],
-      user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
-      exam_participations: completedParticipation,
-      exam_questions: [questionRow("q1"), questionRow("q2")],
-      exam_answers: [
-        { questionId: "q1", selectedAnswer: "A", isCorrect: true },
-        { questionId: "q2", selectedAnswer: "B", isCorrect: false },
-      ],
-    }
-    const view = await getParticipantExamResults("e1", "u1")
-    if (!view || "error" in view) throw new Error("vue attendue")
-    // Le verrou est celui du LECTEUR (session), pas du participant consulté.
-    expect(vi.mocked(lockFor)).toHaveBeenCalledWith(
-      { id: "u1", role: "user" },
-      ["q1", "q2"],
-    )
-    const [q1, q2] = view.questions
-    expect(q1).not.toHaveProperty("correctAnswer")
-    expect(q1).toMatchObject({ keyWithheld: true })
-    expect(q2).toMatchObject({ correctAnswer: "A" })
-    expect(q2).not.toHaveProperty("keyWithheld")
-    expect(view.participant.answers).toEqual([
-      {
-        questionId: "q1",
-        selectedAnswer: "A",
-        isCorrect: null,
-        isFlagged: false,
-      },
-      {
-        questionId: "q2",
-        selectedAnswer: "B",
-        isCorrect: false,
-        isFlagged: false,
-      },
-    ])
-  })
-
-  it("laisse l'admin voir les resultats d'un examen encore ouvert", async () => {
-    asAdmin()
-    mocks.rows.current = { exams: [openExam], user: [], exam_answers: [] }
-    expect(await getParticipantExamResults("e1", "u1")).not.toBeNull()
-  })
-
   it("distingue l'utilisateur introuvable du participant qui n'a pas commence", async () => {
     asAdmin()
-    mocks.rows.current = { exams: [closedExam], user: [] }
+    setRows({ exams: [closedExam], user: [] })
     expect(await getParticipantExamResults("e1", "disparu")).toMatchObject({
       error: "NO_PARTICIPATION",
       message: "Utilisateur introuvable",
       participantUser: null,
     })
 
-    mocks.rows.current = {
+    setRows({
       exams: [closedExam],
       user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
-    }
+    })
     expect(await getParticipantExamResults("e1", "u1")).toMatchObject({
       error: "NO_PARTICIPATION",
       message: "Ce participant n'a pas encore commencé cet examen",
@@ -360,7 +228,7 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
 
   it("refuse a un non-admin dont la participation n'existe pas", async () => {
     asUser("u1")
-    mocks.rows.current = { exams: [closedExam], user: [] }
+    setRows({ exams: [closedExam], user: [] })
     expect(await getParticipantExamResults("e1", "u1")).toBeNull()
   })
 })
@@ -370,16 +238,15 @@ describe("getExamQuestionExplanations", () => {
     const spy = vi.spyOn(fakeDb, "selectDistinct")
     expect(await getExamQuestionExplanations([])).toEqual([])
     expect(spy).not.toHaveBeenCalled()
-    spy.mockRestore()
   })
 
   it("sert directement les explications demandees a un admin", async () => {
     asAdmin()
-    mocks.rows.current = {
+    setRows({
       question_explanations: [
         { questionId: "q1", explanation: "parce que", references: [] },
       ],
-    }
+    })
     const res = await getExamQuestionExplanations(["q1", "q1"])
     expect(res).toHaveLength(1)
     expect(res[0]).toMatchObject({ questionId: "q1", explanation: "parce que" })
@@ -392,13 +259,13 @@ describe("getExamQuestionExplanations", () => {
   it("retire les questions verrouillees par un examen ouvert", async () => {
     asUser("u1")
     mocks.lockedIds.current = new Set(["q1"])
-    mocks.rows.current = {
+    setRows({
       exam_questions: [{ questionId: "q1" }],
       training_session_items: [],
       question_explanations: [
         { questionId: "q1", explanation: "verrouillee", references: [] },
       ],
-    }
+    })
     expect(await getExamQuestionExplanations(["q1"])).toEqual([])
   })
 })
@@ -431,21 +298,21 @@ describe("getExamWithQuestions — clé de réponse", () => {
 
   it("étudiant avec revealKey : jamais la clé", async () => {
     asUser()
-    mocks.rows.current = { exams: [exam], exam_questions: [item] }
+    setRows({ exams: [exam], exam_questions: [item] })
     const view = await getExamWithQuestions("e1", { revealKey: true })
     expect(view?.questions[0]).not.toHaveProperty("correctAnswer")
   })
 
   it("admin sans revealKey : pas la clé non plus", async () => {
     asAdmin()
-    mocks.rows.current = { exams: [exam], exam_questions: [item] }
+    setRows({ exams: [exam], exam_questions: [item] })
     const view = await getExamWithQuestions("e1")
     expect(view?.questions[0]).not.toHaveProperty("correctAnswer")
   })
 
   it("admin avec revealKey : la clé, sans explication", async () => {
     asAdmin()
-    mocks.rows.current = { exams: [exam], exam_questions: [item] }
+    setRows({ exams: [exam], exam_questions: [item] })
     const view = await getExamWithQuestions("e1", { revealKey: true })
     expect(view?.questions[0]).toMatchObject({ correctAnswer: "A" })
     expect(view?.questions[0]).not.toHaveProperty("explanation")

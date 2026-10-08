@@ -1,13 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
-import { type ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { DomainMasteryPanel } from "@/app/(dashboard)/tableau-de-bord/_components/domain-mastery-panel"
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 vi.mock("@/components/shared/link-pending-indicator", () => ({
   LinkPendingIndicator: () => null,

@@ -13,7 +13,6 @@ vi.mock("@/lib/env/server", () => ({
 }))
 
 beforeEach(() => {
-  sesCtor.mockClear()
   vi.resetModules()
 })
 

@@ -1,5 +1,4 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   ExamForm,
@@ -16,21 +15,6 @@ const push = vi.fn()
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
-}))
-
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    ...rest
-  }: {
-    children: ReactNode
-    href: string
-  }) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
 }))
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -191,7 +175,6 @@ describe("ExamForm — nouvel examen", () => {
     fireEvent.click(screen.getByTestId("btn-finalize-exam"))
     await waitFor(() => expect(saveExam).toHaveBeenCalledTimes(2))
     expect(vi.mocked(saveExam).mock.calls[1][0]).toMatchObject({ id: "e9" })
-    replaceState.mockRestore()
   })
 
   it("une finalisation acceptée annonce la durée et ouvre la fiche", async () => {

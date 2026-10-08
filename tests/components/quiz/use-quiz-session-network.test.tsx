@@ -1,59 +1,20 @@
-import { act, renderHook, waitFor } from "@testing-library/react"
+import { act, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import type {
-  QuizCallbacks,
-  QuizMode,
-  QuizQuestion,
-} from "@/components/quiz/runner/types"
-import { useQuizSession } from "@/components/quiz/runner/use-quiz-session"
-
-const QUESTIONS: QuizQuestion[] = [
-  {
-    _id: "q1",
-    question: "Q ?",
-    options: ["A", "B", "C"],
-    domain: "Cardio",
-    objectifCMC: "Obj",
-    images: [],
-  },
-]
-
-const DEFERRED_MODE: QuizMode = {
-  kind: "exam",
-  timer: null,
-  pause: null,
-  feedback: "deferred",
-  showMeta: false,
-  labels: { title: "t" },
-}
+import { makeQuestion, renderSession } from "../../helpers/quiz-session"
 
 const networkReject = () => Promise.reject(new TypeError("Failed to fetch"))
 
-const makeCallbacks = (over: Partial<QuizCallbacks>): QuizCallbacks => ({
-  onAnswer: vi.fn(async () => ({ ok: true }) as const),
-  onFlag: vi.fn(async () => ({ ok: true })),
-  onFinish: vi.fn(async () => ({ ok: true })),
-  ...over,
-})
-
-const renderSession = (
-  callbacks: QuizCallbacks,
-  initialPause?: { isPaused: boolean; totalPauseDurationMs: number },
-) =>
-  renderHook(() =>
-    useQuizSession({
-      questions: QUESTIONS,
-      initialAnswers: {},
-      initialPause,
-      mode: DEFERRED_MODE,
-      callbacks,
-    }),
-  )
+const oneExamQuestion = {
+  questions: [makeQuestion("q1", ["A", "B", "C"])],
+  mode: { kind: "exam" as const },
+}
 
 describe("use-quiz-session — rejets réseau des callbacks", () => {
   it("answerSelect : rollback de l'optimiste quand onAnswer rejette", async () => {
-    const callbacks = makeCallbacks({ onAnswer: vi.fn(networkReject) })
-    const { result } = renderSession(callbacks)
+    const { result } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onAnswer: vi.fn(networkReject) },
+    })
     await act(async () => {
       await result.current.answerSelect(0)
     })
@@ -69,7 +30,10 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
       .fn()
       .mockReturnValueOnce(inFlightA) // clic A : reste en vol
       .mockResolvedValueOnce({ ok: true }) // clic B : réussit
-    const { result } = renderSession(makeCallbacks({ onAnswer }))
+    const { result } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onAnswer },
+    })
     await act(async () => {
       void result.current.answerSelect(0) // A
     })
@@ -95,7 +59,10 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
       .fn()
       .mockReturnValueOnce(inFlightA) // clic A : en vol
       .mockRejectedValueOnce(new TypeError("Failed to fetch")) // clic B : échoue
-    const { result } = renderSession(makeCallbacks({ onAnswer }))
+    const { result } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onAnswer },
+    })
     await act(async () => {
       void result.current.answerSelect(0) // A
     })
@@ -121,7 +88,10 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
       .fn()
       .mockReturnValueOnce(inFlightA)
       .mockResolvedValue({ ok: true })
-    const { result } = renderSession(makeCallbacks({ onAnswer }))
+    const { result } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onAnswer },
+    })
     await act(async () => {
       void result.current.answerSelect(0) // A part
     })
@@ -144,7 +114,10 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
       .fn()
       .mockResolvedValueOnce({ ok: true }) // A persisté
       .mockRejectedValueOnce(new TypeError("Failed to fetch")) // B échoue
-    const { result } = renderSession(makeCallbacks({ onAnswer }))
+    const { result } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onAnswer },
+    })
     await act(async () => {
       await result.current.answerSelect(0) // A confirmé serveur
     })
@@ -155,8 +128,10 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
   })
 
   it("toggleFlag : rollback du flag quand onFlag rejette", async () => {
-    const callbacks = makeCallbacks({ onFlag: vi.fn(networkReject) })
-    const { result } = renderSession(callbacks)
+    const { result } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onFlag: vi.fn(networkReject) },
+    })
     act(() => {
       result.current.toggleFlag()
     })
@@ -164,10 +139,10 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
   })
 
   it("toggleFlag : rollback du flag quand onFlag renvoie { ok: false }", async () => {
-    const callbacks = makeCallbacks({
-      onFlag: vi.fn(async () => ({ ok: false })),
+    const { result } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onFlag: vi.fn(async () => ({ ok: false })) },
     })
-    const { result } = renderSession(callbacks)
     act(() => {
       result.current.toggleFlag()
     })
@@ -175,8 +150,10 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
   })
 
   it("deux toggles de flag hors ligne : retombe sur l'état confirmé, pas l'inverse", async () => {
-    const callbacks = makeCallbacks({ onFlag: vi.fn(networkReject) })
-    const { result } = renderSession(callbacks)
+    const { result, callbacks } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onFlag: vi.fn(networkReject) },
+    })
     act(() => {
       result.current.toggleFlag() // ON (envoi part)
     })
@@ -192,30 +169,36 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
   })
 
   it("confirmFinish : pas de crash quand onFinish rejette, dialog réouvrable", async () => {
-    const callbacks = makeCallbacks({ onFinish: vi.fn(networkReject) })
-    const { result } = renderSession(callbacks)
+    const { result, callbacks } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onFinish: vi.fn(networkReject) },
+    })
     await act(async () => {
       await result.current.confirmFinish()
     })
+    expect(callbacks.onFinish).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(result.current.isSubmitting).toBe(false))
   })
 
   it("pause : pas de crash quand onPause rejette", async () => {
-    const callbacks = makeCallbacks({ onPause: vi.fn(networkReject) })
-    const { result } = renderSession(callbacks)
+    const { result, callbacks } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onPause: vi.fn(networkReject) },
+    })
     await act(async () => {
       await result.current.pause()
     })
+    expect(callbacks.onPause).toHaveBeenCalledTimes(1)
     expect(result.current.isPaused).toBe(false)
   })
 
   it("resume : pas de crash quand onResume rejette (session montée en pause)", async () => {
     // initialPause obligatoire : sinon le early-return `!isPaused` de resume()
     // fait passer le test à vide sans toucher le callback
-    const callbacks = makeCallbacks({ onResume: vi.fn(networkReject) })
-    const { result } = renderSession(callbacks, {
-      isPaused: true,
-      totalPauseDurationMs: 0,
+    const { result, callbacks } = renderSession({
+      ...oneExamQuestion,
+      callbacks: { onResume: vi.fn(networkReject) },
+      initialPause: { isPaused: true, totalPauseDurationMs: 0 },
     })
     await act(async () => {
       await result.current.resume()

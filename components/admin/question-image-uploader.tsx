@@ -373,7 +373,7 @@ export const QuestionImageUploader = ({
                   />
                   <span className="absolute inset-0 flex items-center justify-center">
                     {u.status === "uploading" ? (
-                      <Spinner size="md" aria-label="Envoi en cours" />
+                      <Spinner size="md" label="Envoi en cours" />
                     ) : (
                       <CircleAlert
                         aria-label="Envoi en échec"

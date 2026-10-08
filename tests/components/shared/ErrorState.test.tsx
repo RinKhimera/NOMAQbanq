@@ -1,18 +1,11 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { ErrorState } from "@/components/shared/error-state"
 import { RouteError } from "@/components/shared/route-error"
 
 const captureException = vi.hoisted(() => vi.fn())
 vi.mock("@sentry/nextjs", () => ({ captureException }))
-
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
 
 describe("ErrorState", () => {
   it("réessai par callback", async () => {

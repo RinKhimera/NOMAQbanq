@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { ActiveSeriesCard } from "@/app/(dashboard)/tableau-de-bord/entrainement/_components/active-series-card"
 
 const { refresh, toastError, toastSuccess, abandonTrainingSession } =
@@ -15,11 +14,6 @@ const { refresh, toastError, toastSuccess, abandonTrainingSession } =
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
   useRouter: () => ({ refresh, push: vi.fn() }),
-}))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
 }))
 vi.mock("sonner", () => ({
   toast: { error: toastError, success: toastSuccess },
@@ -38,10 +32,6 @@ const session = {
   startedAt: NOW - 2 * HOUR - 14 * 60_000,
   expiresAt: NOW + 21 * HOUR + 46 * 60_000,
 }
-
-beforeEach(() => {
-  vi.clearAllMocks()
-})
 
 describe("ActiveSeriesCard", () => {
   it("domaine, mode, progression, âge et expiration depuis l'ancre serveur", () => {
@@ -75,14 +65,13 @@ describe("ActiveSeriesCard", () => {
         initialNow={NOW}
       />,
     )
-    expect(screen.getByText("50 min").closest("span.inline-flex")).toHaveClass(
-      "text-warning-ink",
-    )
+    const expiry = () => screen.getByText(/^Expire dans/)
+    expect(expiry()).toHaveTextContent("Expire dans 50 min")
+    expect(expiry()).toHaveClass("text-warning-ink")
     unmount()
     render(<ActiveSeriesCard session={session} initialNow={NOW} />)
-    expect(
-      screen.getByText("21 h 46").closest("span.inline-flex"),
-    ).not.toHaveClass("text-warning-ink")
+    expect(expiry()).toHaveTextContent("Expire dans 21 h 46")
+    expect(expiry()).not.toHaveClass("text-warning-ink")
   })
 
   it("abandonner : confirmation, action, rafraîchissement", async () => {

@@ -63,7 +63,9 @@ describe("QuizBridge — toQuizQuestion", () => {
 })
 
 describe("QuizBridge — groupImages", () => {
-  it("regroupe par question avec l'URL CDN dérivée, dans l'ordre des positions", () => {
+  // Le tri par position appartient à la requête (`fetchImages`) : le
+  // regroupement garde l'ordre des lignes reçues.
+  it("regroupe par question avec l'URL CDN dérivée, dans l'ordre des lignes reçues", () => {
     const map = groupImages([
       { questionId: "q1", storagePath: "a/1.jpg", position: 1 },
       { questionId: "q2", storagePath: "b/0.jpg", position: 0 },

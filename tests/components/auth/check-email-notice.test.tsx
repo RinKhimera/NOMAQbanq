@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { CheckEmailNotice } from "@/app/(auth)/_components/check-email-notice"
 
 const sendVerificationEmail = vi.fn()
@@ -20,15 +19,6 @@ vi.mock("sonner", () => ({
     error: (m: string) => toastError(m),
   },
 }))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
-
-beforeEach(() => {
-  vi.clearAllMocks()
-})
 
 describe("CheckEmailNotice", () => {
   it("affiche l'adresse et le titre en mode signup", () => {

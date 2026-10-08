@@ -76,7 +76,7 @@ squelette ni un spinner dans la liste. Les deux se montrent ensemble.
   Corollaire général : **tout état dérivé du client seul (session, `window`,
   `Date.now()`) rendu conditionnellement pendant le SSR produit un mismatch.**
   L'autre cause de la même issue était le salut du hero calculé sur l'heure du
-  runtime (corrigé par #130, `getAppZoneHour`).
+  runtime (corrigé par #130).
 
 - **Une valeur d'horloge se rend depuis une ancre serveur, pas depuis
   `Date.now()`.** Le premier rendu s'exécute DEUX fois — SSR puis hydratation —

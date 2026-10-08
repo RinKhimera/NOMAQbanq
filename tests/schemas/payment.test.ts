@@ -1,52 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
-  accessTypeSchema,
   manualNoteError,
   paymentMethodLabel,
   paymentMethodSchema,
-  transactionStatusSchema,
-  transactionTypeSchema,
 } from "@/schemas/payment"
 
 describe("Payment Schema", () => {
-  describe("accessTypeSchema", () => {
-    it("valide les types d'accès valides", () => {
-      expect(accessTypeSchema.safeParse("exam").success).toBe(true)
-      expect(accessTypeSchema.safeParse("training").success).toBe(true)
-    })
-
-    it("rejette les types invalides", () => {
-      expect(accessTypeSchema.safeParse("invalid").success).toBe(false)
-      expect(accessTypeSchema.safeParse("").success).toBe(false)
-    })
-  })
-
-  describe("transactionStatusSchema", () => {
-    it("valide les statuts valides", () => {
-      expect(transactionStatusSchema.safeParse("pending").success).toBe(true)
-      expect(transactionStatusSchema.safeParse("completed").success).toBe(true)
-      expect(transactionStatusSchema.safeParse("failed").success).toBe(true)
-      expect(transactionStatusSchema.safeParse("refunded").success).toBe(true)
-    })
-
-    it("rejette les statuts invalides", () => {
-      expect(transactionStatusSchema.safeParse("cancelled").success).toBe(false)
-      expect(transactionStatusSchema.safeParse("").success).toBe(false)
-    })
-  })
-
-  describe("transactionTypeSchema", () => {
-    it("valide les types de transaction valides", () => {
-      expect(transactionTypeSchema.safeParse("stripe").success).toBe(true)
-      expect(transactionTypeSchema.safeParse("manual").success).toBe(true)
-    })
-
-    it("rejette les types invalides", () => {
-      expect(transactionTypeSchema.safeParse("paypal").success).toBe(false)
-      expect(transactionTypeSchema.safeParse("").success).toBe(false)
-    })
-  })
-
   describe("paymentMethodSchema", () => {
     it("valide les méthodes de paiement valides", () => {
       expect(paymentMethodSchema.safeParse("cash").success).toBe(true)

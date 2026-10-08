@@ -1,15 +1,9 @@
 import { render, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import SuspendedPage, { metadata } from "@/app/(marketing)/compte-suspendu/page"
 
 vi.mock("@/lib/env/server", () => ({
   env: { SUPPORT_EMAIL: "support@test.invalid" },
-}))
-vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
 }))
 
 describe("page /compte-suspendu", () => {

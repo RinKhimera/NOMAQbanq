@@ -12,29 +12,16 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
-// La redirection « déjà onboardé » n'appartient plus à ce composant : elle vit
-// dans OnboardingGuard (monté par le layout), couverte par
-// tests/components/OnboardingGuard.test.tsx.
+// La redirection « déjà onboardé » vit dans OnboardingGuard (monté par le
+// layout), couverte par tests/components/OnboardingGuard.test.tsx.
 describe("OnboardingForm (page bienvenue)", () => {
   const mockReplace = vi.fn()
   const mockRefresh = vi.fn()
 
   beforeEach(() => {
-    vi.clearAllMocks()
     vi.mocked(useRouter).mockReturnValue(
       mockRouter({ replace: mockReplace, refresh: mockRefresh }),
     )
-  })
-
-  it("laisse saisir le username sans l'effacer (pas de boucle de reset)", () => {
-    render(<OnboardingForm defaultName="" defaultBio="" />)
-
-    const username = screen.getByPlaceholderText(
-      "marie_dupont",
-    ) as HTMLInputElement
-    fireEvent.change(username, { target: { value: "youssouf123" } })
-
-    expect(username.value).toBe("youssouf123")
   })
 
   it("rafraîchit le layout serveur après soumission réussie, sans naviguer lui-même", async () => {
@@ -106,7 +93,7 @@ describe("OnboardingForm (page bienvenue)", () => {
     ).toBe("Résident")
   })
 
-  it("met le nom d'utilisateur en minuscules à la saisie", async () => {
+  it("met le nom d'utilisateur en minuscules à la saisie, sans l'effacer", async () => {
     render(<OnboardingForm defaultName="" defaultBio="" />)
     const username = screen.getByPlaceholderText(
       "marie_dupont",

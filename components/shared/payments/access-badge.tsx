@@ -1,5 +1,4 @@
 import type { AccessType } from "@/features/payments/access-ledger"
-import { formatExpiration } from "@/lib/format"
 import { TONE_COLOR, TONE_SOFT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
@@ -8,7 +7,6 @@ type AccessStatus = "active" | "expiring" | "expired" | "none"
 interface AccessBadgeProps {
   accessType: AccessType
   status: AccessStatus
-  expiresAt?: number
   daysRemaining?: number
   size?: "sm" | "md" | "lg"
   showDetails?: boolean
@@ -38,7 +36,6 @@ export const ACCESS_TYPE_LABEL: Record<AccessType, string> = {
 export const AccessBadge = ({
   accessType,
   status,
-  expiresAt,
   daysRemaining,
   size = "md",
   showDetails = false,
@@ -71,12 +68,6 @@ export const AccessBadge = ({
         </span>
       )}
       <span className="font-mono text-[0.92em]">{statusLabel}</span>
-      {showDetails &&
-        expiresAt &&
-        status !== "none" &&
-        status !== "expired" && (
-          <span className="text-ink-3">· {formatExpiration(expiresAt)}</span>
-        )}
     </span>
   )
 }

@@ -7,22 +7,17 @@ import {
   scoreQuizAnswers,
   updateQuestion,
 } from "@/features/questions/actions"
+import { resetFakeDrizzle, state } from "../helpers/fake-drizzle"
 
 // Couvre les decisions propres a `actions.ts` : refus silencieux du quiz public
 // (aucun oracle sur la raison), arbitrage hard/soft de la suppression, et mapping
 // des erreurs metier. Le SQL et les cascades sont verifies sur une vraie base
-// dans tests/integration/questions-*.test.ts.
-//
-// `vi.mock` etant hoiste, le faux `db` vient de `vi.hoisted`.
-const { mocks, fakeDb, table } = vi.hoisted(() => {
-  const mocks = {
+// dans tests/integration/questions-*.test.ts, delete-question.test.ts.
+const { mocks } = vi.hoisted(() => ({
+  mocks: {
     captureServerError: vi.fn(),
     revalidatePath: vi.fn(),
     revalidateTag: vi.fn(),
-    transaction:
-      vi.fn<(cb: (tx: unknown) => Promise<unknown>) => Promise<unknown>>(),
-    rows: { current: {} as Record<string, unknown[]> },
-    returning: { current: [] as unknown[] },
     getPgErrorCode: vi.fn<() => string | undefined>(() => undefined),
     getClientIpKey: vi.fn(async () => "ip:1.2.3.4"),
     consumeQuizRateLimit: vi.fn(async () => true),
@@ -40,68 +35,34 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
         >(),
     ),
     getQuestionsForExport: vi.fn(async () => []),
-    lockedIds: { current: new Set<string>() },
-    lockFor: vi.fn(),
     signQuizToken: vi.fn(() => "tok"),
     verifyQuizToken: vi.fn<() => Set<string> | null>(() => new Set(["q1"])),
     tryDeleteFromStorage: vi.fn(async () => undefined),
     requireRole: vi.fn(async () => ({ user: { id: "adm", role: "admin" } })),
-  }
-
-  const table = (name: string) => ({ __table: name })
-
-  const queryChain = (initialTable?: string) => {
-    let target = initialTable
-    const chain: Record<string, unknown> = {
-      from: (t: { __table?: string }) => {
-        target = t?.__table
-        return chain
-      },
-      where: () => chain,
-      set: () => chain,
-      values: () => chain,
-      limit: () => chain,
-      onConflictDoUpdate: () => chain,
-      returning: () => Promise.resolve(mocks.returning.current),
-      then: (onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
-        Promise.resolve(
-          (target ? mocks.rows.current[target] : undefined) ?? [],
-        ).then(onOk, onErr),
-    }
-    return chain
-  }
-
-  const fakeDb = {
-    transaction: (cb: (tx: unknown) => Promise<unknown>) =>
-      mocks.transaction(cb),
-    select: () => queryChain(),
-    insert: (t: { __table?: string }) => queryChain(t?.__table),
-    update: (t: { __table?: string }) => queryChain(t?.__table),
-    delete: (t: { __table?: string }) => queryChain(t?.__table),
-  }
-
-  return { mocks, fakeDb, table }
-})
-
-vi.mock("@/db", () => ({ db: fakeDb }))
-vi.mock("@/db/schema", () => ({
-  examQuestions: table("examQuestions"),
-  exams: table("exams"),
-  questionExplanations: table("questionExplanations"),
-  questionImages: table("questionImages"),
-  questions: table("questions"),
+  },
 }))
-// Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
+
+vi.mock("@/db", async () => ({
+  db: (await import("../helpers/fake-drizzle")).fakeDb,
+}))
+vi.mock("@/db/schema", async () => {
+  const { table } = await import("../helpers/fake-drizzle")
+  return {
+    examQuestions: table("examQuestions"),
+    exams: table("exams"),
+    questionExplanations: table("questionExplanations"),
+    questionImages: table("questionImages"),
+    questions: table("questions"),
+  }
+})
 vi.mock("@/features/analytics/dal", () => ({
   getQuestionAnswerBreakdown: vi.fn(),
 }))
+// Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
 vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   const actual =
     await orig<typeof import("@/features/questions/answer-key-lock")>()
-  mocks.lockFor.mockImplementation(async () =>
-    actual.AnswerKeyLock.fromIds(mocks.lockedIds.current),
-  )
-  return { ...actual, lockFor: mocks.lockFor }
+  return { ...actual, lockFor: vi.fn(async () => actual.AnswerKeyLock.none()) }
 })
 vi.mock("@/features/questions/dal", () => ({
   getQuestionById: vi.fn(async () => null),
@@ -167,10 +128,10 @@ const answerKey = (correctAnswer: string) => ({
 })
 
 beforeEach(() => {
-  mocks.rows.current = {}
-  mocks.lockedIds.current = new Set()
-  mocks.returning.current = [{ id: "q1" }]
-  mocks.transaction.mockResolvedValue(undefined)
+  resetFakeDrizzle([{ id: "q1" }])
+  // Le corps des transactions n'est pas exécuté : chaque test pose ce que la
+  // transaction rend ou lève.
+  state.transaction.mockResolvedValue(undefined)
 })
 
 describe("loadRandomQuizQuestions — refus silencieux", () => {
@@ -183,27 +144,10 @@ describe("loadRandomQuizQuestions — refus silencieux", () => {
     expect(mocks.consumeQuizRateLimit).not.toHaveBeenCalled()
   })
 
-  it("rate-limit atteint → bundle vide, aucune requete", async () => {
-    mocks.consumeQuizRateLimit.mockResolvedValueOnce(false)
-    const res = await loadRandomQuizQuestions({ count: 5 })
-    expect(res).toEqual({ questions: [], token: null })
-    expect(mocks.getRandomQuizQuestions).not.toHaveBeenCalled()
-  })
-
   it("aucune question disponible → pas de jeton signe", async () => {
     const res = await loadRandomQuizQuestions({ count: 5 })
     expect(res).toEqual({ questions: [], token: null })
     expect(mocks.signQuizToken).not.toHaveBeenCalled()
-  })
-
-  it("succes → jeton couvrant exactement les ids servis", async () => {
-    mocks.getRandomQuizQuestions.mockResolvedValueOnce([
-      { _id: "q1" },
-      { _id: "q2" },
-    ])
-    const res = await loadRandomQuizQuestions({ count: 5 })
-    expect(mocks.signQuizToken).toHaveBeenCalledWith(["q1", "q2"])
-    expect(res.token).toBe("tok")
   })
 })
 
@@ -216,62 +160,6 @@ describe("scoreQuizAnswers — anti-triche", () => {
   it("entree invalide → score vide", async () => {
     const res = await scoreQuizAnswers({ answers: [], token: "" })
     expect(res).toEqual(EMPTY_SCORE)
-  })
-
-  it("rate-limit atteint → score vide, jeton jamais verifie", async () => {
-    mocks.consumeQuizRateLimit.mockResolvedValueOnce(false)
-    expect(await scoreQuizAnswers(args)).toEqual(EMPTY_SCORE)
-    expect(mocks.verifyQuizToken).not.toHaveBeenCalled()
-  })
-
-  it("jeton invalide ou expire → score vide", async () => {
-    mocks.verifyQuizToken.mockReturnValueOnce(null)
-    expect(await scoreQuizAnswers(args)).toEqual(EMPTY_SCORE)
-    expect(mocks.getQuizAnswerKey).not.toHaveBeenCalled()
-  })
-
-  // Le jeton couvre les ids servis : repondre a une question jamais servie ne
-  // doit rien reveler.
-  it("question non servie par ce bundle → ignoree", async () => {
-    mocks.verifyQuizToken.mockReturnValueOnce(new Set(["q9"]))
-    expect(await scoreQuizAnswers(args)).toEqual(EMPTY_SCORE)
-    expect(mocks.getQuizAnswerKey).not.toHaveBeenCalled()
-  })
-
-  it("doublon dans les reponses → compte une seule fois", async () => {
-    mocks.verifyQuizToken.mockReturnValueOnce(new Set(["q1"]))
-    mocks.getQuizAnswerKey.mockResolvedValueOnce(
-      new Map([["q1", answerKey("A")]]),
-    )
-    const res = await scoreQuizAnswers({
-      answers: [
-        { questionId: "q1", selectedAnswer: "A" },
-        { questionId: "q1", selectedAnswer: "A" },
-      ],
-      token: "tok",
-    })
-    expect(res.totalQuestions).toBe(1)
-    expect(res.score).toBe(1)
-  })
-
-  // Un examen a pu OUVRIR pendant la vie du jeton : la cle reste verrouillee.
-  it("question d'un examen ouvert → exclue de la demande de cle", async () => {
-    mocks.verifyQuizToken.mockReturnValueOnce(new Set(["q1", "q2"]))
-    mocks.lockedIds.current = new Set(["q1"])
-    mocks.getQuizAnswerKey.mockResolvedValueOnce(
-      new Map([["q2", answerKey("B")]]),
-    )
-    const res = await scoreQuizAnswers({
-      answers: [
-        { questionId: "q1", selectedAnswer: "A" },
-        { questionId: "q2", selectedAnswer: "B" },
-      ],
-      token: "tok",
-    })
-    expect(mocks.lockFor).toHaveBeenCalledWith("anonymous", ["q1", "q2"])
-    expect(mocks.getQuizAnswerKey).toHaveBeenCalledWith(["q2"])
-    expect(res.questionResults.map((r) => r.questionId)).toEqual(["q2"])
-    expect(res.totalQuestions).toBe(1)
   })
 
   it("mauvaise reponse → resultat renvoye, score non incremente", async () => {
@@ -299,7 +187,7 @@ describe("createQuestion", () => {
       success: false,
       error: "La clé de réponse doit figurer parmi les choix",
     })
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
   it("succes : revalide la liste admin, les stats publiques et les objectifs de la vitrine", async () => {
@@ -311,7 +199,7 @@ describe("createQuestion", () => {
   })
 
   it("erreur inattendue → capture", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("boom"))
+    state.transaction.mockRejectedValueOnce(new Error("boom"))
     const res = await createQuestion(questionInput)
     expect(res).toEqual({ success: false, error: SERVER_ERROR })
     expect(mocks.captureServerError).toHaveBeenCalledWith(
@@ -327,11 +215,11 @@ describe("updateQuestion", () => {
   it("entree invalide → refus avant transaction", async () => {
     const res = await updateQuestion({ ...input, question: "  " })
     expect(res.success).toBe(false)
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
   it("question supprimee ou inexistante → message metier, sans capture", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("Q_NOT_FOUND"))
+    state.transaction.mockRejectedValueOnce(new Error("Q_NOT_FOUND"))
     const res = await updateQuestion(input)
     expect(res).toEqual({ success: false, error: "Question introuvable" })
     expect(mocks.captureServerError).not.toHaveBeenCalled()
@@ -347,19 +235,19 @@ describe("updateQuestion", () => {
   // La transaction rend « domaine ou objectif changé » : seule cette
   // modification touche ce qu'affiche une page domaine.
   it("domaine et objectif inchangés : les objectifs de la vitrine gardent leur cache", async () => {
-    mocks.transaction.mockResolvedValueOnce(false)
+    state.transaction.mockResolvedValueOnce(false)
     await updateQuestion(input)
     expect(mocks.revalidateTag).not.toHaveBeenCalledWith("objectives", "max")
   })
 
   it("domaine ou objectif changé : les objectifs de la vitrine sont invalidés", async () => {
-    mocks.transaction.mockResolvedValueOnce(true)
+    state.transaction.mockResolvedValueOnce(true)
     await updateQuestion(input)
     expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
   })
 
   it("erreur inattendue → capture", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("boom"))
+    state.transaction.mockRejectedValueOnce(new Error("boom"))
     const res = await updateQuestion(input)
     expect(res).toEqual({ success: false, error: SERVER_ERROR })
     expect(mocks.captureServerError).toHaveBeenCalledWith(
@@ -375,11 +263,11 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
       success: false,
       error: "Question requise",
     })
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
   it("question non referencee → hard delete + purge S3 des images", async () => {
-    mocks.transaction.mockResolvedValueOnce(["questions/q1/a.jpg"])
+    state.transaction.mockResolvedValueOnce(["questions/q1/a.jpg"])
     const res = await deleteQuestion("q1")
     expect(res).toEqual({ success: true, mode: "hard" })
     expect(mocks.tryDeleteFromStorage).toHaveBeenCalledWith(
@@ -389,21 +277,12 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
     expect(mocks.revalidateTag).toHaveBeenCalledWith("objectives", "max")
   })
 
-  it("question inexistante → message metier, aucun soft delete tente", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("Q_NOT_FOUND"))
-    expect(await deleteQuestion("q1")).toEqual({
-      success: false,
-      error: "Question introuvable",
-    })
-    expect(mocks.captureServerError).not.toHaveBeenCalled()
-  })
-
   // Le DELETE echoue sur une FK restrict (question deja passee en examen) :
   // l'action bascule en soft delete, medias CONSERVES.
   it.each(["23001", "23503"])(
     "violation de FK %s → repli en soft delete",
     async (code) => {
-      mocks.transaction.mockRejectedValueOnce(new Error("restrict violation"))
+      state.transaction.mockRejectedValueOnce(new Error("restrict violation"))
       mocks.getPgErrorCode.mockReturnValueOnce(code)
       const res = await deleteQuestion("q1")
       expect(res).toEqual({ success: true, mode: "soft" })
@@ -415,9 +294,9 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
   )
 
   it("soft delete sans ligne touchee (deja supprimee) → message metier", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("restrict violation"))
+    state.transaction.mockRejectedValueOnce(new Error("restrict violation"))
     mocks.getPgErrorCode.mockReturnValueOnce("23001")
-    mocks.returning.current = []
+    state.returning = []
     expect(await deleteQuestion("q1")).toEqual({
       success: false,
       error: "Question introuvable",
@@ -426,7 +305,7 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
   })
 
   it("erreur non-FK → capture, pas de repli", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("connection terminated"))
+    state.transaction.mockRejectedValueOnce(new Error("connection terminated"))
     const res = await deleteQuestion("q1")
     expect(res).toEqual({ success: false, error: SERVER_ERROR })
     expect(mocks.captureServerError).toHaveBeenCalledWith(

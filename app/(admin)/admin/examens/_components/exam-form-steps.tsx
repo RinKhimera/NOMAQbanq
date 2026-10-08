@@ -202,9 +202,10 @@ export const FormatStep = ({
           Pause
         </label>
         <p className="text-ink-3 text-[0.8125rem] leading-normal">
-          Une seule pause. Elle se déclenche d&apos;elle-même à mi-temps si le
-          candidat ne l&apos;a pas prise. Après la pause, les questions de la
-          première moitié sont verrouillées.
+          Une seule pause, que le candidat prend quand il le souhaite. Le
+          chronomètre de l&apos;examen s&apos;arrête et les questions sont
+          masquées{NBSP}; la pause se termine à la fin de la durée choisie, ou
+          plus tôt si le candidat reprend.
         </p>
       </div>
       <Switch

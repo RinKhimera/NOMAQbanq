@@ -5,6 +5,8 @@ import {
   QuestionImageGallery,
 } from "@/components/shared/question-image-gallery"
 
+// Le vrai `Image` réécrit `src` en `/_next/image?url=…` : le stub expose l'URL
+// que le composant lui confie.
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />
@@ -57,14 +59,6 @@ describe("QuestionImageGallery", () => {
   })
 
   describe("single image display", () => {
-    it("renders a single image", () => {
-      const images = createMockImages(1)
-      render(<QuestionImageGallery images={images} />)
-
-      const renderedImages = screen.getAllByTestId("next-image")
-      expect(renderedImages).toHaveLength(1)
-    })
-
     it("sert l'URL telle quelle (aucune transformation CDN)", () => {
       const images = createMockImages(1)
       render(<QuestionImageGallery images={images} />)
@@ -111,27 +105,25 @@ describe("QuestionImageGallery", () => {
       expect(renderedImages).toHaveLength(3)
     })
 
-    it("shows +N indicator when images exceed maxDisplay", () => {
-      const images = createMockImages(6)
-      render(<QuestionImageGallery images={images} maxDisplay={4} />)
+    it.each([
+      { count: 6, maxDisplay: 4, rest: "+2" },
+      { count: 5, maxDisplay: 2, rest: "+3" },
+    ])(
+      "$count images, maxDisplay $maxDisplay : n'en montre que $maxDisplay, et « $rest » sur la dernière",
+      ({ count, maxDisplay, rest }) => {
+        render(
+          <QuestionImageGallery
+            images={createMockImages(count)}
+            maxDisplay={maxDisplay}
+          />,
+        )
 
-      // Should show only 4 images
-      const renderedImages = screen.getAllByTestId("next-image")
-      expect(renderedImages).toHaveLength(4)
-
-      // Should show +2 overlay
-      expect(screen.getByText("+2")).toBeInTheDocument()
-    })
-
-    it("respects custom maxDisplay value", () => {
-      const images = createMockImages(5)
-      render(<QuestionImageGallery images={images} maxDisplay={2} />)
-
-      const renderedImages = screen.getAllByTestId("next-image")
-      expect(renderedImages).toHaveLength(2)
-
-      expect(screen.getByText("+3")).toBeInTheDocument()
-    })
+        expect(screen.getAllByTestId("next-image")).toHaveLength(maxDisplay)
+        expect(screen.getAllByRole("button")[maxDisplay - 1]).toHaveTextContent(
+          rest,
+        )
+      },
+    )
 
     it("opens lightbox at correct index when image is clicked", () => {
       const images = createMockImages(3)
@@ -145,72 +137,40 @@ describe("QuestionImageGallery", () => {
     })
   })
 
-  describe("size variants", () => {
-    it("applies sm size class", () => {
-      const images = createMockImages(1)
-      const { container } = render(
-        <QuestionImageGallery images={images} size="sm" />,
+  it.each([
+    { size: "sm", classes: ["h-20", "w-20"] },
+    { size: undefined, classes: ["h-32", "w-32"] },
+    { size: "lg", classes: ["h-48", "w-48"] },
+  ] as const)(
+    "image seule, taille $size : dimensions du palier et className de l'appelant",
+    ({ size, classes }) => {
+      render(
+        <QuestionImageGallery
+          images={createMockImages(1)}
+          size={size}
+          className="custom-class"
+        />,
       )
 
-      const button = container.querySelector("button")
-      expect(button).toHaveClass("h-20", "w-20")
-    })
+      expect(screen.getByRole("button")).toHaveClass(...classes, "custom-class")
+    },
+  )
 
-    it("applies md size class (default)", () => {
-      const images = createMockImages(1)
-      const { container } = render(<QuestionImageGallery images={images} />)
+  it("trie les images par ordre", () => {
+    const images: QuestionImage[] = [
+      { url: "https://example.com/c.jpg", storagePath: "c.jpg", order: 2 },
+      { url: "https://example.com/a.jpg", storagePath: "a.jpg", order: 0 },
+      { url: "https://example.com/b.jpg", storagePath: "b.jpg", order: 1 },
+    ]
 
-      const button = container.querySelector("button")
-      expect(button).toHaveClass("h-32", "w-32")
-    })
+    render(<QuestionImageGallery images={images} />)
 
-    it("applies lg size class", () => {
-      const images = createMockImages(1)
-      const { container } = render(
-        <QuestionImageGallery images={images} size="lg" />,
-      )
-
-      const button = container.querySelector("button")
-      expect(button).toHaveClass("h-48", "w-48")
-    })
-  })
-
-  describe("image sorting", () => {
-    it("sorts images by order", () => {
-      const images: QuestionImage[] = [
-        { url: "https://example.com/c.jpg", storagePath: "c.jpg", order: 2 },
-        { url: "https://example.com/a.jpg", storagePath: "a.jpg", order: 0 },
-        { url: "https://example.com/b.jpg", storagePath: "b.jpg", order: 1 },
-      ]
-
-      render(<QuestionImageGallery images={images} />)
-
-      const renderedImages = screen.getAllByTestId("next-image")
-      // Images should be rendered in order: a, b, c
-      expect(renderedImages[0]).toHaveAttribute(
-        "src",
-        expect.stringContaining("a.jpg"),
-      )
-      expect(renderedImages[1]).toHaveAttribute(
-        "src",
-        expect.stringContaining("b.jpg"),
-      )
-      expect(renderedImages[2]).toHaveAttribute(
-        "src",
-        expect.stringContaining("c.jpg"),
-      )
-    })
-  })
-
-  describe("custom className", () => {
-    it("applies custom className", () => {
-      const images = createMockImages(1)
-      const { container } = render(
-        <QuestionImageGallery images={images} className="custom-class" />,
-      )
-
-      const button = container.querySelector("button")
-      expect(button).toHaveClass("custom-class")
-    })
+    expect(
+      screen.getAllByTestId("next-image").map((img) => img.getAttribute("src")),
+    ).toEqual([
+      "https://example.com/a.jpg",
+      "https://example.com/b.jpg",
+      "https://example.com/c.jpg",
+    ])
   })
 })

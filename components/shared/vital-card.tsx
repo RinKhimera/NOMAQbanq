@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import { type ReactNode, useId } from "react"
 import { TONE_TEXT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
@@ -54,25 +54,34 @@ export const VitalCard = ({
   icon: Icon,
   subtitle,
   trend,
-}: VitalCardProps) => (
-  <div className="bg-surface border-line shadow-1 flex flex-col gap-2.5 rounded-lg border p-5">
-    <div className="flex items-center justify-between gap-2">
-      <span className="type-label">{label}</span>
-      {Icon && <Icon className="text-ink-4 size-4" aria-hidden="true" />}
-    </div>
-    <p className="flex items-baseline gap-1.5">
-      <span className="text-ink font-serif text-3xl leading-none font-semibold tracking-tight tabular-nums">
-        {value}
-      </span>
-      {unit && value !== "—" && (
-        <span className="text-ink-3 text-sm">{unit}</span>
-      )}
-    </p>
-    {(subtitle || (trend !== undefined && trend !== null)) && (
-      <p className="text-ink-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-        {trend !== undefined && trend !== null && <Trend points={trend} />}
-        {subtitle}
+}: VitalCardProps) => {
+  const labelId = useId()
+  return (
+    <div
+      role="group"
+      aria-labelledby={labelId}
+      className="bg-surface border-line shadow-1 flex flex-col gap-2.5 rounded-lg border p-5"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span id={labelId} className="type-label">
+          {label}
+        </span>
+        {Icon && <Icon className="text-ink-4 size-4" aria-hidden="true" />}
+      </div>
+      <p className="flex items-baseline gap-1.5">
+        <span className="text-ink font-serif text-3xl leading-none font-semibold tracking-tight tabular-nums">
+          {value}
+        </span>
+        {unit && value !== "—" && (
+          <span className="text-ink-3 text-sm">{unit}</span>
+        )}
       </p>
-    )}
-  </div>
-)
+      {(subtitle || (trend !== undefined && trend !== null)) && (
+        <p className="text-ink-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          {trend !== undefined && trend !== null && <Trend points={trend} />}
+          {subtitle}
+        </p>
+      )}
+    </div>
+  )
+}

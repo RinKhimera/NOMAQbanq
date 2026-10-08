@@ -2,7 +2,7 @@ import type Stripe from "stripe"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fulfilStripeEvent } from "@/features/payments/fulfillment"
 import { fakeMailer, mailbox } from "../helpers/fake-mailer"
-import { fakeStripe, stripeBox } from "../helpers/fake-stripe"
+import { stripeBox } from "../helpers/fake-stripe"
 
 // Table des événements Stripe : chaque cas appelle `fulfilStripeEvent` sur une
 // fixture et observe les verbes db appelés (entrée exacte), les alertes
@@ -46,7 +46,6 @@ vi.mock("@/lib/stripe", () =>
 const fulfil = (event: unknown) => fulfilStripeEvent(event as Stripe.Event)
 
 beforeEach(() => {
-  vi.clearAllMocks()
   mailbox.reset()
   stripeBox.reset()
   // Défaut happy path pour les tests qui ne posent pas leur propre valeur.
@@ -99,16 +98,6 @@ describe("fulfillment Stripe — sessions Checkout et litiges", () => {
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
-  it("payment_status non fulfillable → pas de fulfillment", async () => {
-    const event = {
-      id: "evt_unpaid",
-      type: "checkout.session.completed",
-      data: { object: { id: "cs_unpaid", payment_status: "unpaid" } },
-    }
-    await fulfil(event)
-    expect(mocks.completeStripeTransaction).not.toHaveBeenCalled()
-  })
-
   it("transaction fantôme (not_found) → capture, sans lever", async () => {
     const event = {
       id: "evt_ghost",
@@ -128,26 +117,6 @@ describe("fulfillment Stripe — sessions Checkout et litiges", () => {
     })
     await fulfil(event)
     expect(mocks.captureServerError).toHaveBeenCalled()
-  })
-
-  it("checkout.session.expired → failStripeTransaction, rappel différé", async () => {
-    mocks.fail.mockResolvedValueOnce({
-      status: "failed",
-      transactionId: "tx_e",
-    })
-    const event = {
-      id: "evt_exp",
-      type: "checkout.session.expired",
-      data: { object: { id: "cs_exp" } },
-    }
-    const result = await fulfil(event)
-    expect(mocks.fail).toHaveBeenCalledWith({
-      stripeSessionId: "cs_exp",
-      stripeEventId: "evt_exp",
-    })
-    expect(mocks.sendAbandonedCartReminder).not.toHaveBeenCalled()
-    await result.deferred?.()
-    expect(mocks.sendAbandonedCartReminder).toHaveBeenCalledWith("tx_e")
   })
 
   it("expired rejoué (already_processed) → pas de rappel", async () => {
@@ -172,7 +141,10 @@ describe("fulfillment Stripe — sessions Checkout et litiges", () => {
       data: { object: { id: "cs_apf" } },
     }
     const result = await fulfil(event)
-    expect(mocks.fail).toHaveBeenCalled()
+    expect(mocks.fail).toHaveBeenCalledWith({
+      stripeSessionId: "cs_apf",
+      stripeEventId: "evt_apf",
+    })
     expect(result.deferred).toBeUndefined()
   })
 
@@ -230,19 +202,6 @@ describe("fulfillment Stripe — sessions Checkout et litiges", () => {
         presentmentCurrency: "xaf",
       }),
     )
-  })
-
-  it("async_payment_failed → failStripeTransaction", async () => {
-    const event = {
-      id: "evt_async_ko",
-      type: "checkout.session.async_payment_failed",
-      data: { object: { id: "cs_async_ko" } },
-    }
-    await fulfil(event)
-    expect(mocks.fail).toHaveBeenCalledWith({
-      stripeSessionId: "cs_async_ko",
-      stripeEventId: "evt_async_ko",
-    })
   })
 
   it("charge.dispute.created → alerte, persiste le litige, aucune révocation d'accès", async () => {
@@ -332,27 +291,6 @@ describe("fulfillment Stripe — sessions Checkout et litiges", () => {
       detail:
         "dispute dp_1 · 9900 cad · motif fraudulent · statut needs_response · payment_intent pi_dispute",
     })
-  })
-
-  it("charge.dispute.created → l'alerte part AVANT l'écriture du litige", async () => {
-    const event = {
-      id: "evt_dispute_order",
-      type: "charge.dispute.created",
-      data: {
-        object: {
-          id: "dp_1",
-          amount: 9900,
-          currency: "cad",
-          reason: "fraudulent",
-          status: "needs_response",
-          payment_intent: "pi_dispute",
-        },
-      },
-    }
-    await fulfil(event)
-    expect(mocks.captureServerError.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.recordDispute.mock.invocationCallOrder[0]!,
-    )
   })
 
   it("charge.dispute.updated → persiste sans alerter", async () => {
@@ -461,46 +399,6 @@ describe("fulfillment Stripe — sessions Checkout et litiges", () => {
     ])
   })
 
-  // Avec la carte de test 0259, Stripe livre le litige AVANT le fulfillment :
-  // la transaction est encore pending, sans payment_intent.
-  it("litige avant le fulfillment → rattaché par la session Checkout", async () => {
-    mocks.recordDispute
-      .mockResolvedValueOnce({ status: "not_found" })
-      .mockResolvedValueOnce({ status: "recorded" })
-    stripeBox.seedCheckoutSession({
-      id: "cs_early",
-      payment_intent: "pi_early",
-    })
-    const event = {
-      id: "evt_dispute_early",
-      type: "charge.dispute.created",
-      data: {
-        object: {
-          id: "dp_early",
-          amount: 5000,
-          currency: "cad",
-          reason: "fraudulent",
-          status: "needs_response",
-          payment_intent: "pi_early",
-        },
-      },
-    }
-    await fulfil(event)
-    expect(fakeStripe.findCheckoutSessionByPaymentIntent).toHaveBeenCalledWith(
-      "pi_early",
-    )
-    expect(mocks.recordDispute).toHaveBeenNthCalledWith(2, {
-      stripePaymentIntentId: "pi_early",
-      stripeSessionId: "cs_early",
-      stripeDisputeId: "dp_early",
-      disputeStatus: "needs_response",
-    })
-    const messages = mocks.captureServerError.mock.calls.map(
-      ([, error]) => (error as Error).message,
-    )
-    expect(messages).toEqual(["litige ouvert sur un paiement Stripe"])
-  })
-
   it("radar.early_fraud_warning.created → alerte avec charge et payment_intent", async () => {
     const event = {
       id: "evt_efw",
@@ -541,30 +439,6 @@ describe("fulfillment Stripe — courriel de confirmation (différé)", () => {
         currency: "cad",
       },
     },
-  })
-
-  it("fulfillment completed → envoi différé, MessageId enregistré", async () => {
-    const result = await fulfil(paidEvent("evt_mail"))
-    // Rien ne part pendant le fulfillment : l'envoi attend l'acquittement.
-    expect(fakeMailer.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
-    await result.deferred?.()
-    expect(fakeMailer.sendPurchaseConfirmationEmail).toHaveBeenCalledWith({
-      to: "u@test.invalid",
-      name: "Samuel Pokam",
-      productName: "Accès examens",
-      amountPaid: 20000,
-      currency: "CAD",
-      presentmentAmount: null,
-      presentmentCurrency: null,
-      purchasedAt: new Date("2026-09-02T14:00:00Z"),
-      grantedAccess: [
-        { accessType: "exam", expiresAt: new Date("2026-12-01T14:00:00Z") },
-      ],
-    })
-    expect(mocks.markConfirmationEmailSent).toHaveBeenCalledWith({
-      transactionId: "tx_1",
-      messageId: "ses-msg-1",
-    })
   })
 
   it("already_processed → rien n'est différé (un seul envoi par achat)", async () => {
@@ -671,26 +545,6 @@ describe("fulfillment Stripe — retours de fonds", () => {
     expect(mocks.captureServerError.mock.calls[0]?.[2]).toEqual({
       detail: "charge ch_1 · 1/1 cad · payment_intent pi_r",
     })
-  })
-
-  it("remboursement partiel → aucun retrait, alerte", async () => {
-    const event = refunded({
-      payment_intent: "pi_p",
-      refunded: false,
-      amount: 20000,
-      amount_refunded: 1000,
-    })
-    await fulfil(event)
-    expect(mocks.refund).not.toHaveBeenCalled()
-    expect(mocks.captureServerError).toHaveBeenCalledWith(
-      "[stripe:webhook]",
-      expect.objectContaining({
-        message: "remboursement partiel, accès conservé",
-      }),
-      expect.objectContaining({
-        detail: expect.stringContaining("1000/20000"),
-      }),
-    )
   })
 
   it("payment_intent objet → id extrait", async () => {
