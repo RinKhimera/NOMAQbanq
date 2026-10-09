@@ -22,8 +22,7 @@ import {
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
-import { submittedStatus } from "../exams/dal.shared"
-import type { SubmittedStatus } from "../exams/dal.shared"
+import { type SubmittedStatus, submittedStatus } from "../exams/dal.shared"
 import { ownerReadableScore } from "../exams/dal.student"
 import { SUBMITTED, examPopulation } from "../exams/population"
 import { excludeLocked, viewerOf } from "../questions/answer-key-lock"
@@ -71,7 +70,7 @@ export type AdminActivity =
 
 /**
  * [Admin] 10 dernières activités (inscriptions, paiements complétés, copies
- * d'examen soumises, à la main ou automatiquement). Remplace `analytics.getRecentActivity` : 3 requêtes bornées (5
+ * d'examen soumises, à la main ou automatiquement) : 3 requêtes bornées (5
  * chacune) avec jointures (pas de N+1), fusion puis tri par timestamp desc.
  */
 export const getRecentActivity = async (): Promise<AdminActivity[]> => {
@@ -174,8 +173,7 @@ const round1 = (n: number) => Math.round(n * 10) / 10
 
 /**
  * [Admin] Tendances sur 30 jours vs les 30 jours précédents (utilisateurs,
- * revenus par devise). Remplace `analytics.getDashboardTrends`
- * (qui chargeait 3×2000 lignes en JS) par des agrégats SQL `FILTER` par fenêtre.
+ * revenus par devise), en agrégats SQL `FILTER` par fenêtre.
  */
 export const getDashboardTrends = async (): Promise<DashboardTrends> => {
   await requireRole(["admin"])

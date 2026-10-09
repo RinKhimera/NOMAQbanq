@@ -224,9 +224,9 @@ complétion, fermeture
 
 **Soumission automatique** :
 La clôture d'une participation sans geste du candidat : à la fin de son temps,
-ou par le cron à la fermeture de l'examen. Sa copie compte comme une copie soumise par le
-candidat : notée, classée, comptée dans le percentile. Seul son affichage dit
-qu'elle a été soumise automatiquement.
+ou par le cron à la fermeture de l'examen. Sa copie compte comme une copie
+soumise par le candidat : notée, classée, comptée dans le percentile. Seul son
+affichage dit qu'elle a été soumise automatiquement.
 _Avoid_ : copie expirée, abandon
 
 **Score de clôture** :

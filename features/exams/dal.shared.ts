@@ -76,7 +76,10 @@ export const finalizedDates = (exam: {
 type ParticipationStatus = (typeof examParticipationStatus.enumValues)[number]
 
 /** Participation soumise : à la main, ou automatiquement (temps écoulé, fermeture). */
-export type SubmittedStatus = Exclude<ParticipationStatus, "in_progress">
+export type SubmittedStatus = Extract<
+  ParticipationStatus,
+  "completed" | "auto_submitted"
+>
 
 /** Forme TypeScript de `SUBMITTED` (`population.ts`). */
 export const isSubmitted = (
