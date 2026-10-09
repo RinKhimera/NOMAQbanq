@@ -263,17 +263,22 @@ describe("classement d'examen : même population que le percentile", () => {
   })
 
   it("le rang du candidat et son percentile comptent le même effectif", async () => {
-    const { examId, userIds } = await seedExam([...population, { score: 80 }])
+    const { examId, userIds } = await seedExam([
+      ...population,
+      { score: 80 },
+      { score: 85, status: "in_progress" },
+      { score: 55, status: "auto_submitted" },
+    ])
     await withholdScore(examId, userIds[7]!)
     asUser(userIds[0])
 
     const ranking = await getExamRanking(examId)
     const percentile = (await getMyExamPercentiles())[examId]
 
-    // 90, 70, 60, 50, 40 : ni admin, ni supprimé, ni score retenu.
-    expect(ranking?.total).toBe(5)
+    // 90, 70, 60, 55, 50, 40 : soumises, ni admin, ni supprimé, ni score retenu.
+    expect(ranking?.total).toBe(6)
     expect(ranking?.mine).toEqual({ held: false, rank: 2, score: 70 })
-    expect(percentile).toBe(75)
+    expect(percentile).toBe(80)
   })
 
   it("côté admin, garde toutes les participations et identifie admins et supprimés", async () => {
