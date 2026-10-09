@@ -163,6 +163,13 @@ colonne)` dans le WHERE des canaux de
   période : une semaine entamée avant ne compte que ses jours dans la
   période (`startDay`, libellé « Depuis le … ») ; une semaine sans série
   lisible n'a pas de point, jamais un point à 0.
+- **Population d'examen = un seul module**, `features/exams/population.ts`
+  (`SUBMITTED`, `populationAccount`, `examPopulation`) : classement candidat,
+  percentile et chiffres de la fiche. Ne pas recopier `role = 'user'`,
+  `deleted_at IS NULL` ni la liste des statuts soumis (`isSubmitted` en est la
+  forme TS). Un fragment SQL construit au chargement lit `@/db/schema` à
+  l'import : jamais dans un module largement importé (`dal.shared.ts`), sinon
+  un test unitaire qui mocke le schéma partiellement casse au chargement.
 - **Clé à vérifier / clé confirmée = une règle, deux formes** :
   `keyReview` (`features/questions/key-review.ts`, pure : fiche, formulaire)
   et `keyToVerifySql` (`features/questions/dal.ts` : onglet, compteur, export),

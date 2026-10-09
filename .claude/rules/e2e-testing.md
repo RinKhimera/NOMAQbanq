@@ -59,7 +59,10 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
   #91 : bucket local partagé, sinon la suite `evaluation-quiz` flake au fil des
   runs). Appelée en setup ET teardown.
 - `cleanup` (`prefix`, défaut `"[E2E]"`) : supprime examens préfixés (cascade) +
-  questions orphelines préfixées.
+  questions orphelines préfixées. ⚠️ Supprime aussi TOUTES les images
+  `kind='explanation'` des questions de banque de ces examens. Pour retirer un
+  seul examen semé à la main : `DELETE FROM exams WHERE id = …` (cascade
+  questions, copies, réponses).
 - `set-access` (`userEmail`, `accessType:"exam"|"training"`, `grant?:boolean`) :
   octroie/révoque un accès. Idempotent ; l'octroi crée une transaction manuelle
   `[E2E]` si besoin (`user_access.last_transaction_id` est `NOT NULL` FK).
@@ -78,7 +81,9 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
   participation **complétée** (mix correct/incorrect déterministe : index pair =
   bonne réponse) → la page résultats a des données sans rejouer la passation.
   Renvoie `{ examId, questionCount, participationId, score }`. Nettoyé par
-  `cleanup` (préfixe).
+  `cleanup` (préfixe). Budget = `questionCount` × 83 s : `questionCount: 1` puis
+  attendre la fin du chrono dans le navigateur donne une vraie copie
+  `auto_submitted` (~1 min 25).
 
 ## Sélecteurs — `data-testid` obligatoires sur l'interactif
 
