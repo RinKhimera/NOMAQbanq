@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { DEFAULT_QUESTION_LIST } from "@/app/(admin)/admin/questions/_components/question-params"
 import { QuestionsClient } from "@/app/(admin)/admin/questions/_components/questions-client"
@@ -81,6 +81,22 @@ const renderList = (
     />,
   )
 
+/** Élément à passer à `render` ou `rerender` : les props d'un retour serveur. */
+const clientAtQ = (q: string, page: QuestionListPage = list()) => (
+  <QuestionsClient
+    state={{ ...DEFAULT_QUESTION_LIST, q }}
+    list={page}
+    objectives={{ objectives: [], byDomain: {} }}
+    exams={[]}
+    initialNow={NOW}
+  />
+)
+
+const searchField = () =>
+  screen.getByPlaceholderText(
+    "Énoncé, choix de réponse, objectif ou identifiant",
+  )
+
 describe("QuestionsClient", () => {
   it("onglets à compteur ; changer d'onglet écrit l'URL et revient en page 1", () => {
     renderList({ ...DEFAULT_QUESTION_LIST, page: 3 })
@@ -151,20 +167,80 @@ describe("QuestionsClient", () => {
 
   it("un q d'URL venu d'ailleurs (retour arrière) réaligne le champ de recherche", () => {
     const { rerender } = renderList({ ...DEFAULT_QUESTION_LIST, q: "toux" })
-    const field = screen.getByPlaceholderText(
-      "Énoncé, choix de réponse, objectif ou identifiant",
-    )
+    const field = searchField()
     expect(field).toHaveValue("toux")
-    rerender(
-      <QuestionsClient
-        state={DEFAULT_QUESTION_LIST}
-        list={list()}
-        objectives={{ objectives: [], byDomain: {} }}
-        exams={[]}
-        initialNow={NOW}
-      />,
-    )
+    rerender(clientAtQ(""))
     expect(field).toHaveValue("")
+  })
+
+  it("serveur lent : le terme tapé reste dans le champ et part une seule fois", () => {
+    vi.useFakeTimers()
+    renderList()
+    const field = searchField()
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    act(() => vi.advanceTimersByTime(2000))
+    expect(field).toHaveValue("toux")
+    expect(replace).toHaveBeenCalledExactlyOnceWith("/admin/questions?q=toux", {
+      scroll: false,
+    })
+  })
+
+  it("frappe rapide : une seule navigation, avec le dernier terme", () => {
+    vi.useFakeTimers()
+    renderList()
+    const field = searchField()
+    fireEvent.change(field, { target: { value: "t" } })
+    act(() => vi.advanceTimersByTime(100))
+    fireEvent.change(field, { target: { value: "to" } })
+    act(() => vi.advanceTimersByTime(100))
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    expect(field).toHaveValue("toux")
+    expect(replace).toHaveBeenCalledExactlyOnceWith("/admin/questions?q=toux", {
+      scroll: false,
+    })
+  })
+
+  it("retour arrière vers sa propre recherche après un effacement : le champ suit", () => {
+    vi.useFakeTimers()
+    const { rerender } = render(clientAtQ(""))
+    const field = searchField()
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    rerender(clientAtQ("toux"))
+    rerender(clientAtQ(""))
+    expect(field).toHaveValue("")
+    rerender(clientAtQ("toux"))
+    expect(field).toHaveValue("toux")
+  })
+
+  it("la réponse au terme envoyé n'écrase pas la frappe qui a suivi", () => {
+    vi.useFakeTimers()
+    const { rerender } = render(clientAtQ(""))
+    const field = searchField()
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    fireEvent.change(field, { target: { value: "toux fébrile" } })
+    rerender(clientAtQ("toux"))
+    expect(field).toHaveValue("toux fébrile")
+  })
+
+  it("effacer pendant l'envoi : un q venu d'ailleurs égal au terme abandonné réaligne, sans navigation parasite", () => {
+    vi.useFakeTimers()
+    const empty = list({ items: [], total: 0 })
+    const { rerender } = render(clientAtQ("", empty))
+    const field = searchField()
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    fireEvent.click(screen.getByRole("button", { name: "Effacer les filtres" }))
+    rerender(clientAtQ("toux", empty))
+    act(() => vi.advanceTimersByTime(300))
+    expect(field).toHaveValue("toux")
+    expect(replace.mock.calls.map(([url]) => url)).toEqual([
+      "/admin/questions?q=toux",
+      "/admin/questions",
+    ])
   })
 
   it("aucun résultat : message et recours", () => {
