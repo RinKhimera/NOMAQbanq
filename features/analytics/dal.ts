@@ -22,8 +22,10 @@ import {
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
+import { submittedStatus } from "../exams/dal.shared"
+import type { SubmittedStatus } from "../exams/dal.shared"
 import { ownerReadableScore } from "../exams/dal.student"
-import { examPopulation } from "../exams/population"
+import { SUBMITTED, examPopulation } from "../exams/population"
 import { excludeLocked, viewerOf } from "../questions/answer-key-lock"
 import {
   datedAnswersSql,
@@ -57,20 +59,25 @@ export type AdminActivity =
       }
     }
   | {
-      type: "exam_completed"
+      type: "exam_submitted"
       timestamp: number
-      data: { userName: string; examTitle: string; score: number | null }
+      data: {
+        userName: string
+        examTitle: string
+        score: number | null
+        status: SubmittedStatus
+      }
     }
 
 /**
- * [Admin] 10 dernières activités (inscriptions, paiements complétés, examens
- * complétés). Remplace `analytics.getRecentActivity` : 3 requêtes bornées (5
+ * [Admin] 10 dernières activités (inscriptions, paiements complétés, copies
+ * d'examen soumises, à la main ou automatiquement). Remplace `analytics.getRecentActivity` : 3 requêtes bornées (5
  * chacune) avec jointures (pas de N+1), fusion puis tri par timestamp desc.
  */
 export const getRecentActivity = async (): Promise<AdminActivity[]> => {
   await requireRole(["admin"])
 
-  const [users, payments, completions] = await Promise.all([
+  const [users, payments, submissions] = await Promise.all([
     db
       .select({ name: user.name, email: user.email, createdAt: user.createdAt })
       .from(user)
@@ -102,17 +109,13 @@ export const getRecentActivity = async (): Promise<AdminActivity[]> => {
         userName: user.name,
         examTitle: exams.title,
         score: examParticipations.score,
+        status: examParticipations.status,
         completedAt: examParticipations.completedAt,
       })
       .from(examParticipations)
       .innerJoin(user, eq(user.id, examParticipations.userId))
       .innerJoin(exams, eq(exams.id, examParticipations.examId))
-      .where(
-        and(
-          eq(examParticipations.status, "completed"),
-          isNotNull(examParticipations.completedAt),
-        ),
-      )
+      .where(and(SUBMITTED, isNotNull(examParticipations.completedAt)))
       .orderBy(desc(examParticipations.completedAt))
       .limit(5),
   ])
@@ -134,10 +137,15 @@ export const getRecentActivity = async (): Promise<AdminActivity[]> => {
         paymentType: p.paymentType,
       },
     })),
-    ...completions.map((c) => ({
-      type: "exam_completed" as const,
-      timestamp: c.completedAt?.getTime() ?? 0,
-      data: { userName: c.userName, examTitle: c.examTitle, score: c.score },
+    ...submissions.map((s) => ({
+      type: "exam_submitted" as const,
+      timestamp: s.completedAt?.getTime() ?? 0,
+      data: {
+        userName: s.userName,
+        examTitle: s.examTitle,
+        score: s.score,
+        status: submittedStatus(s.status),
+      },
     })),
   ]
 
@@ -154,9 +162,7 @@ export type DashboardTrends = {
     string,
     { recent: number; previous: number; trend: number }
   >
-  participationsTrend: number
   recentUsersCount: number
-  recentParticipationsCount: number
 }
 
 // % de variation entre période courante et précédente.
@@ -168,7 +174,7 @@ const round1 = (n: number) => Math.round(n * 10) / 10
 
 /**
  * [Admin] Tendances sur 30 jours vs les 30 jours précédents (utilisateurs,
- * revenus par devise, participations). Remplace `analytics.getDashboardTrends`
+ * revenus par devise). Remplace `analytics.getDashboardTrends`
  * (qui chargeait 3×2000 lignes en JS) par des agrégats SQL `FILTER` par fenêtre.
  */
 export const getDashboardTrends = async (): Promise<DashboardTrends> => {
@@ -178,7 +184,7 @@ export const getDashboardTrends = async (): Promise<DashboardTrends> => {
   const d30 = new Date(now - 30 * DAY_MS)
   const d60 = new Date(now - 60 * DAY_MS)
 
-  const [userRow, revRows, partRow] = await Promise.all([
+  const [userRow, revRows] = await Promise.all([
     db
       .select({
         recent:
@@ -207,19 +213,6 @@ export const getDashboardTrends = async (): Promise<DashboardTrends> => {
       .from(transactions)
       .where(eq(transactions.status, "completed"))
       .groupBy(transactions.currency),
-    db
-      .select({
-        recent:
-          sql<number>`count(*) filter (where ${examParticipations.completedAt} > ${d30})`.mapWith(
-            Number,
-          ),
-        previous:
-          sql<number>`count(*) filter (where ${examParticipations.completedAt} > ${d60} and ${examParticipations.completedAt} <= ${d30})`.mapWith(
-            Number,
-          ),
-      })
-      .from(examParticipations)
-      .where(eq(examParticipations.status, "completed")),
   ])
 
   const recentUsersCount = userRow[0]?.recent ?? 0
@@ -240,17 +233,10 @@ export const getDashboardTrends = async (): Promise<DashboardTrends> => {
     }
   }
 
-  const recentParticipationsCount = partRow[0]?.recent ?? 0
-  const previousParticipationsCount = partRow[0]?.previous ?? 0
-
   return {
     usersTrend: round1(calculateTrend(recentUsersCount, previousUsersCount)),
     revenueByCurrency,
-    participationsTrend: round1(
-      calculateTrend(recentParticipationsCount, previousParticipationsCount),
-    ),
     recentUsersCount,
-    recentParticipationsCount,
   }
 }
 

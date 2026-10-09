@@ -15,7 +15,7 @@ import { DashboardPanel } from "./dashboard-panel"
 const ICON: Record<AdminActivity["type"], LucideIcon> = {
   user_signup: UserPlus,
   payment: CreditCard,
-  exam_completed: CircleCheck,
+  exam_submitted: CircleCheck,
 }
 
 const Line = ({ activity }: { activity: AdminActivity }) => {
@@ -52,10 +52,14 @@ const Line = ({ activity }: { activity: AdminActivity }) => {
           </span>
         </>
       )
-    case "exam_completed":
+    case "exam_submitted":
       return (
         <>
-          <span className="text-ink text-sm font-medium">Examen complété</span>
+          <span className="text-ink text-sm font-medium">
+            {activity.data.status === "auto_submitted"
+              ? "Examen soumis automatiquement"
+              : "Examen soumis"}
+          </span>
           <span className="text-ink-3 text-[0.8125rem]">
             {activity.data.userName} · {activity.data.examTitle}
             {activity.data.score !== null && (

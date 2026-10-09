@@ -283,12 +283,12 @@ describe("getRecentActivity", () => {
       )
       const exam = acts.find(
         (a) =>
-          a.type === "exam_completed" &&
+          a.type === "exam_submitted" &&
           a.data.examTitle === "Examen tableau de bord",
       )
       expect(signup).toBeDefined()
       expect(payment).toBeDefined()
-      expect(exam).toBeDefined()
+      expect(exam?.data).toMatchObject({ status: "completed", score: 70 })
 
       // Tri décroissant par timestamp.
       const ts = acts.map((a) => a.timestamp)
@@ -303,16 +303,44 @@ describe("getRecentActivity", () => {
       )
     }
   })
+  it("montre aussi une copie soumise automatiquement", async () => {
+    const pid = createId()
+    await db.insert(examParticipations).values({
+      id: pid,
+      examId: E,
+      userId: C,
+      status: "auto_submitted",
+      score: 40,
+      startedAt: new Date(Date.now() - 2000),
+      completedAt: new Date(),
+    })
+
+    try {
+      const acts = await getRecentActivity()
+      const auto = acts.find(
+        (a) => a.type === "exam_submitted" && a.data.userName === name(C),
+      )
+      expect(auto?.data).toEqual({
+        userName: name(C),
+        examTitle: "Examen tableau de bord",
+        score: 40,
+        status: "auto_submitted",
+      })
+    } finally {
+      await db
+        .delete(examParticipations)
+        .where(inArray(examParticipations.id, [pid]))
+    }
+  })
 })
 
 describe("getDashboardTrends", () => {
-  it("revenus récents par devise + nouveaux users/participations", async () => {
+  it("revenus récents par devise + nouveaux users", async () => {
     const t = await getDashboardTrends()
     expect(t.revenueByCurrency.CAD.recent).toBe(5000 + SOIR_CAD)
     expect(t.revenueByCurrency.XAF.recent).toBe(300000)
     // A et B créés maintenant (fenêtre récente) ; C il y a 45j (précédente).
     expect(t.recentUsersCount).toBe(2)
-    expect(t.recentParticipationsCount).toBe(1)
     expect(t.usersTrend).toBe(100)
   })
 })
