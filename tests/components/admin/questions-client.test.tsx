@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { DEFAULT_QUESTION_LIST } from "@/app/(admin)/admin/questions/_components/question-params"
 import { QuestionsClient } from "@/app/(admin)/admin/questions/_components/questions-client"
@@ -165,6 +165,63 @@ describe("QuestionsClient", () => {
       />,
     )
     expect(field).toHaveValue("")
+  })
+
+  it("serveur lent : le terme tapé reste dans le champ et part une seule fois", () => {
+    vi.useFakeTimers()
+    renderList()
+    const field = screen.getByPlaceholderText(
+      "Énoncé, choix de réponse, objectif ou identifiant",
+    )
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    act(() => vi.advanceTimersByTime(2000))
+    expect(field).toHaveValue("toux")
+    expect(replace).toHaveBeenCalledExactlyOnceWith("/admin/questions?q=toux", {
+      scroll: false,
+    })
+  })
+
+  it("frappe rapide : une seule navigation, avec le dernier terme", () => {
+    vi.useFakeTimers()
+    renderList()
+    const field = screen.getByPlaceholderText(
+      "Énoncé, choix de réponse, objectif ou identifiant",
+    )
+    fireEvent.change(field, { target: { value: "t" } })
+    act(() => vi.advanceTimersByTime(100))
+    fireEvent.change(field, { target: { value: "to" } })
+    act(() => vi.advanceTimersByTime(100))
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    expect(field).toHaveValue("toux")
+    expect(replace).toHaveBeenCalledExactlyOnceWith("/admin/questions?q=toux", {
+      scroll: false,
+    })
+  })
+
+  it("retour arrière vers sa propre recherche après un effacement : le champ suit", () => {
+    vi.useFakeTimers()
+    const props = (q: string) => (
+      <QuestionsClient
+        state={{ ...DEFAULT_QUESTION_LIST, q }}
+        list={list()}
+        objectives={{ objectives: [], byDomain: {} }}
+        exams={[]}
+        initialNow={NOW}
+      />
+    )
+    const { rerender } = render(props(""))
+    const field = screen.getByPlaceholderText(
+      "Énoncé, choix de réponse, objectif ou identifiant",
+    )
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    rerender(props("toux"))
+    rerender(props(""))
+    expect(field).toHaveValue("")
+    rerender(props("toux"))
+    expect(field).toHaveValue("toux")
   })
 
   it("aucun résultat : message et recours", () => {
