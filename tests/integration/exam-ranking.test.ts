@@ -235,11 +235,20 @@ describe("classement d'examen (lecteur étudiant)", () => {
     )
   })
 
-  it("ne livre des autres que rang, nom d'utilisateur, photo et score", async () => {
+  it("ne livre des autres que rang, nom d'utilisateur, photo et score ; jamais la photo d'un anonyme", async () => {
     const { examId, userIds } = await seedExam([
-      { score: 60, image: "avatars/a.webp" },
+      { score: 60 },
       { score: 40, username: null },
+      { score: 20 },
     ])
+    // Adresse réelle d'un avatar téléversé : elle porte l'id de son
+    // propriétaire, accepté pour un candidat qui a un nom d'utilisateur.
+    const avatarOf = (id: string) => `https://cdn.test/avatars/${id}/1.webp`
+    for (const id of userIds)
+      await db
+        .update(user)
+        .set({ image: avatarOf(id) })
+        .where(eq(user.id, id))
     asUser(userIds[0])
 
     const ranking = await getExamRanking(examId)
@@ -248,11 +257,18 @@ describe("classement d'examen (lecteur étudiant)", () => {
       {
         rank: 1,
         username: `cand_0_${examId}`,
-        image: "avatars/a.webp",
+        image: avatarOf(userIds[0]),
         score: 60,
         isSelf: true,
       },
       { rank: 2, username: null, image: null, score: 40, isSelf: false },
+      {
+        rank: 3,
+        username: `cand_2_${examId}`,
+        image: avatarOf(userIds[2]),
+        score: 20,
+        isSelf: false,
+      },
     ])
     const payload = JSON.stringify(ranking)
     expect(payload).not.toContain("Nom Complet")
@@ -315,6 +331,33 @@ describe("classement d'examen (lecteur étudiant)", () => {
     expect(ranking?.mine).toEqual({ held: false, rank: n, score: 1 })
   })
 
+  it("rend le classement à un lecteur dont la copie a été soumise automatiquement", async () => {
+    const { examId, userIds } = await seedExam([
+      { score: 70 },
+      { score: 50, status: "auto_submitted" },
+    ])
+    asUser(userIds[1])
+
+    const ranking = await getExamRanking(examId)
+
+    expect(ranking?.mine).toEqual({ held: false, rank: 2, score: 50 })
+    expect(ranking?.hasOwnCopy).toBe(true)
+  })
+
+  it("garde « Voir mes réponses » à un admin qui a passé l'examen, sans le classer", async () => {
+    const { examId, userIds } = await seedExam([
+      { score: 60 },
+      { score: 90, role: "admin" },
+    ])
+    asUser(userIds[1], "admin")
+
+    const ranking = await getExamRanking(examId)
+
+    expect(ranking?.mine).toBeNull()
+    expect(ranking?.hasOwnCopy).toBe(true)
+    expect(ranking?.rows.map((r) => r.score)).toEqual([60])
+  })
+
   it("s'ouvre à l'admin sans participation, sans ligne à lui", async () => {
     const { examId } = await seedExam([{ score: 60 }, { score: 40 }])
     const adminId = createId()
@@ -329,6 +372,7 @@ describe("classement d'examen (lecteur étudiant)", () => {
     const ranking = await getExamRanking(examId)
 
     expect(ranking?.mine).toBeNull()
+    expect(ranking?.hasOwnCopy).toBe(false)
     expect(ranking?.rows.map((r) => r.score)).toEqual([60, 40])
     expect(ranking?.correctionLocked).toBe(false)
   })
@@ -350,6 +394,16 @@ describe("classement d'examen (lecteur étudiant)", () => {
 
   it("rend l'en-tête de l'examen", async () => {
     const { examId, userIds } = await seedExam([{ score: 60 }])
+    const questionId = createId()
+    await db.insert(questions).values({
+      id: questionId,
+      question: "Q de l'examen",
+      correctAnswer: "A",
+      options: ["A", "B"],
+      objectiveId: TEST_OBJECTIVE_ID,
+      domain: "Cardiologie",
+    })
+    await db.insert(examQuestions).values({ examId, questionId, position: 0 })
     asUser(userIds[0])
 
     const ranking = await getExamRanking(examId)
@@ -358,7 +412,7 @@ describe("classement d'examen (lecteur étudiant)", () => {
       id: examId,
       title: "Examen classé",
       endDate: expect.any(Number),
-      questionCount: 0,
+      questionCount: 1,
     })
   })
 })

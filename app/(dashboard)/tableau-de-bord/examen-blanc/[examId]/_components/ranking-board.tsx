@@ -36,7 +36,13 @@ const RankingRow = ({
   const name = row.username ?? ANONYMOUS
   return (
     <div
-      data-testid={row.isSelf ? "ranking-self" : "ranking-row"}
+      data-testid={
+        pinned
+          ? "ranking-self-pinned"
+          : row.isSelf
+            ? "ranking-self"
+            : "ranking-row"
+      }
       className={cn(
         ROW_GRID,
         "min-h-13",
@@ -47,7 +53,9 @@ const RankingRow = ({
         pinned && "shadow-pop",
       )}
     >
+      {/* La copie épinglée ne se relit pas : seule sa flèche compte. */}
       <span
+        aria-hidden={pinned ? true : undefined}
         className={cn(
           "pr-1 text-right font-mono text-sm tabular-nums md:pr-2",
           row.isSelf ? "text-accent-ink font-semibold" : "text-ink-2",
@@ -55,7 +63,10 @@ const RankingRow = ({
       >
         {row.rank}
       </span>
-      <span className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 md:flex-nowrap md:gap-3">
+      <span
+        aria-hidden={pinned ? true : undefined}
+        className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 md:flex-nowrap md:gap-3"
+      >
         {row.username ? (
           <UserAvatar
             name={row.username}
@@ -81,7 +92,10 @@ const RankingRow = ({
         </span>
         {row.isSelf && <Badge variant="accent">Vous</Badge>}
       </span>
-      <span className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_48px]">
+      <span
+        aria-hidden={pinned ? true : undefined}
+        className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_48px]"
+      >
         <Progress
           value={row.score}
           indicatorColor={TONE_COLOR[scoreTone(row.score)]}
@@ -163,6 +177,7 @@ export const RankingBoard = ({
 
   const jump = () => {
     selfRef.current?.scrollIntoView({ block: "center" })
+    selfRef.current?.focus({ preventScroll: true })
     setFlash(true)
   }
 
@@ -197,7 +212,7 @@ export const RankingBoard = ({
         <EmptyState
           size="compact"
           title="Aucun participant classé pour le moment"
-          description="Les scores retenus sont publiés à la fermeture des examens encore ouverts."
+          description="Aucune participation terminée n'est encore classée pour cet examen."
         />
       ) : (
         <>
@@ -236,7 +251,8 @@ export const RankingBoard = ({
                 )}
                 <li
                   ref={row.isSelf ? selfRef : undefined}
-                  className="border-line border-t [contain-intrinsic-size:auto_52px] [content-visibility:auto] last:rounded-b-lg"
+                  tabIndex={row.isSelf ? -1 : undefined}
+                  className="border-line border-t outline-none [contain-intrinsic-size:auto_52px] [content-visibility:auto] last:rounded-b-lg"
                 >
                   <RankingRow row={row} flash={flash && row.isSelf} />
                 </li>

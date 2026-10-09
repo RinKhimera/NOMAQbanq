@@ -30,13 +30,25 @@ type Props = {
 }
 
 export const ExamRankingView = ({ ranking, percentile }: Props) => {
-  const { exam, total, rows, mine, correctionLocked } = ranking
+  const { exam, total, rows, mine, hasOwnCopy, correctionLocked } = ranking
   return (
     <div className="flex flex-col gap-5">
       <PageIntro
         eyebrow="Classement"
         title={exam.title}
         backHref={STUDENT_EXAMS_HREF}
+        actions={
+          // Un admin n'est jamais classé : sa copie reste joignable d'ici.
+          !mine &&
+          hasOwnCopy && (
+            <Button asChild size="lg">
+              <Link href={studentExamResultsHref(exam.id)}>
+                Voir mes réponses
+                <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+          )
+        }
         description={
           <span className="font-mono text-[0.8125rem] tabular-nums">
             Fermé le {formatMediumDate(exam.endDate)} ·{" "}

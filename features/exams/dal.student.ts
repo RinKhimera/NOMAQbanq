@@ -106,7 +106,8 @@ const answeredCountSql = sql<number>`(select count(*) from (${answeredQuestionId
 /**
  * Score de la ligne lue, ou `null` s'il est retenu pour son PROPRIÉTAIRE —
  * pour les lectures où le lecteur n'est pas le propriétaire (classement,
- * courriel de clôture). Un lecteur admin lit `examParticipations.score`.
+ * courriel de clôture). Un lecteur admin lit `examParticipations.score`, sauf
+ * sur le classement des candidats, qui lui montre ce qu'ils voient.
  */
 export const ownerReadableScore = sql<
   number | null
@@ -581,7 +582,9 @@ export type ExamRanking = {
   /** Effectif classé : participations d'étudiants au score lisible. */
   total: number
   rows: ExamRankingRow[]
-  /** Position du lecteur ; `null` pour un admin sans participation. */
+  /** Le lecteur a terminé cet examen : « Voir mes réponses », même admin (jamais classé). */
+  hasOwnCopy: boolean
+  /** Position du lecteur ; `null` pour un admin, jamais classé. */
   mine:
     | { held: false; rank: number; score: number }
     | { held: true; withheldBy: string | null }
@@ -692,7 +695,8 @@ export const getExamRanking = cache(
     const rows = ranked.rows.map((r) => ({
       rank: r.rank,
       username: r.username,
-      image: r.image,
+      // « Candidat anonyme » : avatar générique, sa photo ne quitte pas le serveur.
+      image: r.username ? r.image : null,
       score: r.score,
       isSelf: r.is_self,
     }))
@@ -712,6 +716,7 @@ export const getExamRanking = cache(
       },
       total: ranked.rows[0]?.total ?? 0,
       rows,
+      hasOwnCopy: ownFinished,
       mine,
       correctionLocked,
     }

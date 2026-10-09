@@ -47,6 +47,7 @@ const ranking = (over: Partial<ExamRanking> = {}): ExamRanking => ({
   total: 3,
   rows: [row(1), row(2, { isSelf: true }), row(3)],
   mine: { held: false, rank: 2, score: 98 },
+  hasOwnCopy: true,
   correctionLocked: false,
   ...over,
 })
@@ -161,7 +162,28 @@ describe("ExamRankingView", () => {
     expect(screen.getAllByTestId("ranking-row")).toHaveLength(2)
   })
 
-  it("admin sans participation : pas de bloc « Votre position »", () => {
+  it("admin sans participation : ni bloc « Votre position » ni « Voir mes réponses »", () => {
+    stubObserver()
+    render(
+      <ExamRankingView
+        ranking={ranking({
+          rows: [row(1), row(2)],
+          total: 2,
+          mine: null,
+          hasOwnCopy: false,
+        })}
+        percentile={null}
+      />,
+    )
+
+    expect(screen.queryByTestId("ranking-mine")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("link", { name: /Voir mes réponses/ }),
+    ).not.toBeInTheDocument()
+    expect(screen.getAllByTestId("ranking-row")).toHaveLength(2)
+  })
+
+  it("admin qui a passé l'examen : non classé, mais « Voir mes réponses » mène à sa copie", () => {
     stubObserver()
     render(
       <ExamRankingView
@@ -171,7 +193,9 @@ describe("ExamRankingView", () => {
     )
 
     expect(screen.queryByTestId("ranking-mine")).not.toBeInTheDocument()
-    expect(screen.getAllByTestId("ranking-row")).toHaveLength(2)
+    expect(
+      screen.getByRole("link", { name: /Voir mes réponses/ }),
+    ).toHaveAttribute("href", "/tableau-de-bord/examen-blanc/ex-25/resultats")
   })
 
   it("signale les rangs omis entre la fin de la liste et ma ligne", () => {
@@ -224,7 +248,11 @@ describe("ExamRankingView", () => {
         },
       ]),
     )
-    expect(screen.getAllByTestId("ranking-self")).toHaveLength(2)
+    expect(screen.getAllByTestId("ranking-self")).toHaveLength(1)
+    const pinned = screen.getByTestId("ranking-self-pinned")
+    expect(
+      within(pinned).getByText("cand_20").closest('[aria-hidden="true"]'),
+    ).not.toBeNull()
     expect(
       screen.getAllByRole("button", { name: "Aller à ma position" }),
     ).toHaveLength(2)
@@ -238,15 +266,18 @@ describe("ExamRankingView", () => {
         },
       ]),
     )
-    expect(screen.getAllByTestId("ranking-self")).toHaveLength(2)
+    expect(screen.getByTestId("ranking-self-pinned")).toBeInTheDocument()
 
     const [jumpFromPin] = screen
       .getAllByRole("button", { name: "Aller à ma position" })
       .filter((b) => b.closest(".sticky"))
     await userEvent.click(jumpFromPin)
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" })
+    expect(document.activeElement).toBe(
+      screen.getByTestId("ranking-self").closest("li"),
+    )
 
     act(() => observer.notify([{ isIntersecting: true }]))
-    expect(screen.getAllByTestId("ranking-self")).toHaveLength(1)
+    expect(screen.queryByTestId("ranking-self-pinned")).not.toBeInTheDocument()
   })
 })

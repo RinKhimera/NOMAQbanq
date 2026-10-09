@@ -126,9 +126,13 @@ export const auth = betterAuth({
   // Le plugin admin n'est configuré que pour porter `role` sur session.user :
   // ses endpoints HTTP ne sont pas utilisés par l'app et contournent les
   // gardes applicatives (auto-modification, dernier admin) de updateUserRole /
-  // deleteMyAccount → fermés au routeur (404). Match EXACT : re-vérifier la
-  // liste à chaque montée de version de better-auth.
+  // deleteMyAccount → fermés au routeur (404). `/update-user` aussi : le
+  // profil passe par les actions de `features/users`, et l'endpoint écrirait
+  // `image` sans contrôle, une URL que le classement d'examen affiche aux
+  // autres candidats. Match EXACT : re-vérifier la liste à chaque montée de
+  // version de better-auth.
   disabledPaths: [
+    "/update-user",
     "/admin/set-role",
     "/admin/get-user",
     "/admin/create-user",
