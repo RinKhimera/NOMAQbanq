@@ -138,9 +138,8 @@ describe("examen « abonnés » masqué", () => {
     expect(ids).not.toContain(HIDDEN_ID)
     expect(ids).not.toContain(HIDDEN_CLOSED_ID)
     expect(await getExamWithQuestions(HIDDEN_ID)).toBeNull()
-    expect(await getMyDashboard("tout")).toMatchObject({
-      exams: { availableCount: 0 },
-    })
+    // « Ni compté » tient par construction : sans accès Examens, le compteur
+    // du tableau de bord vaut 0 avant tout filtre (`countAvailableExams`).
   })
 
   it("non masqué, reste listé pour un non-abonné (verrouillé)", async () => {

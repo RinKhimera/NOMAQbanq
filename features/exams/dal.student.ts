@@ -123,6 +123,14 @@ const examAccessMissing = async (
   !isAdmin && exam.audienceType === "subscribers" && !(await hasAccess("exam"))
 
 /**
+ * L'utilisateur a une participation à l'examen de la ligne lue, quel qu'en
+ * soit le statut. Corrélé sur `"exams"."id"` : voir `visibleToStudent`.
+ */
+export const participatedIn = (uid: string) => sql`exists (
+  select 1 from exam_participations part_p
+   where part_p.exam_id = "exams"."id" and part_p.user_id = ${uid})`
+
+/**
  * Examens qu'un étudiant voit (`CONTEXT.md`, « Examen masqué ») : liste,
  * compteurs du tableau de bord, lecture d'un examen. Une audience d'abonnés
  * est vue de tous, sauf masquée : alors seulement avec l'accès Examens actif ou
@@ -141,9 +149,7 @@ export const visibleToStudent = (uid: string | null) => {
     eq(exams.isHidden, false),
   )
   if (uid === null) return open
-  const participated = sql`exists (
-    select 1 from exam_participations vis_p
-     where vis_p.exam_id = "exams"."id" and vis_p.user_id = ${uid})`
+  const participated = participatedIn(uid)
   const member = sql`exists (
     select 1 from exam_audience vis_a
      where vis_a.exam_id = "exams"."id" and vis_a.user_id = ${uid})`
@@ -367,7 +373,7 @@ export const getExamWithQuestions = async (
     .from(exams)
     // En préparation : introuvable ici pour tous. La fiche admin lit
     // `getAdminExam`. Garde d'audience et de masquage (anti-fuite du TEXTE des
-    // questions d'un examen restreint confidentiel) : `visibleToStudent`.
+    // questions d'un examen restreint) : `visibleToStudent`.
     .where(
       and(
         eq(exams.id, examId),

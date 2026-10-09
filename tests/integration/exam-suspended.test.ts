@@ -134,7 +134,7 @@ describe("suspendre un examen", () => {
       expect(await suspendExam({ examId })).toEqual({
         success: false,
         error:
-          "Seul un examen finalisé et ouvert (à venir ou en cours) se suspend ou se lève.",
+          "Seul un examen finalisé et ouvert (à venir ou en cours) peut être suspendu, ou voir sa suspension levée.",
       })
       expect(await isActiveOf(examId)).toBe(true)
     }

@@ -202,6 +202,13 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   les insertions de la version en service pendant le build. Déploiement N :
   retirer la colonne du schéma (elle reste en base) ; N+1 : migration manuelle
   `bunx drizzle-kit generate --custom --name …` en `DROP COLUMN IF EXISTS`.
+- **Develop se migre à la main** : le build ne migre que la prod. Après
+  `db:generate`, lancer `bun run db:migrate` (develop) avant tout test au
+  navigateur, sinon tout code qui lit la nouvelle colonne échoue.
+- **Tant que l'étape 2 de #210 n'est pas faite**, `db:generate` ajoute
+  `ALTER TABLE "account" DROP COLUMN "issuer"` à toute nouvelle migration :
+  le retirer du `.sql` et garder `issuer` dans le snapshot généré, pour que
+  l'étape 2 le régénère seule.
 
 ## Gates
 

@@ -138,7 +138,7 @@ const EXAM_ERRORS: Record<string, string> = {
   INVALID_QUESTIONS: "Certaines questions sélectionnées sont introuvables.",
   INVALID_USERS: "Certains utilisateurs sélectionnés sont introuvables.",
   NOT_OPEN:
-    "Seul un examen finalisé et ouvert (à venir ou en cours) se suspend ou se lève.",
+    "Seul un examen finalisé et ouvert (à venir ou en cours) peut être suspendu, ou voir sa suspension levée.",
   RESTRICTED_AUDIENCE:
     "Une audience restreinte est déjà réservée à ses membres : elle ne se masque pas.",
 }

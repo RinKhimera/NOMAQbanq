@@ -18,6 +18,7 @@ import { type DashboardPeriod, periodWindow } from "@/lib/dashboard-period"
 import { PASS_THRESHOLD } from "@/lib/score"
 import { finalizedDate, finalizedDuration } from "../exams/dal.shared"
 import {
+  participatedIn,
   participationScoreReadable,
   readableParticipationScore,
   visibleToStudent,
@@ -287,8 +288,7 @@ const countAvailableExams = async (
         or(
           eq(exams.isActive, true),
           lte(exams.endDate, sql`now()`),
-          sql`exists (select 1 from exam_participations ep
-                       where ep.exam_id = "exams"."id" and ep.user_id = ${uid})`,
+          participatedIn(uid),
         ),
         isNotNull(exams.finalizedAt),
         visibleToStudent(uid),
