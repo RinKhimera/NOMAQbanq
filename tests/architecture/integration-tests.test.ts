@@ -8,7 +8,7 @@ const files = walk("tests/integration", (name) =>
 const offenders = (predicate: (source: string) => boolean) =>
   files.filter(({ source }) => predicate(source)).map(({ path }) => path)
 
-// Conventions de `.claude/rules/data-layer.md`, section « Tests d'intégration ».
+// Conventions de `.claude/rules/testing.md`, section « Tests d'intégration ».
 describe("conventions des tests d'intégration", () => {
   it("trouve les fichiers d'intégration", () => {
     expect(files.length).toBeGreaterThan(0)

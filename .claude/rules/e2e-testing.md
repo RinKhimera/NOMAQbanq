@@ -181,14 +181,6 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   (`#qf-objective`, recherche « Rechercher un objectif », items `role="option"`,
   « Créer « … » » si absent). Voir POM `fillQuestionForm`.
 
-## Tests de composants (Vitest, happy-dom) — pièges voisins
-
-- happy-dom ne retire pas le focus d'un bouton qui passe à `disabled` : un test
-  « le focus reste » y passe à tort. Asserter l'attribut (`aria-disabled`,
-  `not.toBeDisabled()`) pendant l'attente, puis le focus.
-- `toHaveTextContent` normalise l'espace insécable, `getByRole({ name })` ne le
-  fait pas : « 70 % » s'écrit `"70\u00a0%"` dans un nom accessible.
-
 ## Concurrence & état partagé
 
 - **`workers: 1`** (config, toujours) : `chromium-auth`/`chromium-admin` partagent
@@ -215,7 +207,7 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   (sinon race sur `serverStartTime`), puis `fastForward("3:00:00")`. Cf.
   `examen-blanc-auto-submit.spec.ts`.
 
-## F2 audience (sémantique pour les specs)
+## Audience des examens (sémantique pour les specs)
 
 `audienceType ∈ {subscribers, restricted}`. L'appartenance à `exam_audience`
 **octroie l'accès même sans abonnement**. Les examens `restricted` sont **masqués
@@ -226,7 +218,7 @@ pour un outsider. **Éligibilité par-examen** (corrigé) : `ExamListItem` expos
 (un examen `restricted` présent dans la liste implique l'appartenance via le filtre
 d'audience) → un membre sans abonnement peut le démarrer. Couvert par `examen-audience.spec.ts`.
 
-## F3 images d'explication (anti-triche)
+## Images d'explication (anti-triche)
 
 `explanation-images` n'est rendu qu'en `QuestionCard variant="review"` (correction).
 Garanti **absent** en passation : examen (`variant="exam"`, DAL sans niveau de
