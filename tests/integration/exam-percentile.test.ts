@@ -9,7 +9,10 @@ import {
   questions,
   user,
 } from "@/db/schema"
-import { getMyExamPercentiles } from "@/features/analytics/dal"
+import {
+  getMyExamPercentile,
+  getMyExamPercentiles,
+} from "@/features/analytics/dal"
 import { getExamLeaderboard } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
@@ -225,6 +228,7 @@ describe("percentile d'examen", () => {
     if (withheld !== undefined) await withholdScore(examId, userIds[withheld]!)
     asUser(userIds[0])
     expect((await getMyExamPercentiles())[examId]).toBe(expected)
+    expect(await getMyExamPercentile(examId)).toBe(expected ?? null)
   })
 })
 

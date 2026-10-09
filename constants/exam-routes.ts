@@ -5,6 +5,14 @@ export const EXAMS_HREF = "/admin/examens"
 /** Liste des examens blancs de l'étudiant. */
 export const STUDENT_EXAMS_HREF = "/tableau-de-bord/examen-blanc"
 
+/** Classement d'un examen clos, vu par un participant. */
+export const studentExamRankingHref = (examId: string) =>
+  `${STUDENT_EXAMS_HREF}/${examId}`
+
+/** Correction de sa propre participation. */
+export const studentExamResultsHref = (examId: string) =>
+  `${studentExamRankingHref(examId)}/resultats`
+
 export const examHref = (examId: string) => `${EXAMS_HREF}/${examId}`
 
 export const examEditHref = (examId: string) =>

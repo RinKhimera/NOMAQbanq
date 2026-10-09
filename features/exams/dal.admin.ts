@@ -448,8 +448,8 @@ const leaderboardFlag = (u: {
  * [Admin] Classement d'un examen finalisé : toutes les participations soumises,
  * score décroissant, comptes admin et supprimés signalés par `flag` (le rang se
  * compte sur la population, côté écran). Lecture admin : scores bruts, jamais
- * retenus. Un étudiant ne lit pas le classement complet : seulement son
- * percentile, dans ses résultats.
+ * retenus. Un candidat lit sa forme réduite, sans nom complet ni copie des
+ * autres : `getExamRanking`.
  */
 export const getExamLeaderboard = async (
   examId: string,

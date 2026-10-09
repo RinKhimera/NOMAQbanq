@@ -6,6 +6,7 @@ import {
   exists,
   inArray,
   isNotNull,
+  isNull,
   lte,
   or,
   sql,
@@ -28,7 +29,7 @@ import {
 } from "@/db/schema"
 import type { AttemptTiming } from "@/lib/attempt-clock"
 import { getCurrentSession } from "@/lib/dal"
-import { canReadResults } from "@/lib/exam-phase"
+import { canReadResults, isOpen } from "@/lib/exam-phase"
 import { objectiveLabelSql } from "../objectives/sql"
 import { hasAccess } from "../payments/dal"
 import {
@@ -556,6 +557,164 @@ export const getExamAnswersForParticipation = cache(
       })
       .from(examAnswers)
       .where(eq(examAnswers.participationId, p.id))
+  },
+)
+
+// ============================================
+// Classement d'un examen clos (participant / admin)
+// ============================================
+
+/** Lignes affichées au plus ; la ligne du lecteur s'y ajoute au-delà. */
+export const EXAM_RANKING_LIMIT = 500
+
+/** Une ligne du classement : jamais le nom complet, l'e-mail ni l'id d'un autre candidat. */
+export type ExamRankingRow = {
+  rank: number
+  username: string | null
+  image: string | null
+  score: number
+  isSelf: boolean
+}
+
+export type ExamRanking = {
+  exam: { id: string; title: string; endDate: number; questionCount: number }
+  /** Effectif classé : participations d'étudiants au score lisible. */
+  total: number
+  rows: ExamRankingRow[]
+  /** Position du lecteur ; `null` pour un admin sans participation. */
+  mine:
+    | { held: false; rank: number; score: number }
+    | { held: true; withheldBy: string | null }
+    | null
+  /** « Voir mes réponses » verrouillé : même règle que `ACCESS_REQUIRED` des résultats. */
+  correctionLocked: boolean
+}
+
+/**
+ * Classement d'un examen clos pour un candidat qui l'a terminé (ou un admin).
+ * Population et ordre du classement admin et du percentile : participations
+ * terminées d'étudiants, hors admin et supprimés, score décroissant puis
+ * première soumission. Un score retenu pour son propriétaire
+ * (`ownerReadableScore`) sort du classement : le rang et le percentile
+ * comptent les mêmes participants. `null` = pas d'accès.
+ */
+export const getExamRanking = cache(
+  async (examId: string): Promise<ExamRanking | null> => {
+    const session = await getCurrentSession()
+    if (!session?.user) return null
+    const viewer = viewerOf(session.user)
+    const isAdmin = viewer.role === "admin"
+
+    const [[exam], [own]] = await Promise.all([
+      db
+        .select({
+          id: exams.id,
+          title: exams.title,
+          endDate: exams.endDate,
+          audienceType: exams.audienceType,
+        })
+        .from(exams)
+        .where(and(eq(exams.id, examId), isNotNull(exams.finalizedAt)))
+        .limit(1),
+      db
+        .select({
+          status: examParticipations.status,
+          score: readableParticipationScore(viewer),
+          withheldBy: withheldByOpenExamTitle(viewer),
+        })
+        .from(examParticipations)
+        .where(
+          and(
+            eq(examParticipations.examId, examId),
+            eq(examParticipations.userId, viewer.id),
+          ),
+        )
+        .limit(1),
+    ])
+    if (!exam) return null
+    const endDate = finalizedDate(exam.endDate)
+    if (isOpen({ endDate }, Date.now())) return null
+
+    const ownFinished =
+      own?.status === "completed" || own?.status === "auto_submitted"
+    if (!ownFinished && !isAdmin) return null
+
+    const cohort = db
+      .select({
+        id: examParticipations.id,
+        userId: examParticipations.userId,
+        username: user.username,
+        image: user.image,
+        score: ownerReadableScore.as("score"),
+        completedAt: examParticipations.completedAt,
+      })
+      .from(examParticipations)
+      .innerJoin(user, eq(user.id, examParticipations.userId))
+      .where(
+        and(
+          eq(examParticipations.examId, examId),
+          inArray(examParticipations.status, ["completed", "auto_submitted"]),
+          eq(user.role, "user"),
+          isNull(user.deletedAt),
+        ),
+      )
+
+    const [ranked, questionCounts, correctionLocked] = await Promise.all([
+      db.execute<{
+        rank: number
+        total: number
+        username: string | null
+        image: string | null
+        score: number
+        is_self: boolean
+      }>(sql`
+        with cohort as (${cohort}),
+        ranked as (
+          select c.*,
+                 row_number() over (
+                   order by c.score desc, c.completed_at asc, c.id asc
+                 )::int as rank,
+                 count(*) over ()::int as total
+            from cohort c
+           where c.score is not null
+        )
+        select rank, total, username, image, score,
+               user_id = ${viewer.id} as is_self
+          from ranked
+         where rank <= ${EXAM_RANKING_LIMIT} or user_id = ${viewer.id}
+         order by rank`),
+      countQuestionsByExam([examId]),
+      !isAdmin && exam.audienceType === "subscribers"
+        ? hasAccess("exam").then((ok) => !ok)
+        : false,
+    ])
+
+    const rows = ranked.rows.map((r) => ({
+      rank: r.rank,
+      username: r.username,
+      image: r.image,
+      score: r.score,
+      isSelf: r.is_self,
+    }))
+    const selfRow = rows.find((r) => r.isSelf)
+    let mine: ExamRanking["mine"] = null
+    if (selfRow)
+      mine = { held: false, rank: selfRow.rank, score: selfRow.score }
+    else if (ownFinished && own.score === null)
+      mine = { held: true, withheldBy: own.withheldBy }
+
+    return {
+      exam: {
+        id: exam.id,
+        title: exam.title,
+        endDate,
+        questionCount: questionCounts.get(examId) ?? 0,
+      },
+      total: ranked.rows[0]?.total ?? 0,
+      rows,
+      mine,
+      correctionLocked,
+    }
   },
 )
 
