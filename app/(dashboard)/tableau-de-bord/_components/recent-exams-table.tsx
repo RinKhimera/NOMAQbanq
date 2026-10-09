@@ -13,12 +13,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { studentExamResultsHref } from "@/constants/exam-routes"
+import {
+  studentExamRankingHref,
+  studentExamResultsHref,
+} from "@/constants/exam-routes"
 import type {
   ExamPercentiles,
   RecentParticipation,
 } from "@/features/analytics/dal"
-import { canReadResults } from "@/lib/exam-phase"
+import { canReadResults, isOpen } from "@/lib/exam-phase"
 import { formatDayMonth } from "@/lib/format"
 import {
   formatPercentile,
@@ -49,7 +52,7 @@ type RecentExamsTableProps = {
   now: number
 }
 
-/** Cinq dernières participations soumises ; « Revoir » une fois l'examen clos. */
+/** Cinq dernières participations soumises ; « Résultats » une fois l'examen clos. */
 export const RecentExamsTable = ({
   participations,
   percentiles,
@@ -98,6 +101,10 @@ export const RecentExamsTable = ({
             isAdmin ? { role: "admin" } : null,
             now,
           )
+          // Le classement n'existe qu'à la clôture ; un admin lit plus tôt sa correction.
+          const resultsHref = isOpen(p, now)
+            ? studentExamResultsHref(p.examId)
+            : studentExamRankingHref(p.examId)
           return (
             <TableRow key={p.examId}>
               <TableCell className="text-ink-3 pl-5 font-mono whitespace-nowrap md:pl-6">
@@ -136,11 +143,8 @@ export const RecentExamsTable = ({
                     variant="ghost"
                     className="max-md:h-11"
                   >
-                    <Link
-                      href={studentExamResultsHref(p.examId)}
-                      prefetch={false}
-                    >
-                      Revoir
+                    <Link href={resultsHref} prefetch={false}>
+                      Résultats
                       <span className="sr-only"> : {p.title}</span>
                       <LinkPendingIndicator />
                     </Link>
