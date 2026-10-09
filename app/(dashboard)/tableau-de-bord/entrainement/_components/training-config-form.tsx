@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, GraduationCap, ListChecks, Play } from "lucide-react"
+import { Check, GraduationCap, Info, ListChecks, Play, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
   type ReactNode,
@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
 import { Spinner } from "@/components/ui/spinner"
 import {
   createTrainingSession,
@@ -50,26 +49,30 @@ import {
 import { callAction } from "@/lib/safe-action"
 import { foldForSearch } from "@/lib/search"
 import { TONE_SOFT } from "@/lib/tone"
+import { TOUCH_MIN_HEIGHT, TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 
 type Objectif = ObjectifsView["objectifs"][number]
+type DomainSwitch = { from: string; to: string; previous: Objectif[] }
+type Removal = DomainSwitch & { gone: Objectif[] }
 
 interface TrainingConfigFormProps {
   domains: { domain: string; count: number }[]
   totalQuestions: number
   /** Domaine demandé par l'URL, déjà validé ; `null` = tous les domaines. */
   initialDomain: string | null
-  /** Objectifs du domaine demandé, chargés par la page (vide pour « tous »). */
+  /** Objectifs du domaine demandé (de toute la banque pour « tous »). */
   initialObjectifs: Objectif[]
   /** Une série en cours bloque « Commencer la série ». */
   hasActiveSeries: boolean
 }
 
 const ALL_DOMAINS = "all"
-const QUESTION_MARKS = [5, 10, 15, 20]
+const QUESTION_TIERS = [5, 10, 15, 20]
 const DEFAULT_COUNT = 10
 
 const fmt = (n: number) => n.toLocaleString("fr-CA")
+const objectifCount = (n: number) => `${fmt(n)} objectif${n > 1 ? "s" : ""}`
 
 const Field = ({
   label,
@@ -130,12 +133,83 @@ const ModeCard = ({
   </Label>
 )
 
-const Recap = ({ label, value }: { label: string; value: ReactNode }) => (
-  <div className="border-line flex items-center justify-between gap-3 border-b pb-2.5 text-sm">
+const domainLabel = (domain: string) =>
+  domain === ALL_DOMAINS ? "Tous les domaines" : domain
+
+const removalTitle = (r: Removal) => {
+  const n = r.gone.length
+  return `${objectifCount(n)} retiré${n > 1 ? "s" : ""} : absent${n > 1 ? "s" : ""} de ${domainLabel(r.to)}`
+}
+
+/** Note visible ; l'annonce au lecteur d'écran passe par une région du formulaire toujours montée. */
+const RemovalNotice = ({
+  removal,
+  onUndo,
+  onDismiss,
+}: {
+  removal: Removal
+  onUndo: () => void
+  onDismiss: () => void
+}) => {
+  return (
+    <div className="border-line-strong bg-surface flex items-start gap-2.5 rounded-md border py-2.5 pr-2 pl-3 text-sm leading-normal">
+      <Info aria-hidden className="text-ink-3 mt-0.5 size-4 shrink-0" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-ink font-medium">{removalTitle(removal)}</span>
+        <span className="text-ink-3">
+          {removal.gone.map((o) => o.objectif).join(" · ")}
+        </span>
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          onClick={onUndo}
+          className={cn("h-auto self-start px-0 text-sm", TOUCH_MIN_HEIGHT)}
+        >
+          Revenir à {domainLabel(removal.from)}
+        </Button>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Fermer la note"
+        onClick={onDismiss}
+        className={TOUCH_TARGET}
+      >
+        <X aria-hidden />
+      </Button>
+    </div>
+  )
+}
+
+const Recap = ({
+  label,
+  value,
+  stacked = false,
+  testId,
+}: {
+  label: string
+  value: ReactNode
+  /** Libellé au-dessus d'une valeur pleine largeur (noms longs). */
+  stacked?: boolean
+  testId?: string
+}) => (
+  <div
+    data-testid={testId}
+    className={cn(
+      "border-line flex gap-3 border-b pb-2.5 text-sm",
+      stacked
+        ? "flex-col items-stretch gap-1.5"
+        : "items-center justify-between",
+    )}
+  >
     <span className="text-ink-3">{label}</span>
-    <span className="text-ink text-right">{value}</span>
+    <span className={cn("text-ink", !stacked && "text-right")}>{value}</span>
   </div>
 )
+
+const MAX_NAMED_OBJECTIFS = 3
 
 export const TrainingConfigForm = ({
   domains,
@@ -154,6 +228,11 @@ export const TrainingConfigForm = ({
   const [mode, setMode] = useState<"test" | "tutor">("test")
   const [revision, setRevision] = useState<RevisionCriterion[]>([])
   const [serverError, setServerError] = useState<string | null>(null)
+  // Sélection d'avant un changement de domaine, rapprochée de la liste du
+  // nouveau domaine quand elle arrive : les objectifs qu'il n'a pas sont
+  // retirés et nommés dans la note, qui permet d'y revenir.
+  const [domainSwitch, setDomainSwitch] = useState<DomainSwitch | null>(null)
+  const [removal, setRemoval] = useState<Removal | null>(null)
 
   // Une navigation client vers la même page avec un autre `?domaine=` ne
   // remonte pas le formulaire : on réaligne l'état pendant le rendu.
@@ -163,6 +242,8 @@ export const TrainingConfigForm = ({
     setAppliedDomainFromUrl(domainFromUrl)
     setDomain(domainFromUrl)
     setObjectifs([])
+    setDomainSwitch(null)
+    setRemoval(null)
   }
 
   // Objectifs du domaine choisi : ceux de la page pour le domaine demandé,
@@ -184,7 +265,9 @@ export const TrainingConfigForm = ({
       startObjLoad(async () => {
         let next: { list: Objectif[]; failed: boolean }
         try {
-          const res = await loadAvailableObjectifsCMC(forDomain)
+          const res = await loadAvailableObjectifsCMC(
+            forDomain === ALL_DOMAINS ? undefined : forDomain,
+          )
           next = { list: res.objectifs, failed: false }
         } catch {
           next = { list: [], failed: true }
@@ -197,12 +280,30 @@ export const TrainingConfigForm = ({
     [startObjLoad],
   )
   useEffect(() => {
-    if (domain === ALL_DOMAINS || objectifsFor.domain === domain) return
+    if (objectifsFor.domain === domain) {
+      // Retour sur le domaine déjà chargé (A → B → A) : la réponse de B,
+      // encore en vol, ne doit pas remplacer la liste de A.
+      latestObjDomain.current = domain
+      return
+    }
     loadObjectifs(domain)
   }, [domain, objectifsFor.domain, loadObjectifs])
-  const objectifsReady =
-    domain !== ALL_DOMAINS && objectifsFor.domain === domain
+  const objectifsReady = objectifsFor.domain === domain
   const objectifList = objectifsReady ? objectifsFor.list : []
+
+  // Pendant le chargement, la sélection n'existe que dans `domainSwitch` :
+  // rien de l'ancien domaine ne part dans les compteurs ni dans l'envoi. Une
+  // liste en échec ne dit pas quels objectifs le domaine a : le rapprochement
+  // attend une liste chargée (« Réessayer »).
+  if (domainSwitch && objectifsReady && !objectifsFor.failed) {
+    const byId = new Map(objectifList.map((o) => [o.id, o]))
+    // Les objectifs gardés prennent le nombre de questions du nouveau domaine.
+    const kept = domainSwitch.previous.flatMap((o) => byId.get(o.id) ?? [])
+    const gone = domainSwitch.previous.filter((o) => !byId.has(o.id))
+    setObjectifs(kept)
+    setRemoval(gone.length > 0 ? { ...domainSwitch, gone } : null)
+    setDomainSwitch(null)
+  }
 
   // Compteurs de révision : recalculés au changement de domaine ou
   // d'objectifs. Clé sérialisée : `objectifs` change d'identité à chaque
@@ -218,7 +319,12 @@ export const TrainingConfigForm = ({
   // (domaine A puis B, A répond en dernier) est ignorée, sinon le formulaire
   // attendrait une réponse qui ne viendra plus.
   const latestCountsKey = useRef(countsKey)
+  // Un changement de domaine en attente n'a pas encore sa sélection : les
+  // compteurs attendent le rapprochement au lieu de balayer la banque pour
+  // une portée qui ne servira pas.
+  const awaitingSwitch = domainSwitch !== null && !objectifsReady
   useEffect(() => {
+    if (awaitingSwitch) return
     latestCountsKey.current = countsKey
     startCountsLoad(async () => {
       try {
@@ -241,13 +347,13 @@ export const TrainingConfigForm = ({
         }
       }
     })
-  }, [domain, objectifsKey, countsKey])
+  }, [domain, objectifsKey, countsKey, awaitingSwitch])
   const countsReady = counts?.key === countsKey
   const revisionCounts = countsReady ? counts.value : EMPTY_REVISION_COUNTS
   // « Prêt » se lit sur les données de la portée courante, pas sur l'attente
   // d'une transition : une requête d'une portée quittée qui traîne ne bloque
   // rien.
-  const loading = !countsReady || (domain !== ALL_DOMAINS && !objectifsReady)
+  const loading = !countsReady || !objectifsReady
 
   // ---- Dérivés ----
   const domainCount =
@@ -271,33 +377,69 @@ export const TrainingConfigForm = ({
   const minCount = isRevision ? 1 : MIN_QUESTIONS
   const maxCount = Math.min(MAX_QUESTIONS, pool)
   const tooFew = !isRevision && available < MIN_QUESTIONS
-  const effectiveCount = Math.max(
-    minCount,
-    Math.min(count, Math.max(maxCount, minCount)),
+  // Le maximum réel s'ajoute aux paliers quand les filtres plafonnent sous 20
+  // sans tomber sur un palier.
+  const realMax =
+    !tooFew &&
+    maxCount < MAX_QUESTIONS &&
+    maxCount >= minCount &&
+    !QUESTION_TIERS.includes(maxCount)
+      ? maxCount
+      : null
+  const countOptions = [...QUESTION_TIERS, ...(realMax ? [realMax] : [])].sort(
+    (a, b) => a - b,
   )
-  const sliderDisabled = tooFew || maxCount <= minCount || loading
-  const marks = [
-    ...new Set([
-      minCount,
-      ...QUESTION_MARKS.filter((m) => m > minCount && m < maxCount),
-      Math.max(maxCount, minCount),
-    ]),
-  ]
+  // Le nombre retenu est toujours un choix affiché : un ancien maximum (12)
+  // retombe sur le palier inférieur quand les filtres s'élargissent, un
+  // maximum sous 5 (révision) sur le plus petit choix ouvert.
+  const enabled = countOptions.filter((o) => o >= minCount && o <= maxCount)
+  const atOrBelow = enabled.filter((o) => o <= count)
+  const effectiveCount =
+    atOrBelow.length > 0
+      ? Math.max(...atOrBelow)
+      : enabled.length > 0
+        ? Math.min(...enabled)
+        : Math.max(minCount, Math.min(count, Math.max(maxCount, minCount)))
+  const countHint = tooFew
+    ? null
+    : isRevision
+      ? "Avec la révision ciblée, une série peut compter dès 1 question. Le nombre choisi est un maximum."
+      : maxCount < MAX_QUESTIONS
+        ? `${maxCount} questions au plus avec ces filtres.`
+        : null
 
   const objectifOptions = objectifSearch
     ? objectifList.filter((o) =>
         foldForSearch(o.objectif).includes(foldForSearch(objectifSearch)),
       )
     : objectifList
+  const objectifScope = objectifSearch
+    ? `${fmt(objectifOptions.length)} sur ${fmt(objectifList.length)} ${objectifOptions.length > 1 ? "correspondent" : "correspond"} à la recherche`
+    : `${objectifCount(objectifList.length)}${domain === ALL_DOMAINS ? ", tous domaines" : ` dans ${domain}`}`
 
   const chooseDomain = (next: string) => {
-    setDomain(next)
+    if (next === domain) return
+    // Un changement encore en attente garde son origine et sa sélection.
+    const previous = domainSwitch?.previous ?? objectifs
+    const from = domainSwitch?.from ?? domain
+    setDomainSwitch(previous.length > 0 ? { from, to: next, previous } : null)
     setObjectifs([])
+    setRemoval(null)
+    setDomain(next)
+    setObjectifSearch("")
+    setServerError(null)
+  }
+  const undoDomainSwitch = (r: Removal) => {
+    setDomain(r.from)
+    setObjectifs(r.previous)
+    setDomainSwitch(null)
+    setRemoval(null)
     setObjectifSearch("")
     setServerError(null)
   }
   const chooseObjectifs = (next: Objectif[]) => {
     setObjectifs(next)
+    setRemoval(null)
     setServerError(null)
   }
   const toggleRevision = (criterion: RevisionCriterion) => {
@@ -384,17 +526,15 @@ export const TrainingConfigForm = ({
           label="Objectifs du CMC"
           hint={`optionnel, ${MAX_OBJECTIFS} au plus`}
         >
-          {domain === ALL_DOMAINS ? (
-            <p className="text-ink-3 text-sm">
-              Choisissez un domaine pour cibler ses objectifs.
-            </p>
-          ) : !objectifsReady ? (
+          {!objectifsReady ? (
             <p className="text-ink-3 text-sm" aria-busy="true">
               Chargement des objectifs…
             </p>
           ) : objectifsFor.failed ? (
             <p className="text-ink-2 flex flex-wrap items-center gap-2 text-sm">
-              Impossible de charger les objectifs de ce domaine.
+              {domain === ALL_DOMAINS
+                ? "Impossible de charger les objectifs."
+                : "Impossible de charger les objectifs de ce domaine."}
               <Button
                 type="button"
                 variant="link"
@@ -418,54 +558,85 @@ export const TrainingConfigForm = ({
               searchPlaceholder="Rechercher un objectif"
               emptyText={(q) => `Aucun objectif ne correspond à « ${q} ».`}
               label="Objectifs du CMC"
+              columns={{ label: "Objectif", meta: "Questions" }}
+              scope={objectifScope}
               maxSelections={MAX_OBJECTIFS}
-              maxSelectionsLabel={(max) =>
-                `Maximum de ${max} objectifs atteint`
+              selectionSummary={(n) =>
+                `${n} sur ${MAX_OBJECTIFS} choisi${n > 1 ? "s" : ""}`
               }
-              footer={(n, total) =>
-                `${n} / ${MAX_OBJECTIFS} sélectionné${n > 1 ? "s" : ""} · ${total} objectif${total > 1 ? "s" : ""}`
+              maxSelectionsText="Maximum atteint. Retirez un objectif pour en choisir un autre."
+              notice={
+                removal && (
+                  <RemovalNotice
+                    removal={removal}
+                    onUndo={() => undoDomainSwitch(removal)}
+                    onDismiss={() => setRemoval(null)}
+                  />
+                )
               }
+              sheet={{
+                triggerLabel: "Parcourir les objectifs",
+                title: "Objectifs du CMC",
+                description: `Optionnel, ${MAX_OBJECTIFS} au plus.`,
+              }}
             />
           )}
+          {/* Toujours montée : une région live insérée avec son texte n'est pas annoncée. */}
+          <p role="status" className="sr-only">
+            {removal &&
+              `${removalTitle(removal)}. ${removal.gone.map((o) => o.objectif).join(", ")}.`}
+          </p>
         </Field>
 
         <Field
           label="Nombre de questions"
           trailing={
-            <span className="text-ink font-mono text-sm tabular-nums">
-              {isRevision ? `jusqu'à ${effectiveCount}` : effectiveCount}
+            <span
+              className="text-ink font-mono text-sm tabular-nums"
+              data-testid="question-count"
+            >
+              {tooFew || loading
+                ? "—"
+                : isRevision
+                  ? `jusqu'à ${effectiveCount}`
+                  : effectiveCount}
             </span>
           }
         >
-          <Slider
-            value={[effectiveCount]}
-            onValueChange={([value]) => setCount(value)}
-            min={minCount}
-            max={sliderDisabled ? minCount + 1 : maxCount}
-            step={1}
-            disabled={sliderDisabled}
+          <div
+            role="group"
             aria-label="Nombre de questions"
-          />
-          <div className="flex flex-wrap gap-1.5">
-            {marks.map((mark) => (
-              <button
-                key={mark}
-                type="button"
-                onClick={() => setCount(mark)}
-                disabled={sliderDisabled}
-                aria-pressed={effectiveCount === mark}
-                className={cn(
-                  "focus-ring text-ink-3 hover:bg-surface-2 hover:text-ink aria-pressed:bg-accent-soft aria-pressed:text-accent-ink inline-flex h-7 min-w-9 cursor-pointer items-center justify-center rounded-xs px-2 font-mono text-xs transition-colors disabled:pointer-events-none disabled:opacity-50 max-lg:h-11 max-lg:min-w-11",
-                )}
-              >
-                {mark}
-              </button>
-            ))}
+            className="border-line-strong grid auto-cols-fr grid-flow-col overflow-hidden rounded-md border"
+          >
+            {countOptions.map((option) => {
+              const isRealMax = option === realMax
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setCount(option)}
+                  disabled={tooFew || loading || option > maxCount}
+                  // Barré = indisponible avec ces filtres ; un chargement
+                  // désactive sans rien affirmer.
+                  data-unavailable={
+                    !loading && (tooFew || option > maxCount) ? "" : undefined
+                  }
+                  aria-pressed={!tooFew && effectiveCount === option}
+                  aria-label={isRealMax ? `${option}, maximum` : undefined}
+                  className="focus-ring border-line-strong bg-surface text-ink-2 hover:bg-surface-2 aria-pressed:bg-accent-soft aria-pressed:text-accent-ink aria-pressed:ring-accent disabled:bg-surface-2 disabled:text-ink-4 data-unavailable:decoration-line-strong inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border-l font-mono text-[15px] transition-colors duration-(--duration-base) first:border-l-0 disabled:cursor-not-allowed aria-pressed:font-semibold aria-pressed:ring-1 aria-pressed:ring-inset data-unavailable:line-through max-lg:h-11"
+                >
+                  {option}
+                  {isRealMax && (
+                    <span className="text-[10px] tracking-[0.06em] uppercase">
+                      max
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
-          {isRevision && (
-            <p className="text-ink-3 text-sm">
-              Avec la révision ciblée, une série peut compter dès 1 question.
-            </p>
+          {countHint && (
+            <p className="text-ink-3 text-sm leading-normal">{countHint}</p>
           )}
         </Field>
 
@@ -535,16 +706,30 @@ export const TrainingConfigForm = ({
 
       <aside className="bg-surface-2 border-line flex flex-col gap-3.5 rounded-lg border p-5 lg:sticky lg:top-[calc(var(--shell-offset,0px)+1rem)]">
         <p className="type-label">Récapitulatif</p>
-        <Recap
-          label="Domaine"
-          value={domain === ALL_DOMAINS ? "Tous les domaines" : domain}
-        />
+        <Recap label="Domaine" value={domainLabel(domain)} />
         <Recap
           label="Objectifs"
+          testId="recap-objectifs"
+          stacked={
+            objectifs.length > 0 && objectifs.length <= MAX_NAMED_OBJECTIFS
+          }
           value={
-            objectifs.length > 0
-              ? `${objectifs.length} sélectionné${objectifs.length > 1 ? "s" : ""}`
-              : "Tous"
+            objectifs.length === 0 ? (
+              "Tous"
+            ) : objectifs.length <= MAX_NAMED_OBJECTIFS ? (
+              <ul className="flex flex-col gap-1.5 text-[13px] leading-[1.45] text-pretty wrap-anywhere">
+                {objectifs.map((o) => (
+                  <li
+                    key={o.id}
+                    className="border-line not-first:border-t not-first:pt-1.5"
+                  >
+                    {o.objectif}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              objectifCount(objectifs.length)
+            )
           }
         />
         <Recap
@@ -567,7 +752,7 @@ export const TrainingConfigForm = ({
         <Recap
           label="Questions"
           value={
-            tooFew
+            tooFew || loading
               ? "—"
               : isRevision
                 ? `Jusqu'à ${effectiveCount}`

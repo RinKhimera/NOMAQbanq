@@ -355,6 +355,69 @@ describe("domaines + objectifs (config form)", () => {
   })
 })
 
+describe("objectifs sans domaine imposé", () => {
+  // Un objectif sert plusieurs domaines : 3 questions en cardiologie, 3 en
+  // pédiatrie. Moins de questions que l'objectif du fichier (8) mais premier
+  // dans l'ordre alphabétique : le tri ne peut pas se confondre avec le nombre.
+  const SHARED = "Asthme transversal"
+  const sharedIds = Array.from({ length: 6 }, () => createId())
+  let sharedObjectiveId = ""
+
+  beforeAll(async () => {
+    sharedObjectiveId = await objectiveIdFor(SHARED)
+    await db.insert(questions).values(
+      sharedIds.map((id, i) => ({
+        id,
+        question: `Transversale ${i} ?`,
+        correctAnswer: "A",
+        options: ["A", "B", "C", "D"],
+        objectiveId: sharedObjectiveId,
+        domain: i < 3 ? "Cardiologie" : "Pédiatrie",
+      })),
+    )
+  })
+
+  it("sans domaine, chaque objectif compte ses questions de toute la banque, par ordre alphabétique", async () => {
+    const { objectifs } = await getAvailableObjectifsCMC()
+    const labels = objectifs.map((o) => o.objectif)
+    expect(objectifs.find((o) => o.objectif === SHARED)?.count).toBe(6)
+    expect(labels.indexOf(SHARED)).toBeLessThan(labels.indexOf(OBJ))
+
+    const inCardio = await getAvailableObjectifsCMC("Cardiologie")
+    expect(inCardio.objectifs.find((o) => o.objectif === SHARED)?.count).toBe(3)
+  })
+
+  it("une série créée sur des objectifs sans domaine tire dans tous les domaines de ces objectifs", async () => {
+    await asNewAdmin()
+    const created = await createTrainingSession({
+      questionCount: 5,
+      objectiveIds: [sharedObjectiveId],
+      mode: "test",
+    })
+    expect(created).toEqual(
+      expect.objectContaining({ success: true, questionCount: 5 }),
+    )
+    if (!created.success) return
+
+    const drawn = await db
+      .select({
+        objectiveId: questions.objectiveId,
+        domain: questions.domain,
+      })
+      .from(trainingSessionItems)
+      .innerJoin(questions, eq(questions.id, trainingSessionItems.questionId))
+      .where(eq(trainingSessionItems.sessionId, created.sessionId))
+    expect(drawn).toHaveLength(5)
+    expect(new Set(drawn.map((q) => q.objectiveId))).toEqual(
+      new Set([sharedObjectiveId]),
+    )
+    // 5 tirées parmi 3 + 3 : au moins deux de chaque domaine.
+    expect(new Set(drawn.map((q) => q.domain))).toEqual(
+      new Set(["Cardiologie", "Pédiatrie"]),
+    )
+  })
+})
+
 describe("IDOR / propriété", () => {
   it("un autre utilisateur ne peut ni lire ni répondre à la session d'autrui", async () => {
     await asNewAdmin()

@@ -25,7 +25,7 @@ export const TRAINING_INTRO = {
 }
 
 // Server Component : garde d'accès training (paywall, ou accès échu) +
-// chargement initial (série en cours, domaines, objectifs du domaine demandé,
+// chargement initial (série en cours, domaines, objectifs du domaine demandé ou de toute la banque,
 // 1re page d'historique). Les interactions passent par des Server Actions.
 export const metadata: Metadata = { title: "Entraînement" }
 
@@ -53,22 +53,29 @@ export default async function EntrainementPage({
     )
   }
 
-  const requestedDomain = (await searchParams)[TRAINING_DOMAIN_PARAM]
-  const [activeSession, domains, initialHistory] = await Promise.all([
-    getActiveTrainingSession(),
-    getAvailableDomains(),
-    getTrainingHistory({ page: 1 }),
-  ])
+  const param = (await searchParams)[TRAINING_DOMAIN_PARAM]
+  // « all » n'est pas un domaine : c'est déjà la liste de toute la banque.
+  const requestedDomain =
+    typeof param === "string" && param !== "all" ? param : undefined
+  // Les objectifs du domaine demandé partent avec le reste, avant de savoir si
+  // ce domaine existe.
+  const [activeSession, domains, initialHistory, requestedObjectifs] =
+    await Promise.all([
+      getActiveTrainingSession(),
+      getAvailableDomains(),
+      getTrainingHistory({ page: 1 }),
+      getAvailableObjectifsCMC(requestedDomain),
+    ])
   // Le paramètre d'URL présélectionne toujours ; un domaine inconnu retombe
-  // sur « Tous les domaines », sans objectifs à charger.
+  // sur « Tous les domaines », dont les objectifs couvrent toute la banque.
   const initialDomain =
-    typeof requestedDomain === "string" &&
-    domains.domains.some((d) => d.domain === requestedDomain)
+    requestedDomain && domains.domains.some((d) => d.domain === requestedDomain)
       ? requestedDomain
       : null
-  const initialObjectifs = initialDomain
-    ? (await getAvailableObjectifsCMC(initialDomain)).objectifs
-    : []
+  const { objectifs: initialObjectifs } =
+    requestedDomain && !initialDomain
+      ? await getAvailableObjectifsCMC()
+      : requestedObjectifs
 
   return (
     <>
