@@ -26,8 +26,9 @@ describe("QuestionImageUploader", () => {
       new File(["x"], "coeur.png", { type: "image/png" }),
     )
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Envoi en cours",
-    )
+    // DndContext monte sa propre région « status » après coup : viser celle
+    // du libellé, pas « la » région status de la page.
+    const label = await screen.findByText("Envoi en cours")
+    expect(label.closest('[role="status"]')).not.toBeNull()
   })
 })
