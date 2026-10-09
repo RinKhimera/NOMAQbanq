@@ -58,6 +58,17 @@ import {
 
 const fail = (error: string) => ({ success: false as const, error })
 
+/**
+ * Colonnes d'un examen finalisé qui repasse en préparation. La suspension
+ * tombe avec : elle n'a de sens que pour un examen ouvert (`CONTEXT.md`), et
+ * l'admin ne la verrait plus avant que l'examen refinalisé s'ouvre suspendu.
+ */
+const BACK_TO_PREPARATION = {
+  finalizedAt: null,
+  completionTime: null,
+  isActive: true,
+} as const
+
 const resolvePause = (enablePause: boolean, minutes?: number) => {
   if (!enablePause) return null
   return Math.min(minutes ?? DEFAULT_PAUSE_MINUTES, MAX_PAUSE_MINUTES)
@@ -449,7 +460,7 @@ const updateExamTx = async (
     .update(exams)
     .set({
       ...settingsColumns(s),
-      ...(!finalized && { finalizedAt: null, completionTime: null }),
+      ...(!finalized && BACK_TO_PREPARATION),
     })
     .where(eq(exams.id, examId))
   await writeAudience(tx, examId, s.audienceType, s.audienceUserIds)
@@ -570,10 +581,7 @@ const composeTx = async (
   }
   await writeQuestions(tx, examId, next)
   if (exam.finalizedAt !== null) {
-    await tx
-      .update(exams)
-      .set({ finalizedAt: null, completionTime: null })
-      .where(eq(exams.id, examId))
+    await tx.update(exams).set(BACK_TO_PREPARATION).where(eq(exams.id, examId))
   }
   return { count: next.length, finalized: false }
 }

@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
@@ -195,6 +195,29 @@ describe("getAdminStats", () => {
     expect(s.totalExams).toBe(1)
     expect(s.activeExams).toBe(1)
     expect(s.totalParticipations).toBe(1)
+  })
+
+  it("un examen suspendu dans sa fenêtre compte parmi les examens en cours", async () => {
+    const suspended = createId()
+    const now = Date.now()
+    try {
+      await db.insert(exams).values({
+        id: suspended,
+        title: "Examen suspendu",
+        startDate: new Date(now - DAY),
+        endDate: new Date(now + DAY),
+        completionTime: 3600,
+        isActive: false,
+        createdBy: A,
+        targetQuestionCount: 10,
+        finalizedAt: new Date(),
+      })
+      const s = await getAdminStats()
+      expect(s.totalExams).toBe(2)
+      expect(s.activeExams).toBe(2)
+    } finally {
+      await db.delete(exams).where(eq(exams.id, suspended))
+    }
   })
 })
 

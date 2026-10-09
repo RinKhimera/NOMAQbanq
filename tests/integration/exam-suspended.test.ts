@@ -12,6 +12,8 @@ import {
 import {
   finalizeExam,
   liftExamSuspension,
+  removeExamQuestions,
+  saveExam,
   saveExamAnswer,
   startExam,
   suspendExam,
@@ -153,6 +155,36 @@ describe("suspendre un examen", () => {
 
     await expect(suspendExam({ examId })).rejects.toThrow()
     expect(await isActiveOf(examId)).toBe(true)
+  })
+})
+
+describe("retour en préparation", () => {
+  it("changer le jeu d'un examen suspendu lève la suspension, au compositeur comme au formulaire", async () => {
+    asUser(ADMIN_ID, "admin")
+    const composed = await seedExam()
+    await suspend(composed)
+    expect(
+      (await removeExamQuestions({ examId: composed, questionIds: [qIds[0]!] }))
+        .success,
+    ).toBe(true)
+    expect(await isActiveOf(composed)).toBe(true)
+
+    const saved = await seedExam()
+    await suspend(saved)
+    const res = await saveExam({
+      id: saved,
+      title: "Suspendu",
+      targetQuestionCount: 10,
+      startDate: null,
+      endDate: null,
+      questionIds: [qIds[1]!],
+      enablePause: false,
+      audienceType: "restricted",
+      audienceUserIds: [NEWCOMER_ID, RUNNER_ID],
+      isHidden: false,
+    })
+    expect(res).toMatchObject({ success: true, finalized: false })
+    expect(await isActiveOf(saved)).toBe(true)
   })
 })
 

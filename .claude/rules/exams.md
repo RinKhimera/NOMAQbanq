@@ -57,7 +57,8 @@ Invariants métier (vocabulaire dans `CONTEXT.md`). Les patterns génériques
   et `liftExamSuspension` refusent un examen en préparation ou clos) ferme les
   NOUVELLES participations, admin compris, sans couper une épreuve en cours :
   `requireAttempt` ne lit pas `isActive`, volontairement. Il reste visible de
-  qui le voyait. **Ce qu'un étudiant voit = un seul prédicat**,
+  qui le voyait. Repasser en préparation lève la suspension
+  (`BACK_TO_PREPARATION`). **Ce qu'un étudiant voit = un seul prédicat**,
   `visibleToStudent` (`features/exams/dal.student.ts`) : liste, compteurs du
   tableau de bord, lecture d'un examen. Il porte l'audience et le masquage
   (`exams.is_hidden`, audience d'abonnés seulement : accès Examens actif ou
@@ -135,9 +136,9 @@ colonne)` dans le WHERE des canaux de
   participation soumise à un examen encore ouvert COMPTE comme complétée (le
   compte ne révèle rien) mais son score retenu sort de toute moyenne, de la
   courbe et du « N / M réussis ». Le taux de complétion divise par les examens
-  disponibles (`visibleToStudent`, hors suspendus encore ouverts) les
-  participations à CES examens : jamais celles d'un examen suspendu depuis,
-  tant qu'il est ouvert ; clos, il compte comme les autres. Moyennes et tendance au
+  disponibles (`visibleToStudent`, hors suspendus encore ouverts qu'il
+  n'a pas commencés) les participations à CES examens : une participation à
+  un examen suspendu compte comme les autres. Moyennes et tendance au
   PLANCHER (`floor`, tendance calculée sur les moyennes brutes) : 59,67 ne
   s'affiche jamais 60 % « réussite », un recul de 1,7 s'affiche −2. La
   courbe d'entraînement est une moyenne par semaine civile
