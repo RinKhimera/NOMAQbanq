@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { TrainingConfigForm } from "@/app/(dashboard)/tableau-de-bord/entrainement/_components/training-config-form"
@@ -33,6 +33,36 @@ vi.mock("@/features/training/actions", () => ({
   loadAvailableObjectifsCMC,
   loadRevisionCounts,
 }))
+// Le Select Radix ne s'ouvre pas sous happy-dom : chaque domaine devient un
+// bouton qui appelle `onValueChange`.
+vi.mock("@/components/ui/select", async () => {
+  const React = await import("react")
+  const h = React.createElement
+  const Choose = React.createContext<(v: string) => void>(() => {})
+  type P = { value?: string; children?: unknown }
+  return {
+    Select: ({
+      children,
+      onValueChange,
+    }: P & { onValueChange: (v: string) => void }) =>
+      h(Choose.Provider, { value: onValueChange }, children as never),
+    SelectTrigger: () => null,
+    SelectValue: () => null,
+    SelectContent: ({ children }: P) => h("div", null, children as never),
+    SelectItem: function SelectItem({ value, children }: P) {
+      const choose = React.useContext(Choose)
+      return h(
+        "button",
+        {
+          type: "button",
+          "data-testid": `domain-${value}`,
+          onClick: () => choose(value!),
+        },
+        children as never,
+      )
+    },
+  }
+})
 
 const objectifs = [
   { id: "obj-dt", objectif: "Douleur thoracique", count: 40 },
@@ -116,10 +146,15 @@ describe("TrainingConfigForm — révision ciblée", () => {
     expect(screen.getByText(/jusqu'à 9/)).toBeInTheDocument()
     expect(
       screen.getByText(
-        "Avec la révision ciblée, une série peut compter dès 1 question.",
+        "Avec la révision ciblée, une série peut compter dès 1 question. Le nombre choisi est un maximum.",
       ),
     ).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "1" })).toBeInTheDocument()
+    // Le maximum réel est proposé à côté des paliers, et retenu d'office.
+    expect(screen.getByRole("button", { name: "9, maximum" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(screen.getByRole("button", { name: "10" })).toBeDisabled()
 
     await userEvent.click(start())
     await waitFor(() => {
@@ -229,7 +264,79 @@ describe("TrainingConfigForm — nombre de questions", () => {
     )
   })
 
-  it("les repères du curseur choisissent le nombre demandé", async () => {
+  it("sous 20 questions disponibles, les paliers au-delà sont fermés et le maximum réel est proposé", async () => {
+    primeActions()
+    createTrainingSession.mockResolvedValue({
+      success: true,
+      sessionId: "s12",
+      questionCount: 12,
+    })
+    render(
+      <TrainingConfigForm
+        {...props}
+        initialDomain="Cardiologie"
+        initialObjectifs={[{ id: "obj-12", objectif: "Syncope", count: 12 }]}
+      />,
+    )
+    await waitFor(() => expect(pool()).toHaveTextContent("120 questions"))
+    await userEvent.click(screen.getByRole("checkbox", { name: /Syncope/ }))
+    await waitFor(() => expect(pool()).toHaveTextContent("12 questions"))
+
+    expect(
+      screen.getByText("12 questions au plus avec ces filtres."),
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "15" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "20" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "10" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+
+    await userEvent.click(screen.getByRole("button", { name: "12, maximum" }))
+    await userEvent.click(start())
+    await waitFor(() => {
+      expect(createTrainingSession).toHaveBeenCalledWith(
+        expect.objectContaining({ questionCount: 12 }),
+      )
+    })
+  })
+
+  it("un ancien maximum retombe sur le palier inférieur quand les filtres s'élargissent", async () => {
+    primeActions()
+    loadAvailableObjectifsCMC.mockResolvedValue({
+      objectifs: [{ id: "obj-12", objectif: "Syncope", count: 300 }],
+    })
+    render(
+      <TrainingConfigForm
+        {...props}
+        initialDomain="Cardiologie"
+        initialObjectifs={[{ id: "obj-12", objectif: "Syncope", count: 12 }]}
+      />,
+    )
+    await waitFor(() => expect(pool()).toBeInTheDocument())
+    await userEvent.click(screen.getByRole("checkbox", { name: /Syncope/ }))
+    await userEvent.click(screen.getByRole("button", { name: "12, maximum" }))
+
+    await userEvent.click(screen.getByTestId("domain-all"))
+    await waitFor(() => expect(pool()).toHaveTextContent("300 questions"))
+    expect(screen.getByRole("button", { name: "10" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(screen.getByTestId("question-count")).toHaveTextContent("10")
+  })
+
+  it("trop peu de questions : aucun palier ne se choisit et le nombre se lit « — »", async () => {
+    primeActions()
+    render(<TrainingConfigForm {...props} totalQuestions={3} />)
+    await waitFor(() => expect(start()).toBeDisabled())
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "5" })).toBeDisabled(),
+    )
+    expect(screen.getByTestId("question-count")).toHaveTextContent("—")
+  })
+
+  it("les paliers choisissent le nombre demandé", async () => {
     primeActions()
     createTrainingSession.mockResolvedValue({
       success: true,
@@ -286,13 +393,38 @@ describe("TrainingConfigForm — mode et série en cours", () => {
 })
 
 describe("TrainingConfigForm — domaine et objectifs", () => {
-  it("sans domaine, les objectifs sont fermés", async () => {
+  it("avec « Tous les domaines », les objectifs de toute la banque se cochent et partent sans domaine", async () => {
     primeActions()
-    render(<TrainingConfigForm {...props} />)
+    createTrainingSession.mockResolvedValue({
+      success: true,
+      sessionId: "s-all",
+      questionCount: 10,
+    })
+    render(<TrainingConfigForm {...props} initialObjectifs={objectifs} />)
     expect(
-      screen.getByText("Choisissez un domaine pour cibler ses objectifs."),
+      screen.getAllByText("2 objectifs, tous domaines")[0],
     ).toBeInTheDocument()
-    await waitFor(() => expect(pool()).toBeInTheDocument())
+    await waitFor(() => expect(pool()).toHaveTextContent("3 000 questions"))
+
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Douleur thoracique/ }),
+    )
+    await waitFor(() =>
+      expect(loadRevisionCounts).toHaveBeenLastCalledWith({
+        domain: undefined,
+        objectiveIds: ["obj-dt"],
+      }),
+    )
+    await waitFor(() => expect(pool()).toHaveTextContent("40 questions"))
+    await userEvent.click(start())
+    await waitFor(() => {
+      expect(createTrainingSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domain: undefined,
+          objectiveIds: ["obj-dt"],
+        }),
+      )
+    })
     expect(loadAvailableObjectifsCMC).not.toHaveBeenCalled()
   })
 
@@ -375,6 +507,208 @@ describe("TrainingConfigForm — domaine et objectifs", () => {
         }),
       )
     })
+  })
+
+  it("changer de domaine garde les objectifs communs, retire les autres, et « Revenir à … » restaure tout", async () => {
+    loadRevisionCounts.mockResolvedValue(counts)
+    loadAvailableObjectifsCMC.mockImplementation(async (domain?: string) => ({
+      objectifs:
+        domain === "Neurologie"
+          ? [{ id: "obj-dt", objectif: "Douleur thoracique", count: 12 }]
+          : objectifs,
+    }))
+    render(
+      <TrainingConfigForm
+        {...props}
+        initialDomain="Cardiologie"
+        initialObjectifs={objectifs}
+      />,
+    )
+    await waitFor(() => expect(pool()).toHaveTextContent("120 questions"))
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Douleur thoracique/ }),
+    )
+    await userEvent.click(screen.getByRole("checkbox", { name: /Dyspnée/ }))
+    await waitFor(() => expect(pool()).toHaveTextContent("43 questions"))
+
+    await userEvent.click(screen.getByTestId("domain-Neurologie"))
+    await waitFor(() =>
+      expect(
+        screen.getByText("1 objectif retiré : absent de Neurologie"),
+      ).toBeInTheDocument(),
+    )
+    expect(
+      screen.getByRole("button", { name: "Retirer Douleur thoracique" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Retirer Dyspnée" }),
+    ).not.toBeInTheDocument()
+    // Le nombre de l'objectif gardé est celui du nouveau domaine.
+    await waitFor(() => expect(pool()).toHaveTextContent("12 questions"))
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Revenir à Cardiologie" }),
+    )
+    await waitFor(() => expect(pool()).toHaveTextContent("43 questions"))
+    expect(
+      screen.getByRole("button", { name: "Retirer Dyspnée" }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/objectif retiré/)).not.toBeInTheDocument()
+  })
+
+  it("objectifs du nouveau domaine injoignables : l'ancienne sélection ne part pas, « Réessayer » la rapproche", async () => {
+    loadRevisionCounts.mockResolvedValue(counts)
+    createTrainingSession.mockResolvedValue({
+      success: true,
+      sessionId: "s-neuro",
+      questionCount: 10,
+    })
+    loadAvailableObjectifsCMC.mockRejectedValueOnce(
+      new Error("Failed to fetch"),
+    )
+    render(
+      <TrainingConfigForm
+        {...props}
+        initialDomain="Cardiologie"
+        initialObjectifs={objectifs}
+      />,
+    )
+    await waitFor(() => expect(pool()).toBeInTheDocument())
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Douleur thoracique/ }),
+    )
+    await userEvent.click(screen.getByTestId("domain-Neurologie"))
+    await waitFor(() =>
+      expect(
+        screen.getByText("Impossible de charger les objectifs de ce domaine."),
+      ).toBeInTheDocument(),
+    )
+    await waitFor(() => expect(pool()).toHaveTextContent("80 questions"))
+    await userEvent.click(start())
+    await waitFor(() =>
+      expect(createTrainingSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domain: "Neurologie",
+          objectiveIds: undefined,
+        }),
+      ),
+    )
+
+    loadAvailableObjectifsCMC.mockResolvedValue({
+      objectifs: [{ id: "obj-dt", objectif: "Douleur thoracique", count: 12 }],
+    })
+    await userEvent.click(screen.getByRole("button", { name: "Réessayer" }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Retirer Douleur thoracique" }),
+      ).toBeInTheDocument(),
+    )
+  })
+
+  it("deux changements de domaine rapides : la note renvoie au domaine de départ", async () => {
+    loadRevisionCounts.mockResolvedValue(counts)
+    loadAvailableObjectifsCMC.mockImplementation((domain?: string) =>
+      domain === "Neurologie"
+        ? new Promise(() => {})
+        : Promise.resolve({ objectifs: [] }),
+    )
+    render(
+      <TrainingConfigForm
+        {...props}
+        domains={[...props.domains, { domain: "Pédiatrie", count: 60 }]}
+        initialDomain="Cardiologie"
+        initialObjectifs={objectifs}
+      />,
+    )
+    await waitFor(() => expect(pool()).toBeInTheDocument())
+    await userEvent.click(screen.getByRole("checkbox", { name: /Dyspnée/ }))
+    // Neurologie ne répond jamais : on repart vers Pédiatrie pendant l'attente.
+    await userEvent.click(screen.getByTestId("domain-Neurologie"))
+    await userEvent.click(screen.getByTestId("domain-Pédiatrie"))
+    await waitFor(() =>
+      expect(
+        screen.getByText("1 objectif retiré : absent de Pédiatrie"),
+      ).toBeInTheDocument(),
+    )
+    expect(
+      screen.getByRole("button", { name: "Revenir à Cardiologie" }),
+    ).toBeInTheDocument()
+  })
+
+  it("la note de retrait se referme", async () => {
+    loadRevisionCounts.mockResolvedValue(counts)
+    loadAvailableObjectifsCMC.mockImplementation(async (domain?: string) => ({
+      objectifs: domain === "Neurologie" ? [] : objectifs,
+    }))
+    render(
+      <TrainingConfigForm
+        {...props}
+        initialDomain="Cardiologie"
+        initialObjectifs={objectifs}
+      />,
+    )
+    await waitFor(() => expect(pool()).toBeInTheDocument())
+    await userEvent.click(screen.getByRole("checkbox", { name: /Dyspnée/ }))
+    await userEvent.click(screen.getByTestId("domain-Neurologie"))
+    await waitFor(() =>
+      expect(
+        screen.getByText("1 objectif retiré : absent de Neurologie"),
+      ).toBeInTheDocument(),
+    )
+    await userEvent.click(
+      screen.getByRole("button", { name: "Fermer la note" }),
+    )
+    expect(screen.queryByText(/objectif retiré/)).not.toBeInTheDocument()
+  })
+
+  it("passer à « Tous les domaines » garde toute la sélection, sans note", async () => {
+    loadRevisionCounts.mockResolvedValue(counts)
+    loadAvailableObjectifsCMC.mockResolvedValue({
+      objectifs: [
+        { id: "obj-dt", objectif: "Douleur thoracique", count: 90 },
+        { id: "obj-dyspnee", objectif: "Dyspnée", count: 30 },
+      ],
+    })
+    render(
+      <TrainingConfigForm
+        {...props}
+        initialDomain="Cardiologie"
+        initialObjectifs={objectifs}
+      />,
+    )
+    await waitFor(() => expect(pool()).toBeInTheDocument())
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Douleur thoracique/ }),
+    )
+    await userEvent.click(screen.getByTestId("domain-all"))
+    await waitFor(() => expect(pool()).toHaveTextContent("90 questions"))
+    expect(loadAvailableObjectifsCMC).toHaveBeenLastCalledWith(undefined)
+    expect(screen.queryByText(/retiré/)).not.toBeInTheDocument()
+  })
+
+  it("le récapitulatif nomme jusqu'à 3 objectifs, puis les compte", async () => {
+    primeActions()
+    const four = ["Asthme", "Bronchiolite", "Croup", "Dyspnée"].map(
+      (objectif, i) => ({ id: `o${i}`, objectif, count: 30 }),
+    )
+    render(<TrainingConfigForm {...props} initialObjectifs={four} />)
+    const recap = () => screen.getByTestId("recap-objectifs")
+    await waitFor(() => expect(recap()).toHaveTextContent("Tous"))
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /Asthme/ }))
+    await userEvent.click(screen.getByRole("checkbox", { name: /Croup/ }))
+    expect(
+      within(recap())
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual(["Asthme", "Croup"])
+
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Bronchiolite/ }),
+    )
+    await userEvent.click(screen.getByRole("checkbox", { name: /Dyspnée/ }))
+    expect(recap()).toHaveTextContent("4 objectifs")
+    expect(within(recap()).queryAllByRole("listitem")).toHaveLength(0)
   })
 
   it("suit un nouveau domaine demandé par l'URL sans remontage", async () => {

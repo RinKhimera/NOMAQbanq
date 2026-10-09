@@ -286,6 +286,33 @@ describe("corpus de révision", () => {
     expect(counts.unseen).toBe(1)
   })
 
+  it("sans domaine, les compteurs couvrent l'objectif dans tous les domaines", async () => {
+    const elsewhereId = createId()
+    await db.insert(questions).values({
+      id: elsewhereId,
+      question: "Même objectif, autre domaine ?",
+      correctAnswer: "A",
+      options: ["A", "B", "C", "D"],
+      objectiveId: objAltId,
+      domain: "Autre domaine révision",
+    })
+    try {
+      const counts = await getRevisionCounts(AS_USER, {
+        objectiveIds: [objAltId],
+      })
+      expect(counts.unseen).toBe(2)
+      const ids = await pickRevisionQuestionIds(db, {
+        viewer: AS_USER,
+        criteria: ["unseen"],
+        objectiveIds: [objAltId],
+        limit: 20,
+      })
+      expect(new Set(ids)).toEqual(new Set([qIds[4], elsewhereId]))
+    } finally {
+      await db.delete(questions).where(eq(questions.id, elsewhereId))
+    }
+  })
+
   it("les compteurs décrivent le même corpus que le tirage", async () => {
     const counts = await getRevisionCounts(AS_USER, { domain: DOMAIN })
     // q5 est marquée ET jamais répondue : le recoupement le dit une fois.
