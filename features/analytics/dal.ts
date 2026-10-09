@@ -23,6 +23,7 @@ import {
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 import { ownerReadableScore } from "../exams/dal.student"
+import { examPopulation } from "../exams/population"
 import { excludeLocked, viewerOf } from "../questions/answer-key-lock"
 import {
   datedAnswersSql,
@@ -287,9 +288,7 @@ const percentilesOf = async (
     .where(
       and(
         lte(exams.endDate, new Date()),
-        inArray(examParticipations.status, ["completed", "auto_submitted"]),
-        eq(user.role, "user"),
-        isNull(user.deletedAt),
+        examPopulation,
         inArray(
           examParticipations.examId,
           db

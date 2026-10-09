@@ -6,7 +6,6 @@ import {
   exists,
   inArray,
   isNotNull,
-  isNull,
   lte,
   or,
   sql,
@@ -46,7 +45,9 @@ import {
   countQuestionsByExam,
   finalizedDate,
   finalizedDates,
+  isSubmitted,
 } from "./dal.shared"
+import { SUBMITTED, examPopulation } from "./population"
 import { DEFAULT_PAUSE_MINUTES } from "./schemas"
 import type { ExamAudienceType } from "./schemas"
 
@@ -112,6 +113,16 @@ const answeredCountSql = sql<number>`(select count(*) from (${answeredQuestionId
 export const ownerReadableScore = sql<
   number | null
 >`case when ${scoreWithheldForOwner(sql`${examParticipations.userId}`, answeredQuestionIds, ownExamId)} then null else ${examParticipations.score} end`
+
+/**
+ * Un examen `subscribers` réserve son contenu (texte des questions,
+ * correction) à l'accès Examens ; un admin en est dispensé.
+ */
+const examAccessMissing = async (
+  exam: { audienceType: ExamAudienceType },
+  isAdmin: boolean,
+): Promise<boolean> =>
+  !isAdmin && exam.audienceType === "subscribers" && !(await hasAccess("exam"))
 
 // ============================================
 // Liste examens + participation (étudiant)
@@ -266,7 +277,7 @@ export const getExamsWithParticipation = cache(
     return rows.map((row) => {
       const e = { ...row, ...finalizedDates(row) }
       const p = partMap.get(e.id)
-      const taken = p?.status === "completed" || p?.status === "auto_submitted"
+      const taken = isSubmitted(p?.status)
       const timing: AttemptTiming | null = p?.startedAt
         ? {
             startedAt: p.startedAt.getTime(),
@@ -416,11 +427,7 @@ export const getExamWithQuestions = async (
   // utilisateur sans entitlement. La fenêtre de dates est gardée par les
   // appelants (page evaluation via participation in_progress ; page détail via
   // isClosed) — pas ici, car le DAL sert aussi la revue après clôture.
-  if (
-    !isAdmin &&
-    exam.audienceType === "subscribers" &&
-    !(await hasAccess("exam"))
-  ) {
+  if (await examAccessMissing(exam, isAdmin)) {
     return null
   }
 
@@ -638,8 +645,7 @@ export const getExamRanking = cache(
     const endDate = finalizedDate(exam.endDate)
     if (isOpen({ endDate }, Date.now())) return null
 
-    const ownFinished =
-      own?.status === "completed" || own?.status === "auto_submitted"
+    const ownFinished = own !== undefined && isSubmitted(own.status)
     if (!ownFinished && !isAdmin) return null
 
     const cohort = db
@@ -653,14 +659,7 @@ export const getExamRanking = cache(
       })
       .from(examParticipations)
       .innerJoin(user, eq(user.id, examParticipations.userId))
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          inArray(examParticipations.status, ["completed", "auto_submitted"]),
-          eq(user.role, "user"),
-          isNull(user.deletedAt),
-        ),
-      )
+      .where(and(eq(examParticipations.examId, examId), examPopulation))
 
     const [ranked, questionCounts, correctionLocked] = await Promise.all([
       db.execute<{
@@ -687,9 +686,7 @@ export const getExamRanking = cache(
          where rank <= ${EXAM_RANKING_LIMIT} or user_id = ${viewer.id}
          order by rank`),
       countQuestionsByExam([examId]),
-      !isAdmin && exam.audienceType === "subscribers"
-        ? hasAccess("exam").then((ok) => !ok)
-        : false,
+      examAccessMissing(exam, isAdmin),
     ])
 
     const rows = ranked.rows.map((r) => ({
@@ -887,11 +884,7 @@ export const getParticipantExamResults = async (
   }
 
   // Après la participation : sans elle, il n'y a pas de correction à réserver.
-  if (
-    !isAdmin &&
-    exam.audienceType === "subscribers" &&
-    !(await hasAccess("exam"))
-  ) {
+  if (await examAccessMissing(exam, isAdmin)) {
     return {
       error: "ACCESS_REQUIRED",
       message: "Accès Examens requis pour la correction.",
@@ -900,7 +893,7 @@ export const getParticipantExamResults = async (
     }
   }
 
-  if (p.status !== "completed" && p.status !== "auto_submitted") {
+  if (!isSubmitted(p.status)) {
     if (isAdmin) {
       return {
         error: "NOT_COMPLETED",
@@ -1032,7 +1025,7 @@ export const getExamQuestionExplanations = async (
         .where(
           and(
             eq(examParticipations.userId, uid),
-            inArray(examParticipations.status, ["completed", "auto_submitted"]),
+            SUBMITTED,
             // Examen CLOS uniquement : pas de révélation avant l'ouverture des
             // résultats (anti-fuite pendant la fenêtre d'examen).
             lte(exams.endDate, nowDate),
@@ -1125,7 +1118,7 @@ export const getExamSubmissionSummary = cache(
         and(
           eq(examParticipations.examId, examId),
           eq(examParticipations.userId, userId),
-          inArray(examParticipations.status, ["completed", "auto_submitted"]),
+          SUBMITTED,
         ),
       )
       .limit(1)

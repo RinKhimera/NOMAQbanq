@@ -30,6 +30,7 @@ import {
   questionCountsByExam,
   submittedStatus,
 } from "./dal.shared"
+import { SUBMITTED, populationAccount } from "./population"
 import type { ExamAudienceType } from "./schemas"
 
 // ============================================
@@ -65,8 +66,6 @@ export type ExamFigures = {
   /** Jeu de questions figé : au moins une participation (garde `HAS_PARTICIPATIONS`). */
   locked: boolean
 }
-
-const SUBMITTED = sql`${examParticipations.status} in ('completed', 'auto_submitted')`
 
 const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
 
@@ -122,13 +121,7 @@ const participationFigures = async (
     })
     .from(examParticipations)
     .innerJoin(user, eq(user.id, examParticipations.userId))
-    .where(
-      and(
-        inArray(examParticipations.examId, examIds),
-        eq(user.role, "user"),
-        isNull(user.deletedAt),
-      ),
-    )
+    .where(and(inArray(examParticipations.examId, examIds), populationAccount))
     .groupBy(examParticipations.examId)
   return new Map(rows.map(({ examId, ...figures }) => [examId, figures]))
 }
@@ -435,6 +428,7 @@ export type LeaderboardEntry = {
   status: SubmittedStatus
 }
 
+/** Hors population (`populationAccount`) : pourquoi la copie est sans rang. */
 const leaderboardFlag = (u: {
   role: string
   deletedAt: Date | null
@@ -475,7 +469,7 @@ export const getExamLeaderboard = async (
       and(
         eq(examParticipations.examId, examId),
         isNotNull(exams.finalizedAt),
-        inArray(examParticipations.status, ["completed", "auto_submitted"]),
+        SUBMITTED,
       ),
     )
     .orderBy(

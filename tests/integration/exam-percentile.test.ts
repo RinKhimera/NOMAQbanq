@@ -13,7 +13,7 @@ import {
   getMyExamPercentile,
   getMyExamPercentiles,
 } from "@/features/analytics/dal"
-import { getExamLeaderboard } from "@/features/exams/dal"
+import { getExamLeaderboard, getExamRanking } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 import { TEST_OBJECTIVE_ID } from "../helpers/objective"
@@ -260,6 +260,20 @@ describe("classement d'examen : même population que le percentile", () => {
     expect(percentile).toBe(
       Math.floor((100 * below) / (leaderboard.length - 1)),
     )
+  })
+
+  it("le rang du candidat et son percentile comptent le même effectif", async () => {
+    const { examId, userIds } = await seedExam([...population, { score: 80 }])
+    await withholdScore(examId, userIds[7]!)
+    asUser(userIds[0])
+
+    const ranking = await getExamRanking(examId)
+    const percentile = (await getMyExamPercentiles())[examId]
+
+    // 90, 70, 60, 50, 40 : ni admin, ni supprimé, ni score retenu.
+    expect(ranking?.total).toBe(5)
+    expect(ranking?.mine).toEqual({ held: false, rank: 2, score: 70 })
+    expect(percentile).toBe(75)
   })
 
   it("côté admin, garde toutes les participations et identifie admins et supprimés", async () => {

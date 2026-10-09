@@ -72,6 +72,12 @@ export const finalizedDates = (exam: {
 /** Participation soumise : à la main, ou automatiquement (temps écoulé, fermeture). */
 export type SubmittedStatus = "completed" | "auto_submitted"
 
+/** Forme TypeScript de `SUBMITTED`. */
+export const isSubmitted = (
+  status: "in_progress" | "completed" | "auto_submitted" | undefined,
+): status is SubmittedStatus =>
+  status === "completed" || status === "auto_submitted"
+
 /** Lecture filtrée sur les statuts soumis : un autre statut est un bug. */
 export const submittedStatus = (
   status: "in_progress" | "completed" | "auto_submitted",
