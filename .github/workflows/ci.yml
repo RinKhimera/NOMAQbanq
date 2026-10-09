@@ -85,7 +85,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Orchestrateur : démarre un Postgres jetable (`docker run postgres:18`,
+      # Orchestrateur : démarre un Postgres jetable (`postgres:18` tiré d'ECR Public,
       # Docker est fourni par le runner), migre une base vide, lance les projets
       # vitest, supprime le conteneur. Aucun secret. La base tourne sur le
       # runner lui-même : la latence ne dépend pas de la région Azure qui

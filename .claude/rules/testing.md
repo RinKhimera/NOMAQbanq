@@ -42,3 +42,53 @@ paths:
   Écrire le code avec l'outil d'édition, ou en chaîne brute.
 - Vitest n'affiche la console (`console.log`) que pour un test qui échoue :
   pour déboguer, faire échouer l'assertion plutôt que de chercher un log absent.
+
+## Pièges de happy-dom (tests de composants)
+
+- happy-dom ne retire pas le focus d'un bouton qui passe à `disabled` : un test
+  « le focus reste » y passe à tort. Asserter l'attribut (`aria-disabled`,
+  `not.toBeDisabled()`) pendant l'attente, puis le focus.
+- `toHaveTextContent` normalise l'espace insécable, `getByRole({ name })` ne le
+  fait pas : « 70 % » s'écrit `"70\u00a0%"` dans un nom accessible.
+
+## Tests d'intégration (`tests/integration/**`)
+
+- **`@/email` se remplace par le faux Mailer complet**
+  (`tests/helpers/fake-mailer.ts`, `satisfies Mailer`) :
+  `vi.mock("@/email", () => import("../helpers/fake-mailer").then((m) => m.fakeMailer))`,
+  puis `mailbox.sent` / `mailbox.failNext(verbe, erreur)` / `mailbox.reset()`.
+  Jamais un mock partiel : un verbe absent rend `undefined`, l'erreur tombe
+  dans le catch par ligne et aucun test ne rougit.
+- **`@/lib/stripe` se remplace par le faux Stripe complet**
+  (`tests/helpers/fake-stripe.ts`, `satisfies StripePort`) :
+  `vi.mock("@/lib/stripe", () => import("../helpers/fake-stripe").then((m) => m.fakeStripe))`,
+  puis `stripeBox.calls` / `stripeBox.failNext(verbe, erreur)` / l'état
+  (`prices`, `seedCheckoutSession`, `customers`, `nextEvent`) /
+  `stripeBox.reset()`. Même raison que le Mailer : un verbe Stripe ajouté au
+  port sans son faux ne compile plus, un faux partiel ne masque plus un appel.
+- **La base part vide** : un Postgres Docker jetable par run
+  (`scripts/test-postgres.ts`), migrations appliquées, aucune donnée de
+  référence (aucune migration ne sème de produit ni d'objectif ; seul
+  `test-objective` est semé par `vitest.setup.integration.ts`). Un test sème
+  tout ce qu'il lit, produit cherché par son code compris. Docker Desktop est
+  requis en local.
+- **Une migration qui transforme des données a son test de rejeu** : il crée
+  des lignes dans l'ancienne forme puis rejoue le SQL du fichier de migration
+  (modèle : `medical-domains-migration.test.ts`). La base de test étant vide,
+  c'est la seule preuve automatique qu'une migration tient sur des données
+  sales (clé nulle, doublon) ; elle s'applique aussi sur develop avant le
+  merge.
+- Les fichiers d'intégration tournent **en parallèle**, chacun sur une base
+  neuve et vide clonée de la base migrée (`tests/helpers/worker-database.ts` :
+  une base par worker vitest, recréée à chaque fichier). Chaque fichier sème
+  tout ce qu'il lit et compte en valeurs exactes ; aucun nettoyage en fin de
+  fichier. Les tests d'un même fichier partagent sa base mais pas leur ordre :
+  le projet `integration` mélange l'ordre des tests à chaque run (graine
+  affichée en tête, `--sequence.seed=<n>` pour rejouer). Chacun sème donc son
+  propre état ; un test qui modifie un état commun du fichier le remet dans
+  un `finally` (FK `restrict` : enfants avant parents). Cibler un fichier :
+  `bun run test:integration -- <fichier>`.
+- **Fixtures partagées** (`tests/helpers/`) : `seedProduct` / `seedAccess`
+  (`seed-payments.ts`), `seedAnswers` (`seed-answers.ts`), `holdUserLock`
+  (`user-lock.ts`, pour forcer un entrelacement derrière le verrou `user` au
+  lieu d'un sommeil), `seedExam` (`seed-exam.ts`).

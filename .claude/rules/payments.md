@@ -1,3 +1,10 @@
+---
+paths:
+  - "features/payments/**"
+  - "app/api/stripe/**"
+  - "components/shared/payments/**"
+---
+
 # Paiements Stripe
 
 Invariants du flux de paiement. Le code fait autorité sur le « comment » ;

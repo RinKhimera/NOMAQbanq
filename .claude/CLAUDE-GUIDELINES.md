@@ -122,7 +122,11 @@ Avant de modifier CLAUDE.md, vérifier :
 
 | Fichier          | Scope                                      | Contenu                                                    |
 | ---------------- | ------------------------------------------ | ---------------------------------------------------------- |
-| `data-layer.md`  | `features/**`, `app/**`                    | DAL Drizzle, Server Actions, tests d'intégration           |
+| `data-layer.md`  | `features/**`, `app/**`                    | DAL Drizzle, Server Actions, PII                           |
+| `exams.md`       | domaines examens / questions               | Invariants métier des examens et de la banque              |
+| `email.md`       | `email/**`, `features/notifications/**`    | Courriels, désabonnement, `sendOnce`                       |
+| `payments.md`    | `features/payments/**`, Stripe             | Octroi, webhook, litiges, devises, catalogue               |
+| `testing.md`     | `tests/**`, `vitest*.ts`                   | Vitest, happy-dom, tests d'intégration                     |
 | `loading-ui.md`  | `app/**`, `components/**`                  | États de chargement, socle Spinner/Skeleton, `loading.tsx` |
 | `admin-ui.md`    | `app/(admin)/**`, `components/admin/**`    | Master-detail, stat cards, filtres                         |
 | `seo.md`         | `app/(marketing)/**`, SEO files            | Metadata, pages marketing, claims éditoriaux               |
@@ -131,6 +135,8 @@ Avant de modifier CLAUDE.md, vérifier :
 ### Où ajouter un nouveau pattern ?
 
 - Pattern data layer / backend → `.claude/rules/data-layer.md`
+- Règle métier examens / questions → `.claude/rules/exams.md`
+- Pattern courriels → `.claude/rules/email.md`
 - Pattern états de chargement → `.claude/rules/loading-ui.md`
 - Pattern admin UI → `.claude/rules/admin-ui.md`
 - Pattern SEO/marketing → `.claude/rules/seo.md`

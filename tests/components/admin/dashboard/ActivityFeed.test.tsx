@@ -34,24 +34,44 @@ const activities: Activities = [
     },
   },
   {
-    type: "exam_completed",
+    type: "exam_submitted",
     timestamp: 1_700_000_003_000,
-    data: { userName: "Dina", examTitle: "Blanc 1", score: 85 },
+    data: {
+      userName: "Dina",
+      examTitle: "Blanc 1",
+      score: 85,
+      status: "completed",
+    },
   },
   {
-    type: "exam_completed",
+    type: "exam_submitted",
     timestamp: 1_700_000_004_000,
-    data: { userName: "Eve", examTitle: "Blanc 2", score: 55 },
+    data: {
+      userName: "Eve",
+      examTitle: "Blanc 2",
+      score: 55,
+      status: "completed",
+    },
   },
   {
-    type: "exam_completed",
+    type: "exam_submitted",
     timestamp: 1_700_000_005_000,
-    data: { userName: "Fay", examTitle: "Blanc 3", score: 30 },
+    data: {
+      userName: "Fay",
+      examTitle: "Blanc 3",
+      score: 30,
+      status: "completed",
+    },
   },
   {
-    type: "exam_completed",
+    type: "exam_submitted",
     timestamp: 1_700_000_006_000,
-    data: { userName: "Gus", examTitle: "Blanc 4", score: null },
+    data: {
+      userName: "Gus",
+      examTitle: "Blanc 4",
+      score: null,
+      status: "auto_submitted",
+    },
   },
 ]
 
@@ -70,5 +90,11 @@ describe("ActivityFeed", () => {
     expect(container.textContent).toContain("Manuel")
     expect(container.textContent).toMatch(/85\s%/)
     expect(container.textContent).toContain("Blanc 4")
+  })
+
+  it("distingue une copie soumise à la main d'une copie soumise automatiquement", () => {
+    render(<ActivityFeed activities={activities} />)
+    expect(screen.getAllByText("Examen soumis")).toHaveLength(3)
+    expect(screen.getAllByText("Examen soumis automatiquement")).toHaveLength(1)
   })
 })

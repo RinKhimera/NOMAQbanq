@@ -222,6 +222,13 @@ qu'une fois.
 _Avoid_ : finalisation (action sur un examen, pas sur une tentative),
 complétion, fermeture
 
+**Soumission automatique** :
+La clôture d'une participation sans geste du candidat : à la fin de son temps,
+ou par le cron à la fermeture de l'examen. Sa copie compte comme une copie
+soumise par le candidat : notée, classée, comptée dans le percentile. Seul son
+affichage dit qu'elle a été soumise automatiquement.
+_Avoid_ : copie expirée, abandon
+
 **Score de clôture** :
 Le pourcentage de réponses justes sur le lot de la tentative — toutes ses
 questions, répondues ou non —, écrit une fois à la clôture et jamais recalculé.
