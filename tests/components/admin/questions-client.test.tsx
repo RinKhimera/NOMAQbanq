@@ -81,6 +81,16 @@ const renderList = (
     />,
   )
 
+const atQ = (q: string, page: QuestionListPage = list()) => (
+  <QuestionsClient
+    state={{ ...DEFAULT_QUESTION_LIST, q }}
+    list={page}
+    objectives={{ objectives: [], byDomain: {} }}
+    exams={[]}
+    initialNow={NOW}
+  />
+)
+
 describe("QuestionsClient", () => {
   it("onglets à compteur ; changer d'onglet écrit l'URL et revient en page 1", () => {
     renderList({ ...DEFAULT_QUESTION_LIST, page: 3 })
@@ -202,26 +212,49 @@ describe("QuestionsClient", () => {
 
   it("retour arrière vers sa propre recherche après un effacement : le champ suit", () => {
     vi.useFakeTimers()
-    const props = (q: string) => (
-      <QuestionsClient
-        state={{ ...DEFAULT_QUESTION_LIST, q }}
-        list={list()}
-        objectives={{ objectives: [], byDomain: {} }}
-        exams={[]}
-        initialNow={NOW}
-      />
-    )
-    const { rerender } = render(props(""))
+    const { rerender } = render(atQ(""))
     const field = screen.getByPlaceholderText(
       "Énoncé, choix de réponse, objectif ou identifiant",
     )
     fireEvent.change(field, { target: { value: "toux" } })
     act(() => vi.advanceTimersByTime(300))
-    rerender(props("toux"))
-    rerender(props(""))
+    rerender(atQ("toux"))
+    rerender(atQ(""))
     expect(field).toHaveValue("")
-    rerender(props("toux"))
+    rerender(atQ("toux"))
     expect(field).toHaveValue("toux")
+  })
+
+  it("la réponse au terme envoyé n'écrase pas la frappe qui a suivi", () => {
+    vi.useFakeTimers()
+    const { rerender } = render(atQ(""))
+    const field = screen.getByPlaceholderText(
+      "Énoncé, choix de réponse, objectif ou identifiant",
+    )
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    fireEvent.change(field, { target: { value: "toux fébrile" } })
+    rerender(atQ("toux"))
+    expect(field).toHaveValue("toux fébrile")
+  })
+
+  it("effacer pendant l'envoi : un q venu d'ailleurs égal au terme abandonné réaligne, sans navigation parasite", () => {
+    vi.useFakeTimers()
+    const empty = list({ items: [], total: 0 })
+    const { rerender } = render(atQ("", empty))
+    const field = screen.getByPlaceholderText(
+      "Énoncé, choix de réponse, objectif ou identifiant",
+    )
+    fireEvent.change(field, { target: { value: "toux" } })
+    act(() => vi.advanceTimersByTime(300))
+    fireEvent.click(screen.getByRole("button", { name: "Effacer les filtres" }))
+    rerender(atQ("toux", empty))
+    act(() => vi.advanceTimersByTime(300))
+    expect(field).toHaveValue("toux")
+    expect(replace.mock.calls.map(([url]) => url)).toEqual([
+      "/admin/questions?q=toux",
+      "/admin/questions",
+    ])
   })
 
   it("aucun résultat : message et recours", () => {

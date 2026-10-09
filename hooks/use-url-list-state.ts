@@ -25,8 +25,10 @@ export const useUrlListState = <S extends { q: string }>({
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState(state.q)
   // Seul un `q` d'URL qui CHANGE réaligne le champ, et seulement s'il ne vient
-  // pas de la frappe (retour arrière, lien, « Effacer les filtres ») : entre
-  // l'envoi et la réponse du serveur, les props portent encore l'ancien `q`.
+  // pas de cet écran (retour arrière, lien) : entre l'envoi et la réponse du
+  // serveur, les props portent encore l'ancien `q`. `sentQ` est le dernier `q`
+  // demandé par `go`, frappe ou effacement : un effacement qui abandonne une
+  // recherche en vol ne doit pas la laisser passer pour la nôtre.
   const [receivedQ, setReceivedQ] = useState(state.q)
   const [sentQ, setSentQ] = useState(state.q)
   if (state.q !== receivedQ) {
@@ -45,7 +47,8 @@ export const useUrlListState = <S extends { q: string }>({
   }, [state])
   const latest = () => requested.current
 
-  const go = (next: S) =>
+  const go = (next: S) => {
+    setSentQ(next.q)
     startTransition(() => {
       requested.current = next
       const params = serialize(next)
@@ -53,11 +56,11 @@ export const useUrlListState = <S extends { q: string }>({
         scroll: false,
       })
     })
+  }
 
   useDebouncedValue(search, 300, (value) => {
     const q = value.trim()
     if (q === latest().q) return
-    setSentQ(q)
     go(withSearch(latest(), q))
   })
 
