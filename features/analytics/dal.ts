@@ -340,6 +340,15 @@ export const getMyExamPercentiles = cache(
   },
 )
 
+/** Percentile de l'utilisateur courant à un examen ; `null` = non disponible. */
+export const getMyExamPercentile = cache(
+  async (examId: string): Promise<number | null> => {
+    const session = await getCurrentSession()
+    if (!session?.user) return null
+    return (await percentilesOf(session.user.id, [examId]))[examId] ?? null
+  },
+)
+
 // ============================================
 // Maîtrise par domaine
 // ============================================

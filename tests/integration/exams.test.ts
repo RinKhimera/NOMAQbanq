@@ -472,7 +472,7 @@ describe("Leaderboard", () => {
     expect(lb[0].score).toBe(100)
   })
 
-  it("le classement complet est réservé à l'admin", async () => {
+  it("le classement admin (nom complet, copies) reste réservé à l'admin", async () => {
     asStudent()
     await expect(getExamLeaderboard(completedOpenId)).rejects.toThrow()
   })

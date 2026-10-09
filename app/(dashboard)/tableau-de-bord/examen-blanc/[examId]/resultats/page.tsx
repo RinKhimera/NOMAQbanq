@@ -5,6 +5,7 @@ import { SessionResults } from "@/components/quiz/results/session-results"
 import type { AnswersMap } from "@/components/quiz/runner/types"
 import { ErrorState } from "@/components/shared/error-state"
 import { Button } from "@/components/ui/button"
+import { studentExamRankingHref } from "@/constants/exam-routes"
 import { getMyExamPercentiles } from "@/features/analytics/dal"
 import { loadExamQuestionExplanations } from "@/features/exams/actions"
 import { getParticipantExamResults } from "@/features/exams/dal"
@@ -100,8 +101,8 @@ export default async function MockExamResultsPage({
           </Button>
         </>
       }
-      backHref="/tableau-de-bord/examen-blanc"
-      backLabel="Examens blancs"
+      backHref={studentExamRankingHref(examId)}
+      backLabel="Classement"
     />
   )
 }

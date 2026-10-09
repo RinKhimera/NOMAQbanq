@@ -207,7 +207,7 @@ export function ExamenBlancClient({
       )}
 
       <UpcomingExams exams={upcoming} now={now} />
-      <PastExams exams={completed} hasAccess={hasExamAccess} />
+      <PastExams exams={completed} />
 
       <ExamStartDialog
         exam={starting}

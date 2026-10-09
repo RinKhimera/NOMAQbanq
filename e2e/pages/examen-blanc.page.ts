@@ -125,12 +125,12 @@ export class ExamenBlancPage extends BasePage {
     })
   }
 
-  /** « Résultats » de la première ligne d'examen terminé. */
-  async goToResults() {
+  /** « Résultats » de la première ligne d'examen terminé : son classement. */
+  async goToRanking() {
     await this.page
       .getByRole("link", { name: /^Résultats/ })
       .first()
       .click()
-    await this.page.waitForURL(/\/resultats/, { timeout: 15_000 })
+    await this.page.waitForURL(/\/examen-blanc\/[^/]+$/, { timeout: 15_000 })
   }
 }

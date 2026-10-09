@@ -366,7 +366,7 @@ describe("ExamenBlancClient — terminés", () => {
     expect(within(a).getByText("Soumis automatiquement")).toBeInTheDocument()
     expect(within(a).getByRole("link", { name: /Résultats/ })).toHaveAttribute(
       "href",
-      "/tableau-de-bord/examen-blanc/25A/resultats",
+      "/tableau-de-bord/examen-blanc/25A",
     )
 
     const b = screen.getByTestId("exam-row-25B")
@@ -374,9 +374,10 @@ describe("ExamenBlancClient — terminés", () => {
       "aria-label",
       "Score retenu. Publié à la fermeture de Examen blanc 27.",
     )
-    expect(
-      within(b).getByRole("link", { name: /Résultats/ }),
-    ).toBeInTheDocument()
+    expect(within(b).getByRole("link", { name: /Résultats/ })).toHaveAttribute(
+      "href",
+      "/tableau-de-bord/examen-blanc/25B",
+    )
 
     expect(
       within(screen.getByTestId("exam-row-24")).getByText("Non passé"),
@@ -388,20 +389,13 @@ describe("ExamenBlancClient — terminés", () => {
     ).toBeInTheDocument()
   })
 
-  it("sans accès, « Résultats » porte un cadenas vers les tarifs, sauf sur invitation", () => {
-    renderList([past("25A"), past("25C", { audienceType: "restricted" })], {
-      hasExamAccess: false,
+  it("sans accès, « Résultats » mène quand même au classement, sans cadenas", () => {
+    renderList([past("25A")], { hasExamAccess: false })
+    const link = within(screen.getByTestId("exam-row-25A")).getByRole("link", {
+      name: /Résultats/,
     })
-    expect(
-      within(screen.getByTestId("exam-row-25A")).getByRole("link", {
-        name: "Résultats, accès requis pour la correction",
-      }),
-    ).toHaveAttribute("href", "/tarifs")
-    expect(
-      within(screen.getByTestId("exam-row-25C")).getByRole("link", {
-        name: /Résultats/,
-      }),
-    ).toHaveAttribute("href", "/tableau-de-bord/examen-blanc/25C/resultats")
+    expect(link).toHaveAttribute("href", "/tableau-de-bord/examen-blanc/25A")
+    expect(link).not.toHaveAccessibleName(/accès requis/)
   })
 
   it("groupés par mois ; au-delà de trois mois, repli avec le détail", async () => {

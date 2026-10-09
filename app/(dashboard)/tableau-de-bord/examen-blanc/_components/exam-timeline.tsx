@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronUp,
   Hourglass,
-  Lock,
   TimerOff,
 } from "lucide-react"
 import Link from "next/link"
@@ -18,14 +17,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { studentExamRankingHref } from "@/constants/exam-routes"
 import type { ExamListItem } from "@/features/exams/dal"
 import { toAppZoneCalendarDay } from "@/lib/app-zone"
-import {
-  VISIBLE_MONTHS,
-  groupByMonth,
-  isEligible,
-  pastScoreState,
-} from "@/lib/exam-list"
+import { VISIBLE_MONTHS, groupByMonth, pastScoreState } from "@/lib/exam-list"
 import {
   formatCountdown,
   formatDateTime,
@@ -152,8 +147,6 @@ export const UpcomingExams = ({ exams, now }: UpcomingProps) => {
 
 type PastProps = {
   exams: ExamListItem[]
-  /** Accès Examens actif : sans lui, la correction est verrouillée, sauf sur invitation. */
-  hasAccess: boolean
 }
 
 /**
@@ -161,10 +154,7 @@ type PastProps = {
  * repliés. Mémoïsé : la page se rend à la seconde pour les décomptes, ces
  * lignes n'en dépendent pas.
  */
-export const PastExams = memo(function PastExams({
-  exams,
-  hasAccess,
-}: PastProps) {
+export const PastExams = memo(function PastExams({ exams }: PastProps) {
   const [showAll, setShowAll] = useState(false)
   if (exams.length === 0) return null
 
@@ -183,7 +173,7 @@ export const PastExams = memo(function PastExams({
             </p>
             <ul>
               {month.items.map((exam) => (
-                <PastRow key={exam.id} exam={exam} hasAccess={hasAccess} />
+                <PastRow key={exam.id} exam={exam} />
               ))}
             </ul>
           </li>
@@ -220,18 +210,10 @@ export const PastExams = memo(function PastExams({
   )
 })
 
-const PastRow = ({
-  exam,
-  hasAccess,
-}: {
-  exam: ExamListItem
-  hasAccess: boolean
-}) => {
+const PastRow = ({ exam }: { exam: ExamListItem }) => {
   const p = exam.userParticipation
   const state = pastScoreState(p)
   const hasResults = state.kind === "score" || state.kind === "withheld"
-  const locked = hasResults && !isEligible(exam, hasAccess)
-  const resultsHref = `/tableau-de-bord/examen-blanc/${exam.id}/resultats`
 
   let score: ReactNode
   switch (state.kind) {
@@ -304,37 +286,15 @@ const PastRow = ({
       }
       score={score}
       action={
-        hasResults &&
-        (locked ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                asChild
-                size="sm"
-                variant="ghost"
-                className={TOUCH_TARGET}
-              >
-                <Link
-                  href="/tarifs"
-                  aria-label="Résultats, accès requis pour la correction"
-                >
-                  <Lock aria-hidden />
-                  Résultats
-                  <ArrowRight aria-hidden />
-                </Link>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Accès requis pour la correction</TooltipContent>
-          </Tooltip>
-        ) : (
+        hasResults && (
           <Button asChild size="sm" variant="ghost" className={TOUCH_TARGET}>
-            <Link href={resultsHref}>
+            <Link href={studentExamRankingHref(exam.id)}>
               Résultats
               <span className="sr-only"> : {exam.title}</span>
               <ArrowRight aria-hidden />
             </Link>
           </Button>
-        ))
+        )
       }
     />
   )

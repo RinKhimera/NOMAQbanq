@@ -266,7 +266,10 @@ candidat. Un participant le consulte aussi, chaque candidat identifié par son
 nom d'utilisateur et sa photo, jamais son nom complet ; il n'ouvre que sa propre
 copie. Sa population est celle du percentile d'examen
 (participations d'étudiants, hors comptes admin et supprimés) : rang et
-percentile comptent les mêmes participants. La fiche liste aussi les copies des
+percentile comptent les mêmes participants. Chaque rang est unique : à score
+égal, la première soumission passe devant. Un score retenu sort du classement
+jusqu'à sa publication. Un candidat sans nom d'utilisateur s'affiche
+« Candidat anonyme », sans sa photo. La fiche liste aussi les copies des
 comptes admin et supprimés, signalées et sans rang.
 _Avoid_ : leaderboard, palmarès
 

@@ -11,6 +11,7 @@ import {
   sql,
 } from "drizzle-orm"
 import "server-only"
+import { studentExamResultsHref } from "@/constants/exam-routes"
 import { db } from "@/db"
 import {
   examParticipations,
@@ -98,7 +99,7 @@ export const examResultsSpec = () =>
         name: r.name,
         examTitle: r.examTitle,
         score: r.score,
-        resultUrl: `${getBaseUrl()}/tableau-de-bord/examen-blanc/${r.examId}/resultats`,
+        resultUrl: `${getBaseUrl()}${studentExamResultsHref(r.examId)}`,
       }),
     context: (r) => ({ detail: `participation ${r.id}` }),
   })
