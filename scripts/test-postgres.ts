@@ -2,10 +2,14 @@
  * Cycle de vie du Postgres jetable des tests d'intégration : un conteneur
  * Docker `postgres:18` par run, sur un port hôte aléatoire, supprimé à l'arrêt
  * (`--rm`). Même chemin en local (Docker Desktop) et en CI (runner ubuntu).
+ *
+ * L'image officielle est tirée du miroir ECR Public d'AWS, pas de Docker Hub :
+ * les runners GitHub partagent leurs IP, et Docker Hub y épuise son quota de
+ * tirages anonymes (`toomanyrequests`) au point de faire échouer le CI.
  */
 import { spawnSync } from "node:child_process"
 
-const IMAGE = "postgres:18"
+const IMAGE = "public.ecr.aws/docker/library/postgres:18"
 const LABEL = "nomaq-test"
 const CREATED_LABEL = `${LABEL}.created`
 const STALE_AFTER_MS = 60 * 60 * 1000
