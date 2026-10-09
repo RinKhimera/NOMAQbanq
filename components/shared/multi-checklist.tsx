@@ -32,7 +32,7 @@ type MultiChecklistProps<T> = {
   emptyText: (search: string) => string
   /** Nom du groupe pour un lecteur d'écran. */
   label: string
-  /** En-tête de la liste : « Objectif » / « Questions ». */
+  /** En-tête de la liste : titre des libellés et du complément. */
   columns?: { label: string; meta: string }
   /** Portée de la liste, sous la recherche : « 91 objectifs dans Pédiatrie ». */
   scope?: ReactNode

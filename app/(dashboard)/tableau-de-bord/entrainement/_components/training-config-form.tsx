@@ -49,7 +49,7 @@ import {
 import { callAction } from "@/lib/safe-action"
 import { foldForSearch } from "@/lib/search"
 import { TONE_SOFT } from "@/lib/tone"
-import { TOUCH_TARGET } from "@/lib/touch-target"
+import { TOUCH_MIN_HEIGHT, TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 
 type Objectif = ObjectifsView["objectifs"][number]
@@ -164,7 +164,7 @@ const RemovalNotice = ({
           variant="link"
           size="sm"
           onClick={onUndo}
-          className="h-auto self-start px-0 text-sm max-lg:min-h-11"
+          className={cn("h-auto self-start px-0 text-sm", TOUCH_MIN_HEIGHT)}
         >
           Revenir à {domainLabel(removal.from)}
         </Button>
