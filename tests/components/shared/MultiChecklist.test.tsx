@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { MultiChecklist } from "@/components/shared/multi-checklist"
@@ -10,6 +10,38 @@ const items: Item[] = [
   { objectif: "Dyspnée", count: 8 },
   { objectif: "Céphalée", count: 5 },
 ]
+
+const PHONE_QUERY = "(width < 48rem)"
+
+/** Largeur d'écran simulée ; `set` la change et prévient les abonnés. */
+const mockViewport = (phone: boolean) => {
+  let isPhone = phone
+  const listeners = new Set<() => void>()
+  vi.spyOn(window, "matchMedia").mockImplementation(
+    (query) =>
+      ({
+        get matches() {
+          return query === PHONE_QUERY && isPhone
+        },
+        media: query,
+        addEventListener: (_: string, cb: () => void) => listeners.add(cb),
+        removeEventListener: (_: string, cb: () => void) =>
+          listeners.delete(cb),
+      }) as unknown as MediaQueryList,
+  )
+  return {
+    set: (next: boolean) => {
+      isPhone = next
+      act(() => listeners.forEach((cb) => cb()))
+    },
+  }
+}
+
+const SHEET = {
+  triggerLabel: "Parcourir les objectifs",
+  title: "Objectifs du CMC",
+  description: "Optionnel, 2 au plus.",
+}
 
 const onChange = vi.fn()
 const onSearchChange = vi.fn()
@@ -136,15 +168,7 @@ describe("MultiChecklist", () => {
   })
 
   it("sur téléphone, la liste n'est que dans le panneau, qui se ferme sur « Terminé »", async () => {
-    vi.spyOn(window, "matchMedia").mockImplementation(
-      (query) =>
-        ({
-          matches: query === "(max-width: 767px)",
-          media: query,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-        }) as unknown as MediaQueryList,
-    )
+    mockViewport(true)
     renderList({
       selected: [items[0]],
       sheet: {
@@ -167,6 +191,20 @@ describe("MultiChecklist", () => {
     await userEvent.click(
       within(panel).getByRole("button", { name: "Terminé" }),
     )
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("le panneau se ferme quand l'écran s'élargit, et ne se rouvre pas seul au retour", async () => {
+    const viewport = mockViewport(true)
+    renderList({ sheet: SHEET })
+    await userEvent.click(
+      screen.getByRole("button", { name: "Parcourir les objectifs" }),
+    )
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+
+    viewport.set(false)
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    viewport.set(true)
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 })

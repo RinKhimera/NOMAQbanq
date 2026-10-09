@@ -80,10 +80,14 @@ export function MultiChecklist<T>({
   const id = useId()
   const [sheetOpen, setSheetOpen] = useState(false)
   // Faux au rendu serveur et à l'hydratation : la liste de la page est servie,
-  // puis démontée sur un téléphone, où seul le panneau la porte. Le panneau,
-  // lui, se ferme si l'écran repasse au-delà de 768 px (rotation).
-  const isPhone = useMediaQuery("(max-width: 767px)")
+  // puis démontée sur un téléphone, où seul le panneau la porte. Même seuil
+  // que `max-md:` / `md:` de Tailwind v4 (`width < 48rem`), sans trou à 767,5 px
+  // sous zoom.
+  const isPhone = useMediaQuery("(width < 48rem)")
   const showPageList = !sheet || !isPhone
+  // Écran élargi (rotation) : le panneau se ferme pour de bon, sans se rouvrir
+  // au retour.
+  if (sheetOpen && !isPhone) setSheetOpen(false)
   const selectedKeys = new Set(selected.map(getKey))
   const isFull = maxSelections !== undefined && selected.length >= maxSelections
 
@@ -257,7 +261,7 @@ export function MultiChecklist<T>({
             {sheet.triggerLabel}
           </Button>
           {scopeLine}
-          <Sheet open={sheetOpen && isPhone} onOpenChange={setSheetOpen}>
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetContent
               side="bottom"
               className="flex h-dvh flex-col gap-0 p-0"

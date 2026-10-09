@@ -280,7 +280,12 @@ export const TrainingConfigForm = ({
     [startObjLoad],
   )
   useEffect(() => {
-    if (objectifsFor.domain === domain) return
+    if (objectifsFor.domain === domain) {
+      // Retour sur le domaine déjà chargé (A → B → A) : la réponse de B,
+      // encore en vol, ne doit pas remplacer la liste de A.
+      latestObjDomain.current = domain
+      return
+    }
     loadObjectifs(domain)
   }, [domain, objectifsFor.domain, loadObjectifs])
   const objectifsReady = objectifsFor.domain === domain
@@ -314,7 +319,12 @@ export const TrainingConfigForm = ({
   // (domaine A puis B, A répond en dernier) est ignorée, sinon le formulaire
   // attendrait une réponse qui ne viendra plus.
   const latestCountsKey = useRef(countsKey)
+  // Un changement de domaine en attente n'a pas encore sa sélection : les
+  // compteurs attendent le rapprochement au lieu de balayer la banque pour
+  // une portée qui ne servira pas.
+  const awaitingSwitch = domainSwitch !== null && !objectifsReady
   useEffect(() => {
+    if (awaitingSwitch) return
     latestCountsKey.current = countsKey
     startCountsLoad(async () => {
       try {
@@ -337,7 +347,7 @@ export const TrainingConfigForm = ({
         }
       }
     })
-  }, [domain, objectifsKey, countsKey])
+  }, [domain, objectifsKey, countsKey, awaitingSwitch])
   const countsReady = counts?.key === countsKey
   const revisionCounts = countsReady ? counts.value : EMPTY_REVISION_COUNTS
   // « Prêt » se lit sur les données de la portée courante, pas sur l'attente
@@ -380,14 +390,16 @@ export const TrainingConfigForm = ({
     (a, b) => a - b,
   )
   // Le nombre retenu est toujours un choix affiché : un ancien maximum (12)
-  // retombe sur le palier inférieur quand les filtres s'élargissent.
-  const reachable = countOptions.filter(
-    (o) => o >= minCount && o <= Math.min(count, maxCount),
-  )
+  // retombe sur le palier inférieur quand les filtres s'élargissent, un
+  // maximum sous 5 (révision) sur le plus petit choix ouvert.
+  const enabled = countOptions.filter((o) => o >= minCount && o <= maxCount)
+  const atOrBelow = enabled.filter((o) => o <= count)
   const effectiveCount =
-    reachable.length > 0
-      ? Math.max(...reachable)
-      : Math.max(minCount, Math.min(count, Math.max(maxCount, minCount)))
+    atOrBelow.length > 0
+      ? Math.max(...atOrBelow)
+      : enabled.length > 0
+        ? Math.min(...enabled)
+        : Math.max(minCount, Math.min(count, Math.max(maxCount, minCount)))
   const countHint = tooFew
     ? null
     : isRevision
@@ -583,7 +595,7 @@ export const TrainingConfigForm = ({
               className="text-ink font-mono text-sm tabular-nums"
               data-testid="question-count"
             >
-              {tooFew
+              {tooFew || loading
                 ? "—"
                 : isRevision
                   ? `jusqu'à ${effectiveCount}`
@@ -604,9 +616,14 @@ export const TrainingConfigForm = ({
                   type="button"
                   onClick={() => setCount(option)}
                   disabled={tooFew || loading || option > maxCount}
+                  // Barré = indisponible avec ces filtres ; un chargement
+                  // désactive sans rien affirmer.
+                  data-unavailable={
+                    !loading && (tooFew || option > maxCount) ? "" : undefined
+                  }
                   aria-pressed={!tooFew && effectiveCount === option}
                   aria-label={isRealMax ? `${option}, maximum` : undefined}
-                  className="focus-ring border-line-strong bg-surface text-ink-2 hover:bg-surface-2 aria-pressed:bg-accent-soft aria-pressed:text-accent-ink aria-pressed:ring-accent disabled:bg-surface-2 disabled:text-ink-4 disabled:decoration-line-strong inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border-l font-mono text-[15px] transition-colors duration-(--duration-base) first:border-l-0 disabled:cursor-not-allowed disabled:line-through aria-pressed:font-semibold aria-pressed:ring-1 aria-pressed:ring-inset max-lg:h-11"
+                  className="focus-ring border-line-strong bg-surface text-ink-2 hover:bg-surface-2 aria-pressed:bg-accent-soft aria-pressed:text-accent-ink aria-pressed:ring-accent disabled:bg-surface-2 disabled:text-ink-4 data-unavailable:decoration-line-strong inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border-l font-mono text-[15px] transition-colors duration-(--duration-base) first:border-l-0 disabled:cursor-not-allowed aria-pressed:font-semibold aria-pressed:ring-1 aria-pressed:ring-inset data-unavailable:line-through max-lg:h-11"
                 >
                   {option}
                   {isRealMax && (
@@ -735,7 +752,7 @@ export const TrainingConfigForm = ({
         <Recap
           label="Questions"
           value={
-            tooFew
+            tooFew || loading
               ? "—"
               : isRevision
                 ? `Jusqu'à ${effectiveCount}`

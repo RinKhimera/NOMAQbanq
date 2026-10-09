@@ -326,6 +326,32 @@ describe("TrainingConfigForm — nombre de questions", () => {
     expect(screen.getByTestId("question-count")).toHaveTextContent("10")
   })
 
+  it("en révision, un maximum sous 5 retombe sur le plus petit palier quand le corpus grandit", async () => {
+    loadAvailableObjectifsCMC.mockResolvedValue({ objectifs })
+    loadRevisionCounts.mockResolvedValue({ ...counts, failed: 3 })
+    render(<TrainingConfigForm {...props} />)
+    await waitFor(() => expect(pool()).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId("revision-failed"))
+    await userEvent.click(screen.getByRole("button", { name: "3, maximum" }))
+
+    await userEvent.click(screen.getByTestId("revision-unseen"))
+    expect(screen.getByRole("button", { name: "5" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(screen.getByTestId("question-count")).toHaveTextContent("jusqu'à 5")
+  })
+
+  it("pendant le chargement des compteurs, le nombre se lit « — » et aucun palier n'est barré", async () => {
+    loadAvailableObjectifsCMC.mockResolvedValue({ objectifs })
+    loadRevisionCounts.mockImplementation(() => new Promise(() => {}))
+    render(<TrainingConfigForm {...props} />)
+    expect(screen.getByTestId("question-count")).toHaveTextContent("—")
+    const twenty = screen.getByRole("button", { name: "20" })
+    expect(twenty).toBeDisabled()
+    expect(twenty).not.toHaveAttribute("data-unavailable")
+  })
+
   it("trop peu de questions : aucun palier ne se choisit et le nombre se lit « — »", async () => {
     primeActions()
     render(<TrainingConfigForm {...props} totalQuestions={3} />)
@@ -633,6 +659,36 @@ describe("TrainingConfigForm — domaine et objectifs", () => {
     expect(
       screen.getByRole("button", { name: "Revenir à Cardiologie" }),
     ).toBeInTheDocument()
+  })
+
+  it("la note de retrait disparaît dès que la sélection change", async () => {
+    loadRevisionCounts.mockResolvedValue(counts)
+    loadAvailableObjectifsCMC.mockImplementation(async (domain?: string) => ({
+      objectifs:
+        domain === "Neurologie"
+          ? [
+              { id: "obj-dt", objectif: "Douleur thoracique", count: 12 },
+              { id: "obj-cephalee", objectif: "Céphalée", count: 20 },
+            ]
+          : objectifs,
+    }))
+    render(
+      <TrainingConfigForm
+        {...props}
+        initialDomain="Cardiologie"
+        initialObjectifs={objectifs}
+      />,
+    )
+    await waitFor(() => expect(pool()).toBeInTheDocument())
+    await userEvent.click(screen.getByRole("checkbox", { name: /Dyspnée/ }))
+    await userEvent.click(screen.getByTestId("domain-Neurologie"))
+    await waitFor(() =>
+      expect(
+        screen.getByText("1 objectif retiré : absent de Neurologie"),
+      ).toBeInTheDocument(),
+    )
+    await userEvent.click(screen.getByRole("checkbox", { name: /Céphalée/ }))
+    expect(screen.queryByText(/objectif retiré/)).not.toBeInTheDocument()
   })
 
   it("la note de retrait se referme", async () => {

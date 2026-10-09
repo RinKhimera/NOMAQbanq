@@ -293,7 +293,12 @@ export const getAvailableObjectifsCMC = cache(
     const objectifs = rows
       .filter((r) => r.count > 0)
       .map((r) => ({ id: r.id, objectif: r.objectif, count: r.count }))
-      .sort((a, b) => a.objectif.localeCompare(b.objectif, "fr"))
+      // L'id départage les libellés identiques : ordre stable d'un appel à l'autre.
+      .sort(
+        (a, b) =>
+          a.objectif.localeCompare(b.objectif, "fr") ||
+          a.id.localeCompare(b.id),
+      )
     const total = objectifs.reduce((s, o) => s + o.count, 0)
     return { objectifs, total }
   },

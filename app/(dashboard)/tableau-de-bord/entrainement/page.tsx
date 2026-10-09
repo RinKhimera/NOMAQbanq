@@ -54,7 +54,9 @@ export default async function EntrainementPage({
   }
 
   const param = (await searchParams)[TRAINING_DOMAIN_PARAM]
-  const requestedDomain = typeof param === "string" ? param : undefined
+  // « all » n'est pas un domaine : c'est déjà la liste de toute la banque.
+  const requestedDomain =
+    typeof param === "string" && param !== "all" ? param : undefined
   // Les objectifs du domaine demandé partent avec le reste, avant de savoir si
   // ce domaine existe.
   const [activeSession, domains, initialHistory, requestedObjectifs] =
