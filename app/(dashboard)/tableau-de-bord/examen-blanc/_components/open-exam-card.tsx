@@ -32,8 +32,14 @@ const BADGE: Record<OpenExamState, { tone: Tone; label: string }> = {
   started: { tone: "warning", label: "En cours" },
   paused: { tone: "neutral", label: "En pause" },
   elapsed: { tone: "danger", label: "Temps écoulé" },
+  suspended: { tone: "danger", label: "Suspendu" },
   submitted: { tone: "neutral", label: "Soumis" },
 }
+
+/** Examen suspendu (`CONTEXT.md`) : visible, mais personne ne le commence. */
+export const SuspendedTag = () => (
+  <StatusPill tone={BADGE.suspended.tone}>{BADGE.suspended.label}</StatusPill>
+)
 
 /** Repère d'un examen sur invitation (passable sans abonnement). */
 export const InviteTag = () => (
@@ -134,7 +140,17 @@ export const OpenExamCard = ({
     state === "locked" && p !== null && budgetExhausted(p, now)
 
   let side: ReactNode
-  if (state === "eligible" || state === "locked") {
+  if (state === "suspended") {
+    side = (
+      <div className="flex flex-col gap-0.5">
+        <span className="type-label">Suspendu</span>
+        <Sub>
+          L&apos;examen ne peut pas être commencé pour le moment. Il ferme le{" "}
+          {formatDeadline(exam.endDate)}.
+        </Sub>
+      </div>
+    )
+  } else if (state === "eligible" || state === "locked") {
     side = (
       <>
         <div className="flex flex-col gap-0.5">

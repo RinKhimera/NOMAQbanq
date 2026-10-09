@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   adminPhaseOf,
+  adminSectionOf,
   canReadResults,
   isOpen,
   partition,
@@ -12,9 +13,19 @@ const NOW = 1_700_000_000_000
 describe("ExamPhase — phaseOf", () => {
   it.each([
     {
-      label: "désactivé, quelles que soient les dates",
+      label: "suspendu prime sur en cours",
       exam: { isActive: false, startDate: NOW - 1000, endDate: NOW + 1000 },
-      expected: "inactive",
+      expected: "suspended",
+    },
+    {
+      label: "suspendu prime sur à venir",
+      exam: { isActive: false, startDate: NOW + 1000, endDate: NOW + 2000 },
+      expected: "suspended",
+    },
+    {
+      label: "clos : terminé, suspendu ou non",
+      exam: { isActive: false, startDate: NOW - 2000, endDate: NOW },
+      expected: "completed",
     },
     {
       label: "à venir 1 ms avant l'ouverture",
@@ -70,14 +81,34 @@ describe("ExamPhase — adminPhaseOf (préparation comprise)", () => {
       expected: "preparation",
     },
     {
-      label: "désactivé prime sur la préparation",
+      label: "la préparation prime sur la suspension",
       exam: {
         isActive: false,
         finalizedAt: null,
         startDate: null,
         endDate: null,
       },
-      expected: "inactive",
+      expected: "preparation",
+    },
+    {
+      label: "finalisé, ouvert et suspendu",
+      exam: {
+        isActive: false,
+        finalizedAt: NOW - 5000,
+        startDate: NOW - 1000,
+        endDate: NOW + 1000,
+      },
+      expected: "suspended",
+    },
+    {
+      label: "finalisé, clos et suspendu : terminé",
+      exam: {
+        isActive: false,
+        finalizedAt: NOW - 5000,
+        startDate: NOW - 2000,
+        endDate: NOW - 1000,
+      },
+      expected: "completed",
     },
     {
       label: "finalisé : phase par les dates",
@@ -94,6 +125,36 @@ describe("ExamPhase — adminPhaseOf (préparation comprise)", () => {
   })
 })
 
+describe("ExamPhase — adminSectionOf", () => {
+  const exam = (isActive: boolean, startDate: number, endDate: number) => ({
+    isActive,
+    finalizedAt: NOW - 5000,
+    startDate,
+    endDate,
+  })
+
+  it("un suspendu reste dans la section de ses dates", () => {
+    expect(adminSectionOf(exam(false, NOW - 1000, NOW + 1000), NOW)).toBe(
+      "active",
+    )
+    expect(adminSectionOf(exam(false, NOW + 1000, NOW + 2000), NOW)).toBe(
+      "upcoming",
+    )
+    expect(adminSectionOf(exam(false, NOW - 2000, NOW - 1000), NOW)).toBe(
+      "completed",
+    )
+  })
+
+  it("un examen en préparation reste en préparation", () => {
+    expect(
+      adminSectionOf(
+        { isActive: true, finalizedAt: null, startDate: null, endDate: null },
+        NOW,
+      ),
+    ).toBe("preparation")
+  })
+})
+
 describe("ExamPhase — isOpen (date de fin non passée)", () => {
   it("un examen à venir est ouvert", () => {
     expect(isOpen({ endDate: NOW + 10_000 }, NOW)).toBe(true)
@@ -104,7 +165,7 @@ describe("ExamPhase — isOpen (date de fin non passée)", () => {
 })
 
 describe("ExamPhase — partition", () => {
-  it("classe les examens actifs par phase et écarte les désactivés", () => {
+  it("classe les examens par leurs dates, un suspendu dans sa section", () => {
     const active = {
       id: "a",
       isActive: true,
@@ -123,45 +184,33 @@ describe("ExamPhase — partition", () => {
       startDate: NOW - 2,
       endDate: NOW - 1,
     }
-    const off = {
+    const suspendedNow = {
+      id: "s",
+      isActive: false,
+      startDate: NOW - 1,
+      endDate: NOW + 1,
+    }
+    const suspendedLater = {
+      id: "l",
+      isActive: false,
+      startDate: NOW + 1,
+      endDate: NOW + 2,
+    }
+    const suspendedPast = {
       id: "o",
-      isActive: false,
-      startDate: NOW - 1,
-      endDate: NOW + 1,
-    }
-    expect(partition([past, off, upcoming, active], NOW)).toEqual({
-      active: [active],
-      upcoming: [upcoming],
-      completed: [past],
-    })
-  })
-
-  it("garde un examen désactivé auquel l'étudiant a participé, classé par ses dates", () => {
-    const running = {
-      id: "r",
-      isActive: false,
-      startDate: NOW - 1,
-      endDate: NOW + 1,
-      userParticipation: { score: null },
-    }
-    const done = {
-      id: "d",
       isActive: false,
       startDate: NOW - 2,
       endDate: NOW - 1,
-      userParticipation: { score: 70 },
     }
-    const untouched = {
-      id: "x",
-      isActive: false,
-      startDate: NOW - 1,
-      endDate: NOW + 1,
-      userParticipation: null,
-    }
-    expect(partition([running, done, untouched], NOW)).toEqual({
-      active: [running],
-      upcoming: [],
-      completed: [done],
+    expect(
+      partition(
+        [past, suspendedNow, upcoming, active, suspendedLater, suspendedPast],
+        NOW,
+      ),
+    ).toEqual({
+      active: [suspendedNow, active],
+      upcoming: [upcoming, suspendedLater],
+      completed: [past, suspendedPast],
     })
   })
 })

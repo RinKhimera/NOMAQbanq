@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, isNotNull, lte, or, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
@@ -18,9 +18,10 @@ import { type DashboardPeriod, periodWindow } from "@/lib/dashboard-period"
 import { PASS_THRESHOLD } from "@/lib/score"
 import { finalizedDate, finalizedDuration } from "../exams/dal.shared"
 import {
-  memberAudienceWhere,
+  participatedIn,
   participationScoreReadable,
   readableParticipationScore,
+  visibleToStudent,
 } from "../exams/dal.student"
 import { DEFAULT_PAUSE_MINUTES } from "../exams/schemas"
 import { hasAccess } from "../payments/dal"
@@ -260,16 +261,16 @@ export const getMyDashboard = cache(
 )
 
 /**
- * Examens actifs que l'utilisateur peut passer, sans filtre de fenêtre :
- * ouverts aux abonnés, ou restreints dont il est membre. Entitlement réel
- * (`hasAccess` avec `userId`) : un admin sans accès acheté n'en voit aucun.
+ * Examens que l'utilisateur voit (`visibleToStudent`), sans filtre de
+ * fenêtre, hors examens suspendus encore ouverts qu'il n'a pas commencés : il
+ * ne le peut plus. Entitlement réel (`hasAccess` avec `userId`) : un admin
+ * sans accès acheté n'en voit aucun.
  */
 const countAvailableExams = async (
   uid: string,
 ): Promise<{ available: number; completed: number }> => {
   if (!(await hasAccess("exam", uid))) return { available: 0, completed: 0 }
-  // Même ensemble au numérateur : une participation à un examen désactivé
-  // depuis ne gonfle pas le taux (au plus une participation par examen).
+  // Même ensemble au numérateur (au plus une participation par examen).
   const [row] = await db
     .select({
       available: sql<number>`count(*)`.mapWith(Number),
@@ -284,9 +285,13 @@ const countAvailableExams = async (
     .from(exams)
     .where(
       and(
-        eq(exams.isActive, true),
+        or(
+          eq(exams.isActive, true),
+          lte(exams.endDate, sql`now()`),
+          participatedIn(uid),
+        ),
         isNotNull(exams.finalizedAt),
-        memberAudienceWhere(uid),
+        visibleToStudent(uid),
       ),
     )
   return { available: row?.available ?? 0, completed: row?.completed ?? 0 }

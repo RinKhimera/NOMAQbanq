@@ -192,7 +192,8 @@ describe("QuestionDetailContent", () => {
       />,
     )
     expect(screen.queryByRole("link", { name: /Examen blanc/ })).toBeNull()
-    expect(screen.getByText("Désactivé")).toBeInTheDocument()
+    // Suspendu puis clos : terminé comme les autres.
+    expect(screen.getByText("Terminé")).toBeInTheDocument()
   })
 
   it("examen en préparation sans dates : phase et fenêtre à définir", () => {

@@ -155,11 +155,20 @@ beforeAll(async () => {
   await series({ userId: REVIEWER_ID, at: new Date(NOW - 31 * DAY), score: 0 })
 
   // Moyenne des 7 jours = 59,67 ; la période précédente = 58. L'examen du
-  // troisième jour a été désactivé depuis.
+  // troisième jour a été suspendu avant sa clôture : terminé comme les autres.
   await examWith({ userId: ARCHIVE_ID, daysAgo: 2, score: 59 })
   await examWith({ userId: ARCHIVE_ID, daysAgo: 3, score: 60, active: false })
   await examWith({ userId: ARCHIVE_ID, daysAgo: 4, score: 60 })
   await examWith({ userId: ARCHIVE_ID, daysAgo: 10, score: 58 })
+  // Soumis hier, puis suspendu, encore ouvert : score retenu, reste compté
+  // pour qui l'a passé, plus disponible pour les autres.
+  await examWith({
+    userId: ARCHIVE_ID,
+    daysAgo: 1,
+    score: 70,
+    open: true,
+    active: false,
+  })
 
   await series({ userId: STUDENT_ID, at: new Date(NOW - 2 * DAY) })
   await series({
@@ -291,9 +300,10 @@ describe("getMyDashboard — chiffres sur « Tout »", () => {
       expect(d?.exams.passedCount).toBe(2) // 80 et 60, au seuil
       expect(d?.exams.overallAverage).toBe(55)
     }
-    // Les 10 examens actifs du beforeAll, y compris ceux des autres comptes :
-    // l'accès ouvre tout examen de l'audience publique.
-    expect(week?.exams.availableCount).toBe(10)
+    // Les 11 examens non suspendus ou clos du beforeAll, y compris ceux des
+    // autres comptes : l'accès ouvre tout examen de l'audience publique. Le
+    // suspendu encore ouvert, qu'il n'a pas passé, n'en est pas : il ne se commence plus.
+    expect(week?.exams.availableCount).toBe(11)
   })
 
   it("sans accès Examens : aucun examen disponible", async () => {
@@ -327,9 +337,10 @@ describe("getMyDashboard — taux de complétion", () => {
   it("le numérateur ne compte que les examens encore disponibles", async () => {
     setSession(ARCHIVE_ID)
     const d = await getMyDashboard("30")
-    expect(d?.exams.completedCount).toBe(4)
-    // L'examen désactivé sort du numérateur comme du dénominateur.
-    expect(d?.exams.completedOfAvailableCount).toBe(3)
+    // Les deux suspendus, clos comme encore ouvert, restent comptés : il les a
+    // passés.
+    expect(d?.exams.completedCount).toBe(5)
+    expect(d?.exams.completedOfAvailableCount).toBe(5)
   })
 
   it("sans accès Examens : rien de disponible, rien au numérateur", async () => {

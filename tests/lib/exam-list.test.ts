@@ -21,6 +21,7 @@ const exam = (over: Partial<ListExam> = {}): ListExam => ({
   endDate: NOW + 2 * 24 * HOUR,
   completionTime: 318 * 60,
   audienceType: "subscribers",
+  isActive: true,
   userParticipation: null,
   ...over,
 })
@@ -78,6 +79,35 @@ describe("openExamState", () => {
     ).toBe("locked")
   })
 
+  it("suspendu sans participation : « suspendu », quel que soit l'accès", () => {
+    const e = exam({ isActive: false })
+    expect(openExamState(e, NOW, true)).toBe("suspended")
+    expect(openExamState(e, NOW, false)).toBe("suspended")
+    expect(
+      openExamState({ ...e, audienceType: "restricted" }, NOW, false),
+    ).toBe("suspended")
+  })
+
+  it("suspendu : une participation en cours continue, une soumise reste soumise", () => {
+    expect(
+      openExamState(
+        exam({ isActive: false, userParticipation: started() }),
+        NOW,
+        true,
+      ),
+    ).toBe("started")
+    expect(
+      openExamState(
+        exam({
+          isActive: false,
+          userParticipation: started({ status: "completed", completedAt: NOW }),
+        }),
+        NOW,
+        true,
+      ),
+    ).toBe("submitted")
+  })
+
   it("soumise : « soumis », quel que soit l'accès", () => {
     const e = exam({
       userParticipation: started({ status: "completed", completedAt: NOW }),
@@ -93,6 +123,7 @@ describe("openExamState", () => {
           "eligible",
           "paused",
           "locked",
+          "suspended",
           "elapsed",
           "started",
         ] as const
@@ -104,6 +135,7 @@ describe("openExamState", () => {
       "started",
       "eligible",
       "locked",
+      "suspended",
       "submitted",
     ])
   })

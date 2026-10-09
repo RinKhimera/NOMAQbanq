@@ -274,10 +274,33 @@ export const AudienceStep = ({
         className="self-start"
       />
       {values.audienceType === "subscribers" ? (
-        <p className="text-ink-3 text-[0.8125rem]">
-          Tous les étudiants avec un accès Examens actif{NBSP}:{" "}
-          {formatCount(subscriberCount)} aujourd&apos;hui.
-        </p>
+        <>
+          <p className="text-ink-3 text-[0.8125rem]">
+            Tous les étudiants avec un accès Examens actif{NBSP}:{" "}
+            {formatCount(subscriberCount)} aujourd&apos;hui.
+          </p>
+          <div className="border-line flex items-start justify-between gap-4 border-t pt-4">
+            <div className="flex flex-col gap-0.5">
+              <label
+                htmlFor="exam-hidden"
+                className="text-ink text-[0.9375rem]"
+              >
+                Masquer aux non-abonnés
+              </label>
+              <p className="text-ink-3 text-[0.8125rem] leading-normal">
+                Seuls les étudiants avec un accès Examens actif, et ceux qui y
+                ont déjà participé, voient l&apos;examen. Sinon, tous les
+                étudiants le voient, verrouillé sans abonnement.
+              </p>
+            </div>
+            <Switch
+              id="exam-hidden"
+              checked={values.isHidden}
+              onCheckedChange={(checked) => set("isHidden", checked)}
+              data-testid="exam-hidden-switch"
+            />
+          </div>
+        </>
       ) : (
         <div className="flex flex-col gap-2">
           <UserMultiSelect

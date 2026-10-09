@@ -1,6 +1,6 @@
 "use client"
 
-import { EyeOff, Trash2 } from "lucide-react"
+import { CirclePause, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -13,9 +13,9 @@ import { EXAMS_HREF } from "@/constants/exam-routes"
 import { deleteExam } from "@/features/exams/actions"
 import { NBSP } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
-import type { DetailExam } from "./exam-detail-model"
+import { type DetailExam, SUSPENSION_EFFECT } from "./exam-detail-model"
 
-export const DeactivateExamDialog = ({
+export const SuspendExamDialog = ({
   title,
   open,
   onOpenChange,
@@ -30,36 +30,40 @@ export const DeactivateExamDialog = ({
     open={open}
     onOpenChange={onOpenChange}
     variant="destructive"
-    title={`Désactiver ${title}${NBSP}?`}
-    description="L'examen disparaît de la liste des étudiants. Les résultats déjà publiés restent consultables."
+    title={`Suspendre ${title}${NBSP}?`}
+    description={SUSPENSION_EFFECT}
     confirmLabel={
       <>
-        <EyeOff aria-hidden />
-        Désactiver
+        <CirclePause aria-hidden />
+        Suspendre l&apos;examen
       </>
     }
-    pendingLabel="Désactivation…"
-    confirmTestId="btn-deactivate-exam-confirm"
+    pendingLabel="Suspension…"
+    confirmTestId="btn-suspend-exam-confirm"
     onConfirm={onConfirm}
   />
 )
 
 /**
  * Suppression définitive. Avec des participations, l'identifiant de l'examen
- * se saisit pour confirmer, et la désactivation est proposée à la place.
+ * se saisit pour confirmer, et la suspension est proposée à la place pour un
+ * examen ouvert qui ne l'est pas déjà.
  */
 export const DeleteExamDialog = ({
   exam,
   participations,
+  suspendable,
   open,
   onOpenChange,
-  onDeactivateInstead,
+  onSuspendInstead,
 }: {
   exam: DetailExam
   participations: number
+  /** Examen finalisé, ouvert et pas déjà suspendu. */
+  suspendable: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
-  onDeactivateInstead: () => void
+  onSuspendInstead: () => void
 }) => {
   const router = useRouter()
   const [confirmation, setConfirmation] = useState("")
@@ -118,21 +122,21 @@ export const DeleteExamDialog = ({
               progression.
             </AlertDescription>
           </Alert>
-          {exam.isActive && (
+          {suspendable && (
             <div className="text-ink-2 flex flex-wrap items-center gap-2 text-sm">
-              Pour retirer l&apos;examen sans perdre les résultats, préférez la
-              désactivation.
+              Pour arrêter l&apos;examen sans perdre les résultats, préférez la
+              suspension.
               <Button
                 type="button"
                 size="sm"
                 variant="ghost"
                 onClick={() => {
                   setConfirmation("")
-                  onDeactivateInstead()
+                  onSuspendInstead()
                 }}
-                data-testid="btn-deactivate-instead"
+                data-testid="btn-suspend-instead"
               >
-                Désactiver à la place
+                Suspendre à la place
               </Button>
             </div>
           )}

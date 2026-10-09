@@ -112,8 +112,59 @@ describe("ExamForm — nouvel examen", () => {
       pauseDurationMinutes: undefined,
       audienceType: "subscribers",
       audienceUserIds: [],
+      isHidden: false,
     })
     expect(finalizePreparedExam).not.toHaveBeenCalled()
+  })
+
+  it("le masquage se règle pour une audience d'abonnés, pas pour une liste restreinte", async () => {
+    vi.mocked(saveExam).mockResolvedValue({
+      success: true,
+      examId: "e9",
+      finalized: false,
+    })
+    render(<ExamForm {...props()} />)
+    typeTitle("Examen blanc 29")
+
+    fireEvent.click(screen.getByTestId("exam-hidden-switch"))
+    fireEvent.click(screen.getByTestId("exam-audience-restricted"))
+    expect(screen.queryByTestId("exam-hidden-switch")).toBeNull()
+    fireEvent.click(screen.getByTestId("exam-audience-subscribers"))
+    expect(screen.getByTestId("exam-hidden-switch")).toBeChecked()
+
+    fireEvent.click(screen.getByTestId("btn-save-exam"))
+
+    await waitFor(() =>
+      expect(saveExam).toHaveBeenCalledWith(
+        expect.objectContaining({
+          audienceType: "subscribers",
+          isHidden: true,
+        }),
+      ),
+    )
+  })
+
+  it("une liste restreinte n'envoie jamais le masquage", async () => {
+    vi.mocked(saveExam).mockResolvedValue({
+      success: true,
+      examId: "e9",
+      finalized: false,
+    })
+    render(<ExamForm {...props()} />)
+    typeTitle("Examen blanc 29")
+
+    fireEvent.click(screen.getByTestId("exam-hidden-switch"))
+    fireEvent.click(screen.getByTestId("exam-audience-restricted"))
+    fireEvent.click(screen.getByTestId("btn-save-exam"))
+
+    await waitFor(() =>
+      expect(saveExam).toHaveBeenCalledWith(
+        expect.objectContaining({
+          audienceType: "restricted",
+          isHidden: false,
+        }),
+      ),
+    )
   })
 
   it("« Composer le jeu de questions » attend le premier enregistrement", () => {
@@ -199,12 +250,13 @@ describe("ExamForm — réouverture", () => {
       pauseDurationMinutes: 45,
       questionCount: 12,
       audienceType: "subscribers" as const,
+      isHidden: true,
     },
     questionIds: ["q1", "q2"],
     audience: [],
   }
 
-  it("envoie les questions de la source à la création, et le visé de la source", async () => {
+  it("envoie les questions de la source à la création, son visé et son masquage", async () => {
     vi.mocked(saveExam).mockResolvedValue({
       success: true,
       examId: "e9",
@@ -250,6 +302,7 @@ describe("ExamForm — réouverture", () => {
         targetQuestionCount: 12,
         enablePause: true,
         pauseDurationMinutes: 45,
+        isHidden: true,
       }),
     )
   })

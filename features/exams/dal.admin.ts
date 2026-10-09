@@ -359,6 +359,7 @@ export type AdminExam = {
     /** Questions du jeu supprimées depuis leur ajout. */
     deletedQuestionCount: number
     audienceType: ExamAudienceType
+    isHidden: boolean
   }
 }
 
@@ -384,6 +385,7 @@ export const getAdminExam = cache(
         enablePause: exams.enablePause,
         pauseDurationMinutes: exams.pauseDurationMinutes,
         audienceType: exams.audienceType,
+        isHidden: exams.isHidden,
       })
       .from(exams)
       .where(eq(exams.id, examId))
@@ -547,6 +549,7 @@ export type ExamReopeningSource = {
     /** Questions de la source, supprimées comprises : le formulaire signale l'écart. */
     questionCount: number
     audienceType: ExamAudienceType
+    isHidden: boolean
   }
   /** Questions non supprimées, dans leur ordre. */
   questionIds: string[]
@@ -572,6 +575,7 @@ export const getExamReopeningSource = cache(
           enablePause: exams.enablePause,
           pauseDurationMinutes: exams.pauseDurationMinutes,
           audienceType: exams.audienceType,
+          isHidden: exams.isHidden,
         })
         .from(exams)
         // Une réouverture reprend un examen clos, donc finalisé.

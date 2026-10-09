@@ -14,15 +14,29 @@ export type ExamWindow = {
   endDate: number
 }
 
-/** Phase d'un examen finalisé : à venir, en cours, terminé ou désactivé. */
+type WindowPhase = "upcoming" | "active" | "completed"
+
+/** Phase d'un examen finalisé par ses seules dates, suspension ignorée. */
+const windowPhaseOf = (
+  exam: Pick<ExamWindow, "startDate" | "endDate">,
+  now: number,
+): WindowPhase => {
+  if (now < exam.startDate) return "upcoming"
+  if (!isOpen(exam, now)) return "completed"
+  return "active"
+}
+
+/**
+ * Phase d'un examen finalisé : à venir, en cours, suspendu ou terminé.
+ * Suspendu prime sur à venir et en cours ; un examen clos est terminé,
+ * suspendu ou non.
+ */
 export const phaseOf = (
   exam: ExamWindow,
   now: number,
 ): Exclude<ExamStatus, "preparation"> => {
-  if (!exam.isActive) return "inactive"
-  if (now < exam.startDate) return "upcoming"
-  if (!isOpen(exam, now)) return "completed"
-  return "active"
+  const phase = windowPhaseOf(exam, now)
+  return phase !== "completed" && !exam.isActive ? "suspended" : phase
 }
 
 /**
@@ -58,17 +72,28 @@ export const isFinalizedClosed = (exam: ExamSchedule, now: number): boolean => {
   return window !== null && !isOpen(window, now)
 }
 
-/** Phase vue par l'admin, qui voit aussi les examens en préparation. « Désactivé » prime. */
+/** Phase vue par l'admin, qui voit aussi les examens en préparation. */
 export type AdminExamWindow = ExamSchedule & { isActive: boolean }
 
 export const adminPhaseOf = (
   exam: AdminExamWindow,
   now: number,
 ): ExamStatus => {
-  if (!exam.isActive) return "inactive"
   const window = finalizedWindow(exam)
   if (window === null) return "preparation"
-  return phaseOf({ isActive: true, ...window }, now)
+  return phaseOf({ isActive: exam.isActive, ...window }, now)
+}
+
+/**
+ * Section d'un examen dans les vues par phase : celle de ses dates, un examen
+ * suspendu restant à sa place (en cours ou à venir).
+ */
+export const adminSectionOf = (
+  exam: AdminExamWindow,
+  now: number,
+): Exclude<ExamStatus, "suspended"> => {
+  const window = finalizedWindow(exam)
+  return window === null ? "preparation" : windowPhaseOf(window, now)
 }
 
 /**
@@ -82,24 +107,16 @@ export const isOpen = (exam: { endDate: number }, now: number): boolean =>
 export type ExamPartition<T> = { active: T[]; upcoming: T[]; completed: T[] }
 
 /**
- * Classe les examens par phase. Un désactivé n'apparaît que pour qui y a
- * participé, classé par ses dates : il doit pouvoir reprendre son épreuve ou
- * relire ses résultats.
+ * Classe les examens par leurs dates : un examen suspendu reste dans sa
+ * section, où il porte « Suspendu ». La DAL a déjà retiré ceux que l'étudiant
+ * ne voit pas.
  */
-export const partition = <
-  T extends ExamWindow & { userParticipation?: unknown },
->(
+export const partition = <T extends ExamWindow>(
   exams: readonly T[],
   now: number,
 ): ExamPartition<T> => {
   const out: ExamPartition<T> = { active: [], upcoming: [], completed: [] }
-  for (const exam of exams) {
-    const phase = phaseOf(
-      exam.userParticipation ? { ...exam, isActive: true } : exam,
-      now,
-    )
-    if (phase !== "inactive") out[phase].push(exam)
-  }
+  for (const exam of exams) out[windowPhaseOf(exam, now)].push(exam)
   return out
 }
 

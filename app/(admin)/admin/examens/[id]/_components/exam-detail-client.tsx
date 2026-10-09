@@ -17,7 +17,7 @@ import type {
   LeaderboardEntry,
 } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
-import { adminPhaseOf } from "@/lib/exam-phase"
+import { adminPhaseOf, adminSectionOf } from "@/lib/exam-phase"
 import { isLateToOpen, preciseWindow } from "@/lib/exam-readiness"
 import { formatMediumDate } from "@/lib/format"
 import { TONE_COLOR } from "@/lib/tone"
@@ -168,7 +168,7 @@ export function ExamDetailClient({
       <ExamLeaderboard
         examId={exam.id}
         leaderboard={leaderboard}
-        provisional={phase === "active"}
+        provisional={adminSectionOf(exam, now) === "active"}
       />
 
       {exam.audienceType === "restricted" ? (

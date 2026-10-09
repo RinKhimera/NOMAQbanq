@@ -1,6 +1,15 @@
 "use client"
 
-import { Eye, EyeOff, List, ListChecks, Pencil, Trash2 } from "lucide-react"
+import {
+  CirclePause,
+  CirclePlay,
+  Eye,
+  EyeOff,
+  List,
+  ListChecks,
+  Pencil,
+  Trash2,
+} from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -9,9 +18,14 @@ import { ReopenExamButton } from "@/components/admin/reopen-exam-button"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { examComposerHref, examEditHref } from "@/constants/exam-routes"
-import { deactivateExam, reactivateExam } from "@/features/exams/actions"
+import {
+  liftExamSuspension,
+  setExamHidden,
+  suspendExam,
+} from "@/features/exams/actions"
+import { isFinalizedOpen } from "@/lib/exam-phase"
 import { callAction } from "@/lib/safe-action"
-import { DeactivateExamDialog, DeleteExamDialog } from "./exam-detail-dialogs"
+import { DeleteExamDialog, SuspendExamDialog } from "./exam-detail-dialogs"
 import { type DetailExam, examQuestionsHref } from "./exam-detail-model"
 
 /** Actions de l'en-tête de la fiche et leurs dialogues. */
@@ -26,29 +40,35 @@ export const ExamDetailActions = ({
   now: number
 }) => {
   const router = useRouter()
-  const [deactivateOpen, setDeactivateOpen] = useState(false)
+  const [suspendOpen, setSuspendOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [reactivating, setReactivating] = useState(false)
+  const [pending, setPending] = useState<"lift" | "hide" | null>(null)
+  // Suspension et levée ne jouent que tant que l'examen est ouvert.
+  const open = isFinalizedOpen(exam, now)
 
-  const reactivate = async () => {
-    setReactivating(true)
-    const res = await callAction(() => reactivateExam({ examId: exam.id }))
-    setReactivating(false)
+  const run = async (
+    kind: "lift" | "hide",
+    action: () => Promise<{ success: boolean; error?: string }>,
+    done: string,
+  ) => {
+    setPending(kind)
+    const res = await callAction(action)
+    setPending(null)
     if (!res.success) {
-      toast.error(res.error ?? "Réactivation impossible")
+      toast.error(res.error ?? "Action impossible")
       return
     }
-    toast.success("Examen réactivé")
+    toast.success(done)
     router.refresh()
   }
 
-  const deactivate = async () => {
-    const res = await callAction(() => deactivateExam({ examId: exam.id }))
+  const suspend = async () => {
+    const res = await callAction(() => suspendExam({ examId: exam.id }))
     if (!res.success) {
-      toast.error(res.error ?? "Désactivation impossible")
+      toast.error(res.error ?? "Suspension impossible")
       return false
     }
-    toast.success("Examen désactivé")
+    toast.success("Examen suspendu")
     router.refresh()
   }
 
@@ -82,28 +102,63 @@ export const ExamDetailActions = ({
         </Button>
       )}
       <ReopenExamButton exam={exam} now={now} />
-      {exam.isActive ? (
+      {exam.audienceType === "subscribers" && (
         <Button
           type="button"
           variant="ghost"
-          onClick={() => setDeactivateOpen(true)}
-          data-testid="btn-deactivate-exam"
+          disabled={pending !== null}
+          onClick={() =>
+            run(
+              "hide",
+              () => setExamHidden({ examId: exam.id, hidden: !exam.isHidden }),
+              exam.isHidden ? "Examen affiché" : "Examen masqué",
+            )
+          }
+          data-testid={exam.isHidden ? "btn-show-exam" : "btn-hide-exam"}
         >
-          <EyeOff aria-hidden />
-          Désactiver
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={reactivating}
-          onClick={reactivate}
-          data-testid="btn-reactivate-exam"
-        >
-          {reactivating ? <Spinner size="sm" /> : <Eye aria-hidden />}
-          Réactiver
+          {pending === "hide" ? (
+            <Spinner size="sm" />
+          ) : exam.isHidden ? (
+            <Eye aria-hidden />
+          ) : (
+            <EyeOff aria-hidden />
+          )}
+          {exam.isHidden ? "Afficher" : "Masquer"}
         </Button>
       )}
+      {open &&
+        (exam.isActive ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setSuspendOpen(true)}
+            data-testid="btn-suspend-exam"
+          >
+            <CirclePause aria-hidden />
+            Suspendre l&apos;examen
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={pending !== null}
+            onClick={() =>
+              run(
+                "lift",
+                () => liftExamSuspension({ examId: exam.id }),
+                "Suspension levée",
+              )
+            }
+            data-testid="btn-lift-suspension"
+          >
+            {pending === "lift" ? (
+              <Spinner size="sm" />
+            ) : (
+              <CirclePlay aria-hidden />
+            )}
+            Lever la suspension
+          </Button>
+        ))}
       <Button
         type="button"
         variant="ghost"
@@ -115,20 +170,21 @@ export const ExamDetailActions = ({
         Supprimer
       </Button>
 
-      <DeactivateExamDialog
+      <SuspendExamDialog
         title={exam.title}
-        open={deactivateOpen}
-        onOpenChange={setDeactivateOpen}
-        onConfirm={deactivate}
+        open={suspendOpen}
+        onOpenChange={setSuspendOpen}
+        onConfirm={suspend}
       />
       <DeleteExamDialog
         exam={exam}
         participations={participations}
+        suspendable={open && exam.isActive}
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        onDeactivateInstead={() => {
+        onSuspendInstead={() => {
           setDeleteOpen(false)
-          setDeactivateOpen(true)
+          setSuspendOpen(true)
         }}
       />
     </>

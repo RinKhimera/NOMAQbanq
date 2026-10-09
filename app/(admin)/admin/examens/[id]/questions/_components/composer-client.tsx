@@ -50,7 +50,7 @@ export type ComposerExam = {
   targetQuestionCount: number
   /** Finalisé : la première modification le remet en préparation. */
   finalized: boolean
-  /** Finalisé, actif et pas encore clos : visible des étudiants. */
+  /** Finalisé et pas encore clos : visible des étudiants, suspendu ou non. */
   openToStudents: boolean
   phase: ExamStatus
 }

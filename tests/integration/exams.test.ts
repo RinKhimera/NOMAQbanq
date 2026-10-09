@@ -18,12 +18,12 @@ import {
   getMyRecentParticipations,
 } from "@/features/analytics/dal"
 import {
-  deactivateExam,
   deleteParticipation,
   finalizeExam,
-  reactivateExam,
+  liftExamSuspension,
   saveExamAnswer,
   startExam,
+  suspendExam,
 } from "@/features/exams/actions"
 import {
   getExamLeaderboard,
@@ -379,14 +379,16 @@ describe("Admin CRUD", () => {
     }
   })
 
-  it("deactivate puis reactivate bascule isActive", async () => {
+  it("suspendre puis lever la suspension bascule isActive", async () => {
     const id = await makeExam({ questionIds: examQIds.slice(0, 3) })
     asAdmin()
-    await deactivateExam({ examId: id })
+    expect(await suspendExam({ examId: id })).toEqual({ success: true })
     let all = await getExamsOverview()
     expect(all.find((e) => e.id === id)?.isActive).toBe(false)
 
-    await reactivateExam({ examId: id })
+    expect(await liftExamSuspension({ examId: id })).toEqual({
+      success: true,
+    })
     all = await getExamsOverview()
     expect(all.find((e) => e.id === id)?.isActive).toBe(true)
   })

@@ -1,5 +1,5 @@
 import type { AdminExamOverviewItem } from "@/features/exams/dal"
-import { adminPhaseOf } from "@/lib/exam-phase"
+import { adminPhaseOf, adminSectionOf } from "@/lib/exam-phase"
 import type { ExamStatus } from "@/lib/exam-status"
 import { NBSP } from "@/lib/format"
 
@@ -30,7 +30,8 @@ const byStartDesc = (a: OverviewExam, b: OverviewExam) => {
 
 /**
  * Range les examens par section : « À préparer » par ouverture la plus proche
- * (sans dates à la fin), « Terminés » du plus récent au plus ancien.
+ * (sans dates à la fin), « Terminés » du plus récent au plus ancien. Un examen
+ * suspendu reste dans la section de ses dates, avec son étiquette.
  */
 export const overviewSections = (
   exams: readonly AdminExamOverviewItem[],
@@ -39,10 +40,10 @@ export const overviewSections = (
   const out: OverviewSections = { live: [], toPrepare: [], finished: [] }
   for (const exam of exams) {
     const item = { ...exam, phase: adminPhaseOf(exam, now) }
-    if (item.phase === "active") out.live.push(item)
-    else if (item.phase === "upcoming" || item.phase === "preparation")
-      out.toPrepare.push(item)
-    else out.finished.push(item)
+    const section = adminSectionOf(exam, now)
+    if (section === "active") out.live.push(item)
+    else if (section === "completed") out.finished.push(item)
+    else out.toPrepare.push(item)
   }
   out.live.sort(byStartAsc)
   out.toPrepare.sort(byStartAsc)

@@ -112,8 +112,6 @@ export function ExamenBlancClient({
       ),
     [active, now, hasExamAccess],
   )
-  // Les compteurs suivent les sections : un examen désactivé n'y figure pas,
-  // comme sur le tableau de bord.
   const stats = useMemo(
     () => examListStats([...active, ...upcoming, ...completed]),
     [active, upcoming, completed],

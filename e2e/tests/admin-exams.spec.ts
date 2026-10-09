@@ -129,25 +129,27 @@ test.describe("Admin — examens blancs", () => {
     await expect(page.getByTestId("leaderboard-empty")).toBeVisible()
   })
 
-  test("désactiver puis réactiver un examen", async ({ page, request }) => {
+  test("suspendre puis lever la suspension d'un examen ouvert", async ({
+    page,
+    request,
+  }) => {
     test.skip(!SECRET, "E2E_RESET_SECRET requis")
     const seed = await request.post("/api/e2e", {
       data: {
         secret: SECRET,
         action: "seed-exam",
-        title: `${PREFIX} désactivation ${Date.now()}`,
+        title: `${PREFIX} suspension ${Date.now()}`,
         questionCount: 3,
-        closed: true,
       },
     })
     const { examId } = await seed.json()
 
     await page.goto(`/admin/examens/${examId}`)
-    await expect(page.getByTestId("exam-badges")).toContainText("Terminé")
-    await page.getByTestId("btn-deactivate-exam").click()
-    await page.getByTestId("btn-deactivate-exam-confirm").click()
-    await expect(page.getByTestId("exam-badges")).toContainText("Désactivé")
-    await page.getByTestId("btn-reactivate-exam").click()
-    await expect(page.getByTestId("exam-badges")).toContainText("Terminé")
+    await expect(page.getByTestId("exam-badges")).toContainText("En cours")
+    await page.getByTestId("btn-suspend-exam").click()
+    await page.getByTestId("btn-suspend-exam-confirm").click()
+    await expect(page.getByTestId("exam-badges")).toContainText("Suspendu")
+    await page.getByTestId("btn-lift-suspension").click()
+    await expect(page.getByTestId("exam-badges")).toContainText("En cours")
   })
 })

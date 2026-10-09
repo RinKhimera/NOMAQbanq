@@ -11,6 +11,7 @@ type CompleteExam = {
   pauseDurationMinutes?: number
   audienceType?: "subscribers" | "restricted"
   audienceUserIds?: string[]
+  isHidden?: boolean
 }
 
 const settings = (input: CompleteExam) => ({
@@ -18,6 +19,7 @@ const settings = (input: CompleteExam) => ({
   audienceType: "subscribers" as const,
   audienceUserIds: [],
   ...input,
+  isHidden: input.isHidden ?? false,
   targetQuestionCount: input.questionIds.length,
 })
 

@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { RefusalCode } from "@/features/attempts/guard"
 import {
-  deactivateExam,
   deleteExam,
   deleteParticipation,
   finalizeExam,
+  liftExamSuspension,
   loadExamQuestionExplanations,
   loadSearchSelectableUsers,
   pauseExam,
-  reactivateExam,
   readServerClock,
   resumeExam,
   saveExamAnswer,
   saveExamFlag,
   startExam,
+  suspendExam,
 } from "@/features/exams/actions"
 import {
   fakeTx,
@@ -153,8 +153,8 @@ describe("lectures gardees", () => {
 describe("mutations admin simples", () => {
   it.each([
     ["deleteExam", deleteExam, "Examen requis"],
-    ["deactivateExam", deactivateExam, "Examen requis"],
-    ["reactivateExam", reactivateExam, "Examen requis"],
+    ["suspendExam", suspendExam, "Examen requis"],
+    ["liftExamSuspension", liftExamSuspension, "Examen requis"],
   ])("%s : id vide → refus", async (_name, action, error) => {
     const res = await action({ examId: "", expectedParticipations: 0 })
     expect(res).toEqual({ success: false, error })

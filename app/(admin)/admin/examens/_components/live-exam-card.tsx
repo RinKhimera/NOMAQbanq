@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress"
 import { calendarDaysUntil, shortWindow } from "@/lib/exam-readiness"
 import { NBSP, formatClockTime, formatDayMonth } from "@/lib/format"
 import { TONE_COLOR } from "@/lib/tone"
+import { cn } from "@/lib/utils"
 import { ExamTitleLink } from "./exam-title-link"
 import type { OverviewExam } from "./exams-overview-model"
 import { inDaysLabel, submittedPercent } from "./exams-overview-model"
@@ -30,18 +31,26 @@ export const LiveExamCard = ({
     { label: "En cours", value: figures.inProgress },
   ]
 
+  const suspended = exam.phase === "suspended"
+
   return (
     <section
       aria-label={exam.title}
       data-testid={`live-exam-card-${exam.id}`}
-      className="bg-surface border-success-line shadow-1 relative flex flex-col gap-4 overflow-hidden rounded-lg border p-4.5 md:p-6"
+      className={cn(
+        "bg-surface shadow-1 relative flex flex-col gap-4 overflow-hidden rounded-lg border p-4.5 md:p-6",
+        suspended ? "border-danger-line" : "border-success-line",
+      )}
     >
       <span
         aria-hidden
-        className="bg-success absolute inset-y-0 left-0 w-0.75"
+        className={cn(
+          "absolute inset-y-0 left-0 w-0.75",
+          suspended ? "bg-danger" : "bg-success",
+        )}
       />
       <div className="text-ink-3 flex flex-wrap items-center gap-2 font-mono text-xs">
-        <ExamStatusBadge status="active" />
+        <ExamStatusBadge status={exam.phase} />
         <span className="whitespace-nowrap">{shortWindow(exam)}</span>
         {exam.endDate !== null && (
           <span className="whitespace-nowrap">

@@ -3,7 +3,6 @@ import {
   asc,
   desc,
   eq,
-  exists,
   inArray,
   isNotNull,
   lte,
@@ -16,7 +15,6 @@ import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
   examAnswers,
-  examAudience,
   examParticipations,
   examQuestions,
   exams,
@@ -124,6 +122,49 @@ const examAccessMissing = async (
 ): Promise<boolean> =>
   !isAdmin && exam.audienceType === "subscribers" && !(await hasAccess("exam"))
 
+/**
+ * L'utilisateur a une participation à l'examen de la ligne lue, quel qu'en
+ * soit le statut. Corrélé sur `"exams"."id"` : voir `visibleToStudent`.
+ */
+export const participatedIn = (uid: string) => sql`exists (
+  select 1 from exam_participations part_p
+   where part_p.exam_id = "exams"."id" and part_p.user_id = ${uid})`
+
+/**
+ * Examens qu'un étudiant voit (`CONTEXT.md`, « Examen masqué ») : liste,
+ * compteurs du tableau de bord, lecture d'un examen. Une audience d'abonnés
+ * est vue de tous, sauf masquée : alors seulement avec l'accès Examens actif ou
+ * une participation à cet examen. Une audience restreinte ne l'est que de ses
+ * membres et de qui y a déjà une participation (membre retiré en cours de
+ * route), masquée ou non. Sans session : les examens d'abonnés non masqués. Un
+ * admin n'a pas de filtre : l'appelant l'en dispense.
+ *
+ * Corrélé sur `"exams"."id"` écrit en toutes lettres : sur un select
+ * mono-table, Drizzle déqualifie `exams.id`, et `id` viserait la ligne de la
+ * sous-requête.
+ */
+export const visibleToStudent = (uid: string | null) => {
+  const open = and(
+    eq(exams.audienceType, "subscribers"),
+    eq(exams.isHidden, false),
+  )
+  if (uid === null) return open
+  const participated = participatedIn(uid)
+  const member = sql`exists (
+    select 1 from exam_audience vis_a
+     where vis_a.exam_id = "exams"."id" and vis_a.user_id = ${uid})`
+  const examAccess = sql`exists (
+    select 1 from user_access vis_u
+     where vis_u.user_id = ${uid}
+       and vis_u.access_type = 'exam'
+       and vis_u.expires_at > now())`
+  return or(
+    open,
+    and(eq(exams.audienceType, "subscribers"), or(examAccess, participated)),
+    and(eq(exams.audienceType, "restricted"), or(member, participated)),
+  )
+}
+
 // ============================================
 // Liste examens + participation (étudiant)
 // ============================================
@@ -140,8 +181,8 @@ export type ExamListItem = {
   enablePause: boolean
   pauseDurationMinutes: number | null
   // Type d'audience : un examen `restricted` présent dans cette liste implique que
-  // l'utilisateur en est membre (filtre `audienceWhere`) → éligible à le démarrer
-  // même sans abonnement (calcul d'éligibilité par-examen côté client).
+  // l'utilisateur en est membre ou y a participé (`visibleToStudent`) → éligible
+  // à le démarrer même sans abonnement (calcul d'éligibilité par-examen côté client).
   audienceType: ExamAudienceType
   userHasTaken: boolean
   userParticipation: ExamListParticipation | null
@@ -169,49 +210,10 @@ export const getExamsWithParticipation = cache(
     const session = await getCurrentSession()
     const isAdmin = session?.user?.role === "admin"
 
-    // Filtre d'audience : un admin voit tout (preview) ; sinon on inclut les
-    // examens `subscribers` (ouverts) et — pour un utilisateur connecté — les
-    // examens `restricted` dont il est membre (EXISTS corrélé, indexé sur
-    // examAudience.userId). Non connecté → uniquement les `subscribers`.
-    const audienceWhere = isAdmin
+    // Un admin voit tout (preview), examens suspendus compris comme pour tous.
+    const visibleWhere = isAdmin
       ? undefined
-      : or(
-          eq(exams.audienceType, "subscribers"),
-          session?.user
-            ? exists(
-                db
-                  .select({ x: sql`1` })
-                  .from(examAudience)
-                  .where(
-                    and(
-                      eq(examAudience.examId, exams.id),
-                      eq(examAudience.userId, session.user.id),
-                    ),
-                  ),
-              )
-            : sql`false`,
-        )
-
-    // Un examen désactivé n'est livré qu'à qui y a participé (reprise d'une
-    // épreuve en cours, relecture des résultats) ; `partition` le classe.
-    const activeOrTakenWhere = isAdmin
-      ? undefined
-      : or(
-          eq(exams.isActive, true),
-          session?.user
-            ? exists(
-                db
-                  .select({ x: sql`1` })
-                  .from(examParticipations)
-                  .where(
-                    and(
-                      eq(examParticipations.examId, exams.id),
-                      eq(examParticipations.userId, session.user.id),
-                    ),
-                  ),
-              )
-            : sql`false`,
-        )
+      : visibleToStudent(session?.user?.id ?? null)
 
     const rows = await db
       .select({
@@ -228,9 +230,7 @@ export const getExamsWithParticipation = cache(
       })
       .from(exams)
       // Un examen en préparation n'existe pas côté étudiant, admin compris.
-      .where(
-        and(isNotNull(exams.finalizedAt), audienceWhere, activeOrTakenWhere),
-      )
+      .where(and(isNotNull(exams.finalizedAt), visibleWhere))
       .orderBy(desc(exams.startDate))
       .limit(100)
     if (rows.length === 0) return []
@@ -340,21 +340,6 @@ export type ExamWithQuestions = {
   questions: QuizQuestion[]
 } | null
 
-/** L'utilisateur a une participation à l'examen, quel qu'en soit le statut. */
-const hasParticipation = async (examId: string, userId: string) => {
-  const [part] = await db
-    .select({ id: examParticipations.id })
-    .from(examParticipations)
-    .where(
-      and(
-        eq(examParticipations.examId, examId),
-        eq(examParticipations.userId, userId),
-      ),
-    )
-    .limit(1)
-  return Boolean(part)
-}
-
 /**
  * Examen + questions ordonnées (forme-pont). La clé de réponse n'est jointe que
  * sur `revealKey`, et seulement pour un admin (fiches de détail) : jamais sur la
@@ -387,40 +372,17 @@ export const getExamWithQuestions = async (
     })
     .from(exams)
     // En préparation : introuvable ici pour tous. La fiche admin lit
-    // `getAdminExam`.
-    .where(and(eq(exams.id, examId), isNotNull(exams.finalizedAt)))
+    // `getAdminExam`. Garde d'audience et de masquage (anti-fuite du TEXTE des
+    // questions d'un examen restreint) : `visibleToStudent`.
+    .where(
+      and(
+        eq(exams.id, examId),
+        isNotNull(exams.finalizedAt),
+        isAdmin ? undefined : visibleToStudent(session.user.id),
+      ),
+    )
     .limit(1)
   if (!exam) return null
-
-  // Examen désactivé : introuvable pour un non-admin, sauf participation
-  // existante (épreuve en cours à finir, résultats à relire après clôture).
-  if (
-    !isAdmin &&
-    !exam.isActive &&
-    !(await hasParticipation(examId, session.user.id))
-  )
-    return null
-
-  // Garde d'audience (anti-fuite du TEXTE des questions d'un examen restreint
-  // confidentiel) : un non-admin n'accède à un examen `restricted` que s'il est
-  // membre de l'audience OU possède déjà une participation (n'importe quel
-  // statut). La double condition couvre le membre AVANT démarrage et le membre
-  // RETIRÉ de l'audience en cours de passation — il garde l'accès à ses
-  // questions. Inchangé pour les admins et les examens `subscribers`.
-  if (!isAdmin && exam.audienceType === "restricted") {
-    const [allowed] = await db
-      .select({ ok: sql<number>`1` })
-      .from(examAudience)
-      .where(
-        and(
-          eq(examAudience.examId, examId),
-          eq(examAudience.userId, session.user.id),
-        ),
-      )
-      .limit(1)
-    if (!allowed && !(await hasParticipation(examId, session.user.id)))
-      return null
-  }
 
   // Examen `subscribers` : l'abonnement actif EST l'autorisation (symétrique
   // startExam/saveExamAnswer). Anti-fuite du texte des questions à un
@@ -1149,25 +1111,3 @@ export const getExamSubmissionSummary = cache(
     }
   },
 )
-
-// ============================================
-// Dashboard étudiant
-// ============================================
-
-// Prédicat d'audience pour les lectures « mes examens » du dashboard : inclut
-// les examens ouverts (`subscribers`) et les examens restreints dont `uid` est
-// membre (EXISTS corrélé, indexé sur examAudience.userId). Masque les examens
-// restreints confidentiels aux non-membres, même abonnés. Parité avec le
-// filtre de `getExamsWithParticipation`.
-export const memberAudienceWhere = (uid: string) =>
-  or(
-    eq(exams.audienceType, "subscribers"),
-    exists(
-      db
-        .select({ x: sql`1` })
-        .from(examAudience)
-        .where(
-          and(eq(examAudience.examId, exams.id), eq(examAudience.userId, uid)),
-        ),
-    ),
-  )

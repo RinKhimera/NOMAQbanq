@@ -3,7 +3,7 @@ import "server-only"
 
 /**
  * Dernière utilisation (`CONTEXT.md`) : l'examen blanc le plus récent, par
- * date d'ouverture, dont le lot contient la question, désactivés compris et
+ * date d'ouverture, dont le lot contient la question, suspendus compris et
  * examens en préparation exclus (leur jeu n'est pas fixé).
  * Prédicat corrélé sur `questionId` : la question ne figure dans aucun des
  * `count` derniers examens blancs. Le tri départage par id pour que deux

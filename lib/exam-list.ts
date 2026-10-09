@@ -20,15 +20,21 @@ export type ListParticipation = Pick<
 
 export type ListExam = Pick<
   ExamListItem,
-  "id" | "endDate" | "completionTime" | "audienceType"
+  "id" | "endDate" | "completionTime" | "audienceType" | "isActive"
 > & { userParticipation: ListParticipation | null }
 
 /**
  * État d'un examen ouvert, dans l'ordre d'affichage : temps écoulé, en cours
- * ou en pause, ouvert, réservé aux abonnés, soumis.
+ * ou en pause, ouvert, réservé aux abonnés, suspendu, soumis.
  */
 export type OpenExamState =
-  "elapsed" | "paused" | "started" | "eligible" | "locked" | "submitted"
+  | "elapsed"
+  | "paused"
+  | "started"
+  | "eligible"
+  | "locked"
+  | "suspended"
+  | "submitted"
 
 const RANK: Record<OpenExamState, number> = {
   elapsed: 0,
@@ -36,7 +42,8 @@ const RANK: Record<OpenExamState, number> = {
   paused: 1,
   eligible: 2,
   locked: 3,
-  submitted: 4,
+  suspended: 4,
+  submitted: 5,
 }
 
 /** Un examen sur invitation se passe sans abonnement : l'audience est l'accès. */
@@ -56,7 +63,8 @@ export const budgetExhausted = (
  * Une participation en cours sans accès (abonnement échu en route) se rend
  * comme « réservé aux abonnés » : le serveur refuserait chaque réponse, la
  * clôture aussi — même le temps écoulé, l'examen ne se soumettra qu'à la
- * fermeture, par le cron.
+ * fermeture, par le cron. Un examen suspendu ne se commence plus, mais une
+ * participation déjà en cours continue.
  */
 export const openExamState = (
   exam: ListExam,
@@ -65,6 +73,7 @@ export const openExamState = (
 ): OpenExamState => {
   const p = exam.userParticipation
   if (p && p.status !== "in_progress") return "submitted"
+  if (!p && !exam.isActive) return "suspended"
   if (!isEligible(exam, hasAccess)) return "locked"
   if (!p) return "eligible"
   const timing = p.timing

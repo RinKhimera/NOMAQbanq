@@ -311,6 +311,7 @@ describe("getExamReopeningSource — ce qu'une réouverture reprend", () => {
         pauseDurationMinutes: 20,
         questionCount: 3,
         audienceType: "restricted",
+        isHidden: false,
       },
       questionIds: [qIds[2], qIds[0]],
       audience: [

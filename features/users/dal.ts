@@ -974,7 +974,7 @@ export const getAdminStats = async (): Promise<AdminStats> => {
       .select({
         total: sql<number>`count(*)`.mapWith(Number),
         active:
-          sql<number>`count(*) filter (where ${exams.isActive} and ${exams.finalizedAt} is not null and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
+          sql<number>`count(*) filter (where ${exams.finalizedAt} is not null and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
             Number,
           ),
       })
