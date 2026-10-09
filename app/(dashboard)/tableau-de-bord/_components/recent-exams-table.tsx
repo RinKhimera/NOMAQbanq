@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { studentExamResultsHref } from "@/constants/exam-routes"
 import type {
   ExamPercentiles,
   RecentParticipation,
@@ -136,7 +137,7 @@ export const RecentExamsTable = ({
                     className="max-md:h-11"
                   >
                     <Link
-                      href={`/tableau-de-bord/examen-blanc/${p.examId}/resultats`}
+                      href={studentExamResultsHref(p.examId)}
                       prefetch={false}
                     >
                       Revoir

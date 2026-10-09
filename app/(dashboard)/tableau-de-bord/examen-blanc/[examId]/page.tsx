@@ -9,8 +9,7 @@ export const metadata: Metadata = { title: "Classement de l'examen" }
 
 /**
  * Classement d'un examen clos, pour un candidat qui l'a terminé (ou un
- * admin). Tout autre lecteur retrouve la liste, comme avant que la page
- * n'existe.
+ * admin). Tout autre lecteur retrouve la liste.
  */
 export default async function StudentExamRankingPage({
   params,

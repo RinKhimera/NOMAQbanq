@@ -115,7 +115,7 @@ const RankingRow = ({
         <Button
           variant="ghost"
           size="icon-sm"
-          className="max-md:size-11"
+          className={TOUCH_TARGET}
           aria-label="Aller à ma position"
           onClick={pinned.onJump}
         >
