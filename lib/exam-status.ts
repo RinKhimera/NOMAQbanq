@@ -14,5 +14,5 @@ export const EXAM_STATUS_CONFIG: Record<ExamStatus, ExamStatusConfig> = {
   active: { label: "En cours", tone: "neutral", icon: CirclePlay },
   upcoming: { label: "À venir", tone: "info", icon: Clock },
   completed: { label: "Terminé", tone: "success", icon: CircleCheckBig },
-  inactive: { label: "Désactivé", tone: "danger", icon: CirclePause },
+  suspended: { label: "Suspendu", tone: "danger", icon: CirclePause },
 }

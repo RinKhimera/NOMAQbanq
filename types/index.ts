@@ -12,7 +12,7 @@ export interface Testimonial {
 
 // ===== Exam Types =====
 export type ExamStatus =
-  "preparation" | "active" | "upcoming" | "completed" | "inactive"
+  "preparation" | "active" | "upcoming" | "completed" | "suspended"
 
 export type ExamStatusConfig = {
   label: string

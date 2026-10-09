@@ -33,7 +33,7 @@ import { formatScore, scoreTextClass, scoreTone } from "@/lib/score"
 import { TONE_COLOR } from "@/lib/tone"
 import { TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
-import { InviteTag } from "./open-exam-card"
+import { InviteTag, SuspendedTag } from "./open-exam-card"
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -131,11 +131,15 @@ export const UpcomingExams = ({ exams, now }: UpcomingProps) => {
               date={exam.startDate}
               meta={`Ouverture le ${formatDateTime(exam.startDate)} · fermeture le ${formatDeadline(exam.endDate)}`}
               score={
-                <StatusPill tone="info">
-                  {opensIn < HOUR_MS
-                    ? `Ouvre dans ${formatCountdown(opensIn)}`
-                    : "À venir"}
-                </StatusPill>
+                exam.isActive ? (
+                  <StatusPill tone="info">
+                    {opensIn < HOUR_MS
+                      ? `Ouvre dans ${formatCountdown(opensIn)}`
+                      : "À venir"}
+                  </StatusPill>
+                ) : (
+                  <SuspendedTag />
+                )
               }
             />
           )

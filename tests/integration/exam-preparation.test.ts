@@ -79,6 +79,7 @@ const base = {
   enablePause: false,
   audienceType: "subscribers" as const,
   audienceUserIds: [] as string[],
+  isHidden: false,
 }
 
 /** Fenêtre ouverte : ouverture hier, fermeture dans une semaine. */
@@ -654,8 +655,8 @@ describe("modifier un examen finalisé", () => {
   })
 })
 
-describe("désactivé et en préparation", () => {
-  it("finaliser un examen désactivé ne l'ouvre pas, admin compris", async () => {
+describe("suspendu et en préparation", () => {
+  it("finaliser un examen suspendu ne l'ouvre pas, admin compris", async () => {
     const examId = await saveComplete()
     await db.update(exams).set({ isActive: false }).where(eq(exams.id, examId))
 
@@ -665,7 +666,7 @@ describe("désactivé et en préparation", () => {
       asViewer()
       expect(await startExam({ examId })).toEqual({
         success: false,
-        error: "Cet examen n'est plus disponible.",
+        error: "Cet examen est suspendu : il ne peut pas être commencé.",
       })
     }
   })

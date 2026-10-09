@@ -73,6 +73,8 @@ export const saveExamSchema = z
     pauseDurationMinutes: examFields.pauseDurationMinutes,
     audienceType: z.enum(EXAM_AUDIENCES),
     audienceUserIds: z.array(z.string().min(1)).max(5000),
+    /** Examen masqué ; ignoré pour une audience restreinte. */
+    isHidden: z.boolean(),
   })
   .refine(
     (d) =>
@@ -104,6 +106,10 @@ export const composeQuestionsSchema = z.object({
 /** Une action qui ne vise qu'un examen (finaliser, aperçu de complétion). */
 export const examIdSchema = z.object({
   examId: z.string().min(1),
+})
+
+export const setExamHiddenSchema = examIdSchema.extend({
+  hidden: z.boolean(),
 })
 
 export const deleteExamSchema = examIdSchema.extend({

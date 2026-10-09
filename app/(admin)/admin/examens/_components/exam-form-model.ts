@@ -29,6 +29,8 @@ export type ExamFormValues = {
   pauseDurationMinutes: number
   audienceType: ExamAudienceType
   audience: ExamAudienceUser[]
+  /** Examen masqué ; ne joue que pour une audience d'abonnés. */
+  isHidden: boolean
 }
 
 /** Examen déjà enregistré que le formulaire modifie. */
@@ -103,6 +105,7 @@ export const blankExamForm = (): ExamFormValues => ({
   pauseDurationMinutes: DEFAULT_PAUSE_MINUTES,
   audienceType: "subscribers",
   audience: [],
+  isHidden: false,
 })
 
 export const examFormFromExam = (
@@ -118,6 +121,7 @@ export const examFormFromExam = (
   pauseDurationMinutes: exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES,
   audienceType: exam.audienceType,
   audience: exam.audienceType === "restricted" ? audience : [],
+  isHidden: exam.isHidden,
 })
 
 /** Réouverture : tout sauf les dates, qui restent à choisir. Le visé est celui de la source. */
@@ -134,6 +138,7 @@ export const examFormFromSource = (
     source.exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES,
   audienceType: source.exam.audienceType,
   audience: source.audience,
+  isHidden: source.exam.isHidden,
 })
 
 export const isTargetValid = (n: number) =>
@@ -170,6 +175,7 @@ export const toSavePayload = (
   audienceType: v.audienceType,
   audienceUserIds:
     v.audienceType === "restricted" ? v.audience.map((u) => u.id) : [],
+  isHidden: v.audienceType === "subscribers" && v.isHidden,
 })
 
 /**

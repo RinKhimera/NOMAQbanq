@@ -841,7 +841,7 @@ const recentSql = (examId: string) =>
 
 /**
  * [Admin] Dernière utilisation de chaque question : l'examen le plus récent
- * par date d'ouverture qui la contient, désactivés compris, examens en
+ * par date d'ouverture qui la contient, suspendus compris, examens en
  * préparation exclus (même ordre que `notUsedInLastExams`). Une question est
  * récente quand cet examen est l'un des derniers examens blancs.
  * `exceptExamId` : l'examen qu'on compose ne compte pas pour ses propres

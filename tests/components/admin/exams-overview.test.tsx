@@ -64,7 +64,7 @@ const renderOverview = (exams: AdminExamOverviewItem[]) =>
   render(<ExamsOverview exams={exams} initialNow={NOW} />)
 
 describe("overviewSections", () => {
-  it("range par phase et trie « À préparer » par ouverture, sans dates à la fin", () => {
+  it("range par phase, un suspendu dans la section de ses dates, et trie « À préparer » par ouverture, sans dates à la fin", () => {
     const noDates = preparation({
       id: "sans-dates",
       startDate: null,
@@ -76,19 +76,38 @@ describe("overviewSections", () => {
       startDate: day(10, 9),
       endDate: day(10, 12),
     })
-    const disabled = exam({ id: "desactive", isActive: false })
+    const suspendedPast = exam({ id: "suspendu-clos", isActive: false })
+    const suspendedLive = live({ id: "suspendu-en-cours", isActive: false })
+    const suspendedSoon = exam({
+      id: "suspendu-bientot",
+      startDate: day(10, 10),
+      endDate: day(10, 12),
+      isActive: false,
+    })
     const sections = overviewSections(
-      [noDates, soon, live({ id: "en-cours" }), late, disabled],
+      [
+        noDates,
+        soon,
+        live({ id: "en-cours" }),
+        late,
+        suspendedPast,
+        suspendedLive,
+        suspendedSoon,
+      ],
       NOW,
     )
-    expect(sections.live.map((e) => e.id)).toEqual(["en-cours"])
-    expect(sections.toPrepare.map((e) => e.id)).toEqual([
-      "en-retard",
-      "bientot",
-      "sans-dates",
+    expect(sections.live.map((e) => [e.id, e.phase])).toEqual([
+      ["en-cours", "active"],
+      ["suspendu-en-cours", "suspended"],
+    ])
+    expect(sections.toPrepare.map((e) => [e.id, e.phase])).toEqual([
+      ["en-retard", "preparation"],
+      ["bientot", "upcoming"],
+      ["suspendu-bientot", "suspended"],
+      ["sans-dates", "preparation"],
     ])
     expect(sections.finished.map((e) => [e.id, e.phase])).toEqual([
-      ["desactive", "inactive"],
+      ["suspendu-clos", "completed"],
     ])
   })
 

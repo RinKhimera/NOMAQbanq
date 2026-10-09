@@ -53,7 +53,7 @@ export default async function ExamComposerPage({
           title: exam.title,
           targetQuestionCount: exam.targetQuestionCount,
           finalized: exam.finalizedAt !== null,
-          openToStudents: exam.isActive && isFinalizedOpen(exam, now),
+          openToStudents: isFinalizedOpen(exam, now),
           phase: adminPhaseOf(exam, now),
         }}
         frozen={frozen}

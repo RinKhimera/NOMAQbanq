@@ -197,6 +197,13 @@
       "when": 1791409958351,
       "tag": "0027_drop_objectif_cmc",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791580884367,
+      "tag": "0028_exam_hidden",
+      "breakpoints": true
     }
   ]
 }

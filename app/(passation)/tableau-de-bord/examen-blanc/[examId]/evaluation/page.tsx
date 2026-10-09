@@ -26,7 +26,10 @@ export default async function EvaluationPage({
 
   const data = await getExamWithQuestions(examId)
   // Non-abonné (DAL → null) : renvoyé vers la liste, qui dit ce qui manque.
-  if (!data) redirect("/tableau-de-bord/examen-blanc")
+  // Examen suspendu sans participation : rien à commencer, la liste le dit aussi.
+  if (!data || (!data.exam.isActive && !session)) {
+    redirect("/tableau-de-bord/examen-blanc")
+  }
 
   // Invariante anti-fuite : les questions ne partent dans le payload RSC que pour
   // une participation in_progress (créée par startExam, seul à vérifier

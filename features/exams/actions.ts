@@ -53,6 +53,7 @@ import {
   saveExamAnswerSchema,
   saveExamFlagSchema,
   saveExamSchema,
+  setExamHiddenSchema,
 } from "./schemas"
 
 const fail = (error: string) => ({ success: false as const, error })
@@ -125,6 +126,10 @@ const EXAM_ERRORS: Record<string, string> = {
     "Cet examen est clos et a déjà des participations : sa date de fin ne peut plus être repoussée dans le futur. Utilisez « Rouvrir » pour en créer une copie avec de nouvelles dates.",
   INVALID_QUESTIONS: "Certaines questions sélectionnées sont introuvables.",
   INVALID_USERS: "Certains utilisateurs sélectionnés sont introuvables.",
+  NOT_OPEN:
+    "Seul un examen finalisé et ouvert (à venir ou en cours) se suspend ou se lève.",
+  RESTRICTED_AUDIENCE:
+    "Une audience restreinte est déjà réservée à ses membres : elle ne se masque pas.",
 }
 
 /** Erreur métier mappée en message, sinon capture et message générique. */
@@ -338,6 +343,7 @@ type ExamSettings = {
   pauseDurationMinutes?: number
   audienceType: ExamAudienceType
   audienceUserIds: string[]
+  isHidden: boolean
 }
 
 const settingsColumns = (s: ExamSettings) => ({
@@ -349,6 +355,8 @@ const settingsColumns = (s: ExamSettings) => ({
   enablePause: s.enablePause,
   pauseDurationMinutes: resolvePause(s.enablePause, s.pauseDurationMinutes),
   audienceType: s.audienceType,
+  // Le masquage ne joue que pour une audience d'abonnés.
+  isHidden: s.audienceType === "subscribers" && s.isHidden,
 })
 
 /** Crée un examen en préparation. */
@@ -453,6 +461,12 @@ const revalidateExam = (examId: string) => {
   revalidatePath(`/admin/examens/${examId}`)
 }
 
+/** Pages qui listent l'examen : vues admin, et l'espace étudiant entier. */
+const revalidateExamVisibility = (examId: string) => {
+  revalidateExam(examId)
+  revalidatePath("/tableau-de-bord", "layout")
+}
+
 export type SaveExamResult =
   { success: true; examId: string; finalized: boolean } | ExamWriteFailure
 
@@ -481,7 +495,8 @@ export const saveExam = async (
             finalized: false,
           },
     )
-    revalidateExam(result.examId)
+    // Audience et masquage changent ce que voient les étudiants.
+    revalidateExamVisibility(result.examId)
     return { success: true, ...result }
   } catch (error) {
     return examWriteFailure(error, "[saveExam]", session.user.id)
@@ -693,43 +708,80 @@ export const deleteExam = async (input: {
   }
 }
 
-/** [Admin] Désactive un examen (soft delete, sans cascade). */
-export const deactivateExam = async ({
-  examId,
-}: {
-  examId: string
-}): Promise<{ success: boolean; error?: string }> => {
-  await requireRole(["admin"])
-  if (!examId) return fail("Examen requis")
+/**
+ * Pose la suspension d'un examen (`CONTEXT.md`) : seulement finalisé et
+ * ouvert, sous le verrou commun avec `startExam`.
+ */
+const setSuspended = async (
+  input: { examId: string },
+  suspended: boolean,
+  tag: string,
+): Promise<{ success: true } | ExamWriteFailure> => {
+  const session = await requireRole(["admin"])
+  const parsed = examIdSchema.safeParse(input)
+  if (!parsed.success) return fail("Examen requis")
+  const { examId } = parsed.data
 
   try {
-    await db.update(exams).set({ isActive: false }).where(eq(exams.id, examId))
-    revalidatePath("/admin/examens")
-    revalidatePath(`/admin/examens/${examId}`)
+    await db.transaction(async (tx) => {
+      const exam = await lockExam(tx, examId)
+      if (
+        exam.finalizedAt === null ||
+        exam.endDate === null ||
+        !isOpen({ endDate: exam.endDate.getTime() }, Date.now())
+      ) {
+        throw new Error("NOT_OPEN")
+      }
+      await tx
+        .update(exams)
+        .set({ isActive: !suspended })
+        .where(eq(exams.id, examId))
+    })
+    revalidateExamVisibility(examId)
     return { success: true }
   } catch (error) {
-    captureServerError("[deactivateExam]", error)
-    return fail("Erreur serveur. Réessayez.")
+    return examWriteFailure(error, tag, session.user.id)
   }
 }
 
-/** [Admin] Réactive un examen. */
-export const reactivateExam = async ({
-  examId,
-}: {
+/** [Admin] « Suspendre l'examen » : plus personne ne le commence, admin compris. */
+export const suspendExam = async (input: { examId: string }) =>
+  setSuspended(input, true, "[suspendExam]")
+
+/** [Admin] « Lever la suspension », tant que l'examen est ouvert. */
+export const liftExamSuspension = async (input: { examId: string }) =>
+  setSuspended(input, false, "[liftExamSuspension]")
+
+/** [Admin] « Masquer » / « Afficher » un examen d'abonnés (`CONTEXT.md`). */
+export const setExamHidden = async (input: {
   examId: string
-}): Promise<{ success: boolean; error?: string }> => {
-  await requireRole(["admin"])
-  if (!examId) return fail("Examen requis")
+  hidden: boolean
+}): Promise<{ success: true } | ExamWriteFailure> => {
+  const session = await requireRole(["admin"])
+  const parsed = setExamHiddenSchema.safeParse(input)
+  if (!parsed.success) return fail("Examen requis")
+  const { examId, hidden } = parsed.data
 
   try {
-    await db.update(exams).set({ isActive: true }).where(eq(exams.id, examId))
-    revalidatePath("/admin/examens")
-    revalidatePath(`/admin/examens/${examId}`)
+    // Audience gardée dans le WHERE : un `saveExam` concurrent qui passe
+    // l'examen en audience restreinte ne laisse pas un masquage posé derrière.
+    const [row] = await db
+      .update(exams)
+      .set({ isHidden: hidden })
+      .where(and(eq(exams.id, examId), eq(exams.audienceType, "subscribers")))
+      .returning({ id: exams.id })
+    if (!row) {
+      const [exam] = await db
+        .select({ id: exams.id })
+        .from(exams)
+        .where(eq(exams.id, examId))
+        .limit(1)
+      throw new Error(exam ? "RESTRICTED_AUDIENCE" : "NOT_FOUND")
+    }
+    revalidateExamVisibility(examId)
     return { success: true }
   } catch (error) {
-    captureServerError("[reactivateExam]", error)
-    return fail("Erreur serveur. Réessayez.")
+    return examWriteFailure(error, "[setExamHidden]", session.user.id)
   }
 }
 
@@ -784,7 +836,7 @@ export type StartExamResult =
 
 /**
  * [Auth] Démarre (ou reprend) un examen. Garde accès payant et audience
- * (bypass admin) ; finalisation, examen actif et fenêtre de dates pour tous ;
+ * (bypass admin) ; finalisation, suspension et fenêtre de dates pour tous ;
  * une seule participation (idempotent si en cours, refus si déjà passé). Verrou de ligne user → sérialise les démarrages concurrents.
  * Pré-crée les lignes examAnswers (une par question) avec selectedAnswer=null.
  */
@@ -893,10 +945,10 @@ export const startExam = async ({
         }
       }
 
-      // Après la reprise ci-dessus : désactiver un examen ferme les nouvelles
+      // Après la reprise ci-dessus : suspendre un examen ferme les nouvelles
       // participations sans couper une épreuve en cours. Admin compris : sa
       // participation compterait dans le classement et les chiffres de la fiche.
-      if (!exam.isActive) throw new Error("EXAM_INACTIVE")
+      if (!exam.isActive) throw new Error("EXAM_SUSPENDED")
 
       const participationId = createId()
       await tx.insert(examParticipations).values({
@@ -943,8 +995,8 @@ export const startExam = async ({
       if (error.message === "ACCESS_EXPIRED") {
         return fail("Votre accès aux examens a expiré.")
       }
-      if (error.message === "EXAM_INACTIVE") {
-        return fail("Cet examen n'est plus disponible.")
+      if (error.message === "EXAM_SUSPENDED") {
+        return fail("Cet examen est suspendu : il ne peut pas être commencé.")
       }
       if (error.message === "NOT_FINALIZED") {
         return fail(

@@ -51,12 +51,19 @@ Invariants métier (vocabulaire dans `CONTEXT.md`). Les patterns génériques
   écriture de réponse.
 - **Passation d'examen — invariante d'accès** : le contenu des questions n'est
   livré/écrit que pour une participation `in_progress` (créée par `startExam`,
-  seul à vérifier finalisation + audience + fenêtre + accès + examen actif à
+  seul à vérifier finalisation + audience + fenêtre + accès + suspension à
   la création ; seuls l'audience et l'accès sont levés pour un admin).
-  Désactiver un examen ferme les NOUVELLES participations, admin compris, et le rend
-  introuvable à qui n'y a pas participé (page, liste, classement), sans couper
-  une épreuve en cours : `requireAttempt` ne lit pas `isActive`,
-  volontairement, et la liste garde l'examen pour son participant. La page evaluation
+  Suspendre un examen (`exams.is_active = false`, `CONTEXT.md` ; `suspendExam`
+  et `liftExamSuspension` refusent un examen en préparation ou clos) ferme les
+  NOUVELLES participations, admin compris, sans couper une épreuve en cours :
+  `requireAttempt` ne lit pas `isActive`, volontairement. Il reste visible de
+  qui le voyait. **Ce qu'un étudiant voit = un seul prédicat**,
+  `visibleToStudent` (`features/exams/dal.student.ts`) : liste, compteurs du
+  tableau de bord, lecture d'un examen. Il porte l'audience et le masquage
+  (`exams.is_hidden`, audience d'abonnés seulement : accès Examens actif ou
+  participation) ; ne pas recopier ces conditions dans un lecteur. Le contenu
+  d'un examen d'abonnés reste gardé à part par `examAccessMissing` : un ancien
+  participant sans accès voit l'examen, pas sa correction. La page evaluation
   ne met les questions dans le payload RSC qu'en `in_progress` (le client
   `router.refresh()` après `startExam`) ; `getExamWithQuestions` re-garde
   `hasAccess("exam")` pour `subscribers` (défense en profondeur — un `null` sur
@@ -128,8 +135,9 @@ colonne)` dans le WHERE des canaux de
   participation soumise à un examen encore ouvert COMPTE comme complétée (le
   compte ne révèle rien) mais son score retenu sort de toute moyenne, de la
   courbe et du « N / M réussis ». Le taux de complétion divise par les examens
-  disponibles (actifs, dans l'audience) les participations à CES examens :
-  jamais celles d'un examen désactivé depuis. Moyennes et tendance au
+  disponibles (`visibleToStudent`, hors suspendus encore ouverts) les
+  participations à CES examens : jamais celles d'un examen suspendu depuis,
+  tant qu'il est ouvert ; clos, il compte comme les autres. Moyennes et tendance au
   PLANCHER (`floor`, tendance calculée sur les moyennes brutes) : 59,67 ne
   s'affiche jamais 60 % « réussite », un recul de 1,7 s'affiche −2. La
   courbe d'entraînement est une moyenne par semaine civile
@@ -171,7 +179,7 @@ colonne)` dans le WHERE des canaux de
   l'aperçu n'écrit rien.
 - **Dernière utilisation** : `notUsedInLastExams(n, colonne)`
   (`features/questions/last-use.ts`), prédicat corrélé (examens par date
-  d'ouverture, désactivés compris, examens en préparation exclus) ; sa
+  d'ouverture, suspendus compris, examens en préparation exclus) ; sa
   lecture par question est `getLastUses` (même ordre), et une question est
   récente quand cet examen est l'un des `RECENT_EXAMS_DEFAULT` derniers.
 

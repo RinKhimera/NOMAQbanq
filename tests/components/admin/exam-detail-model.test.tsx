@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 import { DeleteExamDialog } from "@/app/(admin)/admin/examens/[id]/_components/exam-detail-dialogs"
 import {
   type DetailExam,
+  audienceBadge,
   durationBadge,
   questionsBadge,
   rankOf,
@@ -41,6 +42,7 @@ const exam = (over: Partial<DetailExam> = {}): DetailExam => ({
   questionCount: 230,
   deletedQuestionCount: 0,
   audienceType: "subscribers",
+  isHidden: false,
   ...over,
 })
 
@@ -78,7 +80,7 @@ describe("statItems", () => {
   })
 
   it("sans copie soumise, les scores restent « — », jamais 0 %", () => {
-    const v = values(statItems("inactive", figures(), "subscribers"))
+    const v = values(statItems("completed", figures(), "subscribers"))
 
     expect(v["Score moyen"]).toBe("—")
     expect(v["Meilleur score"]).toBe("—")
@@ -123,6 +125,18 @@ describe("badges", () => {
   })
 })
 
+describe("audienceBadge", () => {
+  it("dit le masquage d'un examen d'abonnés, jamais d'un restreint", () => {
+    expect(audienceBadge(exam())).toBe("Abonnés Examens")
+    expect(audienceBadge(exam({ isHidden: true }))).toBe(
+      "Abonnés Examens, masqué",
+    )
+    expect(
+      audienceBadge(exam({ audienceType: "restricted", isHidden: true })),
+    ).toBe("Audience restreinte")
+  })
+})
+
 describe("tracking", () => {
   it("en préparation : questions restantes et « Finaliser »", () => {
     const t = tracking(
@@ -160,6 +174,31 @@ describe("tracking", () => {
     expect(t?.progress).toEqual({ submitted: 41, started: 64 })
   })
 
+  it("suspendu : l'effet de la suspension et la barre des soumissions", () => {
+    const t = tracking(
+      exam({ startDate: now - DAY, isActive: false }),
+      "suspended",
+      figures({ started: 12, submitted: 5 }),
+      now,
+    )
+
+    expect(t?.title).toBe("Examen suspendu")
+    expect(t?.description).toContain(
+      "Plus aucun candidat ne pourra commencer cet examen.",
+    )
+    expect(t?.progress).toEqual({ submitted: 5, started: 12 })
+  })
+
+  it("suspendu avant son ouverture : ni candidat en cours ni barre", () => {
+    const t = tracking(exam({ isActive: false }), "suspended", figures(), now)
+
+    expect(t?.description).toContain(
+      "Aucun candidat ne pourra le commencer à son ouverture",
+    )
+    expect(t?.description).not.toContain("composent déjà")
+    expect(t?.progress).toBeNull()
+  })
+
   it("rien une fois l'examen terminé", () => {
     expect(tracking(exam(), "completed", figures(), now)).toBeNull()
   })
@@ -190,18 +229,19 @@ describe("rankOf", () => {
 })
 
 describe("DeleteExamDialog", () => {
-  const renderDialog = (participations: number, isActive = true) => {
-    const onDeactivateInstead = vi.fn()
+  const renderDialog = (participations: number, suspendable = true) => {
+    const onSuspendInstead = vi.fn()
     render(
       <DeleteExamDialog
-        exam={exam({ isActive })}
+        exam={exam()}
         participations={participations}
+        suspendable={suspendable}
         open
         onOpenChange={vi.fn()}
-        onDeactivateInstead={onDeactivateInstead}
+        onSuspendInstead={onSuspendInstead}
       />,
     )
-    return { user: userEvent.setup(), onDeactivateInstead }
+    return { user: userEvent.setup(), onSuspendInstead }
   }
 
   it("sans participation, supprime sans saisie puis revient à la liste", async () => {
@@ -238,16 +278,16 @@ describe("DeleteExamDialog", () => {
     expect(confirm).toBeEnabled()
   })
 
-  it("propose la désactivation à la place d'un examen actif seulement", async () => {
-    const { user, onDeactivateInstead } = renderDialog(2)
+  it("propose la suspension à la place d'un examen suspendable", async () => {
+    const { user, onSuspendInstead } = renderDialog(2)
 
-    await user.click(screen.getByTestId("btn-deactivate-instead"))
-    expect(onDeactivateInstead).toHaveBeenCalled()
+    await user.click(screen.getByTestId("btn-suspend-instead"))
+    expect(onSuspendInstead).toHaveBeenCalled()
   })
 
-  it("pas de désactivation à la place sur un examen déjà désactivé", () => {
+  it("pas de suspension à la place d'un examen clos ou déjà suspendu", () => {
     renderDialog(2, false)
 
-    expect(screen.queryByTestId("btn-deactivate-instead")).toBeNull()
+    expect(screen.queryByTestId("btn-suspend-instead")).toBeNull()
   })
 })

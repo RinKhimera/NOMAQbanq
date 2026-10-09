@@ -36,7 +36,10 @@ export const exams = pgTable(
     targetQuestionCount: integer("target_question_count").notNull(),
     enablePause: boolean("enable_pause").default(false).notNull(),
     pauseDurationMinutes: integer("pause_duration_minutes"),
+    // `false` = examen suspendu (`CONTEXT.md`) ; le nom de colonne date d'avant le glossaire.
     isActive: boolean("is_active").default(true).notNull(),
+    // Examen masqué (`CONTEXT.md`) : ne joue que pour une audience d'abonnés.
+    isHidden: boolean("is_hidden").default(false).notNull(),
     audienceType: examAudienceType("audience_type")
       .default("subscribers")
       .notNull(),

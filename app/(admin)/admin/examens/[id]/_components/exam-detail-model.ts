@@ -26,12 +26,12 @@ import { PASS_THRESHOLD, formatScore } from "@/lib/score"
 
 export type DetailExam = AdminExam["exam"]
 
+/** Effet d'une suspension, dit à la confirmation et sur la carte « Suivi ». */
+export const SUSPENSION_EFFECT =
+  "Plus aucun candidat ne pourra commencer cet examen. Ceux qui le composent déjà peuvent terminer."
+
 export const examQuestionsHref = (examId: string) =>
   `/admin/questions?examen=${examId}`
-
-/** « Terminé » ou « Désactivé » : la bande montre le bilan, pas le suivi. */
-const isSettled = (phase: ExamStatus) =>
-  phase === "completed" || phase === "inactive"
 
 /** « 230 questions », ou « 140 / 230 questions » tant que le jeu se compose. */
 export const questionsBadge = (exam: DetailExam): string =>
@@ -50,8 +50,10 @@ export const pauseBadge = (exam: DetailExam): string =>
     ? `pause ${exam.pauseDurationMinutes}${NBSP}min`
     : "sans pause"
 
-export const audienceBadge = (exam: DetailExam): string =>
-  exam.audienceType === "restricted" ? "Audience restreinte" : "Abonnés Examens"
+export const audienceBadge = (exam: DetailExam): string => {
+  if (exam.audienceType === "restricted") return "Audience restreinte"
+  return exam.isHidden ? "Abonnés Examens, masqué" : "Abonnés Examens"
+}
 
 const passRate = (figures: ExamFigures): string => {
   if (figures.submitted === 0) return "—"
@@ -65,7 +67,7 @@ export const statItems = (
   figures: ExamFigures,
   audienceType: DetailExam["audienceType"],
 ): StatBandItem[] =>
-  isSettled(phase)
+  phase === "completed"
     ? [
         { label: "Participants", value: formatCount(figures.submitted) },
         { label: "Score moyen", value: formatScore(figures.average) },
@@ -100,7 +102,7 @@ export type Tracking = {
   progress: { submitted: number; started: number } | null
 }
 
-/** Carte « Suivi », tant que l'examen n'est ni terminé ni désactivé. */
+/** Carte « Suivi », tant que l'examen n'est pas terminé. */
 export const tracking = (
   exam: DetailExam,
   phase: ExamStatus,
@@ -126,6 +128,23 @@ export const tracking = (
       description: `Ouverture le ${atClock(exam.startDate)}. Vérifiez le jeu de questions avant cette date.`,
       finalize: false,
       progress: null,
+    }
+  }
+  if (phase === "suspended") {
+    const opensAt =
+      exam.startDate !== null && now < exam.startDate ? exam.startDate : null
+    return {
+      title: "Examen suspendu",
+      description: `${
+        opensAt === null
+          ? SUSPENSION_EFFECT
+          : `Aucun candidat ne pourra le commencer à son ouverture, le ${atClock(opensAt)}.`
+      } La suspension se lève tant que l'examen est ouvert.`,
+      finalize: false,
+      progress:
+        opensAt === null
+          ? { submitted: figures.submitted, started: figures.started }
+          : null,
     }
   }
   if (phase === "active" && exam.endDate !== null) {

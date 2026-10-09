@@ -1,0 +1,1 @@
+ALTER TABLE "exams" ADD COLUMN "is_hidden" boolean DEFAULT false NOT NULL;

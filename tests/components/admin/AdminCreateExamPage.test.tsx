@@ -33,6 +33,7 @@ const sourceWithEnd = (endDate: number): ExamReopeningSource => ({
     pauseDurationMinutes: null,
     questionCount: 3,
     audienceType: "subscribers",
+    isHidden: false,
   },
   questionIds: ["q1", "q2"],
   audience: [],

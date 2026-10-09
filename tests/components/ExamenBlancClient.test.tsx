@@ -122,6 +122,29 @@ describe("ExamenBlancClient — examens ouverts", () => {
     expect(within(dialog).getByTestId("btn-start-exam")).toBeDisabled()
   })
 
+  it("suspendu : « Suspendu » sans bouton pour commencer, ouvert comme à venir", () => {
+    renderList(
+      [
+        exam("30", { isActive: false }),
+        exam("31", {
+          isActive: false,
+          startDate: NOW + 5 * DAY,
+          endDate: NOW + 8 * DAY,
+        }),
+      ],
+      { hasExamAccess: false },
+    )
+    const card = screen.getByTestId("exam-card-30")
+    expect(card).toHaveAttribute("data-state", "suspended")
+    expect(within(card).getAllByText("Suspendu").length).toBeGreaterThan(0)
+    expect(within(card).queryByRole("button")).toBeNull()
+    expect(within(card).queryByRole("link")).toBeNull()
+
+    const row = screen.getByTestId("exam-row-31")
+    expect(within(row).getByText("Suspendu")).toBeInTheDocument()
+    expect(within(row).queryByText("À venir")).toBeNull()
+  })
+
   it("le départ exige les consignes lues, puis crée la participation et navigue", async () => {
     startExam.mockResolvedValue({
       success: true,

@@ -152,7 +152,7 @@ beforeAll(async () => {
   for (const q of v)
     await seedAnswers(q, [...Array(4).fill("A"), ...Array(6).fill("B")])
 
-  // Les trois derniers examens finalisés portent r0, r1 (désactivé), r2 ; le
+  // Les trois derniers examens finalisés portent r0, r1 (suspendu), r2 ; le
   // quatrième porte c4 ; un examen en préparation plus récent porte c3.
   ids.e1 = await mkExam("E1", 30, [r[0]])
   ids.e2Inactive = await mkExam("E2", 20, [r[1]], { isActive: false })
@@ -176,6 +176,7 @@ const prepared = async (questionIds: string[] = []) => {
     enablePause: false,
     audienceType: "subscribers",
     audienceUserIds: [],
+    isHidden: false,
     questionIds,
   })
   if (!res.success) throw new Error(res.error)
@@ -192,7 +193,7 @@ const setOf = async (examId: string) =>
   ).map((q) => q.id)
 
 describe("dernière utilisation", () => {
-  it("l'examen le plus récent qui contient la question, désactivé compris, en préparation exclu", async () => {
+  it("l'examen le plus récent qui contient la question, suspendu compris, en préparation exclu", async () => {
     asAdmin()
     const uses = await getLastUses([r[1], c[3], c[4], c[0]])
     expect(uses.get(r[1])).toMatchObject({
@@ -402,6 +403,7 @@ describe("ajout et retrait", () => {
       enablePause: false,
       audienceType: "subscribers",
       audienceUserIds: [],
+      isHidden: false,
     })
     expect(await finalizePreparedExam({ examId })).toEqual({ success: true })
 

@@ -8,7 +8,7 @@ describe("ExamStatusBadge", () => {
     { status: "active", label: "En cours" },
     { status: "upcoming", label: "À venir" },
     { status: "completed", label: "Terminé" },
-    { status: "inactive", label: "Désactivé" },
+    { status: "suspended", label: "Suspendu" },
   ])("affiche '$label' pour le statut $status", ({ status, label }) => {
     render(<ExamStatusBadge status={status} />)
     expect(screen.getByText(label)).toBeInTheDocument()
