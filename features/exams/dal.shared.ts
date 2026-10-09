@@ -1,7 +1,11 @@
 import { eq, inArray, sql } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
-import { examQuestions, questions } from "@/db/schema"
+import {
+  type examParticipationStatus,
+  examQuestions,
+  questions,
+} from "@/db/schema"
 
 export const countQuestionsByExam = async (
   examIds: string[],
@@ -69,18 +73,20 @@ export const finalizedDates = (exam: {
   completionTime: finalizedDuration(exam.completionTime),
 })
 
-/** Participation soumise : à la main, ou automatiquement (temps écoulé, fermeture). */
-export type SubmittedStatus = "completed" | "auto_submitted"
+type ParticipationStatus = (typeof examParticipationStatus.enumValues)[number]
 
-/** Forme TypeScript de `SUBMITTED`. */
+/** Participation soumise : à la main, ou automatiquement (temps écoulé, fermeture). */
+export type SubmittedStatus = Exclude<ParticipationStatus, "in_progress">
+
+/** Forme TypeScript de `SUBMITTED` (`population.ts`). */
 export const isSubmitted = (
-  status: "in_progress" | "completed" | "auto_submitted" | undefined,
+  status: ParticipationStatus | undefined,
 ): status is SubmittedStatus =>
   status === "completed" || status === "auto_submitted"
 
 /** Lecture filtrée sur les statuts soumis : un autre statut est un bug. */
 export const submittedStatus = (
-  status: "in_progress" | "completed" | "auto_submitted",
+  status: ParticipationStatus,
 ): SubmittedStatus => {
   if (status === "in_progress") throw new Error("PARTICIPATION_NOT_SUBMITTED")
   return status
