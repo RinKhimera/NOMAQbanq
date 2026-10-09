@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { db } from "@/db"
 import { user } from "@/db/schema"
-import { requireSession } from "@/lib/auth-guards"
+import { requireRole, requireSession } from "@/lib/auth-guards"
 import { applyMarketingPreferenceByToken } from "./unsubscribe"
 
 const schema = z.object({
@@ -38,6 +38,22 @@ export const updateNotificationPreferences = async (input: {
     })
     .where(eq(user.id, session.user.id))
   revalidatePath("/tableau-de-bord/profil")
+  revalidatePath("/admin/profil")
+  return { success: true }
+}
+
+const paymentAlertsSchema = z.object({ enabled: z.boolean() })
+
+export const updatePaymentAlertsPreference = async (input: {
+  enabled: boolean
+}): Promise<UpdateNotificationsResult> => {
+  const session = await requireRole(["admin"])
+  const parsed = paymentAlertsSchema.safeParse(input)
+  if (!parsed.success) return { success: false, error: "Données invalides" }
+  await db
+    .update(user)
+    .set({ notifyPaymentAlerts: parsed.data.enabled })
+    .where(eq(user.id, session.user.id))
   revalidatePath("/admin/profil")
   return { success: true }
 }

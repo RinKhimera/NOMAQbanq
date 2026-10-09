@@ -26,6 +26,10 @@ export const user = pgTable(
     notifyExamResults: boolean("notify_exam_results").default(true).notNull(),
     notifyAccessExpiry: boolean("notify_access_expiry").default(true).notNull(),
     notifyMarketing: boolean("notify_marketing").default(true).notNull(),
+    // Alertes de paiement : ne concerne que les administrateurs.
+    notifyPaymentAlerts: boolean("notify_payment_alerts")
+      .default(true)
+      .notNull(),
     banned: boolean("banned").default(false).notNull(),
     banReason: text("ban_reason"),
     banExpires: timestamp("ban_expires", { withTimezone: true }),

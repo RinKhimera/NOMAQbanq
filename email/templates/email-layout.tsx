@@ -17,6 +17,8 @@ export type EmailLayoutProps = {
   firstName?: string | null
   /** Origine absolue de l'app (logo, liens). Les templates ne lisent jamais l'env. */
   baseUrl: string
+  /** Pourquoi le destinataire reçoit ce courriel, sous le pied (alertes admin). */
+  footerNote?: ReactNode
   children: ReactNode
 } & CategoryProps
 
@@ -42,6 +44,12 @@ const footerText = {
   color: colors.ink3,
 } as const
 const footerLink = { color: colors.ink3, textDecoration: "underline" } as const
+const footerNoteStyle = {
+  ...footerText,
+  margin: "14px 0 0",
+  paddingTop: "14px",
+  borderTop: `1px solid ${colors.line}`,
+} as const
 
 export function EmailLayout({
   preview,
@@ -50,6 +58,7 @@ export function EmailLayout({
   baseUrl,
   category,
   unsubscribeUrl,
+  footerNote,
   children,
 }: EmailLayoutProps) {
   const absolute = (path: string) => `${baseUrl}${path}`
@@ -229,15 +238,11 @@ export function EmailLayout({
                             Confidentialité
                           </Link>
                         </p>
+                        {footerNote ? (
+                          <p style={footerNoteStyle}>{footerNote}</p>
+                        ) : null}
                         {category === "commercial" ? (
-                          <p
-                            style={{
-                              ...footerText,
-                              margin: "14px 0 0",
-                              paddingTop: "14px",
-                              borderTop: `1px solid ${colors.line}`,
-                            }}
-                          >
+                          <p style={footerNoteStyle}>
                             Vous recevez ce courriel parce que vous avez un
                             compte {emailBrand.name}.{" "}
                             <Link href={unsubscribeUrl} style={footerLink}>

@@ -53,4 +53,5 @@ export const fakeMailer = {
   sendWelcomeEmail: verb("sendWelcomeEmail"),
   sendInactivityReminderEmail: verb("sendInactivityReminderEmail"),
   sendAbandonedCartEmail: verb("sendAbandonedCartEmail"),
+  sendPaymentAlertEmail: verb("sendPaymentAlertEmail"),
 } satisfies Mailer

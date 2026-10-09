@@ -15,6 +15,7 @@ export const emailTheme = {
     info: { background: "#eff6ff", line: "#bfdbfe" },
     warning: { background: "#fffbeb", line: "#fde68a" },
     success: { background: "#ecfdf5", line: "#a7f3d0" },
+    danger: { background: "#fef2f2", line: "#fecaca" },
   },
   // Polices système seulement : aucune police web n'est chargée, pour ne faire
   // contacter aucun tiers à l'ouverture d'un courriel.

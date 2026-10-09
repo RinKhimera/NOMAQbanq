@@ -100,6 +100,14 @@ rend le travail différé (courriel, rappel de panier) sans jamais appeler
   l'événement depuis le Dashboard (Développeurs → Webhooks). Fonds restitués
   après une perte : alerte seule, re-crédit humain. Suspendre le compte est un
   geste DISTINCT (`banUser`), jamais automatique.
+- **Alertes de paiement par courriel** (`features/payments/alerts.ts`,
+  `CONTEXT.md`) : litige ouvert, alerte de fraude précoce, litige clos et
+  remboursement complet partent aussi par courriel aux administrateurs, en
+  plus de Sentry, par le travail différé du fulfillment. L'alerte se construit
+  APRÈS les écritures : l'état d'accès qu'elle annonce (« retiré » ou
+  « maintenu par un autre achat ») se relit dans `user_access` après le
+  recalcul, jamais déduit de l'événement. Une mise à jour de litige, des
+  fonds restitués et un remboursement partiel restent dans Sentry seulement.
 - **Un litige peut précéder le fulfillment.** Stripe livre
   `charge.dispute.created` AVANT `checkout.session.completed` avec la carte de
   test 0259, et un paiement différé peut être contesté avant confirmation : la

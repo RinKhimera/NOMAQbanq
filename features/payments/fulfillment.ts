@@ -5,6 +5,13 @@ import { sendAbandonedCartReminder } from "@/features/notifications/abandoned-ca
 import { captureServerError } from "@/lib/observability"
 import { findCheckoutSessionByPaymentIntent } from "@/lib/stripe"
 import {
+  deferPaymentAlert,
+  disputeClosedAlert,
+  disputeOpenedAlert,
+  earlyFraudWarningAlert,
+  refundedAlert,
+} from "./alerts"
+import {
   type CompleteStripeResult,
   type RefundStripeResult,
   completeStripeTransaction,
@@ -228,6 +235,7 @@ const fulfilDispute = async (
   // rejeu (Stripe redélivre, et un événement peut être renvoyé depuis le
   // Dashboard). L'alerte « litige perdu » est déjà partie plus haut ; celle-ci
   // ne porte que l'issue du retrait.
+  let lostRefund: RefundStripeResult | null = null
   if (
     event.type === "charge.dispute.closed" &&
     dispute.status === "lost" &&
@@ -242,15 +250,32 @@ const fulfilDispute = async (
       new Error("litige perdu · retrait d'accès"),
       { detail: `${detail} · ${describeRefund(refund)}` },
     )
+    lostRefund = refund
   }
+
+  // Alerte de paiement par courriel : l'ouverture et la clôture demandent une
+  // décision ; une mise à jour ou des fonds restitués restent dans Sentry.
+  if (event.type === "charge.dispute.created")
+    return {
+      deferred: deferPaymentAlert(event, () =>
+        disputeOpenedAlert(event, dispute, disputedPaymentIntent),
+      ),
+    }
+  if (event.type === "charge.dispute.closed")
+    return {
+      deferred: deferPaymentAlert(event, () =>
+        disputeClosedAlert(event, dispute, disputedPaymentIntent, lostRefund),
+      ),
+    }
   return {}
 }
 
 // Remboursement depuis le Dashboard (ou remboursement proactif après EFW) :
 // COMPLET → la transaction passe en refunded et l'accès est recalculé ;
 // PARTIEL → geste commercial, accès conservé, alerte seule. Stripe = source de
-// vérité pour l'argent, comme pour l'octroi. L'alerte part AVANT l'écriture
-// (même règle que les litiges).
+// vérité pour l'argent, comme pour l'octroi. L'alerte Sentry part AVANT
+// l'écriture (même règle que les litiges) ; le courriel, différé, se construit
+// APRÈS, pour annoncer l'accès tel que le recalcul l'a laissé.
 const fulfilRefund = async (
   event: Stripe.Event,
   charge: Stripe.Charge,
@@ -285,13 +310,18 @@ const fulfilRefund = async (
     refundedAt: new Date(event.created * 1000),
   })
   reportRefundOutcome(refund, detail)
-  return {}
+  return {
+    deferred: deferPaymentAlert(event, () =>
+      refundedAlert(event, charge, paymentIntent, refund),
+    ),
+  }
 }
 
 /**
  * Fulfillment d'un événement Stripe VÉRIFIÉ : octroi, échec, litige,
  * remboursement, signal de fraude — décidé par `event.type`, indépendant du
- * transport HTTP. Les alertes partent inline, AVANT toute écriture en base
+ * transport HTTP. Les alertes Sentry partent inline, AVANT toute écriture en
+ * base ; les courriels d'alerte, différés, se construisent APRÈS
  * (`.claude/rules/payments.md`). Une erreur inattendue LÈVE : la route
  * l'attrape, la capture et répond 500 pour que Stripe rejoue. Un événement
  * non géré rend `{}` (acquitté sans traitement).
@@ -359,7 +389,11 @@ export async function fulfilStripeEvent(
           detail: `efw ${warning.id} · charge ${chargeId} · type ${warning.fraud_type} · payment_intent ${paymentIntent ?? "absent"} · remboursement proactif à envisager`,
         },
       )
-      return {}
+      return {
+        deferred: deferPaymentAlert(event, () =>
+          earlyFraudWarningAlert(event, paymentIntent),
+        ),
+      }
     }
 
     case "payment_intent.payment_failed": {

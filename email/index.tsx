@@ -11,6 +11,7 @@ import {
   createUnsubscribeUrl,
 } from "@/lib/unsubscribe-token"
 import { firstNameOf } from "./first-name"
+import { type PaymentAlert, paymentAlertContent } from "./payment-alert"
 import { sendEmail } from "./send"
 import { AbandonedCartEmail } from "./templates/abandoned-cart-email"
 import {
@@ -22,6 +23,7 @@ import {
   examResultsTitle,
 } from "./templates/exam-results-email"
 import { InactivityReminderEmail } from "./templates/inactivity-reminder-email"
+import { PaymentAlertEmail } from "./templates/payment-alert-email"
 import { PurchaseConfirmationEmail } from "./templates/purchase-confirmation-email"
 import { ResetPasswordEmail } from "./templates/reset-password-email"
 import { VerificationEmail } from "./templates/verification-email"
@@ -222,6 +224,28 @@ export function sendAbandonedCartEmail({
         unsubscribeUrl={unsubscribeUrl}
         productName={productName}
         priceLabel={formatCurrency(priceCad, "CAD")}
+      />
+    ),
+  })
+}
+
+/** Alerte de paiement (`CONTEXT.md`), à un administrateur. Transactionnel. */
+export function sendPaymentAlertEmail({
+  to,
+  name,
+  alert,
+}: Recipient & { alert: PaymentAlert }) {
+  const { baseUrl, firstName } = layoutProps(name)
+  const content = paymentAlertContent(alert)
+  return sendEmail({
+    to,
+    subject: content.subject,
+    react: (
+      <PaymentAlertEmail
+        content={content}
+        profileUrl={`${baseUrl}/admin/profil#notifications`}
+        firstName={firstName}
+        baseUrl={baseUrl}
       />
     ),
   })

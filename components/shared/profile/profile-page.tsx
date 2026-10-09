@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation"
 import { ErrorState } from "@/components/shared/error-state"
 import { getNotificationPreferences } from "@/features/notifications/dal"
 import {
@@ -5,7 +6,9 @@ import {
   getLoginMethods,
   getUserSessions,
 } from "@/features/users/dal"
+import { getMyAdminActivity } from "@/features/users/dal.activity"
 import { env } from "@/lib/env/server"
+import { captureServerError } from "@/lib/observability"
 import { ProfileView } from "./profile-view"
 
 /**
@@ -25,11 +28,23 @@ export const ProfilePage = async ({ profilePath }: { profilePath: string }) => {
     )
   }
 
-  const [methods, sessions, notificationPreferences] = await Promise.all([
-    getLoginMethods(),
-    getUserSessions(),
-    getNotificationPreferences(),
-  ])
+  const [methods, sessions, notificationPreferences, adminActivity] =
+    await Promise.all([
+      getLoginMethods(),
+      getUserSessions(),
+      getNotificationPreferences(),
+      // L'activité n'est qu'une section : son échec ne doit pas emporter le
+      // profil, où l'admin gère aussi ses alertes et ses appareils.
+      currentUser.role === "admin"
+        ? getMyAdminActivity().catch((error: unknown) => {
+            unstable_rethrow(error)
+            captureServerError("[profil:activite]", error, {
+              userId: currentUser.id,
+            })
+            return null
+          })
+        : null,
+    ])
 
   return (
     <ProfileView
@@ -37,6 +52,7 @@ export const ProfilePage = async ({ profilePath }: { profilePath: string }) => {
       methods={methods}
       sessions={sessions}
       notificationPreferences={notificationPreferences}
+      adminActivity={adminActivity}
       googleEnabled={Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)}
       profilePath={profilePath}
     />

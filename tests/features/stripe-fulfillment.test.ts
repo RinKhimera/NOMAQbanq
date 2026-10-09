@@ -19,6 +19,10 @@ const { mocks } = vi.hoisted(() => ({
     refund: vi.fn<() => Promise<unknown>>(),
     sendAbandonedCartReminder: vi.fn<() => Promise<boolean>>(),
     markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
+    deferPaymentAlert: vi.fn((event: { type: string }) => {
+      const send = async () => {}
+      return Object.assign(send, { alertFor: event.type })
+    }),
   },
 }))
 
@@ -31,6 +35,15 @@ vi.mock("@/features/payments/stripe", () => ({
   recordStripeDispute: mocks.recordDispute,
   refundStripeTransaction: mocks.refund,
   markConfirmationEmailSent: mocks.markConfirmationEmailSent,
+}))
+// Les alertes de paiement se prouvent sur une vraie base
+// (tests/integration/payment-alerts.test.ts) ; ici, seul leur branchement.
+vi.mock("@/features/payments/alerts", () => ({
+  deferPaymentAlert: mocks.deferPaymentAlert,
+  disputeOpenedAlert: vi.fn(),
+  disputeClosedAlert: vi.fn(),
+  refundedAlert: vi.fn(),
+  earlyFraudWarningAlert: vi.fn(),
 }))
 vi.mock("@/email", () =>
   import("../helpers/fake-mailer").then((m) => m.fakeMailer),

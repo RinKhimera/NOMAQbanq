@@ -3,7 +3,10 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { Switch } from "@/components/ui/switch"
-import { updateNotificationPreferences } from "@/features/notifications/actions"
+import {
+  updateNotificationPreferences,
+  updatePaymentAlertsPreference,
+} from "@/features/notifications/actions"
 import type { NotificationPreferences } from "@/features/notifications/dal"
 import { callAction } from "@/lib/safe-action"
 
@@ -21,7 +24,13 @@ export const ProfileNotifications = ({
     const prev = prefs
     setPrefs(next) // optimistic
     setBusy(true)
-    const res = await callAction(() => updateNotificationPreferences(next))
+    const res = await callAction(() =>
+      updateNotificationPreferences({
+        examResults: next.examResults,
+        accessExpiry: next.accessExpiry,
+        marketing: next.marketing,
+      }),
+    )
     setBusy(false)
     if (!res.success) {
       setPrefs(prev) // rollback
@@ -59,6 +68,46 @@ export const ProfileNotifications = ({
         pending={busy}
         testId="notif-toggle-marketing"
         onCheckedChange={(v) => update({ ...prefs, marketing: v })}
+      />
+    </div>
+  )
+}
+
+/** Profil administrateur : les alertes de paiement sont son seul réglage. */
+export const ProfileAdminNotifications = ({
+  paymentAlerts,
+}: {
+  paymentAlerts: boolean
+}) => {
+  const [enabled, setEnabled] = useState(paymentAlerts)
+  const [busy, setBusy] = useState(false)
+
+  const update = async (next: boolean) => {
+    if (busy) return
+    setEnabled(next) // optimistic
+    setBusy(true)
+    const res = await callAction(() =>
+      updatePaymentAlertsPreference({ enabled: next }),
+    )
+    setBusy(false)
+    if (!res.success) {
+      setEnabled(!next) // rollback
+      toast.error(res.error ?? "Échec de la mise à jour")
+      return
+    }
+    toast.success("Préférences mises à jour")
+  }
+
+  return (
+    <div className="flex flex-col">
+      <NotifRow
+        id="notif-payment-alerts"
+        label="Alertes de paiement"
+        description="Litige ouvert, alerte de fraude, litige clos, remboursement complet. Ces événements demandent une décision de votre part."
+        checked={enabled}
+        pending={busy}
+        testId="notif-toggle-payment-alerts"
+        onCheckedChange={update}
       />
     </div>
   )

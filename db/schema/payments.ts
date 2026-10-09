@@ -164,3 +164,27 @@ export const userAccess = pgTable(
       .where(sql`${t.expiryReminderSentAt} is null`),
   ],
 )
+
+// Alertes de paiement (`CONTEXT.md`) : une ligne par événement Stripe et par
+// administrateur destinataire, `sent_at` étant le marqueur d'envoi de
+// `sendOnce`. Stripe redélivre un événement (et le Dashboard le renvoie) sous
+// le même id : la clé unique fait d'un rejeu un no-op.
+export const paymentAlerts = pgTable(
+  "payment_alerts",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    stripeEventId: text("stripe_event_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    unique("payment_alerts_event_user_unique").on(t.stripeEventId, t.userId),
+  ],
+)
