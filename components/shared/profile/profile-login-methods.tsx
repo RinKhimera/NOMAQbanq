@@ -1,7 +1,8 @@
 "use client"
 
 import { Globe, KeyRound, Mail } from "lucide-react"
-import { type Ref, useState } from "react"
+import { useRouter } from "next/navigation"
+import { type Ref, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
@@ -36,28 +37,33 @@ export const ProfileLoginMethods = ({
   passwordFormOpen = false,
   passwordToggleRef,
 }: Props) => {
-  const [busy, setBusy] = useState(false)
+  const router = useRouter()
+  const [requesting, setRequesting] = useState(false)
+  // Le refresh en transition garde le verrou jusqu'au commit de la page à
+  // jour : sinon « Délier » reste cliquable sur un compte déjà délié.
+  const [refreshing, startRefresh] = useTransition()
+  const busy = requesting || refreshing
 
   const linkGoogle = async () => {
-    setBusy(true)
+    setRequesting(true)
     const { error } = await authClient.linkSocial({
       provider: "google",
       callbackURL: profilePath,
     })
     if (error) {
       toast.error(mapAuthError(error).message)
-      setBusy(false)
+      setRequesting(false)
     }
     // Succès → redirection OAuth déclenchée par Better Auth.
   }
 
   const unlinkGoogle = async () => {
     if (!methods.google.linked) return
-    setBusy(true)
+    setRequesting(true)
     const { error } = await authClient.unlinkAccount({
       accountId: methods.google.accountId,
     })
-    setBusy(false)
+    setRequesting(false)
     if (error) {
       const code = (error as { code?: string }).code
       // unlinkAccount exige une session « fraîche » (freshAge défaut = 24 h).
@@ -78,13 +84,13 @@ export const ProfileLoginMethods = ({
       return
     }
     toast.success("Compte Google délié")
-    location.reload()
+    startRefresh(() => router.refresh())
   }
 
   const resendVerification = async () => {
-    setBusy(true)
+    setRequesting(true)
     const { error } = await authClient.sendVerificationEmail({ email })
-    setBusy(false)
+    setRequesting(false)
     if (error) {
       toast.error(mapAuthError(error).message)
       return
@@ -148,7 +154,10 @@ export const ProfileLoginMethods = ({
               {passwordFormOpen ? "Annuler" : "Modifier"}
             </Button>
           ) : (
+            // Même type, même place, sans `key` : React garde le nœud quand
+            // `hasPassword` bascule, et le focus passe de « Définir » à « Modifier ».
             <Button
+              ref={passwordToggleRef}
               size="sm"
               variant="outline"
               onClick={onSetPassword}
