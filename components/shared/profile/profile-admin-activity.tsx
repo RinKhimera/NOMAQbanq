@@ -8,13 +8,18 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
-import { clientFileHref } from "@/components/shared/payments/transaction-labels"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { StatBand, type StatBandItem } from "@/components/shared/stat-band"
 import type {
   AdminActivity,
   AdminActivityItem,
 } from "@/features/users/dal.activity"
+import {
+  adminExamHref,
+  adminQuestionHref,
+  adminUserHref,
+  clientFileHref,
+} from "@/lib/admin-links"
 import { formatCurrency, formatMediumDate } from "@/lib/format"
 
 const plural = (n: number, one: string, many: string) =>
@@ -65,22 +70,22 @@ const FEED_KIND: Record<
   exam_created: {
     icon: FilePlus2,
     verb: "Examen créé",
-    href: (item) => `/admin/examens/${item.id}`,
+    href: (item) => adminExamHref(item.id),
   },
   key_confirmed: {
     icon: KeyRound,
     verb: "Clé confirmée",
-    href: (item) => `/admin/questions/${item.id}`,
+    href: (item) => adminQuestionHref(item.id),
   },
   suspension: {
     icon: UserX,
     verb: "Compte suspendu",
-    href: (item) => `/admin/utilisateurs/${item.id}`,
+    href: (item) => adminUserHref(item.id),
   },
   suspension_lifted: {
     icon: UserCheck,
     verb: "Suspension levée",
-    href: (item) => `/admin/utilisateurs/${item.id}`,
+    href: (item) => adminUserHref(item.id),
   },
 }
 

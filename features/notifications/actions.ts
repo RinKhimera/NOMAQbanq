@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { db } from "@/db"
 import { user } from "@/db/schema"
+import { ADMIN_PROFILE_PATH } from "@/lib/admin-links"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { applyMarketingPreferenceByToken } from "./unsubscribe"
 
@@ -54,7 +55,7 @@ export const updatePaymentAlertsPreference = async (input: {
     .update(user)
     .set({ notifyPaymentAlerts: parsed.data.enabled })
     .where(eq(user.id, session.user.id))
-  revalidatePath("/admin/profil")
+  revalidatePath(ADMIN_PROFILE_PATH)
   return { success: true }
 }
 

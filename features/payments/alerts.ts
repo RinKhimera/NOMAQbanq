@@ -17,6 +17,7 @@ import type {
   StripeMoney,
 } from "@/email/payment-alert"
 import { eligibleRecipient, sendOnce } from "@/features/notifications/one-shot"
+import { clientFileHref } from "@/lib/admin-links"
 import { getBaseUrl } from "@/lib/base-url"
 import { captureServerError } from "@/lib/observability"
 import type { RefundStripeResult } from "./stripe"
@@ -25,20 +26,24 @@ const TAG = "[notif:alerte-paiement]"
 /** Plafond de destinataires par événement : l'équipe compte quelques administrateurs. */
 const RECIPIENT_LIMIT = 50
 
-type AlertTransaction = {
-  id: string
-  userId: string
+type TransactionRow = typeof transactions.$inferSelect
+
+type AlertTransaction = Pick<
+  TransactionRow,
+  | "id"
+  | "userId"
+  | "accessType"
+  | "amountPaid"
+  | "currency"
+  | "status"
+  // Échéance que portait l'achat (snapshot du cumul).
+  | "accessExpiresAt"
+> & {
   name: string
   email: string
   productName: string
   isCombo: boolean
-  accessType: "exam" | "training"
-  amountPaid: number
-  currency: "CAD" | "XAF"
-  status: "pending" | "completed" | "failed" | "refunded"
-  /** Échéance que portait l'achat (snapshot du cumul). */
-  accessExpiresAt: Date
-  paidAt: Date | null
+  paidAt: TransactionRow["completedAt"]
 }
 
 const findTransaction = async (
@@ -70,13 +75,12 @@ const findTransaction = async (
 
 const candidateOf = (tx: AlertTransaction | null): AlertCandidate | null => {
   if (!tx) return null
-  const params = new URLSearchParams({ client: tx.userId, tx: tx.id })
   return {
     name: tx.name,
     email: tx.email,
     productName: tx.productName,
     paidAt: tx.paidAt,
-    transactionUrl: `${getBaseUrl()}/admin/transactions?${params}`,
+    transactionUrl: `${getBaseUrl()}${clientFileHref(tx.userId, tx.id)}`,
   }
 }
 
@@ -97,7 +101,7 @@ const accessState = async (
 ): Promise<AccessAfterRefund> => {
   const now = new Date()
   if (tx.accessExpiresAt <= now) return "expired"
-  const types: ("exam" | "training")[] = tx.isCombo
+  const types: AlertTransaction["accessType"][] = tx.isCombo
     ? ["exam", "training"]
     : [tx.accessType]
   const covered = new Set(
@@ -119,6 +123,9 @@ const accessState = async (
   if (covered.size === 0) return "removed"
   return covered.has("exam") ? "exam_only" : "training_only"
 }
+
+const accessStateOf = async (tx: AlertTransaction | null) =>
+  tx ? accessState(tx) : null
 
 /** Rien à annoncer si le retour de fonds n'a rien réécrit (déjà remboursé, jamais complété, introuvable). */
 const accessAfterRefund = async (
@@ -160,11 +167,11 @@ export const disputeClosedAlert = async (
     status: dispute.status,
     money: { amount: dispute.amount, currency: dispute.currency },
     candidate: candidateOf(tx),
+    // Litige perdu : l'accès après le retour de fonds ; issue favorable :
+    // l'accès tel qu'il est, retiré au besoin par un litige perdu antérieur.
     access: refund
       ? await accessAfterRefund(tx, refund)
-      : tx
-        ? await accessState(tx)
-        : null,
+      : await accessStateOf(tx),
     transactionRefunded: tx?.status === "refunded",
     stripeUrl: dashboardUrl(event, paymentIntent),
   }

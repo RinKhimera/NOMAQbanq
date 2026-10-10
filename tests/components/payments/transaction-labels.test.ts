@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
   accessLine,
-  clientFileHref,
   grantedAccessLabel,
   recordedGrantLine,
   transactionTypeLabel,
@@ -167,14 +166,5 @@ describe("recordedGrantLine", () => {
         { isCombo: false, durationDays: 30, recordedAt: NOW },
       ),
     ).toBe("accordé jusqu'au 27 oct. 2026")
-  })
-})
-
-describe("clientFileHref", () => {
-  it("dossier d'un client, transaction dépliée", () => {
-    expect(clientFileHref("u1")).toBe("/admin/transactions?client=u1")
-    expect(clientFileHref("u1", "t9")).toBe(
-      "/admin/transactions?client=u1&tx=t9",
-    )
   })
 })

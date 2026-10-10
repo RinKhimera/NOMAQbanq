@@ -35,7 +35,10 @@ export type AdminActivity = {
   manualPayments: {
     count: number
     /** Montants en unités mineures, une entrée par devise utilisée. */
-    totals: { currency: "CAD" | "XAF"; amount: number }[]
+    totals: {
+      currency: (typeof transactions.$inferSelect)["currency"]
+      amount: number
+    }[]
     lastAt: Date | null
   }
   exams: { count: number; openOrUpcoming: number }

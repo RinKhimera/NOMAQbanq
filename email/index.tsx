@@ -1,4 +1,5 @@
 import type { AccessType } from "@/features/payments/access-ledger"
+import { ADMIN_PROFILE_PATH } from "@/lib/admin-links"
 import { getBaseUrl } from "@/lib/base-url"
 import { env } from "@/lib/env/server"
 import {
@@ -243,7 +244,7 @@ export function sendPaymentAlertEmail({
     react: (
       <PaymentAlertEmail
         content={content}
-        profileUrl={`${baseUrl}/admin/profil#notifications`}
+        profileUrl={`${baseUrl}${ADMIN_PROFILE_PATH}#notifications`}
         firstName={firstName}
         baseUrl={baseUrl}
       />

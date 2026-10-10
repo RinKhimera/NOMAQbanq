@@ -13,7 +13,6 @@ import { type ReactNode, useState } from "react"
 import { CopyId } from "@/components/shared/copy-id"
 import { ACCESS_TYPE_LABEL } from "@/components/shared/payments/access-badge"
 import { ManualPaymentFlow } from "@/components/shared/payments/manual-payment-dialog"
-import { clientFileHref } from "@/components/shared/payments/transaction-labels"
 import { TransactionStatusWithDispute } from "@/components/shared/payments/transaction-status"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { BannedPill, StatusPill } from "@/components/shared/status-pill"
@@ -21,6 +20,7 @@ import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
 import type { ProductView } from "@/features/payments/dal"
 import type { UserBanView, UserFile } from "@/features/users/dal"
+import { clientFileHref } from "@/lib/admin-links"
 import {
   NBSP,
   formatCurrency,
