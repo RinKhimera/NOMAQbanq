@@ -25,6 +25,7 @@ import {
   recordManualPayment,
 } from "@/features/payments/actions"
 import type { ProductView } from "@/features/payments/dal"
+import { clientFileHref } from "@/lib/admin-links"
 import {
   type Currency,
   amountInputError,
@@ -53,7 +54,7 @@ import {
   SubmitButton,
   amountInput,
 } from "./manual-payment-fields"
-import { clientFileHref, recordedGrantLine } from "./transaction-labels"
+import { recordedGrantLine } from "./transaction-labels"
 
 export type { PaymentClient } from "./manual-payment-fields"
 

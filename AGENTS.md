@@ -91,7 +91,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Icons** : `lucide-react` (primaire — utilisé partout), `@tabler/icons-react` (secondaire — surtout admin/dashboard et profil)
 - **Auth** : Better Auth (`lib/auth.ts`, route `app/api/auth/[...all]`) ; client `authClient` (`lib/auth-client.ts`)
 - **Webhooks** : Stripe -> `app/api/stripe/webhook` (signature verifiee, 500 sur erreur -> retry)
-- **Stripe en dev** : mode TEST (profil CLI `nomaqbanq`) ; webhooks locaux via `stripe listen --forward-to localhost:3000/api/stripe/webhook`. Le prix est résolu au checkout par `products.stripe_price_lookup_key`, identique en test et en live → les 5 produits sont achetables en local sans configuration. Code promo test −100 % : `E2EPROMO100`
+- **Stripe en dev** : mode TEST (profil CLI `nomaqbanq`) ; webhooks locaux via `stripe listen --forward-to localhost:3000/api/stripe/webhook`. Le prix est résolu au checkout par `products.stripe_price_lookup_key`, identique en test et en live → les 5 produits sont achetables en local sans configuration. Code promo test −100 % : `E2EPROMO100`. Litige de test : carte `4000000000000259` au Checkout (ouvre `charge.dispute.created`) ; rejouer un événement : `stripe -p nomaqbanq events resend <evt_…>`
 - **Routes centralisees** : Modifier `constants/index.tsx` pour ajouter/changer URLs
 - **Hauteur uniforme cards** : Utiliser `h-full` + reserver espace pour elements optionnels
 - **URL state** : Deriver l'etat de l'URL, pas useState+useEffect

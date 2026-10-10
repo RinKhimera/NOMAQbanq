@@ -22,6 +22,7 @@ describe("ProfileNotifications", () => {
           examResults: true,
           accessExpiry: false,
           marketing: true,
+          paymentAlerts: true,
         }}
       />,
     )
@@ -48,6 +49,7 @@ describe("ProfileNotifications", () => {
           examResults: false,
           accessExpiry: false,
           marketing: true,
+          paymentAlerts: true,
         }}
       />,
     )
@@ -61,7 +63,12 @@ describe("ProfileNotifications — rappels commerciaux", () => {
   it("expose l'interrupteur des rappels commerciaux", async () => {
     render(
       <ProfileNotifications
-        preferences={{ examResults: true, accessExpiry: true, marketing: true }}
+        preferences={{
+          examResults: true,
+          accessExpiry: true,
+          marketing: true,
+          paymentAlerts: true,
+        }}
       />,
     )
     const marketing = screen.getByTestId("notif-toggle-marketing")

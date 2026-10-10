@@ -20,7 +20,10 @@ export const ProfileHeader = ({ user }: { user: CurrentUser }) => (
           <StatusPill tone="neutral">Étudiant</StatusPill>
         )}
         {user.createdAt && (
-          <span>Membre depuis {formatMonthYear(user.createdAt)}</span>
+          <span>
+            {user.role === "admin" ? "Administrateur" : "Membre"} depuis{" "}
+            {formatMonthYear(user.createdAt)}
+          </span>
         )}
       </p>
     </AvatarUploader>

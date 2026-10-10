@@ -117,10 +117,3 @@ export const recordedGrantLine = (
   const remaining = daysUntil(previous, o.recordedAt)
   return `${remaining}${NBSP}j restants + ${o.durationDays}${NBSP}j = ${remaining + o.durationDays}${NBSP}j · prolongé jusqu'au ${until}`
 }
-
-/** Dossier d'un client sur la page Transactions, transaction dépliée. */
-export const clientFileHref = (userId: string, transactionId?: string) => {
-  const params = new URLSearchParams({ client: userId })
-  if (transactionId) params.set("tx", transactionId)
-  return `/admin/transactions?${params}`
-}

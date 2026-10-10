@@ -386,6 +386,23 @@ La réponse HTTP au webhook — 200 traité ou volontairement ignoré, 400
 signature (jamais rejoué), 500 à rejouer. Propriété de la route seule.
 _Avoid_ : ack, réponse du webhook
 
+**Alerte de paiement** :
+Le courriel envoyé aux administrateurs quand un événement Stripe demande une
+décision humaine : litige ouvert, alerte de fraude précoce, litige clos,
+remboursement complet. Une nouvelle vente ou une erreur technique n'en est pas
+une. Chaque administrateur peut la refuser depuis son profil.
+_Avoid_ : notification admin, alerte Sentry
+
+### Administration
+
+**Activité d'un administrateur** :
+Ce qu'un administrateur a fait lui-même et que la plateforme sait lui
+attribuer : paiements manuels enregistrés, examens créés, clés confirmées,
+suspensions prononcées ou levées. Les modifications de questions et les
+suppressions de participation n'en font pas partie, faute d'auteur connu.
+Distincte de l'activité de la plateforme, qui est celle de tout le monde.
+_Avoid_ : journal d'audit, historique admin
+
 ### Courriels
 
 **Courriel unique** :

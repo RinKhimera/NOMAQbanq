@@ -28,3 +28,11 @@ paths:
   est prouvée une fois dans `tests/integration/one-shot.test.ts`. Seule
   exception voulue : le courriel de confirmation d'achat (webhook, « envoi
   puis marquage », `.claude/rules/payments.md`).
+- **Alerte de paiement** (`sendPaymentAlert`, `features/payments/alerts.ts`) :
+  le marqueur vit sur `payment_alerts`, une ligne par (événement Stripe,
+  administrateur), créées à la première livraison seulement (un rejeu
+  n'ajoute personne). La préférence se lit par `shouldSend` : un refus pose
+  le marqueur, l'administrateur qui réactive ses alertes ne reçoit pas un
+  événement passé. Transactionnel, sans lien de désabonnement : le
+  pied (`footerNote` du layout) renvoie au réglage du profil admin
+  (`user.notify_payment_alerts`).

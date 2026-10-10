@@ -9,6 +9,8 @@ export type NotificationPreferences = {
   examResults: boolean
   accessExpiry: boolean
   marketing: boolean
+  /** Lu pour tout le monde, mais seul un administrateur reçoit ces alertes. */
+  paymentAlerts: boolean
 }
 
 // Préférences de notification de l'utilisateur courant (self-scoped).
@@ -21,6 +23,7 @@ export const getNotificationPreferences = cache(
         examResults: user.notifyExamResults,
         accessExpiry: user.notifyAccessExpiry,
         marketing: user.notifyMarketing,
+        paymentAlerts: user.notifyPaymentAlerts,
       })
       .from(user)
       .where(eq(user.id, session.user.id))
