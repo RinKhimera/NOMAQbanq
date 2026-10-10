@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  type AccessAfterRefund,
   type AlertCandidate,
   type PaymentAlert,
   disputeReasonLabel,
@@ -18,10 +19,20 @@ const stripeUrl = "https://dashboard.stripe.com/payments/pi_1"
 
 const closed = (
   status: string,
-  access: "removed" | "kept" | null = null,
+  access: AccessAfterRefund = null,
+  transactionRefunded = false,
 ): PaymentAlert => ({
   kind: "dispute_closed",
   status,
+  money: cad,
+  candidate,
+  access,
+  transactionRefunded,
+  stripeUrl,
+})
+
+const refunded = (access: AccessAfterRefund): PaymentAlert => ({
+  kind: "refunded",
   money: cad,
   candidate,
   access,
@@ -162,6 +173,46 @@ describe("contenu d'une alerte de paiement", () => {
       label: "Ouvrir le paiement dans Stripe",
       href: stripeUrl,
     })
+  })
+
+  it("litige gagné après coup : ni fonds acquis ni accès maintenu affirmés", () => {
+    const content = paymentAlertContent(closed("won", "removed", true))
+
+    expect(content.notice?.tone).toBe("warning")
+    expect(content.notice?.text).toContain("déjà été remboursé")
+    expect(content.notice?.text).toContain("n'est pas rétabli")
+    expect(JSON.stringify(content)).not.toMatch(/acquis|est maintenu/)
+  })
+
+  it("remboursement d'un accès déjà expiré : rien n'est dit retiré", () => {
+    const content = paymentAlertContent(refunded("expired"))
+
+    expect(content.subject).toBe("Paiement remboursé : 200,00 $ · Karim Haddad")
+    expect(content.notice).toEqual({
+      tone: "info",
+      text: "L'accès ouvert par ce paiement avait déjà expiré : rien n'est retiré.",
+    })
+  })
+
+  it("combo dont un seul accès reste couvert : le type perdu est nommé", () => {
+    const content = paymentAlertContent(refunded("exam_only"))
+
+    expect(content.subject).toBe(
+      "Paiement remboursé : accès retiré · Karim Haddad",
+    )
+    expect(content.notice).toEqual({
+      tone: "danger",
+      text: "L'accès Entraînement de Karim Haddad a été retiré ; son accès Examens reste ouvert par un autre achat.",
+    })
+  })
+
+  it("une transaction jamais payée n'affiche pas de date de paiement", () => {
+    const content = paymentAlertContent({
+      ...refunded(null),
+      candidate: { ...candidate, paidAt: null },
+    } as PaymentAlert)
+
+    expect(content.rows.map((r) => r.label)).not.toContain("Payé le")
   })
 
   it("un motif de litige inconnu reçoit un libellé générique", () => {

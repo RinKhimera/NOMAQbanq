@@ -1,7 +1,8 @@
+import { eq } from "drizzle-orm"
 import type Stripe from "stripe"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { transactions, user } from "@/db/schema"
+import { transactions, user, userAccess } from "@/db/schema"
 import { fulfilStripeEvent } from "@/features/payments/fulfillment"
 import { createId } from "@/lib/ids"
 import { fakeMailer, mailbox } from "../helpers/fake-mailer"
@@ -104,6 +105,40 @@ const disputeEvent = (
     },
   },
 })
+
+// Transaction Stripe complétée posée sans le chemin d'octroi, avec son accès :
+// pour les cas où l'échéance ou la devise compte.
+const completedStripe = async (
+  userId: string,
+  o: { amountPaid: number; currency: "CAD" | "XAF"; expiresAt: Date },
+) => {
+  const id = createId()
+  await db.insert(transactions).values({
+    id,
+    userId,
+    productId: PRODUCT_ID,
+    type: "stripe",
+    status: "completed",
+    amountPaid: o.amountPaid,
+    currency: o.currency,
+    stripeSessionId: `cs_${id}`,
+    stripePaymentIntentId: `pi_${id}`,
+    accessType: "exam",
+    durationDays: DURATION_DAYS,
+    accessExpiresAt: o.expiresAt,
+    completedAt: new Date(o.expiresAt.getTime() - DURATION_DAYS * DAY),
+  })
+  await db
+    .insert(userAccess)
+    .values({
+      userId,
+      accessType: "exam",
+      expiresAt: o.expiresAt,
+      lastTransactionId: id,
+    })
+    .onConflictDoNothing()
+  return { id, paymentIntent: `pi_${id}` }
+}
 
 const refundEvent = (o: {
   eventId: string
@@ -310,7 +345,7 @@ describe("alertes de paiement", () => {
     })
   })
 
-  it("litige gagné : alerte sans état d'accès", async () => {
+  it("litige gagné : l'accès relu en base est annoncé maintenu", async () => {
     const tx = await paidTransaction(await newCandidate())
 
     await fulfilAndSend(
@@ -324,7 +359,8 @@ describe("alertes de paiement", () => {
     expect(alertsSent()[0]?.alert).toMatchObject({
       kind: "dispute_closed",
       status: "won",
-      access: null,
+      access: "kept",
+      transactionRefunded: false,
     })
   })
 
@@ -347,5 +383,105 @@ describe("alertes de paiement", () => {
     )
 
     expect(alertsSent()).toEqual([])
+  })
+  it("remboursement d'un accès déjà expiré : ni retrait ni maintien annoncé", async () => {
+    const candidate = await newCandidate()
+    const tx = await completedStripe(candidate, {
+      amountPaid: 4500,
+      currency: "CAD",
+      expiresAt: new Date(Date.now() - 10 * DAY),
+    })
+
+    await fulfilAndSend(
+      refundEvent({
+        eventId: `evt_expired_${tx.id}`,
+        paymentIntent: tx.paymentIntent,
+        amountRefunded: 4500,
+      }),
+    )
+
+    expect(alertsSent()[0]?.alert).toMatchObject({
+      kind: "refunded",
+      access: "expired",
+    })
+  })
+
+  it("alerte de fraude sur un paiement en XAF : montant en francs entiers", async () => {
+    const tx = await completedStripe(await newCandidate(), {
+      amountPaid: 8_500_000,
+      currency: "XAF",
+      expiresAt: new Date(Date.now() + 30 * DAY),
+    })
+
+    await fulfilAndSend({
+      id: `evt_efw_xaf_${tx.id}`,
+      type: "radar.early_fraud_warning.created",
+      created: 1_800_000_700,
+      data: {
+        object: {
+          id: `issfr_${tx.id}`,
+          charge: `ch_${tx.id}`,
+          fraud_type: "made_with_stolen_card",
+          payment_intent: tx.paymentIntent,
+        },
+      },
+    })
+
+    expect(alertsSent()[0]?.alert).toMatchObject({
+      money: { amount: 85000, currency: "xaf" },
+    })
+  })
+
+  it("litige clos sans perte après un remboursement : rien n'est dit acquis", async () => {
+    const tx = await paidTransaction(await newCandidate())
+    await fulfil(
+      refundEvent({
+        eventId: `evt_pre_refund_${tx.id}`,
+        paymentIntent: tx.paymentIntent,
+        amountRefunded: 4500,
+      }),
+    )
+    mailbox.reset()
+
+    await fulfilAndSend(
+      disputeEvent("charge.dispute.closed", {
+        eventId: `evt_warning_closed_${tx.id}`,
+        paymentIntent: tx.paymentIntent,
+        status: "warning_closed",
+      }),
+    )
+
+    expect(alertsSent()[0]?.alert).toMatchObject({
+      kind: "dispute_closed",
+      status: "warning_closed",
+      transactionRefunded: true,
+      access: "removed",
+    })
+  })
+
+  it("rejeu : un admin qui avait refusé les alertes ne les reçoit pas après les avoir réactivées", async () => {
+    const tx = await paidTransaction(await newCandidate())
+    const opened = disputeEvent("charge.dispute.created", {
+      eventId: `evt_replay_${tx.id}`,
+      paymentIntent: tx.paymentIntent,
+      status: "needs_response",
+    })
+    await fulfilAndSend(opened)
+    try {
+      await db
+        .update(user)
+        .set({ notifyPaymentAlerts: true })
+        .where(eq(user.id, ADMIN_OPTED_OUT))
+      mailbox.reset()
+
+      await fulfilAndSend(opened)
+
+      expect(alertsSent()).toEqual([])
+    } finally {
+      await db
+        .update(user)
+        .set({ notifyPaymentAlerts: false })
+        .where(eq(user.id, ADMIN_OPTED_OUT))
+    }
   })
 })

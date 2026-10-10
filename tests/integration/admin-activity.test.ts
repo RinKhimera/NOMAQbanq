@@ -38,12 +38,13 @@ const manualPayment = (o: {
   amount: number
   currency: "CAD" | "XAF"
   createdAt: Date
+  status?: "completed" | "refunded"
 }) =>
   db.insert(transactions).values({
     userId: candidate,
     productId,
     type: "manual",
-    status: "completed",
+    status: o.status ?? "completed",
     amountPaid: o.amount,
     currency: o.currency,
     recordedBy: o.recordedBy,
@@ -246,6 +247,39 @@ describe("activité d'un administrateur", () => {
     expect(feed[4]).toMatchObject({
       kind: "suspension",
       id: expect.any(String),
+    })
+  })
+
+  it("compte un paiement manuel remboursé, sans l'ajouter au total encaissé", async () => {
+    const admin = await newUser("Admin remboursement", "admin")
+    await manualPayment({
+      recordedBy: admin,
+      amount: 5000,
+      currency: "CAD",
+      createdAt: at(3),
+    })
+    await manualPayment({
+      recordedBy: admin,
+      amount: 3000,
+      currency: "CAD",
+      createdAt: at(2),
+      status: "refunded",
+    })
+    await manualPayment({
+      recordedBy: admin,
+      amount: 900_000,
+      currency: "XAF",
+      createdAt: at(1),
+      status: "refunded",
+    })
+    signInAs(admin)
+
+    const { manualPayments } = await getMyAdminActivity()
+
+    expect(manualPayments).toEqual({
+      count: 3,
+      totals: [{ currency: "CAD", amount: 5000 }],
+      lastAt: at(1),
     })
   })
 

@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
+import { and, eq, gt, inArray, isNull } from "drizzle-orm"
 import "server-only"
 import type Stripe from "stripe"
 import { db } from "@/db"
@@ -35,7 +35,10 @@ type AlertTransaction = {
   accessType: "exam" | "training"
   amountPaid: number
   currency: "CAD" | "XAF"
-  paidAt: Date
+  status: "pending" | "completed" | "failed" | "refunded"
+  /** Échéance que portait l'achat (snapshot du cumul). */
+  accessExpiresAt: Date
+  paidAt: Date | null
 }
 
 const findTransaction = async (
@@ -53,10 +56,9 @@ const findTransaction = async (
       accessType: transactions.accessType,
       amountPaid: transactions.amountPaid,
       currency: transactions.currency,
-      paidAt:
-        sql<Date>`coalesce(${transactions.completedAt}, ${transactions.createdAt})`.mapWith(
-          transactions.createdAt,
-        ),
+      status: transactions.status,
+      accessExpiresAt: transactions.accessExpiresAt,
+      paidAt: transactions.completedAt,
     })
     .from(transactions)
     .innerJoin(user, eq(user.id, transactions.userId))
@@ -85,34 +87,45 @@ const stripeMoneyOf = (tx: AlertTransaction): StripeMoney => ({
 })
 
 /**
- * Accès du candidat après le recalcul d'un retour de fonds, lu APRÈS
- * `refundStripeTransaction`. Rien à annoncer si ce retour n'a rien retiré
- * (transaction jamais complétée, déjà remboursée, introuvable). Maintenu
- * seulement si chaque type que portait la transaction reste couvert par un
- * autre achat : un combo dont un seul type survit a bien perdu un accès.
+ * Accès du candidat tel que la base le laisse, relu APRÈS les écritures du
+ * fulfillment (recalcul compris), jamais déduit de l'événement. Un achat dont
+ * l'échéance est passée n'ouvrait plus rien : rien à retirer. Sinon, chaque
+ * type que portait l'achat (deux pour un Pack Premium) est-il encore couvert ?
  */
-const accessAfterRefund = async (
-  tx: AlertTransaction | null,
-  refund: RefundStripeResult,
+const accessState = async (
+  tx: AlertTransaction,
 ): Promise<AccessAfterRefund> => {
-  if (!tx || refund.status !== "refunded") return null
-  if (!refund.accessReducedOrRemoved) return "kept"
+  const now = new Date()
+  if (tx.accessExpiresAt <= now) return "expired"
   const types: ("exam" | "training")[] = tx.isCombo
     ? ["exam", "training"]
     : [tx.accessType]
-  const covered = await db
-    .selectDistinct({ accessType: userAccess.accessType })
-    .from(userAccess)
-    .where(
-      and(
-        eq(userAccess.userId, tx.userId),
-        inArray(userAccess.accessType, types),
-        gt(userAccess.expiresAt, new Date()),
-      ),
-    )
-    .limit(types.length)
-  return covered.length === types.length ? "kept" : "removed"
+  const covered = new Set(
+    (
+      await db
+        .selectDistinct({ accessType: userAccess.accessType })
+        .from(userAccess)
+        .where(
+          and(
+            eq(userAccess.userId, tx.userId),
+            inArray(userAccess.accessType, types),
+            gt(userAccess.expiresAt, now),
+          ),
+        )
+        .limit(types.length)
+    ).map((r) => r.accessType),
+  )
+  if (covered.size === types.length) return "kept"
+  if (covered.size === 0) return "removed"
+  return covered.has("exam") ? "exam_only" : "training_only"
 }
+
+/** Rien à annoncer si le retour de fonds n'a rien réécrit (déjà remboursé, jamais complété, introuvable). */
+const accessAfterRefund = async (
+  tx: AlertTransaction | null,
+  refund: RefundStripeResult,
+): Promise<AccessAfterRefund> =>
+  tx && refund.status === "refunded" ? accessState(tx) : null
 
 const dashboardUrl = (event: Stripe.Event, paymentIntent: string | undefined) =>
   `https://dashboard.stripe.com/${event.livemode ? "" : "test/"}payments${paymentIntent ? `/${paymentIntent}` : ""}`
@@ -147,7 +160,12 @@ export const disputeClosedAlert = async (
     status: dispute.status,
     money: { amount: dispute.amount, currency: dispute.currency },
     candidate: candidateOf(tx),
-    access: refund ? await accessAfterRefund(tx, refund) : null,
+    access: refund
+      ? await accessAfterRefund(tx, refund)
+      : tx
+        ? await accessState(tx)
+        : null,
+    transactionRefunded: tx?.status === "refunded",
     stripeUrl: dashboardUrl(event, paymentIntent),
   }
 }
@@ -197,10 +215,18 @@ export async function sendPaymentAlert(
     .where(and(eq(user.role, "admin"), isNull(user.deletedAt)))
     .limit(RECIPIENT_LIMIT)
   if (admins.length === 0) return 0
-  await db
-    .insert(paymentAlerts)
-    .values(admins.map((a) => ({ stripeEventId: eventId, userId: a.id })))
-    .onConflictDoNothing()
+  // Les destinataires se fixent à la première livraison : un rejeu ne fait
+  // entrer ni un administrateur promu depuis, ni personne d'autre.
+  const [known] = await db
+    .select({ id: paymentAlerts.id })
+    .from(paymentAlerts)
+    .where(eq(paymentAlerts.stripeEventId, eventId))
+    .limit(1)
+  if (!known)
+    await db
+      .insert(paymentAlerts)
+      .values(admins.map((a) => ({ stripeEventId: eventId, userId: a.id })))
+      .onConflictDoNothing()
 
   return sendOnce({
     tag: TAG,
@@ -212,6 +238,7 @@ export async function sendPaymentAlert(
           userId: user.id,
           email: user.email,
           name: user.name,
+          optedIn: user.notifyPaymentAlerts,
         })
         .from(paymentAlerts)
         .innerJoin(user, eq(user.id, paymentAlerts.userId))
@@ -220,7 +247,6 @@ export async function sendPaymentAlert(
             eq(paymentAlerts.stripeEventId, eventId),
             isNull(paymentAlerts.sentAt),
             eq(user.role, "admin"),
-            eq(user.notifyPaymentAlerts, true),
             eligibleRecipient,
           ),
         )
@@ -230,6 +256,9 @@ export async function sendPaymentAlert(
       idColumn: paymentAlerts.id,
       markerColumn: paymentAlerts.sentAt,
     },
+    // Refus vérifié APRÈS le claim : le marqueur est posé, l'administrateur
+    // qui réactive ses alertes ne reçoit pas un événement passé au rejeu.
+    shouldSend: (row) => row.optedIn,
     send: (row) =>
       sendPaymentAlertEmail({ to: row.email, name: row.name, alert }),
     context: (row) => ({ userId: row.userId, detail: `événement ${eventId}` }),

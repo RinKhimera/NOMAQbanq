@@ -5,7 +5,8 @@ export type AlertCandidate = {
   name: string
   email: string
   productName: string
-  paidAt: Date
+  /** `null` : transaction jamais payée (en attente, échouée). */
+  paidAt: Date | null
   transactionUrl: string
 }
 
@@ -13,10 +14,14 @@ export type AlertCandidate = {
 export type StripeMoney = { amount: number; currency: string }
 
 /**
- * Accès du candidat après le recalcul qui suit un retour de fonds : retiré,
- * ou maintenu par un autre achat encore valide. `null` sans transaction connue.
+ * Accès du candidat, relu après le recalcul qui suit un retour de fonds :
+ * retiré ; maintenu par un autre achat encore valide ; déjà expiré avant le
+ * retour de fonds (rien à retirer) ; ou, pour un Pack Premium, un seul type
+ * encore couvert (`exam_only`, `training_only`). `null` : rien à annoncer
+ * (transaction inconnue, ou retour de fonds sans effet sur l'accès).
  */
-export type AccessAfterRefund = "removed" | "kept" | null
+export type AccessAfterRefund =
+  "removed" | "kept" | "expired" | "exam_only" | "training_only" | null
 
 /** Alerte de paiement (`CONTEXT.md`) : un événement Stripe qui demande une décision humaine. */
 export type PaymentAlert =
@@ -47,6 +52,8 @@ export type PaymentAlert =
       money: StripeMoney
       candidate: AlertCandidate | null
       access: AccessAfterRefund
+      /** La transaction était déjà remboursée : aucun fonds n'est récupéré. */
+      transactionRefunded: boolean
       stripeUrl: string
     }
   | {
@@ -117,7 +124,7 @@ const candidateRows = (
       ]
     : []),
   ...(amount ? [{ label: "Montant", value: amount }] : []),
-  ...(candidate
+  ...(candidate?.paidAt
     ? [{ label: "Payé le", value: formatLongDate(candidate.paidAt) }]
     : []),
 ]
@@ -130,25 +137,72 @@ const transactionButton = (
     ? { label: "Voir la transaction", href: candidate.transactionUrl }
     : { label: "Ouvrir le paiement dans Stripe", href: stripeUrl }
 
+const ACCESS_NAME = { exam: "Examens", training: "Entraînement" } as const
+
+/** Un accès est effectivement perdu : l'objet du courriel le dit. */
+const accessLost = (access: AccessAfterRefund) =>
+  access === "removed" || access === "exam_only" || access === "training_only"
+
 /** Retour de fonds (litige perdu, remboursement) : ce que devient l'accès. */
 const accessNotice = (
   access: AccessAfterRefund,
   candidate: AlertCandidate | null,
 ): PaymentAlertContent["notice"] => {
-  const who = candidate?.name ?? "du candidat"
-  if (access === "removed")
-    return {
-      tone: "danger",
-      text: candidate
-        ? `L'accès de ${who} a été retiré automatiquement.`
-        : "L'accès ouvert par ce paiement a été retiré automatiquement.",
+  const who = candidate?.name ?? "le candidat"
+  switch (access) {
+    case "removed":
+      return {
+        tone: "danger",
+        text: candidate
+          ? `L'accès de ${who} a été retiré automatiquement.`
+          : "L'accès ouvert par ce paiement a été retiré automatiquement.",
+      }
+    case "exam_only":
+    case "training_only": {
+      const kept = access === "exam_only" ? "exam" : "training"
+      const lost = kept === "exam" ? "training" : "exam"
+      return {
+        tone: "danger",
+        text: `L'accès ${ACCESS_NAME[lost]} de ${who} a été retiré ; son accès ${ACCESS_NAME[kept]} reste ouvert par un autre achat.`,
+      }
     }
-  if (access === "kept")
+    case "kept":
+      return {
+        tone: "warning",
+        text: `Ce paiement ne compte plus, mais ${who} garde un accès ouvert par un autre achat.`,
+      }
+    case "expired":
+      return {
+        tone: "info",
+        text: "L'accès ouvert par ce paiement avait déjà expiré : rien n'est retiré.",
+      }
+    default:
+      return null
+  }
+}
+
+/**
+ * Litige clos sans perte : ce qui est vrai des fonds et de l'accès, relu en
+ * base. Un remboursement antérieur ou un retrait au litige perdu (gagné après
+ * coup) ne se rétablit pas seul.
+ */
+const favorableNotice = (
+  alert: Extract<PaymentAlert, { kind: "dispute_closed" }>,
+  amount: string,
+): NonNullable<PaymentAlertContent["notice"]> => {
+  const funds = alert.transactionRefunded
+    ? "Le paiement avait déjà été remboursé : aucun montant n'est récupéré."
+    : `Le montant de ${amount} vous reste acquis.`
+  if (accessLost(alert.access))
     return {
       tone: "warning",
-      text: `Ce paiement ne compte plus, mais ${candidate ? who : "le candidat"} garde un accès ouvert par un autre achat.`,
+      text: `${funds} L'accès retiré au candidat n'est pas rétabli automatiquement : recréditez-le à la main si besoin.`,
     }
-  return null
+  if (alert.transactionRefunded) return { tone: "warning", text: funds }
+  return {
+    tone: "success",
+    text: `${funds}${alert.access === "kept" ? " L'accès du candidat est maintenu." : ""} Aucune action n'est requise.`,
+  }
 }
 
 export const paymentAlertContent = (
@@ -237,8 +291,9 @@ export const paymentAlertContent = (
           : "Litige clos sans perte de fonds"
         return {
           subject: withName(heading, candidate),
-          preview:
-            "Le montant vous reste acquis, l'accès du candidat est maintenu.",
+          preview: alert.transactionRefunded
+            ? "Le paiement avait déjà été remboursé."
+            : "Le montant vous reste acquis.",
           heading,
           intro: won
             ? "La banque a tranché en votre faveur."
@@ -248,10 +303,7 @@ export const paymentAlertContent = (
             ...candidateRows(candidate, amount),
             { label: "Issue", value: favorable },
           ],
-          notice: {
-            tone: "success",
-            text: `Le montant de ${amount} vous reste acquis et l'accès du candidat est maintenu. Aucune action n'est requise.`,
-          },
+          notice: favorableNotice(alert, amount),
           advice: null,
           button: transactionButton(candidate, alert.stripeUrl),
         }
@@ -259,7 +311,7 @@ export const paymentAlertContent = (
       if (alert.status === "lost") {
         return {
           subject: withName(
-            alert.access === "removed"
+            accessLost(alert.access)
               ? "Litige perdu : accès retiré"
               : "Litige perdu",
             candidate,
@@ -301,7 +353,7 @@ export const paymentAlertContent = (
     case "refunded":
       return {
         subject: withName(
-          alert.access === "removed"
+          accessLost(alert.access)
             ? `Paiement remboursé : accès retiré`
             : `Paiement remboursé : ${amount}`,
           candidate,

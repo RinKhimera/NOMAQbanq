@@ -60,8 +60,13 @@ export const getMyAdminActivity = cache(async (): Promise<AdminActivity> => {
         .select({
           currency: transactions.currency,
           count: sql<number>`count(*)::int`,
-          // bigint : une somme en centièmes de XAF dépasse vite l'int4.
-          amount: sql<number>`sum(${transactions.amountPaid})`.mapWith(Number),
+          // Encaissé seulement : un paiement manuel remboursé compte comme
+          // enregistré, pas dans le total. bigint : une somme en centièmes de
+          // XAF dépasse vite l'int4.
+          amount:
+            sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.status} = 'completed'), 0)`.mapWith(
+              Number,
+            ),
           lastAt: sql<Date>`max(${transactions.createdAt})`.mapWith(
             transactions.createdAt,
           ),
@@ -70,7 +75,8 @@ export const getMyAdminActivity = cache(async (): Promise<AdminActivity> => {
         .where(manualBy(me))
         .groupBy(transactions.currency)
         .orderBy(transactions.currency),
-      // Trois compteurs, une seule requête : le pool n'a que cinq connexions.
+      // Six compteurs en une requête plutôt que six : moins d'attente sur le
+      // pool (cinq connexions) que partagent les lectures de cette page.
       db.execute<{
         exams: number
         open_or_upcoming: number
@@ -114,7 +120,8 @@ export const getMyAdminActivity = cache(async (): Promise<AdminActivity> => {
       db
         .select({
           id: questions.id,
-          label: sql<string>`left(${questions.question}, ${QUESTION_EXCERPT})`,
+          // Un caractère de plus que l'extrait : de quoi savoir s'il est coupé.
+          label: sql<string>`left(${questions.question}, ${QUESTION_EXCERPT + 1})`,
           at: questions.keyConfirmedAt,
         })
         .from(questions)
@@ -162,7 +169,14 @@ export const getMyAdminActivity = cache(async (): Promise<AdminActivity> => {
       clientId: p.clientId,
     })),
     ...createdExams.map((e) => ({ kind: "exam_created" as const, ...e })),
-    ...dated(keys).map((k) => ({ kind: "key_confirmed" as const, ...k })),
+    ...dated(keys).map((k) => ({
+      kind: "key_confirmed" as const,
+      ...k,
+      label:
+        k.label.length > QUESTION_EXCERPT
+          ? `${k.label.slice(0, QUESTION_EXCERPT).trimEnd()}…`
+          : k.label,
+    })),
     ...bans.map((b) => ({ kind: "suspension" as const, ...b })),
     ...dated(lifts).map((l) => ({ kind: "suspension_lifted" as const, ...l })),
   ]
@@ -172,10 +186,9 @@ export const getMyAdminActivity = cache(async (): Promise<AdminActivity> => {
   return {
     manualPayments: {
       count: paymentTotals.reduce((n, t) => n + t.count, 0),
-      totals: paymentTotals.map((t) => ({
-        currency: t.currency,
-        amount: t.amount,
-      })),
+      totals: paymentTotals
+        .filter((t) => t.amount > 0)
+        .map((t) => ({ currency: t.currency, amount: t.amount })),
       lastAt: paymentTotals.reduce<Date | null>(
         (last, t) => (last === null || t.lastAt > last ? t.lastAt : last),
         null,
