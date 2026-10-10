@@ -32,16 +32,20 @@ import {
 
 type Props = {
   mode: "change" | "set"
-  /** Après un changement réussi : referme le formulaire. */
+  /** Après un enregistrement réussi : referme le formulaire. */
   onDone?: () => void
 }
 
 export const ProfilePassword = ({ mode, onDone }: Props) => {
-  if (mode === "set") return <SetPasswordForm />
+  if (mode === "set") return <SetPasswordForm onDone={onDone} />
   return <ChangePasswordForm onDone={onDone} />
 }
 
-const SetPasswordForm = () => {
+// Le revalidatePath de l'action renvoie la page à jour en flux dans la même
+// réponse : un rechargement la couperait. L'action se résout avant la fin du
+// flux, d'où « Non défini » un instant ; refermer le formulaire l'empêche de
+// rester ouvert puis de basculer en mode « change ».
+const SetPasswordForm = ({ onDone }: { onDone?: () => void }) => {
   const form = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: "", confirmPassword: "" },
@@ -59,7 +63,7 @@ const SetPasswordForm = () => {
       "Mot de passe défini — vous pouvez désormais vous connecter par email",
     )
     form.reset()
-    location.reload()
+    onDone?.()
   }
 
   return (

@@ -2,8 +2,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { ProfileLoginMethods } from "@/components/shared/profile/profile-login-methods"
 
-const { unlinkAccount } = vi.hoisted(() => ({
+const { unlinkAccount, refresh } = vi.hoisted(() => ({
   unlinkAccount: vi.fn(async () => ({ error: null })),
+  refresh: vi.fn(),
+}))
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh }),
 }))
 
 vi.mock("@/lib/auth-client", () => ({
@@ -33,8 +39,9 @@ describe("ProfileLoginMethods", () => {
     expect(screen.getByTestId("login-method-google-unlink")).toBeInTheDocument()
   })
 
-  it("délie Google par l'id de la ligne account, pas par le fournisseur", async () => {
-    vi.stubGlobal("location", { ...location, reload: vi.fn() })
+  it("délie Google par l'id de la ligne account, puis rafraîchit sans recharger la page", async () => {
+    const reload = vi.fn()
+    vi.stubGlobal("location", { ...location, reload })
     render(
       <ProfileLoginMethods
         methods={{
@@ -50,6 +57,8 @@ describe("ProfileLoginMethods", () => {
     fireEvent.click(screen.getByTestId("login-method-google-unlink"))
     await waitFor(() => expect(unlinkAccount).toHaveBeenCalledTimes(1))
     expect(unlinkAccount).toHaveBeenCalledWith({ accountId: "acc-42" })
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+    expect(reload).not.toHaveBeenCalled()
   })
 
   it("propose de lier Google et affiche non vérifié + renvoi", () => {

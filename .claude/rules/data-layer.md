@@ -112,6 +112,11 @@ Les règles métier des examens et de la banque de questions vivent dans
 
 - Page = Server Component qui fetch la DAL et passe en props à un `*-client.tsx` ;
   mutations via Server Actions + `router.refresh()` (pas de réactivité temps réel).
+- **Jamais de `location.reload()` après une Server Action qui fait `revalidatePath`** :
+  la réponse porte déjà la page à jour en flux, et l'action se résout avant la fin
+  de ce flux. Recharger le coupe (Safari : `TypeError: Load failed`, capté par
+  `error.tsx`) et efface le toast. Appel client hors Server Action (`authClient`) :
+  `startTransition(() => router.refresh())`.
 - **Appels client de Server Actions — jamais d'`await` nu** : un rejet réseau
   (« Failed to fetch ») contourne le garde `if (!res.success)` → unhandled
   rejection, spinner figé, optimiste non rollback (post-mortem Sentry
