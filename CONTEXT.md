@@ -283,18 +283,36 @@ jusqu'à sa publication. Un candidat sans nom d'utilisateur s'affiche
 comptes admin et supprimés, signalées et sans rang.
 _Avoid_ : leaderboard, palmarès
 
-**Maîtrise par domaine** :
-La part de réponses justes d'un étudiant dans un domaine médical, calculée sur
-sa DERNIÈRE réponse à chaque question (entraînement et examens clos). Une
+**Maîtrise** :
+La part de réponses justes d'un étudiant dans un domaine médical ou dans un
+objectif du CMC, calculée sur sa DERNIÈRE réponse à chaque question
+(entraînement et examens clos), sur tout son historique. Une
 question dont la clé est retenue pour l'étudiant n'y entre pas du tout, ni sa
 réponse d'examen ni ses réponses d'entraînement antérieures, tant que l'examen
 est ouvert : la maîtrise peut baisser au démarrage d'un examen, jamais pendant. Un
-domaine jamais pratiqué n'a pas de maîtrise, pas une maîtrise de 0 %.
+domaine ou un objectif jamais pratiqué n'a pas de maîtrise, pas une maîtrise de 0 %.
 _Avoid_ : score par domaine, taux de réussite (réservé à la question)
+
+**Tendance de maîtrise** :
+L'écart, en points, entre la maîtrise d'aujourd'hui et la maîtrise au début
+d'une période (7 ou 30 jours). Elle n'existe ni sur « Tout » ni pour un domaine
+ou un objectif sans maîtrise au début de la période.
+_Avoid_ : progression (nom de la page), évolution
+
+**Couverture** :
+La part des questions actives d'un domaine ou d'un objectif du CMC auxquelles
+l'étudiant a déjà répondu au moins une fois (« 312 vues sur 540 »). Une
+question dont la clé est retenue pour lui n'y compte pas.
+_Avoid_ : avancement, complétion (réservé aux examens disponibles)
+
+**Jour d'activité** :
+Une journée civile, à l'heure de l'Est, où l'étudiant a terminé au moins une
+série ou soumis au moins un examen blanc.
+_Avoid_ : streak, jour de connexion
 
 **Verdict d'une réponse** :
 Juste ou fausse, fixé au moment où l'étudiant répond, contre la clé de ce
-moment-là, et jamais réécrit. Scores, maîtrise par domaine, percentile et
+moment-là, et jamais réécrit. Scores, maîtrise, percentile et
 correction affichée à l'étudiant lisent ce verdict ; seul le taux de réussite
 d'une question rejuge une réponse sur la clé actuelle.
 _Avoid_ : justesse recalculée, is_correct
