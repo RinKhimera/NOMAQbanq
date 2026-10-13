@@ -1,7 +1,7 @@
 import type { QuestionAnswerBreakdown } from "@/features/analytics/dal"
 import type { QuestionDetail, QuestionExamUse } from "@/features/questions/dal"
 import { keyReview } from "@/features/questions/key-review"
-import { finalizedWindow } from "@/lib/exam-phase"
+import { adminSectionOf, finalizedWindow } from "@/lib/exam-phase"
 
 // Module pur, partagé par le détail et `/modifier` d'une question.
 
@@ -27,17 +27,26 @@ export const freezeOf = (
 ): { frozenBy: FreezingExam | null; upcoming: UpcomingFreeze | null } => {
   const windows = exams.flatMap((e) => {
     const window = finalizedWindow(e)
-    return window ? [{ id: e.id, title: e.title, ...window }] : []
+    return window
+      ? [
+          {
+            id: e.id,
+            title: e.title,
+            section: adminSectionOf(e, now),
+            ...window,
+          },
+        ]
+      : []
   })
   const frozenBy =
     windows
-      .filter((w) => w.startDate <= now && now < w.endDate)
+      .filter((w) => w.section === "active")
       .sort((a, b) => b.endDate - a.endDate || byId(b, a))
       .map(({ title, endDate }) => ({ title, endDate }))[0] ?? null
   if (frozenBy) return { frozenBy, upcoming: null }
   const upcoming =
     windows
-      .filter((w) => now < w.startDate)
+      .filter((w) => w.section === "upcoming")
       .sort((a, b) => a.startDate - b.startDate || byId(a, b))
       .map(({ title, startDate }) => ({ title, startDate }))[0] ?? null
   return { frozenBy: null, upcoming }

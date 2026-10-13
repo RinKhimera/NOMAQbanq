@@ -586,6 +586,30 @@ export const deleteQuestion = async (
   }
 }
 
+/** Au-delà des 20 images qu'accepte un jeu : un jeu hérité plus long se lit entier. */
+const IMAGE_SET_READ_LIMIT = 100
+
+/**
+ * Jeu d'images d'un `kind`, dans l'ordre où le formulaire le relit
+ * (`getQuestionById`) : la comparaison « jeu inchangé » en dépend.
+ */
+const imageSetOf = (
+  executor: typeof db | Tx,
+  questionId: string,
+  kind: "statement" | "explanation",
+) =>
+  executor
+    .select({ storagePath: questionImages.storagePath })
+    .from(questionImages)
+    .where(
+      and(
+        eq(questionImages.questionId, questionId),
+        eq(questionImages.kind, kind),
+      ),
+    )
+    .orderBy(questionImages.position, questionImages.id)
+    .limit(IMAGE_SET_READ_LIMIT)
+
 /**
  * [Admin] Remplace l'ensemble des images d'une question (storagePath + position).
  *
@@ -649,15 +673,7 @@ export const setQuestionImages = async (
   // Un `tmp/` dont le chemin final est déjà enregistré vient d'un formulaire
   // resté sur place après un échec partiel : sa source a été supprimée au
   // commit, et son objet final ne doit pas l'être par un échec ci-dessous.
-  const stored = await db
-    .select({ storagePath: questionImages.storagePath })
-    .from(questionImages)
-    .where(
-      and(
-        eq(questionImages.questionId, questionId),
-        eq(questionImages.kind, kind),
-      ),
-    )
+  const stored = await imageSetOf(db, questionId, kind)
   const storedPaths = new Set(stored.map((i) => i.storagePath))
 
   // Copie tmp → final AVANT toute écriture DB. En cas d'échec, on retire les
@@ -686,16 +702,7 @@ export const setQuestionImages = async (
 
       // Scope `(questionId, kind)` : remplacer les images d'un `kind` ne touche
       // pas l'autre jeu (énoncé vs explication), ni leurs objets S3.
-      const old = await tx
-        .select({ storagePath: questionImages.storagePath })
-        .from(questionImages)
-        .where(
-          and(
-            eq(questionImages.questionId, questionId),
-            eq(questionImages.kind, kind),
-          ),
-        )
-        .orderBy(questionImages.position, questionImages.id)
+      const old = await imageSetOf(tx, questionId, kind)
 
       // Même suite d'images dans le même ordre : les positions stockées
       // peuvent avoir des trous (données importées), seul l'ordre compte.

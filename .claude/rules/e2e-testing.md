@@ -119,7 +119,8 @@ Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-acces
 (liste des questions), `question-position`, `btn-edit-question`,
 `btn-delete-question`/`-confirm`, `btn-confirm-key`/`-submit`, `key-to-verify-alert`
 (détail), `question-input`, `option-input-{i}`, `btn-key-{i}`,
-`btn-save-question`, `btn-save-and-new`, `form-checks`, `frozen-question`, `upcoming-freeze`,
+`btn-save-question`, `btn-save-and-new`, `form-checks`, `frozen-question`, `upcoming-freeze`, `frozen-choices-note`,
+`images-error`,
 `key-corrected`, `explanation-input`, `reference-input-{i}`,
 `btn-split-reference-{i}`, `format-undo-banner`/`btn-format-undo`,
 `explanation-format-warnings`, `reference-format-warnings-{i}` (formulaire de

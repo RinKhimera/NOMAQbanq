@@ -268,6 +268,18 @@ describe("question figée", () => {
     })
   })
 
+  it("un examen en cours suspendu fige aussi : seules ses dates comptent", async () => {
+    const id = await newQuestion()
+    await mkExam(id, inProgress, "Suspendu")
+    await db
+      .update(exams)
+      .set({ isActive: false })
+      .where(eq(exams.title, "Suspendu"))
+
+    const res = await updateQuestion({ ...base, id, correctAnswer: "B" })
+    expect(res.error).toContain("« Suspendu »")
+  })
+
   it("nomme l'examen en cours qui ferme le plus tard", async () => {
     const id = await newQuestion()
     await mkExam(id, inProgress, "Ferme tôt")
