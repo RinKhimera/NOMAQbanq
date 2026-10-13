@@ -150,8 +150,10 @@ colonne)` dans le WHERE des canaux de
   vocabulaire dans `CONTEXT.md`) : la maîtrise a UNE règle,
   `latestAnswersSql` + `masteryPercent` (`answers-sql.ts`), lue par
   `domainMastery` (`mastery.ts`) pour le tableau de bord comme pour la page ;
-  la tendance relit la même règle sur les réponses datées d'avant le début de
-  la période. Couverture, maîtrise par objectif et réponses de la période
+  la tendance relit la même règle sur les réponses d'avant le début de la
+  période, et vaut l'écart des parts BRUTES au plancher (`masteryTrend`),
+  comme la tendance du score moyen, jamais l'écart de deux maîtrises
+  arrondies. Couverture, maîtrise par objectif et réponses de la période
   écartent une question à clé retenue au numérateur ET au dénominateur
   (`excludeLocked`), comme « Questions non vues ». Les compteurs de révision
   par domaine (`getRevisionCountsByDomain`) partagent les prédicats de

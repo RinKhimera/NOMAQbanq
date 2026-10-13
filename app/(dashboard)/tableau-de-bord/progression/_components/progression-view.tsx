@@ -6,6 +6,7 @@ import { PageIntro } from "@/components/shared/page-intro"
 import { StatBand } from "@/components/shared/stat-band"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
+import { PRICING_HREF, TRAINING_HREF } from "@/constants"
 import type {
   ExamPercentiles,
   MyDashboard,
@@ -61,12 +62,12 @@ export const ProgressionEmpty = ({
       >
         <Button asChild className="max-md:h-11">
           {trainingAccess ? (
-            <Link href="/tableau-de-bord/entrainement" prefetch={false}>
+            <Link href={TRAINING_HREF} prefetch={false}>
               Commencer une série
               <LinkPendingIndicator className="ml-2" />
             </Link>
           ) : (
-            <Link href="/tarifs">Voir les tarifs</Link>
+            <Link href={PRICING_HREF}>Voir les tarifs</Link>
           )}
         </Button>
       </EmptyState>
@@ -165,7 +166,7 @@ export const ProgressionView = ({
           title="Score par semaine"
           action={
             <Button asChild size="sm" variant="ghost" className="max-md:h-11">
-              <Link href="/tableau-de-bord/entrainement" prefetch={false}>
+              <Link href={TRAINING_HREF} prefetch={false}>
                 Historique des séries
                 <ArrowRight aria-hidden="true" />
                 <LinkPendingIndicator />

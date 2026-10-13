@@ -15,7 +15,11 @@ import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { SegmentedControl } from "@/components/ui/segmented-control"
-import { trainingDomainUrl, trainingRevisionUrl } from "@/constants"
+import {
+  PRICING_HREF,
+  trainingDomainUrl,
+  trainingRevisionUrl,
+} from "@/constants"
 import type {
   DomainProgress,
   ObjectiveProgress,
@@ -191,7 +195,7 @@ const RevisionActions = ({
   if (!trainingAccess || !domain.revision) {
     return (
       <Button asChild size="sm" variant="ghost" className="max-md:h-11">
-        <Link href="/tarifs">
+        <Link href={PRICING_HREF}>
           Prolonger l&apos;accès Entraînement
           <ArrowRight aria-hidden="true" />
         </Link>

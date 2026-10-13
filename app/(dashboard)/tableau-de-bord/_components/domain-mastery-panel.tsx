@@ -4,7 +4,7 @@ import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Progress } from "@/components/ui/progress"
-import { PROGRESSION_HREF, trainingDomainUrl } from "@/constants"
+import { PROGRESSION_HREF, TRAINING_HREF, trainingDomainUrl } from "@/constants"
 import type { DomainMastery } from "@/features/analytics/dal"
 import { MASTERY_MIN_ANSWERED, byWeakness } from "@/lib/dashboard-summary"
 import { formatScore, scoreTone } from "@/lib/score"
@@ -70,13 +70,13 @@ export const DomainMasteryPanel = ({
           description="Vos domaines forts et faibles apparaîtront ici dès vos premières réponses."
         >
           <Button asChild className="max-md:h-11">
-            <Link href="/tableau-de-bord/entrainement" prefetch={false}>
+            <Link href={TRAINING_HREF} prefetch={false}>
               Commencer une série
               <LinkPendingIndicator className="ml-2" />
             </Link>
           </Button>
         </EmptyState>
-        <ReportFooter unpracticedCount={0} />
+        <ReportFooter unpracticedCount={domains.length} />
       </div>
     )
   }

@@ -100,6 +100,8 @@ describe("DomainMasteryPanel", () => {
     expect(
       screen.getByRole("link", { name: /Rapport complet/ }),
     ).toHaveAttribute("href", "/tableau-de-bord/progression")
-    expect(screen.queryByTestId("domain-mastery-unpracticed")).toBeNull()
+    expect(screen.getByTestId("domain-mastery-unpracticed")).toHaveTextContent(
+      "1 domaine jamais pratiqué",
+    )
   })
 })
