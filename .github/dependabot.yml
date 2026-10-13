@@ -52,6 +52,14 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      # better-auth valide le schéma Drizzle au démarrage : un écart rejette
+      # toutes les requêtes, getSession compris. PR isolée pour que l'échec du
+      # test d'intégration d'inscription réelle désigne la cause sans ambiguïté.
+      better-auth:
+        patterns:
+          - "better-auth"
+        update-types:
+          - "patch"
       # Tout ce qui part en production, en minor + patch : relecture humaine.
       runtime:
         patterns:
@@ -76,14 +84,13 @@ updates:
       # Retirer quand Vitest embarquera Vite 8 (v6 importe vite/internal, absent de Vite 7)
       - dependency-name: "@vitejs/plugin-react"
         update-types: ["version-update:semver-major"]
-      # better-auth change son schéma jusque dans ses PATCHS (1.7.3 a retiré
-      # account.issuer) et valide au démarrage le schéma Drizzle : un écart
-      # rejette toutes les requêtes, getSession compris. Montée à la main,
-      # jamais par le groupe runtime. Les alertes de sécurité GitHub ne
+      # Les mineures de better-auth ajoutent des fonctionnalités et des
+      # options : montée à la main. L'amont s'engage à ne plus toucher au
+      # schéma de base pendant la v1 (better-auth/better-auth#11153), d'où les
+      # patchs laissés au groupe dédié. Les alertes de sécurité GitHub ne
       # dépendent pas de ce fichier et continuent de signaler une faille.
       - dependency-name: "better-auth"
-        update-types:
-          ["version-update:semver-minor", "version-update:semver-patch"]
+        update-types: ["version-update:semver-minor"]
       # Le SDK AWS publie quasi quotidiennement ; ses patchs n'apportent rien
       # aux trois clients utilisés ici (S3, SESv2, presigned POST).
       - dependency-name: "@aws-sdk/*"
