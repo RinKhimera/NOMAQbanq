@@ -181,6 +181,17 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   `getByRole("listbox").getByText(...)`. L'objectif CMC est un `SearchableSelect`
   (`#qf-objective`, recherche « Rechercher un objectif », items `role="option"`,
   « Créer « … » » si absent). Voir POM `fillQuestionForm`.
+- **Question à image d'énoncé** : aucune action `/api/e2e` ne la cible
+  (`seed-exam` prend les N premières questions, une série tire au hasard).
+  Semer sur develop une série `completed` dont les `training_session_items`
+  pointent des questions à `question_images.kind='statement'`, et/ou une
+  participation `completed` (`results_notified_at` posé, sinon le cron envoie
+  le courriel de résultats) sur un examen clos qui en contient. Ids préfixés
+  `e2e_<n>_`, supprimés en fin de run.
+- **Images (`next/image`, chargement différé) et visionneuse** : avant une
+  capture, attendre `img.complete && img.naturalWidth > 0` (`waitForFunction`) ;
+  la visionneuse (`.yarl__root`) s'ouvre en fondu, attendre ~1 s avant de la
+  capturer. Sinon vignette grise et visionneuse transparente : de faux bugs.
 
 ## Concurrence & état partagé
 

@@ -143,8 +143,7 @@ export const QuestionCard = ({
 
   const status = REVIEW_STATUS[reviewStatus]
   const showOptions = !isReview || isExpanded
-  const showImages =
-    showImage && question.images.length > 0 && variant !== "review"
+  const showImages = showImage && question.images.length > 0 && showOptions
 
   return (
     <article
