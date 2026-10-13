@@ -1,6 +1,7 @@
 import { ArrowRight, CircleAlert, Lock } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { PROGRESSION_HREF } from "@/constants"
 import type { AccessType } from "@/features/payments/access-ledger"
 import { formatCurrency, formatExpiration } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -167,7 +168,7 @@ export const AccessPaywall = ({
           </Link>
         </Button>
         <Button asChild variant="outline" className="max-md:h-11">
-          <Link href={expired ? "/tableau-de-bord" : "/evaluation"}>
+          <Link href={expired ? PROGRESSION_HREF : "/evaluation"}>
             {expired ? "Voir ma progression" : "Faire l'évaluation gratuite"}
           </Link>
         </Button>

@@ -5,6 +5,18 @@ export const MASTERY_MIN_ANSWERED = 5
 
 type Mastery = { domain: string; answered: number; mastery: number | null }
 
+const tier = (d: Mastery) => (d.answered < MASTERY_MIN_ANSWERED ? 1 : 0)
+
+/**
+ * Tri « plus faibles d'abord » : domaines significatifs, puis peu pratiqués —
+ * pour qu'un 0 / 2 ne passe pas pour la pire lacune —, puis maîtrise
+ * croissante et ordre alphabétique.
+ */
+export const byWeakness = (a: Mastery, b: Mastery): number =>
+  tier(a) - tier(b) ||
+  (a.mastery ?? 0) - (b.mastery ?? 0) ||
+  a.domain.localeCompare(b.domain, "fr")
+
 /**
  * Domaine le moins maîtrisé parmi ceux qui ont assez de réponses : un 0 / 2
  * ne doit pas passer pour la pire lacune. Égalité départagée par l'ordre

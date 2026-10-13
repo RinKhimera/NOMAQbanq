@@ -46,7 +46,7 @@ describe("AccessPaywall", () => {
     ).toHaveAttribute("href", "/tarifs")
     expect(
       screen.getByRole("link", { name: "Voir ma progression" }),
-    ).toHaveAttribute("href", "/tableau-de-bord")
+    ).toHaveAttribute("href", "/tableau-de-bord/progression")
   })
 
   it("bandeau : une ligne, le prix d'appel et un seul lien vers les tarifs", () => {

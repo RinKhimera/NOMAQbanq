@@ -123,6 +123,37 @@ export const getRevisionCounts = async (
   }
 }
 
+export type DomainRevisionCounts = Record<RevisionCriterion, number>
+
+/**
+ * Les trois compteurs de `getRevisionCounts`, pour chaque domaine à la fois :
+ * mêmes prédicats, même corpus, une seule requête groupée. Un domaine absent
+ * n'a aucune question dans la banque.
+ */
+export const getRevisionCountsByDomain = async (
+  viewer: LockUser,
+): Promise<Map<string, DomainRevisionCounts>> => {
+  const { failed, unseen, bookmarked } = CRITERION_PREDICATE
+  const res = await db.execute<{
+    domain: string
+    failed: number
+    unseen: number
+    bookmarked: number
+  }>(sql`
+    with ${historyCte(viewer.id)}
+    select q.domain,
+      (count(*) filter (where ${failed}))::int as failed,
+      (count(*) filter (where ${unseen}))::int as unseen,
+      (count(*) filter (where ${bookmarked}))::int as bookmarked
+      from questions q
+     where ${corpusWhere({ viewer })}
+     group by q.domain
+  `)
+  return new Map(
+    res.rows.map(({ domain, ...counts }) => [domain, counts] as const),
+  )
+}
+
 /**
  * Tirage aléatoire dans le corpus de révision. Les critères s'unissent en OU, le
  * tout intersecté avec domaine + objectifs. Renvoie moins que `limit` quand le

@@ -1,6 +1,7 @@
 import { type SQL, inArray, sql } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
+import { type LockUser, excludeLocked } from "../questions/answer-key-lock"
 import { QUESTION_SUCCESS_MIN_ANSWERS } from "./question-success-threshold"
 
 /*
@@ -52,6 +53,38 @@ export const datedAnswersSql = ({
        and p.completed_at is not null
        ${scoped(sql`p.user_id`, sql`a.question_id`)}`
 }
+
+// ============================================
+// Maîtrise (étudiant)
+// ============================================
+
+/**
+ * Dernière réponse datée de `viewer` à chaque question encore dans la banque,
+ * avec son domaine et son objectif. Une question dont la clé est retenue pour
+ * lui est écartée tout entière (`excludeLocked`), réponses d'entraînement
+ * antérieures comprises. `before` : la dernière réponse d'avant cet instant,
+ * pour relire la maîtrise au début d'une période ; une réponse sans date y
+ * reste, comme elle reste la plus ancienne sans `before`. Colonnes :
+ * question_id, is_correct, domain, objective_id.
+ */
+export const latestAnswersSql = (viewer: LockUser, before?: Date) => sql`
+  select l.question_id, l.is_correct, q.domain, q.objective_id
+    from (
+      select distinct on (x.question_id) x.question_id, x.is_correct
+        from (${datedAnswersSql({ userId: viewer.id })}) x
+       ${before ? sql`where x.answered_at < ${before} or x.answered_at is null` : sql``}
+       order by x.question_id, x.answered_at desc nulls last, x.answer_id
+    ) l
+    join questions q on q.id = l.question_id
+   where q.deleted_at is null
+     and ${excludeLocked(viewer, sql`l.question_id`)}`
+
+/** Part de justes parmi les questions comptées, en % arrondi ; `null` sans réponse, jamais 0. */
+export const masteryPercent = (
+  correct: number,
+  answered: number,
+): number | null =>
+  answered === 0 ? null : Math.round((100 * correct) / answered)
 
 // ============================================
 // Taux de réussite d'une question (admin)

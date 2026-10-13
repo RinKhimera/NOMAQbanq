@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { SessionResults } from "@/components/quiz/results/session-results"
 import type { AnswersMap } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
+import { PROGRESSION_HREF } from "@/constants"
 import { getTrainingSessionResults } from "@/features/training/dal"
 import { TRAINING_MODE_LABEL } from "@/features/training/schemas"
 
@@ -57,7 +58,7 @@ export default async function TrainingResultsPage({
             </Link>
           </Button>
           <Button asChild variant="outline" className="max-md:h-11">
-            <Link href="/tableau-de-bord">Ma progression</Link>
+            <Link href={PROGRESSION_HREF}>Ma progression</Link>
           </Button>
         </>
       }

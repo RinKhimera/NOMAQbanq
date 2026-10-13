@@ -11,6 +11,7 @@ test.describe("Navigation sidebar — etudiant", () => {
 
     const navLinks = [
       { title: "Tableau de bord", url: "/tableau-de-bord" },
+      { title: "Progression", url: "/tableau-de-bord/progression" },
       { title: "Examens blancs", url: "/tableau-de-bord/examen-blanc" },
       { title: "Entraînement", url: "/tableau-de-bord/entrainement" },
     ]

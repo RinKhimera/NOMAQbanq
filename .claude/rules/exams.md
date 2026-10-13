@@ -146,6 +146,19 @@ colonne)` dans le WHERE des canaux de
   période : une semaine entamée avant ne compte que ses jours dans la
   période (`startDay`, libellé « Depuis le … ») ; une semaine sans série
   lisible n'a pas de point, jamais un point à 0.
+- **Page Progression** (`features/analytics/dal.progression.ts`,
+  vocabulaire dans `CONTEXT.md`) : la maîtrise a UNE règle,
+  `latestAnswersSql` + `masteryPercent` (`answers-sql.ts`), lue par
+  `domainMastery` (`mastery.ts`) pour le tableau de bord comme pour la page ;
+  la tendance relit la même règle sur les réponses datées d'avant le début de
+  la période. Couverture, maîtrise par objectif et réponses de la période
+  écartent une question à clé retenue au numérateur ET au dénominateur
+  (`excludeLocked`), comme « Questions non vues ». Les compteurs de révision
+  par domaine (`getRevisionCountsByDomain`) partagent les prédicats de
+  `getRevisionCounts`. Le « N / M réussis » de la bande est celui de la
+  période (`periodGradedCount`), l'anneau du tableau de bord reste sur
+  « Tout ». Un jour d'activité ne compte qu'une série `completed` ou une
+  participation soumise, à l'heure de l'Est.
 
 ## Composition d'un examen
 

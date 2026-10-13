@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  ChartNoAxesColumn,
   ClipboardList,
   FileQuestionMark,
   LayoutDashboard,
@@ -12,6 +13,9 @@ import {
 export type NavItem = { title: string; url: string; icon: LucideIcon }
 export type NavSection = { heading: string; items: NavItem[] }
 
+/** Page « Progression » de l'étudiant. */
+export const PROGRESSION_HREF = "/tableau-de-bord/progression"
+
 export const studentNavSections: NavSection[] = [
   {
     heading: "Espace étudiant",
@@ -20,6 +24,11 @@ export const studentNavSections: NavSection[] = [
         title: "Tableau de bord",
         url: "/tableau-de-bord",
         icon: LayoutDashboard,
+      },
+      {
+        title: "Progression",
+        url: PROGRESSION_HREF,
+        icon: ChartNoAxesColumn,
       },
       {
         title: "Entraînement",
@@ -74,6 +83,12 @@ export const TRAINING_DOMAIN_PARAM = "domaine"
 export const trainingDomainUrl = (domain: string) =>
   `/tableau-de-bord/entrainement?${TRAINING_DOMAIN_PARAM}=${encodeURIComponent(domain)}`
 
+/** Paramètre d'URL qui précoche un critère de révision ciblée dans l'entraînement. */
+export const TRAINING_REVISION_PARAM = "revision"
+
+/** Formulaire Entraînement pré-rempli : domaine et critère de révision (`failed`, `unseen`, `bookmarked`). */
+export const trainingRevisionUrl = (domain: string, criterion: string) =>
+  `${trainingDomainUrl(domain)}&${TRAINING_REVISION_PARAM}=${encodeURIComponent(criterion)}`
 // Domaines médicaux prédéfinis
 export const MEDICAL_DOMAINS = [
   "Anesthésie-Réanimation",

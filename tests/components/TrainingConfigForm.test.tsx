@@ -76,6 +76,7 @@ const props = {
   ],
   totalQuestions: 3000,
   initialDomain: null,
+  initialRevision: null,
   initialObjectifs: [],
   hasActiveSeries: false,
 }
@@ -97,6 +98,45 @@ const start = () => screen.getByTestId("btn-start-training")
 const pool = () => screen.getByTestId("training-pool")
 
 describe("TrainingConfigForm — révision ciblée", () => {
+  it("part du domaine et du critère demandés par l'URL", async () => {
+    primeActions()
+    createTrainingSession.mockResolvedValue({
+      success: true,
+      sessionId: "s1",
+      questionCount: 7,
+    })
+    render(
+      <TrainingConfigForm
+        {...props}
+        initialDomain="Cardiologie"
+        initialRevision="failed"
+        initialObjectifs={objectifs}
+      />,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByTestId("revision-failed")).toHaveTextContent("7"),
+    )
+    expect(screen.getByTestId("revision-failed")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(screen.getByTestId("revision-unseen")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    )
+    await userEvent.click(start())
+
+    await waitFor(() => {
+      expect(createTrainingSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domain: "Cardiologie",
+          revisionFilters: ["failed"],
+        }),
+      )
+    })
+  })
+
   it("affiche les compteurs de révision dans les pastilles", async () => {
     primeActions()
     render(<TrainingConfigForm {...props} />)
