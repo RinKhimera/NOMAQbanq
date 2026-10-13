@@ -125,6 +125,11 @@ const STEP_ID: Record<QuestionFormStep, string> = {
 
 const formatThousands = (n: number) => n.toLocaleString("fr-CA")
 
+const IMAGE_SETS = {
+  statement: "les images d'énoncé",
+  explanation: "les images d'explication",
+}
+
 const Message = ({
   tone = "note",
   children,
@@ -436,7 +441,11 @@ export const QuestionForm = ({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<
     | { kind: "server"; message: string }
-    | { kind: "images"; messages: string[] }
+    | {
+        kind: "images"
+        failed: (keyof typeof IMAGE_SETS)[]
+        messages: string[]
+      }
     | null
   >(null)
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null)
@@ -630,31 +639,33 @@ export const QuestionForm = ({
 
     // Les deux jeux sont toujours réécrits en édition : retirer la dernière
     // image doit aussi s'enregistrer.
+    const imageSets = (
+      [
+        ["statement", values.statementImages],
+        ["explanation", values.explanationImages],
+      ] as const
+    ).filter(([, images]) => mode === "edit" || images.length > 0)
     const imageResults = await Promise.all(
-      (
-        [
-          ["statement", values.statementImages],
-          ["explanation", values.explanationImages],
-        ] as const
-      )
-        .filter(([, images]) => mode === "edit" || images.length > 0)
-        .map(([kind, images]) =>
-          callAction(() =>
-            setQuestionImages({
-              questionId,
-              kind,
-              images: images.map((img, order) => ({
-                storagePath: img.storagePath,
-                order,
-              })),
-            }),
-          ),
+      imageSets.map(([kind, images]) =>
+        callAction(() =>
+          setQuestionImages({
+            questionId,
+            kind,
+            images: images.map((img, order) => ({
+              storagePath: img.storagePath,
+              order,
+            })),
+          }),
         ),
+      ),
     )
     setSaving(false)
     if (imageResults.some((r) => !r.success)) {
       setSaveError({
         kind: "images",
+        failed: imageSets.flatMap(([kind], i) =>
+          imageResults[i].success ? [] : [kind],
+        ),
         messages: [
           ...new Set(imageResults.flatMap((r) => (r.error ? [r.error] : []))),
         ],
@@ -776,8 +787,8 @@ export const QuestionForm = ({
         <Alert variant="warning" data-testid="images-error">
           <TriangleAlert aria-hidden />
           <AlertTitle>
-            Question enregistrée, mais les images n&apos;ont pas été
-            enregistrées.
+            Question enregistrée, sauf{" "}
+            {saveError.failed.map((k) => IMAGE_SETS[k]).join(" et ")}.
           </AlertTitle>
           <AlertDescription className="text-ink-2">
             {saveError.messages.join(" ") || "Réessayez."}
@@ -987,6 +998,14 @@ export const QuestionForm = ({
               edit={edit}
               showErrors={showErrors}
             />
+            {frozen && (
+              <Message>
+                <span data-testid="frozen-choices-note">
+                  Choix et clé figés avec l&apos;énoncé jusqu&apos;à la
+                  fermeture de l&apos;examen en cours.
+                </span>
+              </Message>
+            )}
             {failing("cle") && (
               <Message tone="danger">
                 Désignez la clé de réponse : cliquez sur une lettre.

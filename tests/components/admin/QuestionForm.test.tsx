@@ -222,9 +222,11 @@ describe("QuestionForm — édition", () => {
     )
     await saveEdit(user)
 
-    expect(await screen.findByTestId("images-error")).toHaveTextContent(
-      "l'examen « EB » est en cours",
+    const alert = await screen.findByTestId("images-error")
+    expect(alert).toHaveTextContent(
+      "Question enregistrée, sauf les images d'énoncé.",
     )
+    expect(alert).toHaveTextContent("l'examen « EB » est en cours")
     expect(push).not.toHaveBeenCalled()
   })
 })
@@ -445,6 +447,7 @@ describe("QuestionForm — choix de réponse", () => {
     )
     expect(screen.getByTestId("option-input-0")).toBeDisabled()
     expect(screen.getByTestId("btn-key-1")).toBeDisabled()
+    expect(screen.getByTestId("frozen-choices-note")).toBeInTheDocument()
     expect(screen.getByTestId("explanation-input")).toBeEnabled()
     expect(
       screen.getByText("Énoncé, choix et clé figés (examen en cours)"),
@@ -466,6 +469,7 @@ describe("QuestionForm — choix de réponse", () => {
       "Cette question est dans « Examen blanc 27 », qui ouvre le 20 octobre 2026 à 08:00 (heure de l'Est) : elle sera figée à partir de cette date.",
     )
     expect(screen.queryByTestId("frozen-question")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("frozen-choices-note")).not.toBeInTheDocument()
     expect(screen.getByTestId("question-input")).toBeEnabled()
     expect(screen.getByTestId("option-input-0")).toBeEnabled()
     expect(screen.getByTestId("btn-key-1")).toBeEnabled()

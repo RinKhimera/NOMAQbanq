@@ -197,7 +197,10 @@ colonne)` dans le WHERE des canaux de
   d'énoncé (aux espaces de bord près), d'options ou de clé, et
   `setQuestionImages` un changement du jeu `statement` (le même jeu réécrit
   passe ; `explanation` jamais refusé). Le refus nomme l'examen qui ferme le
-  plus tard. Un examen à venir, en préparation ou clos ne fige rien ; le
+  plus tard (départage par identifiant). Un examen à venir, en préparation
+  ou clos ne fige rien ; d'où le refus de `saveExam` de repousser dans le
+  futur l'ouverture d'un examen qui a des participations
+  (`POSTPONE_STARTED`). Le
   formulaire annonce le gel d'un examen à venir (`freezeOf`,
   `question-page-data.ts`). Différent du verrou de clé, qui couvre aussi
   l'examen à venir.

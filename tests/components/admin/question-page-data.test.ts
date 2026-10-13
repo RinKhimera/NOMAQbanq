@@ -51,6 +51,17 @@ describe("question figée : examens d'une question", () => {
     })
   })
 
+  it("à fermeture égale, le plus grand identifiant, comme le refus serveur", () => {
+    expect(
+      freezeOf([exam("a1", -DAY, 5 * DAY), exam("b2", -DAY, 5 * DAY)], NOW)
+        .frozenBy?.title,
+    ).toBe("b2")
+    expect(
+      freezeOf([exam("b2", -DAY, 5 * DAY), exam("a1", -DAY, 5 * DAY)], NOW)
+        .frozenBy?.title,
+    ).toBe("b2")
+  })
+
   it("l'ouverture fige dès son instant, la fermeture libère dès le sien", () => {
     expect(freezeOf([exam("Ouvre", 0, DAY)], NOW).frozenBy).not.toBeNull()
     expect(freezeOf([exam("Ferme", -DAY, 0)], NOW)).toEqual({

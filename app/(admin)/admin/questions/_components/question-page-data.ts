@@ -11,10 +11,15 @@ export type FreezingExam = { title: string; endDate: number }
 /** Examen à venir qui figera la question à son ouverture. */
 export type UpcomingFreeze = { title: string; startDate: number }
 
+/** Identifiants en minuscules et chiffres : même ordre que dans Postgres. */
+const byId = (a: { id: string }, b: { id: string }) =>
+  a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+
 /**
  * Question figée : l'examen finalisé en cours qui ferme le plus tard la fige
- * (même règle que `updateQuestion`). Sinon, l'examen finalisé à venir qui
- * ouvre le plus tôt annonce le gel. Un examen en préparation ne compte pas.
+ * (même règle et même départage par identifiant que `updateQuestion`). Sinon,
+ * l'examen finalisé à venir qui ouvre le plus tôt annonce le gel. Un examen en
+ * préparation ne compte pas.
  */
 export const freezeOf = (
   exams: QuestionExamUse[],
@@ -22,18 +27,18 @@ export const freezeOf = (
 ): { frozenBy: FreezingExam | null; upcoming: UpcomingFreeze | null } => {
   const windows = exams.flatMap((e) => {
     const window = finalizedWindow(e)
-    return window ? [{ title: e.title, ...window }] : []
+    return window ? [{ id: e.id, title: e.title, ...window }] : []
   })
   const frozenBy =
     windows
       .filter((w) => w.startDate <= now && now < w.endDate)
-      .sort((a, b) => b.endDate - a.endDate)
+      .sort((a, b) => b.endDate - a.endDate || byId(b, a))
       .map(({ title, endDate }) => ({ title, endDate }))[0] ?? null
   if (frozenBy) return { frozenBy, upcoming: null }
   const upcoming =
     windows
       .filter((w) => now < w.startDate)
-      .sort((a, b) => a.startDate - b.startDate)
+      .sort((a, b) => a.startDate - b.startDate || byId(a, b))
       .map(({ title, startDate }) => ({ title, startDate }))[0] ?? null
   return { frozenBy: null, upcoming }
 }

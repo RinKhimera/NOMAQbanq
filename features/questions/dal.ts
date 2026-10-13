@@ -736,7 +736,7 @@ export const getQuestionById = async (
     })
     .from(questionImages)
     .where(eq(questionImages.questionId, id))
-    .orderBy(asc(questionImages.position))
+    .orderBy(asc(questionImages.position), asc(questionImages.id))
 
   const images: QuestionImageView[] = []
   const explanationImages: QuestionImageView[] = []

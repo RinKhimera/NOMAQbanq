@@ -332,7 +332,7 @@ const assertNotFrozen = async (tx: Tx, questionId: string) => {
         gt(exams.endDate, sql`now()`),
       ),
     )
-    .orderBy(desc(exams.endDate))
+    .orderBy(desc(exams.endDate), desc(exams.id))
     .limit(1)
   if (exam?.endDate) throw new FrozenQuestionError(exam.title, exam.endDate)
 }
@@ -646,12 +646,26 @@ export const setQuestionImages = async (
     return fail("Chemin d'image invalide")
   }
 
+  // Un `tmp/` dont le chemin final est déjà enregistré vient d'un formulaire
+  // resté sur place après un échec partiel : sa source a été supprimée au
+  // commit, et son objet final ne doit pas l'être par un échec ci-dessous.
+  const stored = await db
+    .select({ storagePath: questionImages.storagePath })
+    .from(questionImages)
+    .where(
+      and(
+        eq(questionImages.questionId, questionId),
+        eq(questionImages.kind, kind),
+      ),
+    )
+  const storedPaths = new Set(stored.map((i) => i.storagePath))
+
   // Copie tmp → final AVANT toute écriture DB. En cas d'échec, on retire les
   // copies déjà faites (pas d'orphelin dans `questions/`) puis on échoue.
   const copiedFinalPaths: string[] = []
   try {
     for (const p of planned) {
-      if (!p.tmpPath) continue
+      if (!p.tmpPath || storedPaths.has(p.finalPath)) continue
       await copyInS3(p.tmpPath, p.finalPath)
       copiedFinalPaths.push(p.finalPath)
     }
@@ -681,7 +695,7 @@ export const setQuestionImages = async (
             eq(questionImages.kind, kind),
           ),
         )
-        .orderBy(questionImages.position)
+        .orderBy(questionImages.position, questionImages.id)
 
       // Même suite d'images dans le même ordre : les positions stockées
       // peuvent avoir des trous (données importées), seul l'ordre compte.

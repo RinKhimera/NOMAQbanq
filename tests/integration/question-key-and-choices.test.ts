@@ -19,8 +19,10 @@ import {
 } from "@/features/questions/actions"
 import { getQuestionById, getQuestionList } from "@/features/questions/dal"
 import { requireRole } from "@/lib/auth-guards"
-import { createPresignedUpload } from "@/lib/aws"
+import { copyInS3, createPresignedUpload } from "@/lib/aws"
+import { formatDeadline } from "@/lib/format"
 import { createId } from "@/lib/ids"
+import { tryDeleteFromStorage } from "@/lib/storage"
 import { TEST_OBJECTIVE_ID, objectiveIdFor } from "../helpers/objective"
 import { seedAnswers } from "../helpers/seed-answers"
 
@@ -87,17 +89,19 @@ const mkExam = async (
   finalized = true,
 ) => {
   const id = createId()
+  const endDate = new Date(Date.now() + window.end)
   await db.insert(exams).values({
     id,
     title,
     startDate: new Date(Date.now() + window.start),
-    endDate: new Date(Date.now() + window.end),
+    endDate,
     completionTime: 3600,
     createdBy: adminId,
     targetQuestionCount: 10,
     finalizedAt: finalized ? new Date() : null,
   })
   await db.insert(examQuestions).values({ examId: id, questionId, position: 0 })
+  return endDate
 }
 
 beforeAll(async () => {
@@ -241,12 +245,12 @@ describe("question figée", () => {
 
   it("un examen en cours refuse un changement d'énoncé, de clé ou de choix, en le nommant", async () => {
     const id = await newQuestion()
-    await mkExam(id, inProgress, "Examen d'automne")
+    const end = await mkExam(id, inProgress, "Examen d'automne")
 
     const key = await updateQuestion({ ...base, id, correctAnswer: "B" })
     expect(key).toMatchObject({ success: false })
     expect(key.error).toContain("« Examen d'automne »")
-    expect(key.error).toContain("heure de l'Est")
+    expect(key.error).toContain(`jusqu'au ${formatDeadline(end)}`)
     for (const change of [
       { options: ["A", "B", "C", "D bis"] },
       { options: ["B", "A", "C", "D"] },
@@ -344,6 +348,67 @@ describe("question figée", () => {
     expect(await statementImages(id, "b", "a")).toMatchObject({
       success: false,
     })
+  })
+
+  it("des positions ex æquo se relisent dans le même ordre que le formulaire", async () => {
+    const id = await newQuestion()
+    await db.insert(questionImages).values(
+      ["z", "y", "x"].map((n, i) => ({
+        id: `${n}${i}-${id}`,
+        questionId: id,
+        kind: "statement" as const,
+        storagePath: `questions/${id}/${n}.jpg`,
+        position: 0,
+      })),
+    )
+    await mkExam(id, inProgress)
+
+    const shown = (await getQuestionById(id))?.images ?? []
+    expect(shown.map((i) => i.storagePath)).toEqual(
+      ["x", "y", "z"].map((n) => `questions/${id}/${n}.jpg`),
+    )
+    expect(
+      await setQuestionImages({
+        questionId: id,
+        kind: "statement",
+        images: shown.map((i, order) => ({
+          storagePath: i.storagePath,
+          order,
+        })),
+      }),
+    ).toEqual({ success: true })
+  })
+
+  it("un chemin temporaire déjà enregistré n'est ni recopié ni supprimé par un refus", async () => {
+    const id = await newQuestion()
+    const tmp = (n: string) => `tmp/questions/${id}/statement/${n}.jpg`
+    const send = (...names: string[]) =>
+      setQuestionImages({
+        questionId: id,
+        kind: "statement",
+        images: names.map((n, order) => ({ storagePath: tmp(n), order })),
+      })
+    expect(await send("a")).toEqual({ success: true })
+    await mkExam(id, inProgress)
+    vi.mocked(copyInS3).mockClear()
+    vi.mocked(tryDeleteFromStorage).mockClear()
+
+    // Le formulaire garde ses chemins temporaires après un refus partiel.
+    expect(await send("a")).toEqual({ success: true })
+    expect(copyInS3).not.toHaveBeenCalled()
+
+    expect(await send("a", "b")).toMatchObject({ success: false })
+    expect(copyInS3).toHaveBeenCalledExactlyOnceWith(
+      tmp("b"),
+      `questions/${id}/statement/b.jpg`,
+    )
+    expect(tryDeleteFromStorage).toHaveBeenCalledWith(
+      `questions/${id}/statement/b.jpg`,
+    )
+    expect(tryDeleteFromStorage).not.toHaveBeenCalledWith(
+      `questions/${id}/statement/a.jpg`,
+    )
+    expect((await getQuestionById(id))?.images).toHaveLength(1)
   })
 
   it("jumeau : un examen à venir ne fige rien", async () => {
