@@ -412,6 +412,58 @@ describe("QuestionCard", () => {
       expect(imgs[0]).toHaveAttribute("src", "https://cdn/expl-1.jpg")
     })
 
+    describe("images d'énoncé", () => {
+      const withStemImage: QuizQuestion = {
+        ...mockQuestion,
+        images: [
+          { url: "https://cdn/stem-1.jpg", storagePath: "s1", order: 0 },
+        ],
+      }
+
+      it("développée : la galerie d'énoncé est rendue", () => {
+        render(
+          <QuestionCard
+            variant="review"
+            question={withStemImage}
+            isExpanded={true}
+            onToggleExpand={vi.fn()}
+          />,
+        )
+
+        expect(screen.getByAltText("Image de la question")).toHaveAttribute(
+          "src",
+          "https://cdn/stem-1.jpg",
+        )
+      })
+
+      it("repliée : pas de galerie d'énoncé", () => {
+        render(
+          <QuestionCard
+            variant="review"
+            question={withStemImage}
+            onToggleExpand={vi.fn()}
+          />,
+        )
+
+        expect(
+          screen.queryByAltText("Image de la question"),
+        ).not.toBeInTheDocument()
+      })
+
+      it("sans image : aucune galerie", () => {
+        render(
+          <QuestionCard
+            variant="review"
+            question={mockQuestion}
+            isExpanded={true}
+            onToggleExpand={vi.fn()}
+          />,
+        )
+
+        expect(screen.queryByTestId("next-image")).not.toBeInTheDocument()
+      })
+    })
+
     it("n'affiche pas le bloc d'images si aucune image d'explication", () => {
       render(
         <QuestionCard
