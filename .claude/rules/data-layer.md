@@ -184,7 +184,10 @@ Les règles métier des examens et de la banque de questions vivent dans
   faisait entrer ce graphe dans presque tous les tests d'intégration — mesuré à
   +60 s d'import sur la suite. `lib/app-zone.ts` ne dépend que de `@date-fns/tz`
   (zéro dépendance). Ne pas ré-exporter l'un depuis l'autre : la frontière ne
-  tient que si le code serveur importe `lib/app-zone` directement.
+  tient que si le code serveur importe `lib/app-zone` directement. Une date
+  dans un message de refus d'une Server Action : `await import("@/lib/format")`
+  dans la branche d'erreur seulement (`frozenMessage`,
+  `features/questions/actions.ts`), jamais en import statique.
 - **Hydration — bruit tiers filtré** : les crashs `$RS` (`Cannot read properties
 of null (reading 'parentNode')`, script inline du streaming React) causés par
   un tiers qui mute le DOM (traduction, extension, proxy) sont DROPPÉS par le

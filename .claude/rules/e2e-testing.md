@@ -193,6 +193,10 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   capture, attendre `img.complete && img.naturalWidth > 0` (`waitForFunction`) ;
   la visionneuse (`.yarl__root`) s'ouvre en fondu, attendre ~1 s avant de la
   capturer. Sinon vignette grise et visionneuse transparente : de faux bugs.
+- **Remettre un texte modifié par un scénario** : en SQL, à l'octet près
+  (vérifier par `md5`), pas par l'interface. Tout enregistrement par le
+  formulaire rogne les espaces de bord : un énoncé hérité en est réécrit, même
+  si le scénario ne touche que l'explication.
 
 ## Concurrence & état partagé
 
