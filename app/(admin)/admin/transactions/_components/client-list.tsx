@@ -46,12 +46,7 @@ export const ClientList = ({
   isPending: boolean
 }) => {
   const listRef = useRef<HTMLUListElement>(null)
-  const page = (go?: () => void) =>
-    go &&
-    (() => {
-      listRef.current?.scrollTo({ top: 0 })
-      go()
-    })
+  const scrollListToTop = () => listRef.current?.scrollTo({ top: 0 })
 
   return (
     <aside
@@ -159,8 +154,20 @@ export const ClientList = ({
           total={clients.total}
           pageSize={CLIENT_PAGE_SIZE}
           noun={{ one: "client", many: "clients" }}
-          onPrevious={page(onPrevious)}
-          onNext={page(onNext)}
+          onPrevious={
+            onPrevious &&
+            (() => {
+              scrollListToTop()
+              onPrevious()
+            })
+          }
+          onNext={
+            onNext &&
+            (() => {
+              scrollListToTop()
+              onNext()
+            })
+          }
           isPending={isPending}
         />
       )}

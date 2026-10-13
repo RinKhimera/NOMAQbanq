@@ -29,17 +29,22 @@ export function UserMultiSelect({
 }: UserMultiSelectProps) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SelectableUser[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Recherche serveur débouncée (300 ms). Le `setState` se produit dans un
-  // callback async (pas synchrone dans l'effet) → ne déclenche pas la règle
-  // ESLint `react-hooks/set-state-in-effect`. Le drapeau `cancelled` ignore une
+  // Le chargement s'allume à la frappe, pas dans l'effet : un `setState`
+  // synchrone dans l'effet enfreint `react-hooks/set-state-in-effect`.
+  const changeQuery = (next: string) => {
+    if (next === query) return
+    setQuery(next)
+    setIsLoading(true)
+  }
+
+  // Recherche serveur débouncée (300 ms). Le drapeau `cancelled` ignore une
   // requête déjà partie : si l'utilisateur tape vite, une réponse lente d'une
   // recherche obsolète ne doit pas écraser une plus récente (le clearTimeout
   // seul ne couvre que le timer non encore déclenché).
   useEffect(() => {
     let cancelled = false
-    setIsLoading(true)
     const handle = setTimeout(async () => {
       try {
         const rows = await loadSearchSelectableUsers({
@@ -74,7 +79,7 @@ export function UserMultiSelect({
         </div>
       )}
       search={query}
-      onSearchChange={setQuery}
+      onSearchChange={changeQuery}
       placeholder="Rechercher et sélectionner des utilisateurs..."
       searchPlaceholder="Rechercher par nom ou email..."
       emptyText="Aucun utilisateur trouvé."
