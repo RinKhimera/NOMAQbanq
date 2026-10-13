@@ -128,6 +128,7 @@ Regles specialisees dans `.claude/rules/`:
 | `design-system.md` | `app/**`, `components/**`, `hooks/**`                                                                       | Interdits, jetons sémantiques, hauteurs de contrôles, vocabulaire ; catalogue des composants partagés         |
 
 Ajouter les nouveaux patterns au fichier rules correspondant, pas ici.
+Une consigne provisoire (« tant que #n… ») se retire dans la PR qui la rend caduque.
 
 `DESIGN.md` (racine) est la référence de design permanente : jetons, typographie, ton, règles métier affichées. À lire avant de créer ou modifier une interface ; `design-system.md` en est l'application dans le code.
 

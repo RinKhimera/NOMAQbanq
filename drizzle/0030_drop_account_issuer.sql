@@ -5,4 +5,4 @@
 -- La consigne de remplissage de 0019 après un retour vers better-auth 1.7.2 est
 -- caduque : ce retour exigerait désormais de recréer la colonne et de la
 -- remplir avant la bascule.
-ALTER TABLE "account" DROP COLUMN "issuer";
+ALTER TABLE "account" DROP COLUMN IF EXISTS "issuer";
