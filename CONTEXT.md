@@ -167,7 +167,7 @@ Un examen blanc enregistré mais pas encore finalisé : son lot de questions peu
 être incomplet, ses dates et son audience absentes ou provisoires. Il n'existe
 pas pour l'étudiant et ne s'ouvre jamais, même à sa date d'ouverture : nul,
 admin compris, ne peut le démarrer. Il ne compte pas dans la dernière
-utilisation d'une question, et ses questions n'ont pas de choix figés.
+utilisation d'une question, et ne fige aucune question.
 _Avoid_ : brouillon, examen non publié
 
 **Examen masqué** :

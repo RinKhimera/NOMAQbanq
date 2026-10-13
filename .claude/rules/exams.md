@@ -191,9 +191,16 @@ colonne)` dans le WHERE des canaux de
   et `keyToVerifySql` (`features/questions/dal.ts` : onglet, compteur, export),
   sur les mêmes constantes. Une confirmation tient tant que les réponses n'ont
   pas doublé (10 nouvelles au moins) ; `updateQuestion` l'efface quand
-  l'énoncé, les options ou la clé changent. **Choix figés** : `updateQuestion`
-  refuse, sous verrou de la ligne, un changement de clé ou d'options tant
-  qu'un examen ouvert (`end_date > now()`) et finalisé contient la question.
+  l'énoncé, les options ou la clé changent. **Question figée** : tant qu'un
+  examen finalisé **en cours** (`start_date <= now() < end_date`) contient la
+  question, `updateQuestion` refuse sous verrou de la ligne un changement
+  d'énoncé (aux espaces de bord près), d'options ou de clé, et
+  `setQuestionImages` un changement du jeu `statement` (le même jeu réécrit
+  passe ; `explanation` jamais refusé). Le refus nomme l'examen qui ferme le
+  plus tard. Un examen à venir, en préparation ou clos ne fige rien ; le
+  formulaire annonce le gel d'un examen à venir (`freezeOf`,
+  `question-page-data.ts`). Différent du verrou de clé, qui couvre aussi
+  l'examen à venir.
 - **Référentiel des objectifs du CMC** (`features/objectives/`, vocabulaire
   dans `CONTEXT.md`) : toute question porte `objective_id`, jamais un libellé
   libre. Les règles d'un libellé et la clé normalisée vivent dans `label.ts`

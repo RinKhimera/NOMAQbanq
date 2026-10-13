@@ -9,7 +9,7 @@ import { diagnoseCorrection } from "@/features/questions/normalization"
 import { requireRole } from "@/lib/auth-guards"
 import { currentTimeMs } from "@/lib/clock"
 import { QuestionNotFound } from "../_components/question-not-found"
-import { lockingExamOf, reviewOf } from "../_components/question-page-data"
+import { freezeOf, reviewOf } from "../_components/question-page-data"
 import {
   parseQuestionList,
   questionListHref,
@@ -57,7 +57,7 @@ export default async function AdminQuestionPage({
         }}
         list={list}
         neighbors={neighbors}
-        lockingExam={lockingExamOf(exams, now)}
+        frozenBy={freezeOf(exams, now).frozenBy}
         initialNow={now}
       />
     </div>

@@ -68,7 +68,7 @@ const renderDetail = (
       file={file}
       list={{ ...DEFAULT_QUESTION_LIST, tab: "toVerify" }}
       neighbors={{ position: 21, total: 39, previousId: "q0", nextId: null }}
-      lockingExam={null}
+      frozenBy={null}
       initialNow={NOW}
       {...over}
     />,
@@ -96,20 +96,16 @@ describe("QuestionDetailClient", () => {
     ).toBeDisabled()
   })
 
-  it("choix figés : rappel de l'examen ouvert", () => {
+  it("question figée : rappel de l'examen en cours", () => {
     renderDetail({
-      lockingExam: {
-        id: "e1",
+      frozenBy: {
         title: "Examen blanc 26",
-        startDate: NOW,
         endDate: Date.UTC(2026, 9, 3, 12),
-        finalizedAt: NOW,
-        isActive: true,
       },
     })
-    expect(
-      screen.getByText(/Dans l'examen ouvert « Examen blanc 26 »/),
-    ).toHaveTextContent("verrouillés jusqu'au 3 octobre 2026")
+    expect(screen.getByText(/Question figée jusqu'au/)).toHaveTextContent(
+      "Question figée jusqu'au 3 octobre 2026 à 08:00 (heure de l'Est) : l'examen « Examen blanc 26 » est en cours.",
+    )
   })
 
   it("supprimer : archivée, toast, retour à la liste quittée", async () => {

@@ -70,7 +70,7 @@ import {
   splitReferenceEntry,
 } from "@/features/questions/normalization"
 import { useLeaveGuard } from "@/hooks/use-leave-guard"
-import { NBSP, formatLongDate } from "@/lib/format"
+import { NBSP, formatDeadline, formatLongDate } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { TOUCH_SIZE } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
@@ -90,6 +90,7 @@ import {
   snapshotOf,
   toQuestionPayload,
 } from "./question-form-model"
+import type { FreezingExam, UpcomingFreeze } from "./question-page-data"
 import {
   type QuestionListState,
   questionHref,
@@ -106,8 +107,10 @@ export type QuestionEditContext = {
   originalKeyIndex: number
   /** Clé confirmée en vigueur : la modifier l'annulera. */
   confirmation: KeyConfirmation | null
-  /** Examen ouvert qui fige les choix et la clé. */
-  lockingExam: { title: string; endDate: number } | null
+  /** Examen en cours qui fige l'énoncé, ses images, les choix et la clé. */
+  frozenBy: FreezingExam | null
+  /** Examen à venir qui figera la question à son ouverture. */
+  upcomingFreeze: UpcomingFreeze | null
   /** Valeur invalide portée par la question, à remplacer par un objectif. */
   invalidObjective: string | null
 }
@@ -432,7 +435,9 @@ export const QuestionForm = ({
   const [blink, setBlink] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<
-    { kind: "server"; message: string } | { kind: "images" } | null
+    | { kind: "server"; message: string }
+    | { kind: "images"; messages: string[] }
+    | null
   >(null)
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null)
   // Une création est partie : une réponse perdue en route laisse la question
@@ -460,7 +465,7 @@ export const QuestionForm = ({
   const setValues = (update: (v: QuestionFormValues) => QuestionFormValues) =>
     setValuesState(update)
 
-  const frozen = edit?.lockingExam != null
+  const frozen = edit?.frozenBy != null
   const answered = edit !== null && edit.pastCounts.some((n) => n > 0)
   const dirty = snapshotOf(values) !== snapshot
   const detailHref =
@@ -648,7 +653,12 @@ export const QuestionForm = ({
     )
     setSaving(false)
     if (imageResults.some((r) => !r.success)) {
-      setSaveError({ kind: "images" })
+      setSaveError({
+        kind: "images",
+        messages: [
+          ...new Set(imageResults.flatMap((r) => (r.error ? [r.error] : []))),
+        ],
+      })
       window.scrollTo({ top: 0, behavior: "smooth" })
       return
     }
@@ -763,12 +773,15 @@ export const QuestionForm = ({
         </Alert>
       )}
       {saveError?.kind === "images" && (
-        <Alert variant="warning">
+        <Alert variant="warning" data-testid="images-error">
           <TriangleAlert aria-hidden />
           <AlertTitle>
             Question enregistrée, mais les images n&apos;ont pas été
-            enregistrées. Réessayez.
+            enregistrées.
           </AlertTitle>
+          <AlertDescription className="text-ink-2">
+            {saveError.messages.join(" ") || "Réessayez."}
+          </AlertDescription>
         </Alert>
       )}
       {edit?.confirmation && (
@@ -890,12 +903,41 @@ export const QuestionForm = ({
             title="Énoncé et images"
             description="La vignette clinique et la question posée."
           >
+            {edit?.frozenBy && (
+              <Alert data-testid="frozen-question">
+                <Lock aria-hidden />
+                <AlertTitle>
+                  Question figée jusqu&apos;au{" "}
+                  {formatDeadline(edit.frozenBy.endDate)}
+                </AlertTitle>
+                <AlertDescription className="text-ink-2">
+                  L&apos;examen «{NBSP}
+                  {edit.frozenBy.title}
+                  {NBSP}» est en cours : l&apos;énoncé, ses images, les choix et
+                  la clé ne changent pas avant sa fermeture. L&apos;explication,
+                  les références et le classement restent modifiables.
+                </AlertDescription>
+              </Alert>
+            )}
+            {edit?.upcomingFreeze && (
+              <Alert variant="warning" data-testid="upcoming-freeze">
+                <TriangleAlert aria-hidden />
+                <AlertDescription className="text-ink-2">
+                  Cette question est dans «{NBSP}
+                  {edit.upcomingFreeze.title}
+                  {NBSP}», qui ouvre le{" "}
+                  {formatDeadline(edit.upcomingFreeze.startDate)} : elle sera
+                  figée à partir de cette date.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="flex flex-col gap-1.5">
               <Textarea
                 rows={7}
                 value={values.question}
                 aria-label="Énoncé"
                 aria-invalid={failing("enonce") || undefined}
+                disabled={frozen}
                 data-testid="question-input"
                 onChange={(e) =>
                   setValues((v) => ({ ...v, question: e.target.value }))
@@ -928,6 +970,7 @@ export const QuestionForm = ({
               images={values.statementImages}
               onImagesChange={setImages("statementImages")}
               onPendingChange={onStatementUploads}
+              disabled={frozen}
             />
           </StepCard>
 
@@ -937,20 +980,6 @@ export const QuestionForm = ({
             title="Choix de réponse"
             description="4 ou 5 choix. Cliquez sur la lettre pour désigner la clé de réponse."
           >
-            {edit?.lockingExam && (
-              <Alert data-testid="frozen-choices">
-                <Lock aria-hidden />
-                <AlertDescription className="text-ink-2">
-                  Cette question est dans l&apos;examen ouvert «{NBSP}
-                  {edit.lockingExam.title}
-                  {NBSP}» jusqu&apos;au{" "}
-                  {formatLongDate(edit.lockingExam.endDate)} : ses choix et sa
-                  clé sont verrouillés jusqu&apos;à la fermeture. L&apos;énoncé,
-                  l&apos;explication, les références et le classement restent
-                  modifiables.
-                </AlertDescription>
-              </Alert>
-            )}
             <ChoicesEditor
               values={values}
               setValues={setValues}

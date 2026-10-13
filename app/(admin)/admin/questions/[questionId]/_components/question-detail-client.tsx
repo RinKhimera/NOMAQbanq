@@ -45,10 +45,10 @@ import {
 } from "@/features/questions/actions"
 import type { QuestionNeighbors } from "@/features/questions/dal"
 import { KEY_CONFIRMATION_NOTE_MAX } from "@/features/questions/key-review"
-import { NBSP, formatLongDate, formatMediumDate } from "@/lib/format"
+import { NBSP, formatDeadline, formatMediumDate } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { TOUCH_HEIGHT } from "@/lib/touch-target"
-import type { LockingExam } from "../../_components/question-page-data"
+import type { FreezingExam } from "../../_components/question-page-data"
 import {
   type QuestionListState,
   pageOfPosition,
@@ -278,13 +278,13 @@ export const QuestionDetailClient = ({
   file,
   list,
   neighbors,
-  lockingExam,
+  frozenBy,
   initialNow,
 }: {
   file: QuestionFile
   list: QuestionListState
   neighbors: QuestionNeighbors | null
-  lockingExam: LockingExam | null
+  frozenBy: FreezingExam | null
   initialNow: number
 }) => {
   const router = useRouter()
@@ -353,11 +353,11 @@ export const QuestionDetailClient = ({
         </div>
       </div>
 
-      {lockingExam && (
+      {frozenBy && (
         <p className="text-ink-2 flex items-start gap-2 text-sm">
           <Lock aria-hidden className="text-ink-3 mt-0.5 size-3.5 shrink-0" />
-          Dans l&apos;examen ouvert « {lockingExam.title} » : choix et clé
-          verrouillés jusqu&apos;au {formatLongDate(lockingExam.endDate)}.
+          Question figée jusqu&apos;au {formatDeadline(frozenBy.endDate)} :
+          l&apos;examen « {frozenBy.title} » est en cours.
         </p>
       )}
 
