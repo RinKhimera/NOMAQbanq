@@ -450,17 +450,29 @@ describe("QuestionCard", () => {
         ).not.toBeInTheDocument()
       })
 
-      it("sans image : aucune galerie", () => {
+      it("clé retenue : l'énoncé garde son image, l'explication et ses images restent masquées", () => {
         render(
           <QuestionCard
             variant="review"
-            question={mockQuestion}
+            question={{
+              ...withStemImage,
+              correctAnswer: "",
+              keyWithheld: true,
+              explanationImages: [
+                { url: "https://cdn/expl-1.jpg", storagePath: "p1", order: 0 },
+              ],
+            }}
+            userAnswer="Lyon"
             isExpanded={true}
             onToggleExpand={vi.fn()}
           />,
         )
 
-        expect(screen.queryByTestId("next-image")).not.toBeInTheDocument()
+        expect(screen.getByAltText("Image de la question")).toBeInTheDocument()
+        expect(screen.getByTestId("key-withheld-notice")).toBeInTheDocument()
+        expect(
+          screen.queryByTestId("explanation-images"),
+        ).not.toBeInTheDocument()
       })
     })
 
