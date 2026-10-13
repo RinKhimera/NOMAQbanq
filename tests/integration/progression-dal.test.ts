@@ -105,12 +105,14 @@ const sitExam = async (
     score = 0,
     questionIds = [],
     status = "completed",
+    startedAt = new Date((completedAt?.getTime() ?? NOW) - HOUR),
   }: {
     open: boolean
     completedAt: Date | null
     score?: number
     questionIds?: string[]
     status?: "completed" | "auto_submitted"
+    startedAt?: Date
   },
 ) => {
   const examId = createId()
@@ -142,7 +144,7 @@ const sitExam = async (
     userId,
     status: completedAt ? status : "in_progress",
     score,
-    startedAt: new Date((completedAt?.getTime() ?? NOW) - HOUR),
+    startedAt,
     completedAt,
   })
   if (questionIds.length > 0) {
@@ -280,11 +282,19 @@ describe("getMyProgression — réponse sans date", () => {
 })
 
 describe("getMyProgression — jours d'activité", () => {
+  const today = toAppZoneCalendarDay(NOW)
+  const dayStart = (back: number) =>
+    startOfAppZoneDay(shiftCalendarDay(today, -back)).getTime()
+
   it("compte les journées civiles de l'Est avec une série close ou un examen soumis", async () => {
+    // L'activité d'un autre étudiant, sur d'autres jours, ne compte pas.
+    const classmate = await newStudent()
+    await train(classmate, new Date(dayStart(5) + 10 * HOUR))
+    await sitExam(classmate, {
+      open: false,
+      completedAt: new Date(dayStart(4) + 10 * HOUR),
+    })
     const student = await newStudent()
-    const today = toAppZoneCalendarDay(NOW)
-    const dayStart = (back: number) =>
-      startOfAppZoneDay(shiftCalendarDay(today, -back)).getTime()
 
     // Jour J-3 : deux séries, dont une à 23 h 30 heure de l'Est (le
     // lendemain en UTC) — une seule journée.
@@ -314,6 +324,21 @@ describe("getMyProgression — jours d'activité", () => {
     expect((await getMyProgression("tout"))!.activity).toEqual({
       days: 3,
       firstDay: shiftCalendarDay(today, -20),
+    })
+  })
+
+  it("date une participation close par le cron du jour où elle a commencé", async () => {
+    const student = await newStudent()
+    // Commencée à J-5, abandonnée, close par le cron le soir de J-4.
+    await sitExam(student, {
+      open: false,
+      startedAt: new Date(dayStart(5) + 10 * HOUR),
+      completedAt: new Date(dayStart(4) + 20 * HOUR),
+      status: "auto_submitted",
+    })
+    expect((await getMyProgression("tout"))!.activity).toEqual({
+      days: 1,
+      firstDay: shiftCalendarDay(today, -5),
     })
   })
 
@@ -396,6 +421,10 @@ describe("score retenu", () => {
 
 describe("getMyExamHistory", () => {
   it("pagine par 10, dans les deux sens, avec le total", async () => {
+    // Les participations d'un autre étudiant n'entrent ni dans la liste ni
+    // dans le total.
+    const classmate = await newStudent()
+    await sitExam(classmate, { open: false, completedAt: daysAgo(2) })
     const student = await newStudent()
     for (let i = 0; i < 12; i++) {
       await sitExam(student, {
@@ -426,6 +455,24 @@ describe("getMyExamHistory", () => {
     expect(back.items.map((i) => i.examId)).toEqual(
       first.items.map((i) => i.examId),
     )
+  })
+
+  it("revient en tête de liste sur un curseur qui ne mène plus à rien", async () => {
+    const student = await newStudent()
+    for (let i = 0; i < 11; i++) {
+      await sitExam(student, { open: false, completedAt: daysAgo(i + 1) })
+    }
+    const first = await getMyExamHistory()
+    const second = await getMyExamHistory(first.nextCursor)
+    expect(second.items).toHaveLength(1)
+    // La seule copie de la page 2 est supprimée par un admin.
+    await db
+      .delete(examParticipations)
+      .where(eq(examParticipations.examId, second.items[0]!.examId))
+
+    const stale = await getMyExamHistory(first.nextCursor)
+    expect(stale).toMatchObject({ total: 10, firstIndex: 0 })
+    expect(stale.items).toHaveLength(10)
   })
 
   it("rend une page vide sans session", async () => {

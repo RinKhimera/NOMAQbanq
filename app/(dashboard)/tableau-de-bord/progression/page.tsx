@@ -8,7 +8,11 @@ import {
 import { currentTimeMs } from "@/lib/clock"
 import { getCurrentSession } from "@/lib/dal"
 import { parsePeriod } from "@/lib/dashboard-period"
-import { AFTER_PARAM, BEFORE_PARAM } from "@/lib/progression"
+import {
+  AFTER_PARAM,
+  BEFORE_PARAM,
+  isProgressionEmpty,
+} from "@/lib/progression"
 import { DashboardErrorState } from "../_components/dashboard-error-state"
 import {
   ProgressionEmpty,
@@ -44,7 +48,12 @@ export default async function ProgressionPage({
   // Le layout garde déjà la session ; `null` n'arrive que sans elle.
   if (!dashboard || !progression) return <DashboardErrorState />
 
-  if (!dashboard.hasHistory) {
+  if (
+    isProgressionEmpty({
+      hasHistory: dashboard.hasHistory,
+      domains: progression.domains,
+    })
+  ) {
     return <ProgressionEmpty trainingAccess={progression.trainingAccess} />
   }
 

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 import {
   coveragePercent,
   formatTrend,
+  isProgressionEmpty,
+  masteryTrend,
   periodEyebrow,
   sortDomains,
 } from "@/lib/progression"
@@ -72,6 +74,46 @@ describe("coveragePercent", () => {
 
   it("rend null sans question active, jamais 0 %", () => {
     expect(coveragePercent(0, 0)).toBeNull()
+  })
+})
+
+describe("isProgressionEmpty", () => {
+  it("vide sans historique ni domaine pratiqué", () => {
+    expect(
+      isProgressionEmpty({ hasHistory: false, domains: [{ mastery: null }] }),
+    ).toBe(true)
+  })
+
+  it("pleine dès qu'un domaine est pratiqué, même sans série close (série abandonnée)", () => {
+    expect(
+      isProgressionEmpty({
+        hasHistory: false,
+        domains: [{ mastery: null }, { mastery: 40 }],
+      }),
+    ).toBe(false)
+  })
+
+  it("pleine avec un historique, même sans réponse comptée", () => {
+    expect(
+      isProgressionEmpty({ hasHistory: true, domains: [{ mastery: null }] }),
+    ).toBe(false)
+  })
+})
+
+describe("masteryTrend", () => {
+  const counts = (correct: number, answered: number) => ({ correct, answered })
+
+  it("arrondit au plancher l'écart des parts brutes, pas l'écart des maîtrises arrondies", () => {
+    // 50,4 % → 49,6 % : les deux s'affichent 50 %, le recul vaut −0,8 → −1.
+    expect(masteryTrend(counts(62, 125), counts(63, 125))).toBe(-1)
+    // 50,4 % → 50,79 % : 50 % puis 51 %, mais +0,39 → 0.
+    expect(masteryTrend(counts(64, 126), counts(63, 125))).toBe(0)
+  })
+
+  it("rend l'écart exact quand il est entier", () => {
+    expect(masteryTrend(counts(2, 2), counts(1, 2))).toBe(50)
+    expect(masteryTrend(counts(0, 1), counts(1, 1))).toBe(-100)
+    expect(masteryTrend(counts(1, 3), counts(2, 6))).toBe(0)
   })
 })
 

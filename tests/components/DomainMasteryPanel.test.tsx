@@ -97,5 +97,9 @@ describe("DomainMasteryPanel", () => {
     expect(
       screen.getByRole("link", { name: /Commencer une série/ }),
     ).toHaveAttribute("href", "/tableau-de-bord/entrainement")
+    expect(
+      screen.getByRole("link", { name: /Rapport complet/ }),
+    ).toHaveAttribute("href", "/tableau-de-bord/progression")
+    expect(screen.queryByTestId("domain-mastery-unpracticed")).toBeNull()
   })
 })

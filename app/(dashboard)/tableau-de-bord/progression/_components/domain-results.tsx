@@ -96,7 +96,7 @@ const MasteryBar = ({
 const Coverage = ({ covered, total }: { covered: number; total: number }) => {
   const pct = coveragePercent(covered, total)
   return (
-    <span className="inline-flex items-baseline gap-1.5 font-mono text-[0.8125rem] whitespace-nowrap">
+    <span className="inline-flex items-baseline gap-3 font-mono text-[0.8125rem] whitespace-nowrap">
       <span className="sr-only">Couverture </span>
       <span className={covered > 0 ? "text-ink-2" : "text-ink-3"}>
         {fmt(covered)}&nbsp;/&nbsp;{fmt(total)}
@@ -298,8 +298,7 @@ const DomainCells = ({
           >
             {formatScore(domain.mastery)}
           </span>
-          <span aria-hidden="true" className="md:hidden">
-            {" "}
+          <span aria-hidden="true" className="ml-1 md:hidden">
             maîtrise
           </span>
           {withTrend && !never && (

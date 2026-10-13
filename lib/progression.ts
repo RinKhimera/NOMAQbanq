@@ -43,11 +43,38 @@ export const sortDomains = <T extends SortableDomain>(
   return [...practiced.toSorted(compare), ...never]
 }
 
+/**
+ * Rien à montrer : ni série close, ni examen soumis, ni domaine pratiqué. Une
+ * série abandonnée n'est pas un historique, mais ses réponses comptent dans la
+ * maîtrise : un domaine pratiqué suffit à remplir la page.
+ */
+export const isProgressionEmpty = ({
+  hasHistory,
+  domains,
+}: {
+  hasHistory: boolean
+  domains: readonly { mastery: number | null }[]
+}): boolean => !hasHistory && domains.every((d) => d.mastery === null)
+
 /** Part des questions actives déjà vues, à l'entier inférieur ; `null` sans question. */
 export const coveragePercent = (
   covered: number,
   total: number,
 ): number | null => (total === 0 ? null : Math.floor((100 * covered) / total))
+
+type Counts = { answered: number; correct: number }
+
+/**
+ * Tendance de maîtrise en points : l'écart des parts de justes BRUTES, au
+ * plancher, comme la tendance du score moyen. Un écart de deux maîtrises déjà
+ * arrondies afficherait « +1 » pour +0,2 et « 0 » pour −0,8. Calcul en
+ * entiers jusqu'à la division : pas d'écart flottant autour d'un entier.
+ */
+export const masteryTrend = (now: Counts, start: Counts): number =>
+  Math.floor(
+    (100 * (now.correct * start.answered - start.correct * now.answered)) /
+      (now.answered * start.answered),
+  )
 
 /** « +4 », « −2 », « 0 » ; « — » sans tendance. */
 export const formatTrend = (trend: number | null): string => {

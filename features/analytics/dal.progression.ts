@@ -6,7 +6,7 @@ import { examParticipations, exams } from "@/db/schema"
 import { APP_TIME_ZONE } from "@/lib/app-zone"
 import { getCurrentSession } from "@/lib/dal"
 import { type DashboardPeriod, periodWindow } from "@/lib/dashboard-period"
-import { EXAM_HISTORY_PAGE_SIZE } from "@/lib/progression"
+import { EXAM_HISTORY_PAGE_SIZE, masteryTrend } from "@/lib/progression"
 import { finalizedDate } from "../exams/dal.shared"
 import { readableParticipationScore } from "../exams/dal.student"
 import { SUBMITTED } from "../exams/population"
@@ -26,7 +26,7 @@ import {
   masteryPercent,
 } from "./answers-sql"
 import { type RecentParticipation, questionCountOf } from "./dal.dashboard"
-import { domainMastery } from "./mastery"
+import { masteryCounts, toDomainMastery } from "./mastery"
 
 /** Au-delà, la liste dépliée ne se lirait plus ; le référentiel en compte moins. */
 const OBJECTIVES_LIMIT = 2000
@@ -95,8 +95,8 @@ export const getMyProgression = cache(
       revision,
       activity,
     ] = await Promise.all([
-      domainMastery(viewer),
-      from ? domainMastery(viewer, from) : null,
+      masteryCounts(viewer),
+      from ? masteryCounts(viewer, from) : null,
       activeQuestionsByDomain(viewer),
       answersByDomain(viewer, from),
       objectiveProgress(viewer),
@@ -106,17 +106,15 @@ export const getMyProgression = cache(
       activityDays(viewer.id, from),
     ])
 
-    const startByDomain = new Map(
-      (startMastery ?? []).map((d) => [d.domain, d.mastery]),
-    )
-    const domains = mastery.map((d): DomainProgress => {
-      const start = startByDomain.get(d.domain) ?? null
+    const domains = toDomainMastery(mastery).map((d): DomainProgress => {
+      const now = mastery.get(d.domain)
+      const start = startMastery?.get(d.domain)
       return {
         domain: d.domain,
         total: totals.get(d.domain) ?? 0,
         answered: d.answered,
         mastery: d.mastery,
-        trend: start === null || d.mastery === null ? null : d.mastery - start,
+        trend: now && start ? masteryTrend(now, start) : null,
         periodAnswers: periodAnswers.get(d.domain) ?? 0,
         objectives: objectives.get(d.domain) ?? [],
         revision: revision
@@ -216,6 +214,11 @@ const activityDays = async (
   userId: string,
   from: Date | null,
 ): Promise<MyProgression["activity"]> => {
+  // Une participation auto-soumise a pu être close par le cron, des heures
+  // après l'épreuve : elle compte le jour où l'étudiant l'a commencée.
+  const examDay = sql`case when ${examParticipations.status} = 'auto_submitted'
+    then coalesce(${examParticipations.startedAt}, ${examParticipations.completedAt})
+    else ${examParticipations.completedAt} end`
   const since = (column: SQL) => (from ? sql`and ${column} >= ${from}` : sql``)
   const result = await db.execute<{ days: number; first_day: string | null }>(
     sql`
@@ -229,12 +232,12 @@ const activityDays = async (
            and s.completed_at is not null
            ${since(sql`s.completed_at`)}
         union all
-        select (${examParticipations.completedAt} at time zone ${APP_TIME_ZONE})::date
+        select (${examDay} at time zone ${APP_TIME_ZONE})::date
           from ${examParticipations}
          where ${examParticipations.userId} = ${userId}
            and ${SUBMITTED}
            and ${examParticipations.completedAt} is not null
-           ${since(sql`${examParticipations.completedAt}`)}
+           ${since(examDay)}
       ) a`,
   )
   const row = result.rows[0]
@@ -339,6 +342,9 @@ export const getMyExamHistory = cache(
       )
       .limit(EXAM_HISTORY_PAGE_SIZE)
     if (beforeKey) rows.reverse()
+    // Curseur périmé (copie supprimée depuis) : retour en tête de liste plutôt
+    // qu'une page vide sans bouton.
+    if (rows.length === 0 && (afterKey || beforeKey)) return getMyExamHistory()
 
     const first = rows[0]
     const last = rows.at(-1)

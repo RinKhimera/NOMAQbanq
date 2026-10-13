@@ -13,16 +13,18 @@ export type DomainMastery = {
   mastery: number | null
 }
 
+/** Questions comptées et justes, par domaine pratiqué. */
+export type MasteryCounts = Map<string, { answered: number; correct: number }>
+
 /**
- * Maîtrise par domaine de `viewer`, les 22 domaines dans l'ordre de
- * `MEDICAL_DOMAINS`. `before` : la maîtrise telle qu'elle était à cet instant,
- * sur les seules réponses datées d'avant (tendance de maîtrise). Ne garde
- * rien : l'appelant est une lecture gardée.
+ * Comptes bruts de la maîtrise de `viewer`, par domaine. `before` : tels
+ * qu'ils étaient à cet instant, sur les seules réponses d'avant (tendance de
+ * maîtrise). Ne garde rien : l'appelant est une lecture gardée.
  */
-export const domainMastery = async (
+export const masteryCounts = async (
   viewer: LockUser,
   before?: Date,
-): Promise<DomainMastery[]> => {
+): Promise<MasteryCounts> => {
   const result = await db.execute<{
     domain: string
     answered: number
@@ -33,14 +35,23 @@ export const domainMastery = async (
              (count(*) filter (where l.is_correct))::int as correct
         from (${latestAnswersSql(viewer, before)}) l
        group by l.domain`)
+  return new Map(
+    result.rows.map(({ domain, ...counts }) => [domain, counts] as const),
+  )
+}
 
-  const byDomain = new Map(result.rows.map((r) => [r.domain, r]))
-  return MEDICAL_DOMAINS.map((domain) => {
-    const row = byDomain.get(domain)
+/** Les 22 domaines dans l'ordre de `MEDICAL_DOMAINS`, avec leur maîtrise. */
+export const toDomainMastery = (counts: MasteryCounts): DomainMastery[] =>
+  MEDICAL_DOMAINS.map((domain) => {
+    const row = counts.get(domain)
     return {
       domain,
       answered: row?.answered ?? 0,
       mastery: row ? masteryPercent(row.correct, row.answered) : null,
     }
   })
-}
+
+/** Maîtrise par domaine de `viewer`. */
+export const domainMastery = async (
+  viewer: LockUser,
+): Promise<DomainMastery[]> => toDomainMastery(await masteryCounts(viewer))
