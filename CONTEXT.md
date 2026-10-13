@@ -119,14 +119,17 @@ quel ; il est retenu à la lecture, jamais recalculé. Un score d'examen est don
 retenu tant que son propre examen est ouvert.
 _Avoid_ : score partiel, score masqué
 
-**Choix figés** :
-L'état d'une question qu'un examen ouvert et finalisé contient : sa clé et le texte de ses
-options ne peuvent pas changer avant la clôture, pour que tous les
-participants soient jugés sur la même clé (le verdict est fixé au moment de la
-réponse). L'énoncé, l'explication, les références et le classement restent
-modifiables. Distinct du verrou de clé de réponse, qui porte sur ce que voit un
-lecteur, pas sur ce qu'un admin peut écrire.
-_Avoid_ : question verrouillée, question gelée
+**Question figée** :
+L'état d'une question qu'un examen en cours contient (date d'ouverture
+atteinte, pas encore clos) : son énoncé, les images de son énoncé, ses options
+et sa clé ne peuvent pas changer avant la clôture, pour que tous les
+participants répondent à la même question et soient jugés sur la même clé (le
+verdict est fixé au moment de la réponse). L'explication, les références, les
+images d'explication et le classement restent modifiables. Un examen à venir
+ne fige rien : aucune réponse n'existe avant son ouverture. Distinct du verrou
+de clé de réponse, qui porte sur ce que voit un lecteur, pas sur ce qu'un
+admin peut écrire.
+_Avoid_ : choix figés, question verrouillée, question gelée
 
 ### Passation
 
