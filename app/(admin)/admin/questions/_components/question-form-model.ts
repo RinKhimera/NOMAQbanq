@@ -66,8 +66,9 @@ export type QuestionFormStep =
 type Check = SummaryCheck & { step: QuestionFormStep }
 
 /**
- * Vérifications de la colonne de synthèse, dans l'ordre des étapes. Sous des
- * choix figés, les choix et la clé ne se vérifient pas : ils ne changent pas.
+ * Vérifications de la colonne de synthèse, dans l'ordre des étapes. Une
+ * question figée ne vérifie ni l'énoncé, ni les choix, ni la clé : ils ne
+ * changent pas.
  * `showErrors` après une tentative refusée : une vérification en échec passe
  * de « à faire » à « erreur ».
  */
@@ -86,10 +87,10 @@ export const questionFormChecks = (
       !!v.domain && !!v.objective.trim(),
       "Domaine et objectif du CMC",
     ],
-    ["enonce", "enonce", !!v.question.trim(), "Énoncé rédigé"],
     ...(frozen
       ? []
       : ([
+          ["enonce", "enonce", !!v.question.trim(), "Énoncé rédigé"],
           [
             "choix",
             "choix",
@@ -137,10 +138,10 @@ export const questionFormChecks = (
     state: ok ? "ok" : showErrors ? "error" : "todo",
   }))
   if (frozen)
-    checks.splice(2, 0, {
+    checks.splice(1, 0, {
       id: "verrou",
-      step: "choix",
-      label: "Choix et clé verrouillés (examen ouvert)",
+      step: "enonce",
+      label: "Énoncé, choix et clé figés (examen en cours)",
       state: "locked",
     })
   return checks

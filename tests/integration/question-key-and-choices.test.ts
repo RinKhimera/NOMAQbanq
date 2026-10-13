@@ -1,7 +1,13 @@
 import { eq } from "drizzle-orm"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { examQuestions, exams, questions, user } from "@/db/schema"
+import {
+  examQuestions,
+  exams,
+  questionImages,
+  questions,
+  user,
+} from "@/db/schema"
 import { getQuestionAnswerBreakdown } from "@/features/analytics/dal"
 import {
   confirmQuestionKey,
@@ -13,8 +19,10 @@ import {
 } from "@/features/questions/actions"
 import { getQuestionById, getQuestionList } from "@/features/questions/dal"
 import { requireRole } from "@/lib/auth-guards"
-import { createPresignedUpload } from "@/lib/aws"
+import { copyInS3, createPresignedUpload } from "@/lib/aws"
+import { formatDeadline } from "@/lib/format"
 import { createId } from "@/lib/ids"
+import { tryDeleteFromStorage } from "@/lib/storage"
 import { TEST_OBJECTIVE_ID, objectiveIdFor } from "../helpers/objective"
 import { seedAnswers } from "../helpers/seed-answers"
 
@@ -73,19 +81,27 @@ const inToVerify = async (id: string) =>
     (q) => q.id === id,
   )
 
-const mkExam = async (questionId: string, endDate: Date) => {
+/** Examen contenant la question ; fenêtre en ms relatives à maintenant. */
+const mkExam = async (
+  questionId: string,
+  window: { start: number; end: number },
+  title = "Examen",
+  finalized = true,
+) => {
   const id = createId()
+  const endDate = new Date(Date.now() + window.end)
   await db.insert(exams).values({
     id,
-    title: "Examen",
-    startDate: new Date(Date.now() - 86_400_000),
+    title,
+    startDate: new Date(Date.now() + window.start),
     endDate,
     completionTime: 3600,
     createdBy: adminId,
     targetQuestionCount: 10,
-    finalizedAt: new Date(),
+    finalizedAt: finalized ? new Date() : null,
   })
   await db.insert(examQuestions).values({ examId: id, questionId, position: 0 })
+  return endDate
 }
 
 beforeAll(async () => {
@@ -212,37 +228,76 @@ describe("clé confirmée", () => {
   })
 })
 
-describe("choix figés", () => {
-  const future = () => new Date(Date.now() + 7 * 86_400_000)
+describe("question figée", () => {
+  const DAY = 86_400_000
+  const inProgress = { start: -DAY, end: 7 * DAY }
+  const upcoming = { start: 2 * DAY, end: 9 * DAY }
 
-  it("un examen ouvert refuse un changement de clé ou de choix", async () => {
+  const statementImages = (id: string, ...names: string[]) =>
+    setQuestionImages({
+      questionId: id,
+      kind: "statement",
+      images: names.map((n, order) => ({
+        storagePath: `questions/${id}/${n}.jpg`,
+        order,
+      })),
+    })
+
+  it("un examen en cours refuse un changement d'énoncé, de clé ou de choix, en le nommant", async () => {
     const id = await newQuestion()
-    await mkExam(id, future())
+    const end = await mkExam(id, inProgress, "Examen d'automne")
 
     const key = await updateQuestion({ ...base, id, correctAnswer: "B" })
     expect(key).toMatchObject({ success: false })
-    expect(key.error).toContain("examen ouvert « Examen »")
-    expect(
-      await updateQuestion({ ...base, id, options: ["A", "B", "C", "D bis"] }),
-    ).toMatchObject({ success: false })
-    expect(
-      await updateQuestion({ ...base, id, options: ["B", "A", "C", "D"] }),
-    ).toMatchObject({ success: false })
+    expect(key.error).toContain("« Examen d'automne »")
+    expect(key.error).toContain(`jusqu'au ${formatDeadline(end)}`)
+    for (const change of [
+      { options: ["A", "B", "C", "D bis"] },
+      { options: ["B", "A", "C", "D"] },
+      { question: "Énoncé revu" },
+    ]) {
+      expect(await updateQuestion({ ...base, id, ...change })).toMatchObject({
+        success: false,
+      })
+    }
 
-    const stored = await getQuestionById(id)
-    expect(stored?.correctAnswer).toBe("A")
-    expect(stored?.options).toEqual(["A", "B", "C", "D"])
+    expect(await getQuestionById(id)).toMatchObject({
+      question: "Clé",
+      correctAnswer: "A",
+      options: ["A", "B", "C", "D"],
+    })
   })
 
-  it("accepte l'énoncé, l'explication, les références et le classement", async () => {
+  it("un examen en cours suspendu fige aussi : seules ses dates comptent", async () => {
     const id = await newQuestion()
-    await mkExam(id, future())
+    await mkExam(id, inProgress, "Suspendu")
+    await db
+      .update(exams)
+      .set({ isActive: false })
+      .where(eq(exams.title, "Suspendu"))
+
+    const res = await updateQuestion({ ...base, id, correctAnswer: "B" })
+    expect(res.error).toContain("« Suspendu »")
+  })
+
+  it("nomme l'examen en cours qui ferme le plus tard", async () => {
+    const id = await newQuestion()
+    await mkExam(id, inProgress, "Ferme tôt")
+    await mkExam(id, { start: -DAY, end: 20 * DAY }, "Ferme tard")
+    await mkExam(id, { start: 3 * DAY, end: 30 * DAY }, "À venir")
+
+    const res = await updateQuestion({ ...base, id, correctAnswer: "B" })
+    expect(res.error).toContain("« Ferme tard »")
+  })
+
+  it("jumeau : l'explication, les références et le classement restent modifiables", async () => {
+    const id = await newQuestion()
+    await mkExam(id, inProgress)
 
     expect(
       await updateQuestion({
         ...base,
         id,
-        question: "Énoncé revu",
         explanation: "Explication revue.",
         references: ["R1", "R2"],
         objectiveId: await objectiveIdFor("Objectif revu"),
@@ -250,19 +305,155 @@ describe("choix figés", () => {
       }),
     ).toEqual({ success: true })
     expect(await getQuestionById(id)).toMatchObject({
-      question: "Énoncé revu",
       explanation: "Explication revue.",
       references: ["R1", "R2"],
       domain: "Neurologie",
     })
   })
 
-  it("jumeau : un examen clos ne fige rien", async () => {
+  it("un énoncé identique aux espaces de bord près n'est pas un changement", async () => {
     const id = await newQuestion()
-    await mkExam(id, new Date(Date.now() - 3600_000))
-    expect(await updateQuestion({ ...base, id, correctAnswer: "B" })).toEqual({
-      success: true,
+    await db
+      .update(questions)
+      .set({ question: "  Clé  " })
+      .where(eq(questions.id, id))
+    await mkExam(id, inProgress)
+
+    expect(await updateQuestion({ ...base, id })).toEqual({ success: true })
+  })
+
+  it("un examen en cours refuse les images d'énoncé, pas celles d'explication", async () => {
+    const id = await newQuestion()
+    expect(await statementImages(id, "a")).toEqual({ success: true })
+    await mkExam(id, inProgress, "Examen d'automne")
+
+    const refused = await statementImages(id, "a", "b")
+    expect(refused).toMatchObject({ success: false })
+    expect(refused.error).toContain("« Examen d'automne »")
+    expect(await statementImages(id)).toMatchObject({ success: false })
+    expect((await getQuestionById(id))?.images).toHaveLength(1)
+
+    // Le formulaire réécrit les deux jeux à chaque enregistrement.
+    expect(await statementImages(id, "a")).toEqual({ success: true })
+    expect(
+      await setQuestionImages({
+        questionId: id,
+        kind: "explanation",
+        images: [{ storagePath: `questions/${id}/expl.jpg`, order: 0 }],
+      }),
+    ).toEqual({ success: true })
+  })
+
+  it("des positions stockées à trous ne font pas d'un jeu réécrit un changement", async () => {
+    const id = await newQuestion()
+    await db.insert(questionImages).values(
+      [3, 7].map((position, i) => ({
+        questionId: id,
+        kind: "statement" as const,
+        storagePath: `questions/${id}/${"ab"[i]}.jpg`,
+        position,
+      })),
+    )
+    await mkExam(id, inProgress)
+
+    expect(await statementImages(id, "a", "b")).toEqual({ success: true })
+    expect(await statementImages(id, "b", "a")).toMatchObject({
+      success: false,
     })
+  })
+
+  it("des positions ex æquo se relisent dans le même ordre que le formulaire", async () => {
+    const id = await newQuestion()
+    await db.insert(questionImages).values(
+      ["z", "y", "x"].map((n, i) => ({
+        id: `${n}${i}-${id}`,
+        questionId: id,
+        kind: "statement" as const,
+        storagePath: `questions/${id}/${n}.jpg`,
+        position: 0,
+      })),
+    )
+    await mkExam(id, inProgress)
+
+    const shown = (await getQuestionById(id))?.images ?? []
+    expect(shown.map((i) => i.storagePath)).toEqual(
+      ["x", "y", "z"].map((n) => `questions/${id}/${n}.jpg`),
+    )
+    expect(
+      await setQuestionImages({
+        questionId: id,
+        kind: "statement",
+        images: shown.map((i, order) => ({
+          storagePath: i.storagePath,
+          order,
+        })),
+      }),
+    ).toEqual({ success: true })
+  })
+
+  it("un chemin temporaire déjà enregistré n'est ni recopié ni supprimé par un refus", async () => {
+    const id = await newQuestion()
+    const tmp = (n: string) => `tmp/questions/${id}/statement/${n}.jpg`
+    const send = (...names: string[]) =>
+      setQuestionImages({
+        questionId: id,
+        kind: "statement",
+        images: names.map((n, order) => ({ storagePath: tmp(n), order })),
+      })
+    expect(await send("a")).toEqual({ success: true })
+    await mkExam(id, inProgress)
+    vi.mocked(copyInS3).mockClear()
+    vi.mocked(tryDeleteFromStorage).mockClear()
+
+    // Le formulaire garde ses chemins temporaires après un refus partiel.
+    expect(await send("a")).toEqual({ success: true })
+    expect(copyInS3).not.toHaveBeenCalled()
+
+    expect(await send("a", "b")).toMatchObject({ success: false })
+    expect(copyInS3).toHaveBeenCalledExactlyOnceWith(
+      tmp("b"),
+      `questions/${id}/statement/b.jpg`,
+    )
+    expect(tryDeleteFromStorage).toHaveBeenCalledWith(
+      `questions/${id}/statement/b.jpg`,
+    )
+    expect(tryDeleteFromStorage).not.toHaveBeenCalledWith(
+      `questions/${id}/statement/a.jpg`,
+    )
+    expect((await getQuestionById(id))?.images).toHaveLength(1)
+  })
+
+  it("jumeau : un examen à venir ne fige rien", async () => {
+    const id = await newQuestion()
+    await mkExam(id, upcoming)
+
+    expect(
+      await updateQuestion({
+        ...base,
+        id,
+        question: "Énoncé revu",
+        options: ["A", "B", "C", "D bis"],
+        correctAnswer: "B",
+      }),
+    ).toEqual({ success: true })
+    expect(await statementImages(id, "a")).toEqual({ success: true })
+  })
+
+  it.each([
+    ["clos", { start: -2 * DAY, end: -3600_000 }, true],
+    ["en préparation", inProgress, false],
+  ])("jumeau : un examen %s ne fige rien", async (_, window, finalized) => {
+    const id = await newQuestion()
+    await mkExam(id, window, "Examen", finalized)
+    expect(
+      await updateQuestion({
+        ...base,
+        id,
+        question: "Énoncé revu",
+        correctAnswer: "B",
+      }),
+    ).toEqual({ success: true })
+    expect(await statementImages(id, "a")).toEqual({ success: true })
   })
 })
 

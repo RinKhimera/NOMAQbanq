@@ -278,6 +278,26 @@ describe("modification d'un examen complet — les dates d'un examen clos", () =
     )
   })
 
+  it("refuse de repousser dans le futur l'ouverture d'un examen qui a des participations, sans rien écrire", async () => {
+    asAdmin()
+    const before = await examRow(OPEN_TAKEN_ID)
+    const now = Date.now()
+    const res = await saveAndFinalize({
+      id: OPEN_TAKEN_ID,
+      title: "REO ouvert repoussé",
+      startDate: now + DAY,
+      endDate: now + 3 * DAY,
+      questionIds: examQIds,
+      enablePause: false,
+    })
+
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringContaining("date d'ouverture"),
+    })
+    expect(await examRow(OPEN_TAKEN_ID)).toEqual(before)
+  })
+
   it("permet de prolonger un examen ouvert qui a des participations", async () => {
     asAdmin()
     const now = Date.now()

@@ -39,14 +39,21 @@ describe("vérifications du formulaire de question", () => {
     ).toBe("error")
   })
 
-  it("choix figés : ni choix ni clé à vérifier, une ligne verrouillée", () => {
+  it("question figée : ni énoncé, ni choix, ni clé à vérifier, une ligne verrouillée", () => {
     const checks = questionFormChecks(
-      { ...filled(), options: ["A", "A", "", ""], keyIndex: null },
+      {
+        ...filled(),
+        question: "",
+        options: ["A", "A", "", ""],
+        keyIndex: null,
+      },
       { frozen: true, showErrors: true },
     )
-    expect(states(checks)).toMatchObject({ verrou: "locked" })
-    expect(checks.map((c) => c.id)).not.toContain("cle")
-    expect(checks.map((c) => c.id)).not.toContain("doublons")
+    expect(checks.map((c) => [c.id, c.state])).toEqual([
+      ["classement", "ok"],
+      ["verrou", "locked"],
+      ["explication", "ok"],
+    ])
   })
 
   it("une longueur dépassée ajoute une vérification en échec", () => {

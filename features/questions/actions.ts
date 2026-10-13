@@ -1,6 +1,6 @@
 "use server"
 
-import { and, desc, eq, gt, isNotNull, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, gt, isNotNull, isNull, lte, sql } from "drizzle-orm"
 import { revalidatePath, revalidateTag } from "next/cache"
 import type { QuestionFile } from "@/components/admin/question-detail/question-detail-content"
 import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
@@ -60,6 +60,8 @@ import {
 } from "./schemas"
 
 const fail = (error: string) => ({ success: false as const, error })
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /**
  * [Admin] Fiche d'une question pour un aperçu (compositeur d'examen) : le même
@@ -237,10 +239,7 @@ const OBJECTIVE_REFUSED = "Choisissez un objectif du référentiel."
  * de la question, dans l'ordre des écritures du référentiel (objectif puis
  * questions), sans quoi une fusion concurrente interbloque.
  */
-const assertSelectableObjective = async (
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  objectiveId: string,
-) => {
+const assertSelectableObjective = async (tx: Tx, objectiveId: string) => {
   const [objective] = await tx
     .select({ id: cmcObjectives.id })
     .from(cmcObjectives)
@@ -306,18 +305,54 @@ export const createQuestion = async (
 const sameOptions = (a: string[], b: string[]) =>
   a.length === b.length && a.every((option, i) => option === b[i])
 
-class FrozenChoicesError extends Error {
-  constructor(readonly examTitle: string) {
-    super("FROZEN_CHOICES")
+class FrozenQuestionError extends Error {
+  constructor(
+    readonly examTitle: string,
+    readonly endDate: Date,
+  ) {
+    super("FROZEN_QUESTION")
   }
 }
 
 /**
+ * Question figée : l'examen finalisé en cours (`start_date <= now() <
+ * end_date`) qui la contient et ferme le plus tard. Un examen à venir ou en
+ * préparation ne fige rien : l'admin corrige jusqu'à l'ouverture.
+ */
+const assertNotFrozen = async (tx: Tx, questionId: string) => {
+  const [exam] = await tx
+    .select({ title: exams.title, endDate: exams.endDate })
+    .from(examQuestions)
+    .innerJoin(exams, eq(exams.id, examQuestions.examId))
+    .where(
+      and(
+        eq(examQuestions.questionId, questionId),
+        isNotNull(exams.finalizedAt),
+        lte(exams.startDate, sql`now()`),
+        gt(exams.endDate, sql`now()`),
+      ),
+    )
+    .orderBy(desc(exams.endDate), desc(exams.id))
+    .limit(1)
+  if (exam?.endDate) throw new FrozenQuestionError(exam.title, exam.endDate)
+}
+
+/**
+ * `lib/format` tire date-fns et sa locale : chargé au refus seulement, pour
+ * ne pas l'imposer à chaque import de ce module (`lib/app-zone.ts`).
+ */
+const frozenMessage = async ({ examTitle, endDate }: FrozenQuestionError) => {
+  const { formatDeadline } = await import("@/lib/format")
+  return `Question figée : l'examen « ${examTitle} » est en cours jusqu'au ${formatDeadline(endDate)}. Son énoncé, ses images d'énoncé, ses choix et sa clé ne changent pas avant la fermeture.`
+}
+
+/**
  * [Admin] Met à jour une question + upsert de son explication, sous verrou de
- * la ligne. Choix figés : tant qu'un examen ouvert la contient, sa clé et le
- * texte de ses options ne changent pas, puisque le verdict de chaque réponse
- * est fixé au moment où elle est donnée. Modifier l'énoncé, les options ou la
- * clé efface la clé confirmée. Refuse une question supprimée.
+ * la ligne. Question figée : tant qu'un examen en cours la contient, son
+ * énoncé, sa clé et le texte de ses options ne changent pas, puisque le
+ * verdict de chaque réponse est fixé au moment où elle est donnée. Modifier
+ * l'énoncé, les options ou la clé efface la clé confirmée. Refuse une question
+ * supprimée.
  */
 export const updateQuestion = async (
   input: UpdateQuestionInput,
@@ -346,32 +381,13 @@ export const updateQuestion = async (
         .for("update")
       if (!current) throw new Error("Q_NOT_FOUND")
 
-      const choicesChanged =
-        current.correctAnswer !== d.correctAnswer ||
-        !sameOptions(current.options, d.options)
-      if (choicesChanged) {
-        // Même borne que le verrou de clé de réponse : `end_date > now()`. Un
-        // examen en préparation ne fige rien : l'admin corrige pendant qu'il
-        // compose.
-        const [open] = await tx
-          .select({ title: exams.title })
-          .from(examQuestions)
-          .innerJoin(exams, eq(exams.id, examQuestions.examId))
-          .where(
-            and(
-              eq(examQuestions.questionId, d.id),
-              isNotNull(exams.finalizedAt),
-              gt(exams.endDate, sql`now()`),
-            ),
-          )
-          .orderBy(desc(exams.endDate))
-          .limit(1)
-        if (open) throw new FrozenChoicesError(open.title)
-      }
       // L'énoncé reçu est rogné : un énoncé hérité à espaces de bord n'a pas
       // changé pour autant.
       const clearsConfirmation =
-        choicesChanged || current.question.trim() !== d.question
+        current.correctAnswer !== d.correctAnswer ||
+        !sameOptions(current.options, d.options) ||
+        current.question.trim() !== d.question
+      if (clearsConfirmation) await assertNotFrozen(tx, d.id)
 
       await tx
         .update(questions)
@@ -412,10 +428,8 @@ export const updateQuestion = async (
     return { success: true }
   } catch (error) {
     if (error instanceof ObjectiveRefusedError) return fail(OBJECTIVE_REFUSED)
-    if (error instanceof FrozenChoicesError) {
-      return fail(
-        `Cette question est dans l'examen ouvert « ${error.examTitle} » : ses choix et sa clé sont verrouillés jusqu'à la fermeture.`,
-      )
+    if (error instanceof FrozenQuestionError) {
+      return fail(await frozenMessage(error))
     }
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
       return fail("Question introuvable")
@@ -572,6 +586,30 @@ export const deleteQuestion = async (
   }
 }
 
+/** Au-delà des 20 images qu'accepte un jeu : un jeu hérité plus long se lit entier. */
+const IMAGE_SET_READ_LIMIT = 100
+
+/**
+ * Jeu d'images d'un `kind`, dans l'ordre où le formulaire le relit
+ * (`getQuestionById`) : la comparaison « jeu inchangé » en dépend.
+ */
+const imageSetOf = (
+  executor: typeof db | Tx,
+  questionId: string,
+  kind: "statement" | "explanation",
+) =>
+  executor
+    .select({ storagePath: questionImages.storagePath })
+    .from(questionImages)
+    .where(
+      and(
+        eq(questionImages.questionId, questionId),
+        eq(questionImages.kind, kind),
+      ),
+    )
+    .orderBy(questionImages.position, questionImages.id)
+    .limit(IMAGE_SET_READ_LIMIT)
+
 /**
  * [Admin] Remplace l'ensemble des images d'une question (storagePath + position).
  *
@@ -582,6 +620,8 @@ export const deleteQuestion = async (
  * best-effort après commit (la Lifecycle S3 reste le filet de sécurité sur tmp/).
  * Si l'écriture DB échoue après une copie, les objets finaux fraîchement copiés
  * sont supprimés (pas d'orphelin dans `questions/`, cf. `confirmAvatarUpload`).
+ * Question figée : un examen en cours refuse tout changement du jeu
+ * d'énoncé ; le même jeu réécrit à l'identique passe.
  */
 export const setQuestionImages = async (
   input: SetQuestionImagesInput,
@@ -630,12 +670,18 @@ export const setQuestionImages = async (
     return fail("Chemin d'image invalide")
   }
 
+  // Un `tmp/` dont le chemin final est déjà enregistré vient d'un formulaire
+  // resté sur place après un échec partiel : sa source a été supprimée au
+  // commit, et son objet final ne doit pas l'être par un échec ci-dessous.
+  const stored = await imageSetOf(db, questionId, kind)
+  const storedPaths = new Set(stored.map((i) => i.storagePath))
+
   // Copie tmp → final AVANT toute écriture DB. En cas d'échec, on retire les
   // copies déjà faites (pas d'orphelin dans `questions/`) puis on échoue.
   const copiedFinalPaths: string[] = []
   try {
     for (const p of planned) {
-      if (!p.tmpPath) continue
+      if (!p.tmpPath || storedPaths.has(p.finalPath)) continue
       await copyInS3(p.tmpPath, p.finalPath)
       copiedFinalPaths.push(p.finalPath)
     }
@@ -651,20 +697,22 @@ export const setQuestionImages = async (
         .select({ id: questions.id })
         .from(questions)
         .where(and(eq(questions.id, questionId), isNull(questions.deletedAt)))
-        .limit(1)
+        .for("update")
       if (!q) throw new Error("Q_NOT_FOUND")
 
       // Scope `(questionId, kind)` : remplacer les images d'un `kind` ne touche
       // pas l'autre jeu (énoncé vs explication), ni leurs objets S3.
-      const old = await tx
-        .select({ storagePath: questionImages.storagePath })
-        .from(questionImages)
-        .where(
-          and(
-            eq(questionImages.questionId, questionId),
-            eq(questionImages.kind, kind),
-          ),
-        )
+      const old = await imageSetOf(tx, questionId, kind)
+
+      // Même suite d'images dans le même ordre : les positions stockées
+      // peuvent avoir des trous (données importées), seul l'ordre compte.
+      const wanted = planned.toSorted((a, b) => a.order - b.order)
+      const unchanged =
+        old.length === wanted.length &&
+        old.every((o, i) => o.storagePath === wanted[i].finalPath)
+      if (kind === "statement" && !unchanged) {
+        await assertNotFrozen(tx, questionId)
+      }
 
       await tx
         .delete(questionImages)
@@ -704,6 +752,9 @@ export const setQuestionImages = async (
   } catch (error) {
     // Copie réussie mais écriture DB échouée → supprime les finaux copiés.
     await Promise.all(copiedFinalPaths.map((p) => tryDeleteFromStorage(p)))
+    if (error instanceof FrozenQuestionError) {
+      return fail(await frozenMessage(error))
+    }
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
       return fail("Question introuvable")
     }

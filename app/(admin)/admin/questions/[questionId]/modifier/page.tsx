@@ -12,7 +12,7 @@ import { cdnUrl } from "@/lib/cdn"
 import { currentTimeMs } from "@/lib/clock"
 import { QuestionForm } from "../../_components/question-form"
 import { QuestionNotFound } from "../../_components/question-not-found"
-import { lockingExamOf, reviewOf } from "../../_components/question-page-data"
+import { freezeOf, reviewOf } from "../../_components/question-page-data"
 import {
   parseQuestionList,
   questionListHref,
@@ -49,7 +49,7 @@ export default async function EditQuestionPage({
   if (!question) return <QuestionNotFound listHref={questionListHref(list)} />
 
   const now = currentTimeMs()
-  const lockingExam = lockingExamOf(exams, now)
+  const freeze = freezeOf(exams, now)
   const review = reviewOf(question, breakdown)
 
   return (
@@ -81,9 +81,8 @@ export default async function EditQuestionPage({
           originalOptions: question.options,
           originalKeyIndex: question.options.indexOf(question.correctAnswer),
           confirmation: review.confirmation,
-          lockingExam: lockingExam
-            ? { title: lockingExam.title, endDate: lockingExam.endDate }
-            : null,
+          frozenBy: freeze.frozenBy,
+          upcomingFreeze: freeze.upcoming,
           invalidObjective: question.objectiveNeedsFix
             ? question.objectifCMC
             : null,

@@ -59,7 +59,7 @@ const STUDENT_ID = createId()
 // 12 questions : un jeu complet de 10, et de quoi en changer.
 const qIds = Array.from({ length: 12 }, () => createId())
 const deletedQId = createId()
-// Dans aucun autre examen du fichier : les choix figés s'y lisent seuls.
+// Dans aucun autre examen du fichier : la question figée s'y lit seule.
 const freeQId = createId()
 // Seule dans un examen en préparation sans dates : le verrou anonyme s'y lit seul.
 const undatedQId = createId()
@@ -672,8 +672,8 @@ describe("suspendu et en préparation", () => {
   })
 })
 
-describe("verrou de clé et choix figés", () => {
-  it("choix figés non appliqués à un examen en préparation, verrou anonyme inchangé", async () => {
+describe("verrou de clé et question figée", () => {
+  it("question figée non appliquée à un examen en préparation, verrou anonyme inchangé", async () => {
     const questionId = freeQId
     await saveComplete({ questionIds: [...qIds.slice(0, 9), questionId] })
 

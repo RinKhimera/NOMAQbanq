@@ -135,6 +135,8 @@ const EXAM_ERRORS: Record<string, string> = {
     "Cet examen a déjà des participations ; ses questions ne peuvent plus être modifiées.",
   REOPEN_BY_DATES:
     "Cet examen est clos et a déjà des participations : sa date de fin ne peut plus être repoussée dans le futur. Utilisez « Rouvrir » pour en créer une copie avec de nouvelles dates.",
+  POSTPONE_STARTED:
+    "Cet examen a déjà des participations : sa date d'ouverture ne peut plus être repoussée dans le futur.",
   INVALID_QUESTIONS: "Certaines questions sélectionnées sont introuvables.",
   INVALID_USERS: "Certains utilisateurs sélectionnés sont introuvables.",
   NOT_OPEN:
@@ -427,6 +429,11 @@ const updateExamTx = async (
     isOpen({ endDate: s.endDate }, now)
   ) {
     throw new Error("REOPEN_BY_DATES")
+  }
+  // Repoussé à venir, il ne figerait plus ses questions (`assertNotFrozen`)
+  // alors que des réponses y sont déjà jugées.
+  if (hasParticipations && s.startDate !== null && s.startDate > now) {
+    throw new Error("POSTPONE_STARTED")
   }
   // Le jeu se fige à la première participation : le changer fausserait les
   // scores déjà calculés.

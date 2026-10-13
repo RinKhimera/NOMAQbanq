@@ -42,9 +42,15 @@ vi.mock("@/features/questions/actions", () => ({
   setQuestionImages,
 }))
 vi.mock("@/features/objectives/actions", () => ({ createObjective }))
-// Uploader (dnd-kit, react-dropzone) : hors sujet ici.
+// Uploader (dnd-kit, react-dropzone) : hors sujet ici, sauf son verrou.
 vi.mock("@/components/admin/question-image-uploader", () => ({
-  QuestionImageUploader: () => <div data-testid="uploader-stub" />,
+  QuestionImageUploader: ({
+    kind,
+    disabled,
+  }: {
+    kind: string
+    disabled?: boolean
+  }) => <div data-testid={`uploader-${kind}`} data-disabled={!!disabled} />,
 }))
 // Radix Select et le combobox ne se montent pas fidèlement sous happy-dom :
 // composants contrôlés qui exposent la valeur reçue.
@@ -114,7 +120,8 @@ const editContext = (
   originalOptions: ["A", "B", "C", "D"],
   originalKeyIndex: 0,
   confirmation: null,
-  lockingExam: null,
+  frozenBy: null,
+  upcomingFreeze: null,
   invalidObjective: null,
   ...over,
 })
@@ -192,14 +199,34 @@ describe("QuestionForm — édition", () => {
     openEdit()
     updateQuestion.mockResolvedValue({
       success: false,
-      error:
-        "Cette question est dans l'examen ouvert « EB » : ses choix et sa clé sont verrouillés jusqu'à la fermeture.",
+      error: "Question figée : l'examen « EB » est en cours.",
     })
     await saveEdit(user)
 
     expect(await screen.findByTestId("save-error")).toHaveTextContent(
-      "examen ouvert « EB »",
+      "l'examen « EB » est en cours",
     )
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it("le refus d'un jeu d'images s'affiche avec son motif", async () => {
+    const user = userEvent.setup()
+    openEdit()
+    setQuestionImages.mockImplementation(async ({ kind }) =>
+      kind === "statement"
+        ? {
+            success: false,
+            error: "Question figée : l'examen « EB » est en cours.",
+          }
+        : { success: true },
+    )
+    await saveEdit(user)
+
+    const alert = await screen.findByTestId("images-error")
+    expect(alert).toHaveTextContent(
+      "Question enregistrée, sauf les images d'énoncé.",
+    )
+    expect(alert).toHaveTextContent("l'examen « EB » est en cours")
     expect(push).not.toHaveBeenCalled()
   })
 })
@@ -394,25 +421,58 @@ describe("QuestionForm — choix de réponse", () => {
     )
   })
 
-  it("choix figés : choix et lettres verrouillés, le reste reste modifiable", async () => {
+  it("question figée : énoncé, images d'énoncé, choix et clé désactivés, le reste modifiable", () => {
     openEdit(
       filled(),
       editContext({
-        lockingExam: {
+        frozenBy: {
           title: "Examen blanc 26",
-          endDate: Date.UTC(2026, 9, 3),
+          endDate: Date.UTC(2026, 9, 3, 16),
         },
       }),
     )
-    expect(screen.getByTestId("frozen-choices")).toHaveTextContent(
-      "Examen blanc 26",
+    const alert = screen.getByTestId("frozen-question")
+    expect(alert).toHaveTextContent(
+      "Question figée jusqu'au 3 octobre 2026 à 12:00 (heure de l'Est)",
+    )
+    expect(alert).toHaveTextContent("« Examen blanc 26 »")
+    expect(screen.getByTestId("question-input")).toBeDisabled()
+    expect(screen.getByTestId("uploader-statement")).toHaveAttribute(
+      "data-disabled",
+      "true",
+    )
+    expect(screen.getByTestId("uploader-explanation")).toHaveAttribute(
+      "data-disabled",
+      "false",
     )
     expect(screen.getByTestId("option-input-0")).toBeDisabled()
     expect(screen.getByTestId("btn-key-1")).toBeDisabled()
-    expect(screen.getByTestId("question-input")).toBeEnabled()
+    expect(screen.getByTestId("frozen-choices-note")).toBeInTheDocument()
+    expect(screen.getByTestId("explanation-input")).toBeEnabled()
     expect(
-      screen.getByText("Choix et clé verrouillés (examen ouvert)"),
+      screen.getByText("Énoncé, choix et clé figés (examen en cours)"),
     ).toBeInTheDocument()
+    expect(screen.queryByTestId("upcoming-freeze")).not.toBeInTheDocument()
+  })
+
+  it("jumeau : examen à venir, tout reste modifiable avec un avertissement", () => {
+    openEdit(
+      filled(),
+      editContext({
+        upcomingFreeze: {
+          title: "Examen blanc 27",
+          startDate: Date.UTC(2026, 9, 20, 12),
+        },
+      }),
+    )
+    expect(screen.getByTestId("upcoming-freeze")).toHaveTextContent(
+      "Cette question est dans « Examen blanc 27 », qui ouvre le 20 octobre 2026 à 08:00 (heure de l'Est) : elle sera figée à partir de cette date.",
+    )
+    expect(screen.queryByTestId("frozen-question")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("frozen-choices-note")).not.toBeInTheDocument()
+    expect(screen.getByTestId("question-input")).toBeEnabled()
+    expect(screen.getByTestId("option-input-0")).toBeEnabled()
+    expect(screen.getByTestId("btn-key-1")).toBeEnabled()
   })
 })
 
