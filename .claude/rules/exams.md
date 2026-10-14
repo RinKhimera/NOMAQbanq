@@ -149,7 +149,8 @@ colonne)` dans le WHERE des canaux de
 - **Page Progression** (`features/analytics/dal.progression.ts`,
   vocabulaire dans `CONTEXT.md`) : la maîtrise a UNE règle,
   `latestAnswersSql` + `masteryPercent` (`answers-sql.ts`), lue par
-  `domainMastery` (`mastery.ts`) pour le tableau de bord comme pour la page ;
+  `masteryCounts` (`mastery.ts`) : la page la projette par `toDomainMastery`,
+  le tableau de bord par `domainMastery` (`getMyDomainMastery`) ;
   la tendance relit la même règle sur les réponses d'avant le début de la
   période, et vaut l'écart des parts BRUTES au plancher (`masteryTrend`),
   comme la tendance du score moyen, jamais l'écart de deux maîtrises
@@ -160,7 +161,9 @@ colonne)` dans le WHERE des canaux de
   `getRevisionCounts`. Le « N / M réussis » de la bande est celui de la
   période (`periodGradedCount`), l'anneau du tableau de bord reste sur
   « Tout ». Un jour d'activité ne compte qu'une série `completed` ou une
-  participation soumise, à l'heure de l'Est.
+  participation soumise, à l'heure de l'Est ; une participation
+  `auto_submitted` compte le jour de son début (`started_at`), car le cron
+  peut la clore des heures après l'épreuve.
 
 ## Composition d'un examen
 
