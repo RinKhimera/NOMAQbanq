@@ -44,26 +44,37 @@ describe("DomainMasteryPanel", () => {
     expect(pediatrie.dataset.significant).toBe("false")
   })
 
-  it("regroupe les domaines jamais pratiqués en pastilles compactes, sans 0 %", () => {
-    render(<DomainMasteryPanel domains={domains} />)
-    const unpracticed = screen.getByTestId("domain-mastery-unpracticed")
-    expect(unpracticed).toHaveTextContent("Pas encore pratiqués (1)")
-    expect(unpracticed).not.toHaveTextContent("%")
-    expect(
-      within(unpracticed).getByRole("link", { name: /Neurologie/ }),
-    ).toHaveAttribute(
-      "href",
-      "/tableau-de-bord/entrainement?domaine=Neurologie",
-    )
+  it("ne garde que les 5 domaines les plus faibles", () => {
+    const many = ["A", "B", "C", "D", "E", "F", "G"].map((domain, i) => ({
+      domain,
+      answered: 10,
+      mastery: 90 - i * 10,
+    }))
+    render(<DomainMasteryPanel domains={many} />)
+    expect(rows().map(domainOf)).toEqual(["G", "F", "E", "D", "C"])
   })
 
-  it("n'affiche pas le bloc des domaines jamais pratiqués quand tous le sont", () => {
+  it("compte les domaines jamais pratiqués sur une ligne, sans les lister", () => {
+    render(<DomainMasteryPanel domains={domains} />)
+    const unpracticed = screen.getByTestId("domain-mastery-unpracticed")
+    expect(unpracticed).toHaveTextContent("1 domaine jamais pratiqué")
+    expect(screen.queryByRole("link", { name: /Neurologie/ })).toBeNull()
+  })
+
+  it("n'affiche pas la ligne des domaines jamais pratiqués quand tous le sont", () => {
     render(
       <DomainMasteryPanel
         domains={domains.filter((d) => d.mastery !== null)}
       />,
     )
     expect(screen.queryByTestId("domain-mastery-unpracticed")).toBeNull()
+  })
+
+  it("mène au rapport complet de la page Progression", () => {
+    render(<DomainMasteryPanel domains={domains} />)
+    expect(
+      screen.getByRole("link", { name: /Rapport complet/ }),
+    ).toHaveAttribute("href", "/tableau-de-bord/progression")
   })
 
   it("mène à la révision de chaque domaine", () => {
@@ -86,5 +97,11 @@ describe("DomainMasteryPanel", () => {
     expect(
       screen.getByRole("link", { name: /Commencer une série/ }),
     ).toHaveAttribute("href", "/tableau-de-bord/entrainement")
+    expect(
+      screen.getByRole("link", { name: /Rapport complet/ }),
+    ).toHaveAttribute("href", "/tableau-de-bord/progression")
+    expect(screen.getByTestId("domain-mastery-unpracticed")).toHaveTextContent(
+      "1 domaine jamais pratiqué",
+    )
   })
 })

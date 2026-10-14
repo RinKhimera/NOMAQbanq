@@ -61,6 +61,8 @@ interface TrainingConfigFormProps {
   totalQuestions: number
   /** Domaine demandé par l'URL, déjà validé ; `null` = tous les domaines. */
   initialDomain: string | null
+  /** Critère de révision demandé par l'URL (lien de la page Progression) ; `null` = aucun. */
+  initialRevision: RevisionCriterion | null
   /** Objectifs du domaine demandé (de toute la banque pour « tous »). */
   initialObjectifs: Objectif[]
   /** Une série en cours bloque « Commencer la série ». */
@@ -215,18 +217,20 @@ export const TrainingConfigForm = ({
   domains,
   totalQuestions,
   initialDomain,
+  initialRevision,
   initialObjectifs,
   hasActiveSeries,
 }: TrainingConfigFormProps) => {
   const router = useRouter()
   const domainFromUrl = initialDomain ?? ALL_DOMAINS
+  const revisionFromUrl = initialRevision ? [initialRevision] : []
 
   const [domain, setDomain] = useState(domainFromUrl)
   const [objectifs, setObjectifs] = useState<Objectif[]>([])
   const [objectifSearch, setObjectifSearch] = useState("")
   const [count, setCount] = useState(DEFAULT_COUNT)
   const [mode, setMode] = useState<"test" | "tutor">("test")
-  const [revision, setRevision] = useState<RevisionCriterion[]>([])
+  const [revision, setRevision] = useState<RevisionCriterion[]>(revisionFromUrl)
   const [serverError, setServerError] = useState<string | null>(null)
   // Sélection d'avant un changement de domaine, rapprochée de la liste du
   // nouveau domaine quand elle arrive : les objectifs qu'il n'a pas sont
@@ -234,12 +238,14 @@ export const TrainingConfigForm = ({
   const [domainSwitch, setDomainSwitch] = useState<DomainSwitch | null>(null)
   const [removal, setRemoval] = useState<Removal | null>(null)
 
-  // Une navigation client vers la même page avec un autre `?domaine=` ne
-  // remonte pas le formulaire : on réaligne l'état pendant le rendu.
-  const [appliedDomainFromUrl, setAppliedDomainFromUrl] =
-    useState(domainFromUrl)
-  if (domainFromUrl !== appliedDomainFromUrl) {
-    setAppliedDomainFromUrl(domainFromUrl)
+  // Une navigation client vers la même page avec un autre `?domaine=` ou
+  // `?revision=` ne remonte pas le formulaire : on réaligne l'état pendant le
+  // rendu.
+  const urlKey = `${domainFromUrl}|${initialRevision ?? ""}`
+  const [appliedUrlKey, setAppliedUrlKey] = useState(urlKey)
+  if (urlKey !== appliedUrlKey) {
+    setAppliedUrlKey(urlKey)
+    setRevision(revisionFromUrl)
     setDomain(domainFromUrl)
     setObjectifs([])
     setDomainSwitch(null)

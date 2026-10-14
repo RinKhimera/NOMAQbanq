@@ -6,6 +6,7 @@ import type {
   ObjectifsView,
   TrainingHistoryPage,
 } from "@/features/training/dal"
+import type { RevisionCriterion } from "@/features/training/schemas"
 import { ActiveSeriesCard } from "./active-series-card"
 import { TrainingConfigForm } from "./training-config-form"
 import { TrainingHistorySection } from "./training-history-section"
@@ -15,6 +16,8 @@ interface EntrainementClientProps {
   domains: DomainsView
   /** Domaine demandé par l'URL, déjà validé par la page ; `null` = tous. */
   initialDomain: string | null
+  /** Critère de révision demandé par l'URL ; `null` = aucun. */
+  initialRevision: RevisionCriterion | null
   /** Objectifs du domaine demandé, chargés par la page. */
   initialObjectifs: ObjectifsView["objectifs"]
   initialHistory: TrainingHistoryPage
@@ -26,6 +29,7 @@ export function EntrainementClient({
   activeSession,
   domains,
   initialDomain,
+  initialRevision,
   initialObjectifs,
   initialHistory,
   initialNow,
@@ -48,6 +52,7 @@ export function EntrainementClient({
         domains={domains.domains}
         totalQuestions={domains.totalQuestions}
         initialDomain={initialDomain}
+        initialRevision={initialRevision}
         initialObjectifs={initialObjectifs}
         hasActiveSeries={active !== null && !expired}
       />

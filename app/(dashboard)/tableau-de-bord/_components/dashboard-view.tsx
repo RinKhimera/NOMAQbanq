@@ -28,7 +28,7 @@ import { formatDayMonth, formatIsoDay } from "@/lib/format"
 import { PASS_THRESHOLD, formatScore } from "@/lib/score"
 import { DashboardAlerts } from "./dashboard-alerts"
 import { DashboardCard, VITAL_GRID } from "./dashboard-card"
-import { DomainMasteryPanel } from "./domain-mastery-panel"
+import { DomainMasteryPanel, WEAKEST_COUNT } from "./domain-mastery-panel"
 import { PeriodFilter } from "./period-filter"
 import { RecentActivity } from "./recent-activity"
 import { RecentExamsTable } from "./recent-exams-table"
@@ -201,7 +201,10 @@ export const DashboardView = ({
       </PeriodFilter>
 
       <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-3 max-lg:grid-cols-1">
-        <DashboardCard eyebrow="Maîtrise" title="Par domaine">
+        <DashboardCard
+          eyebrow="Maîtrise"
+          title={`Vos ${WEAKEST_COUNT} domaines les plus faibles`}
+        >
           <DomainMasteryPanel domains={mastery} />
         </DashboardCard>
         <DashboardCard eyebrow="Objectif" title="Prêt pour l'examen">

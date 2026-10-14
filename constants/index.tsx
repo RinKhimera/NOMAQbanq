@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  ChartNoAxesColumn,
   ClipboardList,
   FileQuestionMark,
   LayoutDashboard,
@@ -8,9 +9,19 @@ import {
   User,
   Users,
 } from "lucide-react"
+import type { RevisionCriterion } from "@/features/training/schemas"
 
 export type NavItem = { title: string; url: string; icon: LucideIcon }
 export type NavSection = { heading: string; items: NavItem[] }
+
+/** Page « Progression » de l'étudiant. */
+export const PROGRESSION_HREF = "/tableau-de-bord/progression"
+
+/** Page « Entraînement » : formulaire d'une série et historique des séries. */
+export const TRAINING_HREF = "/tableau-de-bord/entrainement"
+
+/** Grille tarifaire de la vitrine. */
+export const PRICING_HREF = "/tarifs"
 
 export const studentNavSections: NavSection[] = [
   {
@@ -22,8 +33,13 @@ export const studentNavSections: NavSection[] = [
         icon: LayoutDashboard,
       },
       {
+        title: "Progression",
+        url: PROGRESSION_HREF,
+        icon: ChartNoAxesColumn,
+      },
+      {
         title: "Entraînement",
-        url: "/tableau-de-bord/entrainement",
+        url: TRAINING_HREF,
         icon: BookOpen,
       },
       {
@@ -72,7 +88,16 @@ export const OBJECTIVES_HREF = "/admin/questions/objectifs"
 export const TRAINING_DOMAIN_PARAM = "domaine"
 
 export const trainingDomainUrl = (domain: string) =>
-  `/tableau-de-bord/entrainement?${TRAINING_DOMAIN_PARAM}=${encodeURIComponent(domain)}`
+  `${TRAINING_HREF}?${TRAINING_DOMAIN_PARAM}=${encodeURIComponent(domain)}`
+
+/** Paramètre d'URL qui précoche un critère de révision ciblée dans l'entraînement. */
+export const TRAINING_REVISION_PARAM = "revision"
+
+/** Formulaire Entraînement pré-rempli : domaine et critère de révision. */
+export const trainingRevisionUrl = (
+  domain: string,
+  criterion: RevisionCriterion,
+) => `${trainingDomainUrl(domain)}&${TRAINING_REVISION_PARAM}=${criterion}`
 
 // Domaines médicaux prédéfinis
 export const MEDICAL_DOMAINS = [

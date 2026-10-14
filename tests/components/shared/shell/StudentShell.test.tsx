@@ -68,6 +68,7 @@ describe("StudentShell", () => {
     const links = within(studentNav()).getAllByRole("link")
     expect(links.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
       ["Tableau de bord", "/tableau-de-bord"],
+      ["Progression", "/tableau-de-bord/progression"],
       ["Entraînement", "/tableau-de-bord/entrainement"],
       ["Examens blancs", "/tableau-de-bord/examen-blanc"],
       ["Abonnements", "/tableau-de-bord/abonnements"],

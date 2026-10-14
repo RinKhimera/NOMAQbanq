@@ -71,6 +71,10 @@ export type MyDashboard = {
     gradedCount: number
     /** Parmi elles, celles au seuil de réussite ou au-dessus. */
     passedCount: number
+    /** Participations au score lisible soumises dans la période. */
+    periodGradedCount: number
+    /** Parmi elles, celles au seuil de réussite ou au-dessus. */
+    periodPassedCount: number
     /** Moyenne de toutes les participations au score lisible ; `null` = aucune. */
     overallAverage: number | null
     /** Scores lisibles de la période, du plus ancien au plus récent. */
@@ -156,6 +160,14 @@ export const getMyDashboard = cache(
               sql<number>`count(*) filter (where ${graded} and ${examParticipations.score} >= ${PASS_THRESHOLD})`.mapWith(
                 Number,
               ),
+            periodGradedCount:
+              sql<number>`count(*) filter (where ${graded} and ${inPeriod})`.mapWith(
+                Number,
+              ),
+            periodPassedCount:
+              sql<number>`count(*) filter (where ${graded} and ${inPeriod} and ${examParticipations.score} >= ${PASS_THRESHOLD})`.mapWith(
+                Number,
+              ),
             overallAverage: sql<
               number | null
             >`floor(avg(${examParticipations.score}) filter (where ${graded}))`.mapWith(
@@ -231,6 +243,8 @@ export const getMyDashboard = cache(
         completedOfAvailableCount: available.completed,
         gradedCount: exam?.gradedCount ?? 0,
         passedCount: exam?.passedCount ?? 0,
+        periodGradedCount: exam?.periodGradedCount ?? 0,
+        periodPassedCount: exam?.periodPassedCount ?? 0,
         overallAverage: exam?.overallAverage ?? null,
         history: history.reverse().flatMap((h) =>
           h.score === null || !h.completedAt
@@ -297,7 +311,8 @@ const countAvailableExams = async (
   return { available: row?.available ?? 0, completed: row?.completed ?? 0 }
 }
 
-const questionCountOf =
+/** Nombre de questions de l'examen, corrélé sur `exams.id`. */
+export const questionCountOf =
   sql<number>`(select count(*) from ${examQuestions} where ${examQuestions.examId} = ${exams.id})`.mapWith(
     Number,
   )

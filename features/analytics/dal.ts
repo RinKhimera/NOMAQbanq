@@ -10,7 +10,6 @@ import {
 } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
-import { MEDICAL_DOMAINS } from "@/constants"
 import { db } from "@/db"
 import {
   examParticipations,
@@ -25,14 +24,12 @@ import { getCurrentSession } from "@/lib/dal"
 import { type SubmittedStatus, submittedStatus } from "../exams/dal.shared"
 import { ownerReadableScore } from "../exams/dal.student"
 import { SUBMITTED, examPopulation } from "../exams/population"
-import { excludeLocked, viewerOf } from "../questions/answer-key-lock"
-import {
-  datedAnswersSql,
-  firstAnswersSql,
-  questionSuccessStats,
-} from "./answers-sql"
+import { viewerOf } from "../questions/answer-key-lock"
+import { firstAnswersSql, questionSuccessStats } from "./answers-sql"
+import { type DomainMastery, domainMastery } from "./mastery"
 
 export * from "./dal.dashboard"
+export * from "./dal.progression"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -314,12 +311,15 @@ const percentilesOf = async (
   return Object.fromEntries(result.rows.map((r) => [r.exam_id, r.percentile]))
 }
 
-/** Percentiles de l'utilisateur courant, par examen. `{}` sans session. */
+/**
+ * Percentiles de l'utilisateur courant, par examen : tous, ou ceux de
+ * `examIds` (une page d'historique). `{}` sans session.
+ */
 export const getMyExamPercentiles = cache(
-  async (): Promise<ExamPercentiles> => {
+  async (examIds?: string[]): Promise<ExamPercentiles> => {
     const session = await getCurrentSession()
-    if (!session?.user) return {}
-    return percentilesOf(session.user.id)
+    if (!session?.user || examIds?.length === 0) return {}
+    return percentilesOf(session.user.id, examIds)
   },
 )
 
@@ -336,13 +336,7 @@ export const getMyExamPercentile = cache(
 // Maîtrise par domaine
 // ============================================
 
-export type DomainMastery = {
-  domain: string
-  /** Questions comptées : la dernière réponse de l'étudiant à chacune. */
-  answered: number
-  /** Part de justes, en % ; `null` = domaine jamais pratiqué, jamais 0. */
-  mastery: number | null
-}
+export type { DomainMastery }
 
 /**
  * Maîtrise de l'utilisateur courant pour chaque domaine médical, sur sa
@@ -355,37 +349,7 @@ export type DomainMastery = {
 export const getMyDomainMastery = cache(async (): Promise<DomainMastery[]> => {
   const session = await getCurrentSession()
   if (!session?.user) return []
-  const uid = session.user.id
-
-  const result = await db.execute<{
-    domain: string
-    answered: number
-    correct: number
-  }>(sql`
-      with answers as (${datedAnswersSql({ userId: uid })}),
-      latest as (
-        select distinct on (question_id) question_id, is_correct
-          from answers
-         order by question_id, answered_at desc nulls last, answer_id
-      )
-      select q.domain,
-             count(*)::int as answered,
-             (count(*) filter (where l.is_correct))::int as correct
-        from latest l
-        join questions q on q.id = l.question_id
-       where q.deleted_at is null
-         and ${excludeLocked(viewerOf(session.user), sql`l.question_id`)}
-       group by q.domain`)
-
-  const byDomain = new Map(result.rows.map((r) => [r.domain, r]))
-  return MEDICAL_DOMAINS.map((domain) => {
-    const row = byDomain.get(domain)
-    return {
-      domain,
-      answered: row?.answered ?? 0,
-      mastery: row ? Math.round((100 * row.correct) / row.answered) : null,
-    }
-  })
+  return domainMastery(viewerOf(session.user))
 })
 
 // ============================================

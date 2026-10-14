@@ -1,30 +1,51 @@
-import { Stethoscope } from "lucide-react"
+import { ArrowRight, Stethoscope } from "lucide-react"
 import Link from "next/link"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Progress } from "@/components/ui/progress"
-import { trainingDomainUrl } from "@/constants"
+import { PROGRESSION_HREF, TRAINING_HREF, trainingDomainUrl } from "@/constants"
 import type { DomainMastery } from "@/features/analytics/dal"
-import { MASTERY_MIN_ANSWERED } from "@/lib/dashboard-summary"
+import { MASTERY_MIN_ANSWERED, byWeakness } from "@/lib/dashboard-summary"
 import { formatScore, scoreTone } from "@/lib/score"
 import { TONE_COLOR } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
-// Rang de tri : domaines significatifs, puis peu pratiqués — pour qu'un 0/2 ne
-// passe pas pour la pire lacune.
-const tierOf = (d: DomainMastery) => (d.answered < MASTERY_MIN_ANSWERED ? 1 : 0)
-
-const byPriority = (a: DomainMastery, b: DomainMastery) =>
-  tierOf(a) - tierOf(b) ||
-  (a.mastery ?? 0) - (b.mastery ?? 0) ||
-  a.domain.localeCompare(b.domain, "fr")
-
 const linkClass =
   "focus-ring hover:text-accent-ink rounded-xs underline-offset-4 hover:underline"
 
+/** Ligne de pied : domaines jamais pratiqués, lien vers la page Progression. */
+const ReportFooter = ({ unpracticedCount }: { unpracticedCount: number }) => (
+  <div className="border-line flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+    {unpracticedCount > 0 ? (
+      <p
+        data-testid="domain-mastery-unpracticed"
+        className="text-ink-3 text-sm"
+      >
+        <span className="font-mono">{unpracticedCount}</span>{" "}
+        {unpracticedCount > 1
+          ? "domaines jamais pratiqués"
+          : "domaine jamais pratiqué"}
+      </p>
+    ) : (
+      <span />
+    )}
+    <Button asChild size="sm" variant="ghost" className="max-md:h-11">
+      <Link href={PROGRESSION_HREF} prefetch={false}>
+        Rapport complet
+        <ArrowRight aria-hidden="true" />
+        <LinkPendingIndicator />
+      </Link>
+    </Button>
+  </div>
+)
+
+/** Domaines affichés : le tableau de bord résume, la page Progression détaille. */
+export const WEAKEST_COUNT = 5
+
 /**
- * Maîtrise par domaine, domaines faibles en tête. Toujours sur l'ensemble de
+ * Les domaines les plus faibles, puis le nombre de domaines jamais pratiqués
+ * et le lien vers la page Progression. Toujours sur l'ensemble de
  * l'historique, quelle que soit la période choisie.
  */
 export const DomainMasteryPanel = ({
@@ -34,35 +55,36 @@ export const DomainMasteryPanel = ({
 }) => {
   const practiced = domains
     .filter((d) => d.mastery !== null)
-    .toSorted(byPriority)
-  // Une ligne par domaine jamais pratiqué repousserait le reste du tableau de
-  // bord de plus d'un écran : ils tiennent en pastilles.
-  const unpracticed = domains
-    .filter((d) => d.mastery === null)
-    .toSorted((a, b) => a.domain.localeCompare(b.domain, "fr"))
+    .toSorted(byWeakness)
+  // Le détail des 22 domaines vit sur la page Progression.
+  const weakest = practiced.slice(0, WEAKEST_COUNT)
+  const unpracticedCount = domains.length - practiced.length
 
   if (practiced.length === 0) {
     return (
-      <EmptyState
-        size="compact"
-        icons={[Stethoscope]}
-        title="Aucune réponse pour l'instant"
-        description="Vos domaines forts et faibles apparaîtront ici dès vos premières réponses."
-      >
-        <Button asChild className="max-md:h-11">
-          <Link href="/tableau-de-bord/entrainement" prefetch={false}>
-            Commencer une série
-            <LinkPendingIndicator className="ml-2" />
-          </Link>
-        </Button>
-      </EmptyState>
+      <div className="flex flex-col gap-5">
+        <EmptyState
+          size="compact"
+          icons={[Stethoscope]}
+          title="Aucune réponse pour l'instant"
+          description="Vos domaines forts et faibles apparaîtront ici dès vos premières réponses."
+        >
+          <Button asChild className="max-md:h-11">
+            <Link href={TRAINING_HREF} prefetch={false}>
+              Commencer une série
+              <LinkPendingIndicator className="ml-2" />
+            </Link>
+          </Button>
+        </EmptyState>
+        <ReportFooter unpracticedCount={domains.length} />
+      </div>
     )
   }
 
   return (
     <div className="flex flex-col gap-5">
       <ul className="flex flex-col gap-3.5">
-        {practiced.map((d) => {
+        {weakest.map((d) => {
           const significant = d.answered >= MASTERY_MIN_ANSWERED
           const mastery = d.mastery ?? 0
           return (
@@ -110,31 +132,7 @@ export const DomainMasteryPanel = ({
           )
         })}
       </ul>
-      {unpracticed.length > 0 && (
-        <div
-          data-testid="domain-mastery-unpracticed"
-          className="border-line border-t pt-4"
-        >
-          <p className="text-ink-3 mb-2 text-xs">
-            Pas encore pratiqués ({unpracticed.length})
-          </p>
-          <ul className="flex flex-wrap gap-1.5">
-            {unpracticed.map((d) => (
-              <li key={d.domain}>
-                <Link
-                  href={trainingDomainUrl(d.domain)}
-                  prefetch={false}
-                  className="focus-ring border-line text-ink-2 hover:bg-surface-2 inline-flex min-h-8 items-center gap-1 rounded-xs border px-2.5 text-xs transition-[background-color] max-md:min-h-11"
-                >
-                  <span className="sr-only">Réviser </span>
-                  {d.domain}
-                  <LinkPendingIndicator />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <ReportFooter unpracticedCount={unpracticedCount} />
     </div>
   )
 }

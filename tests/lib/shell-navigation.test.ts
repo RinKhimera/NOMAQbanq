@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { activeNavUrl, pageTitle } from "@/lib/shell-navigation"
+import { activeNavUrl, navSections, pageTitle } from "@/lib/shell-navigation"
 
 describe("activeNavUrl", () => {
   it.each([
     ["/tableau-de-bord", "student", "/tableau-de-bord"],
+    ["/tableau-de-bord/progression", "student", "/tableau-de-bord/progression"],
     [
       "/tableau-de-bord/examen-blanc/ex_1/resultats",
       "student",
@@ -20,10 +21,24 @@ describe("activeNavUrl", () => {
   })
 })
 
+describe("menu de l'espace étudiant", () => {
+  it("place Progression entre Tableau de bord et Entraînement", () => {
+    const titles = navSections("student").flatMap((s) =>
+      s.items.map((i) => i.title),
+    )
+    expect(titles.slice(0, 3)).toEqual([
+      "Tableau de bord",
+      "Progression",
+      "Entraînement",
+    ])
+  })
+})
+
 describe("pageTitle — espace étudiant", () => {
   it.each([
     ["/tableau-de-bord", "Tableau de bord"],
     ["/tableau-de-bord/examen-blanc", "Examens blancs"],
+    ["/tableau-de-bord/progression", "Progression"],
     ["/tableau-de-bord/profil", "Profil"],
   ])("page du menu %s → « %s »", (pathname, title) => {
     expect(pageTitle(pathname, "student")).toBe(title)

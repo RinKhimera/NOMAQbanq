@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { PageIntro } from "@/components/shared/page-intro"
 import { AccessPaywall } from "@/components/shared/payments/access-paywall"
-import { TRAINING_DOMAIN_PARAM } from "@/constants"
+import { TRAINING_DOMAIN_PARAM, TRAINING_REVISION_PARAM } from "@/constants"
 import {
   getAvailableProducts,
   getMyLapsedAccess,
@@ -13,6 +13,7 @@ import {
   getAvailableObjectifsCMC,
   getTrainingHistory,
 } from "@/features/training/dal"
+import { revisionCriterionSchema } from "@/features/training/schemas"
 import { currentTimeMs } from "@/lib/clock"
 import { cheapestMonthly } from "@/lib/pricing"
 import { EntrainementClient } from "./_components/entrainement-client"
@@ -32,7 +33,10 @@ export const metadata: Metadata = { title: "Entraînement" }
 export default async function EntrainementPage({
   searchParams,
 }: {
-  searchParams: Promise<{ [TRAINING_DOMAIN_PARAM]?: string | string[] }>
+  searchParams: Promise<{
+    [TRAINING_DOMAIN_PARAM]?: string | string[]
+    [TRAINING_REVISION_PARAM]?: string | string[]
+  }>
 }) {
   if (!(await hasAccess("training"))) {
     const [products, lapsed] = await Promise.all([
@@ -53,7 +57,11 @@ export default async function EntrainementPage({
     )
   }
 
-  const param = (await searchParams)[TRAINING_DOMAIN_PARAM]
+  const params = await searchParams
+  const param = params[TRAINING_DOMAIN_PARAM]
+  const revisionParam = revisionCriterionSchema.safeParse(
+    params[TRAINING_REVISION_PARAM],
+  )
   // « all » n'est pas un domaine : c'est déjà la liste de toute la banque.
   const requestedDomain =
     typeof param === "string" && param !== "all" ? param : undefined
@@ -84,6 +92,7 @@ export default async function EntrainementPage({
         activeSession={activeSession}
         domains={domains}
         initialDomain={initialDomain}
+        initialRevision={revisionParam.success ? revisionParam.data : null}
         initialObjectifs={initialObjectifs}
         initialHistory={initialHistory}
         initialNow={currentTimeMs()}

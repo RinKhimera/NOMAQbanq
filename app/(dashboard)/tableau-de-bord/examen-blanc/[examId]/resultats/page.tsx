@@ -5,6 +5,7 @@ import { SessionResults } from "@/components/quiz/results/session-results"
 import type { AnswersMap } from "@/components/quiz/runner/types"
 import { ErrorState } from "@/components/shared/error-state"
 import { Button } from "@/components/ui/button"
+import { PROGRESSION_HREF } from "@/constants"
 import { studentExamRankingHref } from "@/constants/exam-routes"
 import { getMyExamPercentiles } from "@/features/analytics/dal"
 import { loadExamQuestionExplanations } from "@/features/exams/actions"
@@ -97,7 +98,7 @@ export default async function MockExamResultsPage({
             </Link>
           </Button>
           <Button asChild variant="outline" className="max-md:h-11">
-            <Link href="/tableau-de-bord">Ma progression</Link>
+            <Link href={PROGRESSION_HREF}>Ma progression</Link>
           </Button>
         </>
       }
