@@ -1,19 +1,23 @@
 import type { AccessType } from "@/features/payments/access-ledger"
+import { NBSP } from "@/lib/format"
 import { TONE_COLOR, TONE_SOFT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
-type AccessStatus = "active" | "expiring" | "expired" | "none"
+export type AccessBadgeStatus = "active" | "expiring" | "expired" | "none"
 
 interface AccessBadgeProps {
   accessType: AccessType
-  status: AccessStatus
+  status: AccessBadgeStatus
   daysRemaining?: number
   size?: "sm" | "md" | "lg"
   showDetails?: boolean
   className?: string
 }
 
-const STATUS: Record<AccessStatus, { tone: Tone; label: string }> = {
+export const ACCESS_STATUS: Record<
+  AccessBadgeStatus,
+  { tone: Tone; label: string }
+> = {
   active: { tone: "success", label: "Actif" },
   expiring: { tone: "warning", label: "Expire bientôt" },
   expired: { tone: "danger", label: "Expiré" },
@@ -41,11 +45,11 @@ export const AccessBadge = ({
   showDetails = false,
   className,
 }: AccessBadgeProps) => {
-  const { tone, label } = STATUS[status]
+  const { tone, label } = ACCESS_STATUS[status]
   const statusLabel =
     (status === "active" || status === "expiring") &&
     daysRemaining !== undefined
-      ? `${daysRemaining}j restants`
+      ? daysLeftLabel(daysRemaining)
       : label
 
   return (
@@ -72,6 +76,10 @@ export const AccessBadge = ({
   )
 }
 
+/** « 42 j restants », « 1 j restant ». */
+export const daysLeftLabel = (days: number): string =>
+  `${days}${NBSP}j restant${days > 1 ? "s" : ""}`
+
 /** Jours entiers restants avant `expiresAt`, arrondis au jour supérieur. */
 export const daysUntil = (expiresAt: number, now: number): number =>
   Math.ceil((expiresAt - now) / (24 * 60 * 60 * 1000))
@@ -84,12 +92,13 @@ export const daysUntil = (expiresAt: number, now: number): number =>
  *
  * L'invariant qui rend l'horloge inutile est tenu par les DAL : un accès expiré
  * en sort soit à `null` (`AccessInfo`), soit avec `daysRemaining` ramené à 0
- * (`PanelAccess`, qui conserve les accès échus pour l'admin).
+ * (`MyAccess` pour le menu étudiant, `PanelAccess` pour l'admin : tous deux
+ * conservent les accès échus).
  */
 export const getAccessStatus = (
   expiresAt: number | null | undefined,
   daysRemaining: number | null | undefined,
-): AccessStatus => {
+): AccessBadgeStatus => {
   if (!expiresAt) return "none"
   if (daysRemaining === undefined || daysRemaining === null) return "active"
   if (daysRemaining <= 0) return "expired"

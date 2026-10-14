@@ -19,7 +19,8 @@ vi.mock("sonner", () => ({
   toast: { error: toastError, success: vi.fn() },
 }))
 
-vi.mock("@/lib/format", () => ({
+vi.mock("@/lib/format", async (orig) => ({
+  ...(await orig<typeof import("@/lib/format")>()),
   formatCurrency: (amount: number) => `${(amount / 100).toFixed(0)} $`,
 }))
 

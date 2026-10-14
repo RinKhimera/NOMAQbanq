@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { StudentShell } from "@/components/shared/shell/student-shell"
+import type { MyAccess } from "@/features/payments/dal"
 import { authClient } from "@/lib/auth-client"
 import type { SessionUser } from "@/lib/session-user"
 
@@ -49,10 +50,20 @@ const student: SessionUser = {
   role: "user",
 }
 
-const renderShell = (pathname: string, user = student) => {
+const DAY = 24 * 60 * 60 * 1000
+// 20 septembre 2026, midi à Toronto.
+const SEPT_20 = Date.UTC(2026, 8, 20, 16)
+
+const noAccess: MyAccess = { exam: null, training: null }
+
+const renderShell = (
+  pathname: string,
+  user = student,
+  access: MyAccess = noAccess,
+) => {
   vi.mocked(usePathname).mockReturnValue(pathname)
   return render(
-    <StudentShell user={user}>
+    <StudentShell user={user} access={access}>
       <p>Contenu de la page</p>
     </StudentShell>,
   )
@@ -117,6 +128,73 @@ describe("StudentShell", () => {
     ).toHaveAttribute("href", "/admin")
   })
 
+  describe("accès", () => {
+    const accessList = () => screen.getByRole("list", { name: "Vos accès" })
+
+    it.each([
+      [
+        "actif",
+        { expiresAt: SEPT_20 + 42 * DAY, daysRemaining: 42 },
+        "42\u00a0j restants",
+        "success",
+      ],
+      [
+        "expire bientôt",
+        { expiresAt: SEPT_20 + DAY, daysRemaining: 1 },
+        "1\u00a0j restant",
+        "warning",
+      ],
+      [
+        "expiré",
+        { expiresAt: SEPT_20, daysRemaining: 0 },
+        "Expiré le 20 sept.",
+        "danger",
+      ],
+      ["aucun", null, "Non actif", "neutral"],
+    ] as const)("%s : libellé et tonalité", (_, exam, label, tone) => {
+      renderShell("/tableau-de-bord", student, { exam, training: null })
+
+      const line = within(accessList()).getByRole("link", { name: /Examens/ })
+      const state = within(line).getByTestId("access-state")
+      expect(state.textContent).toBe(label)
+      expect(state).toHaveAttribute("data-tone", tone)
+    })
+
+    it("liste Examens puis Entraînement, chaque ligne vers les Abonnements, sans prefetch", () => {
+      renderShell("/tableau-de-bord", student, {
+        exam: null,
+        training: { expiresAt: SEPT_20 + 9 * DAY, daysRemaining: 9 },
+      })
+
+      const links = within(accessList()).getAllByRole("link")
+      expect(links.map((l) => l.textContent)).toEqual([
+        expect.stringMatching(/^ExamensNon actif/),
+        expect.stringMatching(/^Entraînement9\u00a0j restants/),
+      ])
+      for (const link of links) {
+        expect(link).toHaveAttribute("href", "/tableau-de-bord/abonnements")
+        expect(link).toHaveAttribute("data-prefetch", "false")
+      }
+    })
+
+    it("masque le bloc pour un admin", () => {
+      renderShell("/tableau-de-bord", { ...student, role: "admin" })
+      expect(screen.queryByRole("list", { name: "Vos accès" })).toBeNull()
+    })
+
+    it("apparaît aussi dans le menu sous 1024 px", async () => {
+      renderShell("/tableau-de-bord")
+      await userEvent.click(
+        screen.getByRole("button", { name: "Ouvrir le menu" }),
+      )
+      expect(
+        within(screen.getByRole("dialog")).getByRole("list", {
+          name: "Vos accès",
+        }),
+      ).toBeInTheDocument()
+    })
+  })
+
   it("déconnecte puis renvoie à la connexion", async () => {
     renderShell("/tableau-de-bord")
 
@@ -157,12 +235,28 @@ describe("StudentShell", () => {
       expect(screen.queryByRole("dialog")).toBeNull()
     })
 
+    it("se referme sur une ligne d'accès cliquée depuis les Abonnements", async () => {
+      renderShell("/tableau-de-bord/abonnements")
+      await userEvent.click(
+        screen.getByRole("button", { name: "Ouvrir le menu" }),
+      )
+
+      const access = within(screen.getByRole("dialog")).getByRole("list", {
+        name: "Vos accès",
+      })
+      await userEvent.click(
+        within(access).getByRole("link", { name: /Examens/ }),
+      )
+
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
+
     it("se referme quand l'URL change, et ne se rouvre pas au retour", async () => {
       const { rerender } = renderShell("/tableau-de-bord")
       const navigateTo = (pathname: string) => {
         vi.mocked(usePathname).mockReturnValue(pathname)
         rerender(
-          <StudentShell user={student}>
+          <StudentShell user={student} access={noAccess}>
             <p>Contenu de la page</p>
           </StudentShell>,
         )

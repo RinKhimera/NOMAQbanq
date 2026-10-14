@@ -167,6 +167,11 @@ avec un arbre frais ; à défaut, le guard navigue sur prop fraîche. Un
 production (#170), la navigation concurrente n'écarte pas le refresh et ne
 provoque aucun ping-pong `/tableau-de-bord` ↔ `/bienvenue`.
 
+Les accès du menu étudiant (`getMyAccess`) suivent la même règle : le retour
+de paiement fait un `router.refresh()` une fois l'accès activé ; un octroi
+admin, un remboursement ou une échéance passée en cours de visite n'y
+paraissent qu'au prochain chargement complet, assumé.
+
 ## Liens à fort volume vers une route authentifiée : `prefetch={false}` + indicateur
 
 Toutes les routes sous `/tableau-de-bord` et `/admin` sont dynamiques : le

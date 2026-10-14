@@ -9,8 +9,14 @@ import {
   RotateCcw,
 } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import {
+  type ReactNode,
+  startTransition,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 import {
   AccessBadge,
   getAccessStatus,
@@ -110,6 +116,7 @@ export const PaymentSuccessContent = ({
   supportEmail: string
 }) => {
   const sessionId = useSearchParams().get("session_id")
+  const router = useRouter()
   const [view, setView] = useState<View>(() =>
     sessionId ? { kind: "verifying" } : { kind: "error" },
   )
@@ -144,6 +151,11 @@ export const PaymentSuccessContent = ({
       }
       shown.current = next
       setView(next)
+      // Les accès du menu viennent du layout, qui ne se re-rend qu'au refresh.
+      // Une vue « accès activé » ne relance aucune relecture : un seul refresh.
+      if (next.kind === "paid" && next.access) {
+        startTransition(() => router.refresh())
+      }
       const again = isWaiting(next) && poll.attempt < pollLimit(next)
       setExhausted(isWaiting(next) && !again)
       if (again) {
@@ -158,7 +170,7 @@ export const PaymentSuccessContent = ({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [sessionId, poll])
+  }, [sessionId, poll, router])
 
   const recheck = () => {
     setRechecking(true)

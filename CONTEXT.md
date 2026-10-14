@@ -343,6 +343,13 @@ Mesure la difficulté de la question, pas le niveau d'un étudiant. Non
 significatif en dessous d'un nombre minimal de réponses.
 _Avoid_ : difficulté, maîtrise
 
+**Taux de réussite aux examens blancs** :
+Le chiffre public de la vitrine : la part des participations closes dont le
+score atteint le seuil de réussite. Il mesure la réussite aux examens blancs de
+NOMAQbanq, jamais à l'EACMC. Calculé seulement : sous un volume minimal de
+participations, il n'est pas affiché, sans chiffre de repli.
+_Avoid_ : taux de réussite (réservé à la question), taux de succès, réussite chez nos candidats
+
 **Répartition des réponses** :
 La part de chaque option parmi les réponses comptées dans le taux de réussite
 d'une question, plus une part « formulation antérieure » qui regroupe les
@@ -389,6 +396,15 @@ de réponse datée : en mode test, sa justesse reste cachée jusqu'à la fin.
 _Avoid_ : date de création de la réponse
 
 ### Paiements
+
+**Accès** :
+Le droit d'utiliser les examens blancs (accès Examens) ou l'entraînement
+(accès Entraînement) jusqu'à une échéance. Il s'achète pour une durée, se
+prolonge par un nouvel achat (le temps restant s'ajoute) et n'est jamais
+renouvelé automatiquement ; le Pack Premium octroie les deux. Pour
+l'étudiant, un accès est **actif**, **expire bientôt** (7 jours ou moins),
+**expiré** (une échéance passée) ou **aucun** (jamais acheté).
+_Avoid_ : abonnement, souscription
 
 **Port Stripe** :
 La surface étroite par laquelle l'application parle à Stripe — les verbes

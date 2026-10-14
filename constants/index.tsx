@@ -20,6 +20,9 @@ export const PROGRESSION_HREF = "/tableau-de-bord/progression"
 /** Page « Entraînement » : formulaire d'une série et historique des séries. */
 export const TRAINING_HREF = "/tableau-de-bord/entrainement"
 
+/** Page « Abonnements » : accès en cours et historique des achats. */
+export const ACCESS_HREF = "/tableau-de-bord/abonnements"
+
 /** Grille tarifaire de la vitrine. */
 export const PRICING_HREF = "/tarifs"
 
@@ -49,7 +52,7 @@ export const studentNavSections: NavSection[] = [
       },
       {
         title: "Abonnements",
-        url: "/tableau-de-bord/abonnements",
+        url: ACCESS_HREF,
         icon: Receipt,
       },
       { title: "Profil", url: "/tableau-de-bord/profil", icon: User },

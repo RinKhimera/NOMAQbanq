@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { AccessCard } from "@/components/shared/payments/access-card"
 
-vi.mock("@/lib/format", () => ({
+vi.mock("@/lib/format", async (orig) => ({
+  ...(await orig<typeof import("@/lib/format")>()),
   formatExpiration: (ts: number) => `formatted-${ts}`,
 }))
 
@@ -18,6 +19,9 @@ describe("AccessCard", () => {
       screen.getByRole("heading", { name: "Examens simulés" }),
     ).toBeInTheDocument()
     expect(screen.getByText("45 jours")).toBeInTheDocument()
+    expect(screen.getByText("45 j restants").textContent).toBe(
+      "45\u00a0j restants",
+    )
     expect(
       screen.getByRole("progressbar", { name: "45 jours restants" }),
     ).toBeInTheDocument()

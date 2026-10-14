@@ -49,8 +49,11 @@ type ShellFrameProps = {
   zone: ShellZone
   /** Bandeau collant au-dessus de tout (AdminBar). */
   banner?: ReactNode
-  /** Bas de la navigation : liens de zone et utilisateur. */
-  sideFooter: ReactNode
+  /**
+   * Bas de la navigation : liens de zone et utilisateur. En fonction, reçoit
+   * de quoi refermer le Sheet sur un lien vers la page courante.
+   */
+  sideFooter: ReactNode | ((onReselect?: () => void) => ReactNode)
   children: ReactNode
 }
 
@@ -84,7 +87,9 @@ export const ShellFrame = ({
   const sideContent = (onReselect?: () => void) => (
     <>
       <SideNav zone={zone} label={frame.navLabel} onReselect={onReselect} />
-      <div className="mt-auto flex flex-col gap-2 p-3">{sideFooter}</div>
+      <div className="mt-auto flex flex-col gap-2 p-3">
+        {typeof sideFooter === "function" ? sideFooter(onReselect) : sideFooter}
+      </div>
     </>
   )
 

@@ -1,4 +1,5 @@
 import {
+  daysLeftLabel,
   daysUntil,
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
@@ -38,7 +39,7 @@ export const accessCellText = (a: AccessState): string => {
     case "expiring":
       return `Expire dans ${a.days}${NBSP}j`
     case "active":
-      return `${a.days}${NBSP}j restants`
+      return daysLeftLabel(a.days)
   }
 }
 

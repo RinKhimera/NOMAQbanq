@@ -50,6 +50,13 @@ paths:
   `not.toBeDisabled()`) pendant l'attente, puis le focus.
 - `toHaveTextContent` normalise l'espace insécable, `getByRole({ name })` ne le
   fait pas : « 70 % » s'écrit `"70\u00a0%"` dans un nom accessible.
+- `getByText("3 j restants")` trouve aussi le nœud « 3 j » avec espace
+  insécable (le nœud est normalisé, pas la requête) : prouver l'espace par
+  `.textContent`, écrit `\u00a0` dans le test, jamais en caractère
+  littéral (invisible à la relecture).
+- Un `vi.mock("@/lib/format", …)` partiel casse dès que le composant
+  importe un autre export (`NBSP`) : partir de `importOriginal` et ne
+  surcharger que la fonction visée.
 
 ## Tests d'intégration (`tests/integration/**`)
 
