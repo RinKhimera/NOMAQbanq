@@ -61,6 +61,19 @@ export type MyAccess = Record<
   { expiresAt: number; daysRemaining: number } | null
 >
 
+/** Lignes `user_access` d'un utilisateur → ses deux accès, échus compris. */
+const toMyAccess = (
+  rows: { accessType: AccessType; expiresAt: Date }[],
+  now: number,
+): MyAccess => {
+  const accessOf = (type: AccessType) => {
+    const ms = rows.find((r) => r.accessType === type)?.expiresAt.getTime()
+    if (ms === undefined) return null
+    return { expiresAt: ms, daysRemaining: Math.max(0, daysLeft(ms, now)) }
+  }
+  return { exam: accessOf("exam"), training: accessOf("training") }
+}
+
 /**
  * Seule lecture des accès de l'utilisateur courant : le menu (layout
  * `(dashboard)`), `getAccessStatus()` et `getMyLapsedAccess` en dérivent, si
@@ -79,18 +92,17 @@ export const getMyAccess = cache(async (): Promise<MyAccess | null> => {
     .where(eq(userAccess.userId, session.user.id))
     .limit(ACCESS_ORDER.length)
 
-  const now = Date.now()
-  const of = (type: AccessType) => {
-    const ms = rows.find((r) => r.accessType === type)?.expiresAt.getTime()
-    if (ms === undefined) return null
-    return { expiresAt: ms, daysRemaining: Math.max(0, daysLeft(ms, now)) }
-  }
-  return { exam: of("exam"), training: of("training") }
+  return toMyAccess(rows, Date.now())
 })
 
 /** Accès en cours seulement : à l'échéance exacte, l'accès est clos. */
-const current = (access: MyAccess[AccessType]): AccessInfo =>
+const currentOnly = (access: MyAccess[AccessType]): AccessInfo =>
   access && access.daysRemaining > 0 ? access : null
+
+const toAccessStatus = (access: MyAccess): AccessStatus => ({
+  examAccess: currentOnly(access.exam),
+  trainingAccess: currentOnly(access.training),
+})
 
 /**
  * Statut d'accès complet (exam + training). `userId` optionnel → défaut = session ;
@@ -103,12 +115,7 @@ export const getAccessStatus = cache(
     if (!targetId) return null
     if (targetId === session?.user.id) {
       const mine = await getMyAccess()
-      return (
-        mine && {
-          examAccess: current(mine.exam),
-          trainingAccess: current(mine.training),
-        }
-      )
+      return mine && toAccessStatus(mine)
     }
     await requireRole(["admin"])
 
@@ -121,13 +128,7 @@ export const getAccessStatus = cache(
       .where(eq(userAccess.userId, targetId))
       .limit(ACCESS_ORDER.length)
 
-    const now = Date.now()
-    const info = (type: AccessType): AccessInfo => {
-      const ms = rows.find((r) => r.accessType === type)?.expiresAt.getTime()
-      if (ms === undefined || ms <= now) return null
-      return { expiresAt: ms, daysRemaining: daysLeft(ms, now) }
-    }
-    return { examAccess: info("exam"), trainingAccess: info("training") }
+    return toAccessStatus(toMyAccess(rows, Date.now()))
   },
 )
 

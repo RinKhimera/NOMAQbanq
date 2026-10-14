@@ -74,7 +74,7 @@ describe("AlertsPanel", () => {
 
     // getByText normalise l'espace insécable : le texte exact se vérifie à part.
     expect(screen.getByText(description).textContent).toBe(
-      description.replace(" j ", " j "),
+      description.replace(" j ", "\u00a0j "),
     )
   })
 

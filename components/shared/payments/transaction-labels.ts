@@ -4,7 +4,7 @@ import type { ClientVerdict } from "@/features/payments/dal"
 import { NBSP, formatMediumDate, formatMediumDateTime } from "@/lib/format"
 import type { Tone } from "@/lib/tone"
 import { paymentMethodLabel } from "@/schemas/payment"
-import { ACCESS_TYPE_LABEL, daysUntil } from "./access-badge"
+import { ACCESS_TYPE_LABEL, daysLeftLabel, daysUntil } from "./access-badge"
 
 // Règles d'affichage des transactions admin, sans état ni rendu : appelables
 // d'un composant client comme d'un Server Component.
@@ -115,5 +115,5 @@ export const recordedGrantLine = (
   if (o.isCombo || previous === null || previous <= o.recordedAt)
     return `accordé jusqu'au ${until}`
   const remaining = daysUntil(previous, o.recordedAt)
-  return `${remaining}${NBSP}j restants + ${o.durationDays}${NBSP}j = ${remaining + o.durationDays}${NBSP}j · prolongé jusqu'au ${until}`
+  return `${daysLeftLabel(remaining)} + ${o.durationDays}${NBSP}j = ${remaining + o.durationDays}${NBSP}j · prolongé jusqu'au ${until}`
 }

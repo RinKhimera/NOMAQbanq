@@ -135,13 +135,13 @@ describe("StudentShell", () => {
       [
         "actif",
         { expiresAt: SEPT_20 + 42 * DAY, daysRemaining: 42 },
-        "42 j restants",
+        "42\u00a0j restants",
         "success",
       ],
       [
         "expire bientôt",
         { expiresAt: SEPT_20 + DAY, daysRemaining: 1 },
-        "1 j restant",
+        "1\u00a0j restant",
         "warning",
       ],
       [
@@ -169,7 +169,7 @@ describe("StudentShell", () => {
       const links = within(accessList()).getAllByRole("link")
       expect(links.map((l) => l.textContent)).toEqual([
         expect.stringMatching(/^ExamensNon actif/),
-        expect.stringMatching(/^Entraînement9 j restants/),
+        expect.stringMatching(/^Entraînement9\u00a0j restants/),
       ])
       for (const link of links) {
         expect(link).toHaveAttribute("href", "/tableau-de-bord/abonnements")

@@ -172,7 +172,7 @@ describe("getMyAccess", () => {
     expect(access!.training!.expiresAt).toBeLessThan(Date.now())
   })
 
-  it("rend null sans ligne (jamais acheté), sans lire les accès d'un autre", async () => {
+  it("rend deux accès null sans ligne (jamais acheté), sans lire les accès d'un autre", async () => {
     signedInAs(otherUid)
     expect(await getMyAccess()).toEqual({ exam: null, training: null })
   })

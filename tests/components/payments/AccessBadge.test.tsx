@@ -42,7 +42,7 @@ describe("AccessBadge", () => {
       )
       expect(screen.getByText("3 j restants")).toHaveProperty(
         "textContent",
-        "3 j restants",
+        "3\u00a0j restants",
       )
     })
 
@@ -52,7 +52,7 @@ describe("AccessBadge", () => {
       )
       expect(screen.getByText("45 j restants")).toHaveProperty(
         "textContent",
-        "45 j restants",
+        "45\u00a0j restants",
       )
     })
 
@@ -62,7 +62,7 @@ describe("AccessBadge", () => {
       )
       expect(screen.getByText("1 j restant")).toHaveProperty(
         "textContent",
-        "1 j restant",
+        "1\u00a0j restant",
       )
     })
   })
