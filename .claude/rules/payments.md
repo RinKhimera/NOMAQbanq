@@ -58,6 +58,10 @@ lisant et dont la violation coûte de l'argent ou un accès non rendu.
   (`getTransactionStats.buyerCount` ne compte qu'un montant > 0). La
   confirmation affiche l'expiration que `applyGrant` a écrite
   (`recordManualPayment` → `grants`), jamais un calcul côté client.
+- **Accès de l'utilisateur courant = `getMyAccess`** (une requête, `cache()`,
+  lue par le layout `(dashboard)` à chaque rendu) : `getAccessStatus()` et
+  `getMyLapsedAccess` en dérivent. Ne pas réintroduire de lecture
+  `user_access` propre à l'utilisateur courant.
 - **Un admin court-circuite `hasAccess`** : aucun paiement requis pour lui.
   Tester un paywall depuis un compte admin ne prouve donc rien.
 
