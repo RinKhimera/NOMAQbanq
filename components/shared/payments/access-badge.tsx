@@ -1,8 +1,9 @@
 import type { AccessType } from "@/features/payments/access-ledger"
+import { NBSP } from "@/lib/format"
 import { TONE_COLOR, TONE_SOFT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
-type AccessStatus = "active" | "expiring" | "expired" | "none"
+export type AccessStatus = "active" | "expiring" | "expired" | "none"
 
 interface AccessBadgeProps {
   accessType: AccessType
@@ -13,7 +14,10 @@ interface AccessBadgeProps {
   className?: string
 }
 
-const STATUS: Record<AccessStatus, { tone: Tone; label: string }> = {
+export const ACCESS_STATUS: Record<
+  AccessStatus,
+  { tone: Tone; label: string }
+> = {
   active: { tone: "success", label: "Actif" },
   expiring: { tone: "warning", label: "Expire bientôt" },
   expired: { tone: "danger", label: "Expiré" },
@@ -41,11 +45,11 @@ export const AccessBadge = ({
   showDetails = false,
   className,
 }: AccessBadgeProps) => {
-  const { tone, label } = STATUS[status]
+  const { tone, label } = ACCESS_STATUS[status]
   const statusLabel =
     (status === "active" || status === "expiring") &&
     daysRemaining !== undefined
-      ? `${daysRemaining}j restants`
+      ? daysLeftLabel(daysRemaining)
       : label
 
   return (
@@ -71,6 +75,10 @@ export const AccessBadge = ({
     </span>
   )
 }
+
+/** « 42 j restants », « 1 j restant ». */
+export const daysLeftLabel = (days: number): string =>
+  `${days}${NBSP}j restant${days > 1 ? "s" : ""}`
 
 /** Jours entiers restants avant `expiresAt`, arrondis au jour supérieur. */
 export const daysUntil = (expiresAt: number, now: number): number =>

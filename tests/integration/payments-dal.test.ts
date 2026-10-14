@@ -4,6 +4,7 @@ import { db } from "@/db"
 import { transactions, user, userAccess } from "@/db/schema"
 import {
   getAccessStatus,
+  getMyShellAccess,
   getMyTransactions,
   hasActiveAccess,
 } from "@/features/payments/dal"
@@ -149,6 +150,35 @@ describe("getAccessStatus", () => {
     vi.mocked(requireRole).mockResolvedValueOnce({} as never)
     const status = await getAccessStatus(uid)
     expect(status?.examAccess).not.toBeNull()
+  })
+})
+
+describe("getMyShellAccess", () => {
+  const signedInAs = (id: string) =>
+    vi.mocked(getCurrentSession).mockResolvedValue({ user: { id } } as never)
+
+  it("garde l'échéance passée à 0 jour (expiré) et lit tout en une requête", async () => {
+    signedInAs(uid)
+    const select = vi.spyOn(db, "select")
+    const access = await getMyShellAccess()
+    expect(select).toHaveBeenCalledOnce()
+    select.mockRestore()
+
+    expect(access).toEqual({
+      exam: { expiresAt: EXAM_EXPIRES.getTime(), daysRemaining: 10 },
+      training: { expiresAt: expect.any(Number), daysRemaining: 0 },
+    })
+    expect(access.training!.expiresAt).toBeLessThan(Date.now())
+  })
+
+  it("rend null sans ligne (jamais acheté), sans lire les accès d'un autre", async () => {
+    signedInAs(otherUid)
+    expect(await getMyShellAccess()).toEqual({ exam: null, training: null })
+  })
+
+  it("rend null sans session", async () => {
+    vi.mocked(getCurrentSession).mockResolvedValue(null)
+    expect(await getMyShellAccess()).toEqual({ exam: null, training: null })
   })
 })
 

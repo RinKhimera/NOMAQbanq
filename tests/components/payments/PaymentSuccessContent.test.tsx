@@ -11,9 +11,13 @@ vi.mock("@/features/payments/actions", () => ({
   verifyStripeCheckout: vi.fn(),
 }))
 const params = { current: new URLSearchParams("session_id=cs_test_1") }
+const refresh = vi.fn()
+// Stable comme le routeur de Next : il figure dans les dépendances de l'effet.
+const router = { refresh }
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
   useSearchParams: () => params.current,
+  useRouter: () => router,
 }))
 
 const DAY = 24 * 60 * 60 * 1000
@@ -99,6 +103,20 @@ describe("PaymentSuccessContent", () => {
       await screen.findByRole("list", { name: "Accès activé" }),
     ).toBeInTheDocument()
     expect(screen.queryByText("Activation de votre accès…")).toBeNull()
+  })
+
+  it("accès activé : rafraîchit une seule fois le layout (menu des accès)", async () => {
+    verify.mockResolvedValueOnce(notYetFulfilled).mockResolvedValue(paid())
+
+    render(<PaymentSuccessContent supportEmail="support@test.invalid" />)
+    await screen.findByText("Activation de votre accès…")
+    expect(refresh).not.toHaveBeenCalled()
+
+    await act(() => vi.advanceTimersByTimeAsync(2000))
+    await screen.findByRole("list", { name: "Accès activé" })
+    await act(() => vi.advanceTimersByTimeAsync(10_000))
+
+    expect(refresh).toHaveBeenCalledOnce()
   })
 
   it("activation qui tarde : cesse de relire après 5 essais et propose de vérifier à nouveau", async () => {

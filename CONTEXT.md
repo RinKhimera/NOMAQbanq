@@ -390,6 +390,15 @@ _Avoid_ : date de création de la réponse
 
 ### Paiements
 
+**Accès** :
+Le droit d'utiliser les examens blancs (accès Examens) ou l'entraînement
+(accès Entraînement) jusqu'à une échéance. Il s'achète pour une durée, se
+prolonge par un nouvel achat (le temps restant s'ajoute) et n'est jamais
+renouvelé automatiquement ; le Pack Premium octroie les deux. Pour
+l'étudiant, un accès est **actif**, **expire bientôt** (7 jours ou moins),
+**expiré** (une échéance passée) ou **aucun** (jamais acheté).
+_Avoid_ : abonnement, souscription
+
 **Port Stripe** :
 La surface étroite par laquelle l'application parle à Stripe — les verbes
 qu'elle lui demande, typés sur ce qu'elle lit, et rien d'autre. Un adaptateur

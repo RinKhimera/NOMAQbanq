@@ -46,6 +46,9 @@ export type AccessStatus = {
   trainingAccess: AccessInfo
 }
 
+const daysLeft = (expiresAt: number, now: number) =>
+  Math.ceil((expiresAt - now) / DAY_MS)
+
 const toAccessInfo = (
   expiresAt: Date | null | undefined,
   now: number,
@@ -53,7 +56,7 @@ const toAccessInfo = (
   if (!expiresAt) return null
   const ms = expiresAt.getTime()
   if (ms <= now) return null
-  return { expiresAt: ms, daysRemaining: Math.ceil((ms - now) / DAY_MS) }
+  return { expiresAt: ms, daysRemaining: daysLeft(ms, now) }
 }
 
 /**
@@ -182,6 +185,42 @@ export const getMyLapsedAccess = cache(async (): Promise<LapsedAccess> => {
   const lapsed = (type: AccessType) =>
     rows.find((r) => r.accessType === type)?.expiresAt.getTime() ?? null
   return { exam: lapsed("exam"), training: lapsed("training") }
+})
+
+/**
+ * Accès de l'utilisateur courant tels que les montre la coquille étudiante :
+ * `null` = jamais acheté ; une échéance passée reste lisible, `daysRemaining`
+ * ramené à 0, ce qui en fait un accès expiré pour `getAccessStatus` (badge).
+ */
+export type ShellAccess = Record<
+  AccessType,
+  { expiresAt: number; daysRemaining: number } | null
+>
+
+/**
+ * Lue par le layout `(dashboard)` à chaque rendu complet : une seule requête
+ * (au plus 2 lignes, UNIQUE(user_id, access_type)) porte à la fois l'accès en
+ * cours et l'échéance passée.
+ */
+export const getMyShellAccess = cache(async (): Promise<ShellAccess> => {
+  const session = await getCurrentSession()
+  if (!session?.user) return { exam: null, training: null }
+  const rows = await db
+    .select({
+      accessType: userAccess.accessType,
+      expiresAt: userAccess.expiresAt,
+    })
+    .from(userAccess)
+    .where(eq(userAccess.userId, session.user.id))
+    .limit(ACCESS_ORDER.length)
+
+  const now = Date.now()
+  const of = (type: AccessType) => {
+    const ms = rows.find((r) => r.accessType === type)?.expiresAt.getTime()
+    if (ms === undefined) return null
+    return { expiresAt: ms, daysRemaining: Math.max(0, daysLeft(ms, now)) }
+  }
+  return { exam: of("exam"), training: of("training") }
 })
 
 /**

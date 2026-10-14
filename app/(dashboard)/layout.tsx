@@ -1,5 +1,6 @@
 import { OnboardingGuard } from "@/components/shared/onboarding-guard"
 import { StudentShell } from "@/components/shared/shell/student-shell"
+import { getMyShellAccess } from "@/features/payments/dal"
 import { requireSession } from "@/lib/auth-guards"
 import { toSessionUser } from "@/lib/session-user"
 
@@ -10,11 +11,15 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const session = await requireSession()
+  const user = toSessionUser(session)
+  const access = user.role === "admin" ? null : await getMyShellAccess()
 
   return (
     <>
       <OnboardingGuard hasUsername={!!session.user.username} />
-      <StudentShell user={toSessionUser(session)}>{children}</StudentShell>
+      <StudentShell user={user} access={access}>
+        {children}
+      </StudentShell>
     </>
   )
 }

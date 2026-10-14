@@ -40,14 +40,30 @@ describe("AccessBadge", () => {
       render(
         <AccessBadge accessType="exam" status="expiring" daysRemaining={3} />,
       )
-      expect(screen.getByText("3j restants")).toBeInTheDocument()
+      expect(screen.getByText("3 j restants")).toHaveProperty(
+        "textContent",
+        "3 j restants",
+      )
     })
 
     it("affiche les jours restants pour le statut active", () => {
       render(
         <AccessBadge accessType="exam" status="active" daysRemaining={45} />,
       )
-      expect(screen.getByText("45j restants")).toBeInTheDocument()
+      expect(screen.getByText("45 j restants")).toHaveProperty(
+        "textContent",
+        "45 j restants",
+      )
+    })
+
+    it("accorde au singulier à 1 jour", () => {
+      render(
+        <AccessBadge accessType="exam" status="expiring" daysRemaining={1} />,
+      )
+      expect(screen.getByText("1 j restant")).toHaveProperty(
+        "textContent",
+        "1 j restant",
+      )
     })
   })
 })
