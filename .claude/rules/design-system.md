@@ -193,6 +193,11 @@ règle ou un gabarit commun à plusieurs zones).
 (`indicatorColor`, valeur de `TONE_COLOR`) : maîtrise par domaine, temps
 d'accès restant.
 
+Ligne dépliable qui contient une barre ou un lien (domaines de la page
+Progression) : le `<button aria-expanded>` porte le seul nom et couvre la ligne
+par `after:absolute after:inset-0` (ligne en `relative`) ; jamais une `div` ni
+un `Progress` DANS un bouton.
+
 Annoncés par la refonte, créés avec leur premier écran consommateur, jamais
 seuls : `ColumnsMenu`, `SortHeader` (la liste des questions s'en passe : le menu
 « Colonnes » de `DataTable` et des boutons de tri en en-tête suffisent).

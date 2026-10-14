@@ -69,9 +69,18 @@ Les règles métier des examens et de la banque de questions vivent dans
   sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
   renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou
   passer par une jointure.
+- **Pagination keyset sur un timestamp** : la colonne doit être en
+  `precision: 3` (ou la clé passée par `date_trunc('milliseconds', …)`),
+  sinon un curseur en ISO ms décale `firstIndex` et peut masquer la page
+  suivante. Un curseur qui ne mène plus à rien (ligne supprimée) ramène en
+  tête de liste.
 - **Helper pur dans un module `"use client"`** : appelé depuis un Server
   Component, il devient une référence client et casse au rendu
   (`getAccessStatus`). Un module de helpers purs ne porte pas `"use client"`.
+- **Constante partagée client/serveur** (taille de page, nom de paramètre
+  d'URL) : dans un module pur de `lib/`, jamais exportée par une DAL
+  `server-only` (inimportable côté client) ni par un module `"use client"`
+  (référence client côté page).
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
   transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une
