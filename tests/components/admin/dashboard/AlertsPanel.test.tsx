@@ -47,22 +47,22 @@ describe("AlertsPanel", () => {
     [
       "un utilisateur, pluriel",
       [{ daysRemaining: 5, name: "Marie Martin" }],
-      "Marie Martin - 5j restants",
+      "Marie Martin - 5 j restants",
     ],
     [
       "un utilisateur, singulier à 1 jour",
       [{ daysRemaining: 1, name: "Paul Tremblay" }],
-      "Paul Tremblay - 1j restant",
+      "Paul Tremblay - 1 j restant",
     ],
     [
       "nom absent → repli",
       [{ daysRemaining: 3, name: null }],
-      "1 utilisateur - 3j restants",
+      "1 utilisateur - 3 j restants",
     ],
     [
       "plusieurs utilisateurs → minimum",
       [{ daysRemaining: 5 }, { daysRemaining: 2 }, { daysRemaining: 7 }],
-      "3 utilisateurs, 2j minimum",
+      "3 utilisateurs, 2 j minimum",
     ],
   ])("description : %s", (_, items, description) => {
     render(
@@ -72,7 +72,10 @@ describe("AlertsPanel", () => {
       />,
     )
 
-    expect(screen.getByText(description)).toBeInTheDocument()
+    // getByText normalise l'espace insécable : le texte exact se vérifie à part.
+    expect(screen.getByText(description).textContent).toBe(
+      description.replace(" j ", " j "),
+    )
   })
 
   it.each([

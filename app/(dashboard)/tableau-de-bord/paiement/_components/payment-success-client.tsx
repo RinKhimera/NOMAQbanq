@@ -129,7 +129,6 @@ export const PaymentSuccessContent = ({
   // bouton cliqué disparaît avec l'ancienne.
   const [rechecked, setRechecked] = useState(false)
   const shown = useRef<View | null>(null)
-  const layoutRefreshed = useRef(false)
 
   useEffect(() => {
     document.title = `${TAB_TITLE[view.kind]} | NOMAQbanq`
@@ -153,8 +152,8 @@ export const PaymentSuccessContent = ({
       shown.current = next
       setView(next)
       // Les accès du menu viennent du layout, qui ne se re-rend qu'au refresh.
-      if (next.kind === "paid" && next.access && !layoutRefreshed.current) {
-        layoutRefreshed.current = true
+      // Une vue « accès activé » ne relance aucune relecture : un seul refresh.
+      if (next.kind === "paid" && next.access) {
         startTransition(() => router.refresh())
       }
       const again = isWaiting(next) && poll.attempt < pollLimit(next)

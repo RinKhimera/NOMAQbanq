@@ -2,7 +2,7 @@
 
 import { Shield } from "lucide-react"
 import type { ReactNode } from "react"
-import type { ShellAccess } from "@/features/payments/dal"
+import type { MyAccess } from "@/features/payments/dal"
 import type { SessionUser } from "@/lib/session-user"
 import { ShellAccessLines } from "./shell-access"
 import { ShellFrame, SideLink } from "./shell-frame"
@@ -11,7 +11,7 @@ import { ShellUser } from "./shell-user"
 type StudentShellProps = {
   user: SessionUser
   /** `null` quand le layout ne l'a pas lu (admin). */
-  access: ShellAccess | null
+  access: MyAccess | null
   children: ReactNode
 }
 

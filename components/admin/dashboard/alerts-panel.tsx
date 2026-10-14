@@ -1,6 +1,8 @@
 import { ChevronRight, CircleAlert, CircleCheck, Clock } from "lucide-react"
 import Link from "next/link"
+import { daysLeftLabel } from "@/components/shared/payments/access-badge"
 import type { ExpiringAccessItem } from "@/features/payments/dal"
+import { NBSP } from "@/lib/format"
 import { TONE_TEXT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { DashboardPanel } from "./dashboard-panel"
@@ -13,10 +15,10 @@ type ExpiringAccess = Pick<
 const describeExpiring = (items: ExpiringAccess[]) => {
   if (items.length === 1) {
     const [item] = items
-    return `${item.user?.name ?? "1 utilisateur"} - ${item.daysRemaining}j restant${item.daysRemaining > 1 ? "s" : ""}`
+    return `${item.user?.name ?? "1 utilisateur"} - ${daysLeftLabel(item.daysRemaining)}`
   }
   const minDays = Math.min(...items.map((i) => i.daysRemaining))
-  return `${items.length} utilisateurs, ${minDays}j minimum`
+  return `${items.length} utilisateurs, ${minDays}${NBSP}j minimum`
 }
 
 const AlertRow = ({

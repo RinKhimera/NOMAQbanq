@@ -46,30 +46,71 @@ export type AccessStatus = {
   trainingAccess: AccessInfo
 }
 
+const ACCESS_ORDER: AccessType[] = ["exam", "training"]
+
 const daysLeft = (expiresAt: number, now: number) =>
   Math.ceil((expiresAt - now) / DAY_MS)
 
-const toAccessInfo = (
-  expiresAt: Date | null | undefined,
-  now: number,
-): AccessInfo => {
-  if (!expiresAt) return null
-  const ms = expiresAt.getTime()
-  if (ms <= now) return null
-  return { expiresAt: ms, daysRemaining: daysLeft(ms, now) }
-}
+/**
+ * Accès de l'utilisateur courant : `null` = jamais acheté ; une échéance
+ * passée reste lisible, `daysRemaining` ramené à 0, ce qui en fait un accès
+ * expiré pour `getAccessStatus` (badge).
+ */
+export type MyAccess = Record<
+  AccessType,
+  { expiresAt: number; daysRemaining: number } | null
+>
+
+/**
+ * Seule lecture des accès de l'utilisateur courant : le menu (layout
+ * `(dashboard)`), `getAccessStatus()` et `getMyLapsedAccess` en dérivent, si
+ * bien qu'un rendu ne lit `user_access` qu'une fois (au plus 2 lignes,
+ * UNIQUE(user_id, access_type)). `null` si non connecté.
+ */
+export const getMyAccess = cache(async (): Promise<MyAccess | null> => {
+  const session = await getCurrentSession()
+  if (!session?.user) return null
+  const rows = await db
+    .select({
+      accessType: userAccess.accessType,
+      expiresAt: userAccess.expiresAt,
+    })
+    .from(userAccess)
+    .where(eq(userAccess.userId, session.user.id))
+    .limit(ACCESS_ORDER.length)
+
+  const now = Date.now()
+  const of = (type: AccessType) => {
+    const ms = rows.find((r) => r.accessType === type)?.expiresAt.getTime()
+    if (ms === undefined) return null
+    return { expiresAt: ms, daysRemaining: Math.max(0, daysLeft(ms, now)) }
+  }
+  return { exam: of("exam"), training: of("training") }
+})
+
+/** Accès en cours seulement : à l'échéance exacte, l'accès est clos. */
+const current = (access: MyAccess[AccessType]): AccessInfo =>
+  access && access.daysRemaining > 0 ? access : null
 
 /**
  * Statut d'accès complet (exam + training). `userId` optionnel → défaut = session ;
  * celui d'un autre utilisateur exige le rôle admin. `null` si non connecté.
- * Borné par la contrainte UNIQUE(user_id, access_type) → au plus 2 lignes.
  */
 export const getAccessStatus = cache(
   async (userId?: string): Promise<AccessStatus | null> => {
     const session = await getCurrentSession()
     const targetId = userId ?? session?.user.id
     if (!targetId) return null
-    if (targetId !== session?.user.id) await requireRole(["admin"])
+    if (targetId === session?.user.id) {
+      const mine = await getMyAccess()
+      return (
+        mine && {
+          examAccess: current(mine.exam),
+          trainingAccess: current(mine.training),
+        }
+      )
+    }
+    await requireRole(["admin"])
 
     const rows = await db
       .select({
@@ -78,18 +119,15 @@ export const getAccessStatus = cache(
       })
       .from(userAccess)
       .where(eq(userAccess.userId, targetId))
+      .limit(ACCESS_ORDER.length)
 
     const now = Date.now()
-    return {
-      examAccess: toAccessInfo(
-        rows.find((r) => r.accessType === "exam")?.expiresAt,
-        now,
-      ),
-      trainingAccess: toAccessInfo(
-        rows.find((r) => r.accessType === "training")?.expiresAt,
-        now,
-      ),
+    const info = (type: AccessType): AccessInfo => {
+      const ms = rows.find((r) => r.accessType === type)?.expiresAt.getTime()
+      if (ms === undefined || ms <= now) return null
+      return { expiresAt: ms, daysRemaining: daysLeft(ms, now) }
     }
+    return { examAccess: info("exam"), trainingAccess: info("training") }
   },
 )
 
@@ -100,8 +138,6 @@ export type CheckoutPurchase = {
   /** Accès couverts par l'achat, examens d'abord ; vide hors `completed`. */
   access: { type: AccessType; expiresAt: number }[]
 }
-
-const ACCESS_ORDER: AccessType[] = ["exam", "training"]
 
 /**
  * Achat de l'utilisateur courant rattaché à une session Checkout, pour la page
@@ -163,64 +199,12 @@ export type LapsedAccess = {
   training: number | null
 }
 
-/**
- * Accès échus de l'utilisateur courant, pour « Votre accès a expiré le … ».
- * Au plus 2 lignes (UNIQUE(user_id, access_type)).
- */
+/** Accès échus de l'utilisateur courant, pour « Votre accès a expiré le … ». */
 export const getMyLapsedAccess = cache(async (): Promise<LapsedAccess> => {
-  const session = await getCurrentSession()
-  if (!session?.user) return { exam: null, training: null }
-  const rows = await db
-    .select({
-      accessType: userAccess.accessType,
-      expiresAt: userAccess.expiresAt,
-    })
-    .from(userAccess)
-    .where(
-      and(
-        eq(userAccess.userId, session.user.id),
-        lt(userAccess.expiresAt, new Date()),
-      ),
-    )
-  const lapsed = (type: AccessType) =>
-    rows.find((r) => r.accessType === type)?.expiresAt.getTime() ?? null
-  return { exam: lapsed("exam"), training: lapsed("training") }
-})
-
-/**
- * Accès de l'utilisateur courant tels que les montre la coquille étudiante :
- * `null` = jamais acheté ; une échéance passée reste lisible, `daysRemaining`
- * ramené à 0, ce qui en fait un accès expiré pour `getAccessStatus` (badge).
- */
-export type ShellAccess = Record<
-  AccessType,
-  { expiresAt: number; daysRemaining: number } | null
->
-
-/**
- * Lue par le layout `(dashboard)` à chaque rendu complet : une seule requête
- * (au plus 2 lignes, UNIQUE(user_id, access_type)) porte à la fois l'accès en
- * cours et l'échéance passée.
- */
-export const getMyShellAccess = cache(async (): Promise<ShellAccess> => {
-  const session = await getCurrentSession()
-  if (!session?.user) return { exam: null, training: null }
-  const rows = await db
-    .select({
-      accessType: userAccess.accessType,
-      expiresAt: userAccess.expiresAt,
-    })
-    .from(userAccess)
-    .where(eq(userAccess.userId, session.user.id))
-    .limit(ACCESS_ORDER.length)
-
-  const now = Date.now()
-  const of = (type: AccessType) => {
-    const ms = rows.find((r) => r.accessType === type)?.expiresAt.getTime()
-    if (ms === undefined) return null
-    return { expiresAt: ms, daysRemaining: Math.max(0, daysLeft(ms, now)) }
-  }
-  return { exam: of("exam"), training: of("training") }
+  const mine = await getMyAccess()
+  const lapsed = (access: MyAccess[AccessType] | undefined) =>
+    access && access.daysRemaining === 0 ? access.expiresAt : null
+  return { exam: lapsed(mine?.exam), training: lapsed(mine?.training) }
 })
 
 /**

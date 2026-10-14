@@ -11,7 +11,7 @@ import {
 } from "@/components/shared/payments/access-badge"
 import { ACCESS_HREF } from "@/constants"
 import type { AccessType } from "@/features/payments/access-ledger"
-import type { ShellAccess } from "@/features/payments/dal"
+import type { MyAccess } from "@/features/payments/dal"
 import { formatDayMonth } from "@/lib/format"
 import { TONE_COLOR, TONE_TEXT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
@@ -20,7 +20,7 @@ const ORDER: AccessType[] = ["exam", "training"]
 
 /**
  * État des deux accès au bas du menu étudiant. Tout se dérive des props du
- * layout (`getMyShellAccess`), jamais de l'horloge : le statut vient de
+ * layout (`getMyAccess`), jamais de l'horloge : le statut vient de
  * `daysRemaining` (`getAccessStatus`), la date d'un accès expiré est ancrée
  * sur l'heure de l'Est.
  */
@@ -28,7 +28,7 @@ export const ShellAccessLines = ({
   access,
   onReselect,
 }: {
-  access: ShellAccess
+  access: MyAccess
   /** Clic depuis la page Abonnements elle-même : aucune navigation ne suivra. */
   onReselect?: () => void
 }) => {

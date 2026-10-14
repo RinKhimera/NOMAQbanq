@@ -105,7 +105,7 @@ describe("PaymentSuccessContent", () => {
     expect(screen.queryByText("Activation de votre accès…")).toBeNull()
   })
 
-  it("accès activé : rafraîchit une seule fois le layout (menu des accès)", async () => {
+  it("rafraîchit le layout (menu des accès) une fois l'accès activé, pas avant", async () => {
     verify.mockResolvedValueOnce(notYetFulfilled).mockResolvedValue(paid())
 
     render(<PaymentSuccessContent supportEmail="support@test.invalid" />)

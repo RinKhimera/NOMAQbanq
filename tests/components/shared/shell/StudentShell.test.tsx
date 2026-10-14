@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { StudentShell } from "@/components/shared/shell/student-shell"
-import type { ShellAccess } from "@/features/payments/dal"
+import type { MyAccess } from "@/features/payments/dal"
 import { authClient } from "@/lib/auth-client"
 import type { SessionUser } from "@/lib/session-user"
 
@@ -54,12 +54,12 @@ const DAY = 24 * 60 * 60 * 1000
 // 20 septembre 2026, midi à Toronto.
 const SEPT_20 = Date.UTC(2026, 8, 20, 16)
 
-const noAccess: ShellAccess = { exam: null, training: null }
+const noAccess: MyAccess = { exam: null, training: null }
 
 const renderShell = (
   pathname: string,
   user = student,
-  access: ShellAccess = noAccess,
+  access: MyAccess = noAccess,
 ) => {
   vi.mocked(usePathname).mockReturnValue(pathname)
   return render(

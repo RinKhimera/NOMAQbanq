@@ -11,7 +11,10 @@ import {
 import Link from "next/link"
 import { type ReactNode, useState } from "react"
 import { CopyId } from "@/components/shared/copy-id"
-import { ACCESS_TYPE_LABEL } from "@/components/shared/payments/access-badge"
+import {
+  ACCESS_TYPE_LABEL,
+  daysLeftLabel,
+} from "@/components/shared/payments/access-badge"
 import { ManualPaymentFlow } from "@/components/shared/payments/manual-payment-dialog"
 import { TransactionStatusWithDispute } from "@/components/shared/payments/transaction-status"
 import { RelativeTime } from "@/components/shared/relative-time"
@@ -133,8 +136,7 @@ const AccessBlock = ({
                 >
                   Actif jusqu&apos;au {formatMediumDate(a.expiresAt)}{" "}
                   <span className="font-mono text-[0.8125rem] font-normal">
-                    · {a.days}
-                    {NBSP}j restants
+                    · {daysLeftLabel(a.days)}
                   </span>
                 </span>
                 <span className="text-ink-3 text-xs leading-normal">

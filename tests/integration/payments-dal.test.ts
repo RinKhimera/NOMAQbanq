@@ -4,7 +4,8 @@ import { db } from "@/db"
 import { transactions, user, userAccess } from "@/db/schema"
 import {
   getAccessStatus,
-  getMyShellAccess,
+  getMyAccess,
+  getMyLapsedAccess,
   getMyTransactions,
   hasActiveAccess,
 } from "@/features/payments/dal"
@@ -153,14 +154,14 @@ describe("getAccessStatus", () => {
   })
 })
 
-describe("getMyShellAccess", () => {
+describe("getMyAccess", () => {
   const signedInAs = (id: string) =>
     vi.mocked(getCurrentSession).mockResolvedValue({ user: { id } } as never)
 
   it("garde l'échéance passée à 0 jour (expiré) et lit tout en une requête", async () => {
     signedInAs(uid)
     const select = vi.spyOn(db, "select")
-    const access = await getMyShellAccess()
+    const access = await getMyAccess()
     expect(select).toHaveBeenCalledOnce()
     select.mockRestore()
 
@@ -168,17 +169,28 @@ describe("getMyShellAccess", () => {
       exam: { expiresAt: EXAM_EXPIRES.getTime(), daysRemaining: 10 },
       training: { expiresAt: expect.any(Number), daysRemaining: 0 },
     })
-    expect(access.training!.expiresAt).toBeLessThan(Date.now())
+    expect(access!.training!.expiresAt).toBeLessThan(Date.now())
   })
 
   it("rend null sans ligne (jamais acheté), sans lire les accès d'un autre", async () => {
     signedInAs(otherUid)
-    expect(await getMyShellAccess()).toEqual({ exam: null, training: null })
+    expect(await getMyAccess()).toEqual({ exam: null, training: null })
   })
 
   it("rend null sans session", async () => {
     vi.mocked(getCurrentSession).mockResolvedValue(null)
-    expect(await getMyShellAccess()).toEqual({ exam: null, training: null })
+    expect(await getMyAccess()).toBeNull()
+  })
+
+  it("getMyLapsedAccess en dérive l'échéance passée seulement", async () => {
+    signedInAs(uid)
+    const select = vi.spyOn(db, "select")
+    const lapsed = await getMyLapsedAccess()
+    expect(select).toHaveBeenCalledOnce()
+    select.mockRestore()
+
+    expect(lapsed.exam).toBeNull()
+    expect(lapsed.training).toBeLessThan(Date.now())
   })
 })
 
