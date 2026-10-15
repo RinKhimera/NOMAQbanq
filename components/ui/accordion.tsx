@@ -42,10 +42,16 @@ AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName
 const AccordionContent = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, forceMount, ...props }, ref) => (
   <AccordionPrimitive.Content
     ref={ref}
-    className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down text-ink-2 overflow-hidden text-sm"
+    forceMount={forceMount}
+    // Monté fermé (contenu présent dans le HTML servi) : Radix ne pose pas
+    // `hidden` sous `forceMount`, l'état fermé se masque ici.
+    className={cn(
+      "data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down text-ink-2 overflow-hidden text-sm",
+      forceMount && "data-[state=closed]:hidden",
+    )}
     {...props}
   >
     <div className={cn("pt-0 pb-4", className)}>{children}</div>

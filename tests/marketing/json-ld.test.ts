@@ -125,7 +125,7 @@ describe("articleJsonLd", () => {
       datePublished: "2026-10-01",
       dateModified: "2026-10-15",
       mainEntityOfPage: "https://nomaqbanq.ca/eacmc-partie-1",
-      image: "https://nomaqbanq.ca/eacmc-partie-1/opengraph-image",
+      image: "https://nomaqbanq.ca/opengraph-image",
     })
     expect(data.author).toEqual(data.publisher)
     expect(data.author).toMatchObject({

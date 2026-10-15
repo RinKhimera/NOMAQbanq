@@ -52,6 +52,8 @@ export const SOURCES = {
     "https://mcc.ca/fr/examens-et-evaluations/eacmc/admissibilite-et-demande/",
   planification:
     "https://mcc.ca/fr/examens-et-evaluations/eacmc/planification/",
+  prometric:
+    "https://mcc.ca/fr/examens-et-evaluations/reserver-une-session-aupres-de-prometric/",
   frais: "https://mcc.ca/fr/frais-relies-aux-examens-et-aux-services/",
   verification:
     "https://mcc.ca/fr/titres-de-competences-et-services/services/verification-des-titres-de-competence/",

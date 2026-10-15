@@ -25,7 +25,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Peut-on passer l'EACMC en français ?",
-        a: "Oui. L'examen est offert en français et en anglais. Les Objectifs d'examen du CMC et ses ressources de préparation sont aussi publiés en français.",
+        a: "Oui. L'examen est offert en français et en anglais : vous choisissez la langue de votre rendez-vous en le réservant auprès de Prometric. Les Objectifs d'examen du CMC et ses ressources de préparation sont aussi publiés en français.",
         href: guideAnchor("deroulement"),
       },
       {

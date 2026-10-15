@@ -21,7 +21,10 @@ describe("sitemap", () => {
     const entry = sitemap().find(
       (e) => e.url === "https://nomaqbanq.ca/eacmc-partie-1",
     )
-    expect(entry?.lastModified).toEqual(new Date(GUIDE_REVIEWED_ON))
+    expect(GUIDE_REVIEWED_ON).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(new Date(entry!.lastModified!).toISOString()).toBe(
+      `${GUIDE_REVIEWED_ON}T00:00:00.000Z`,
+    )
   })
 
   it("ne liste pas la page des questions transversales", () => {

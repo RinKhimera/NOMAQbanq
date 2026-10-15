@@ -10,7 +10,7 @@ import {
 import { JsonLd } from "@/components/seo/json-ld"
 import { SectionNav } from "@/components/shared/section-nav"
 import { MARKETING_PATHS } from "@/constants"
-import { formatIsoDay } from "@/lib/format"
+import { NBSP, formatIsoDay } from "@/lib/format"
 import { articleJsonLd, pageMetadata } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 import {
@@ -130,7 +130,12 @@ const CONTENT: Record<GuideSectionId, ReactNode> = {
           "Une pause facultative de 45 minutes sépare les deux sections.",
           "Le rendez-vous dure 6,5 heures au total : accueil, tutoriel, les deux sections, la pause et un sondage facultatif.",
           "Chaque section contient des questions pilotes, aussi appelées questions d'essai préliminaire.",
-          "La surveillance à distance n'est plus offerte : l'examen se passe en personne.",
+          <>
+            La surveillance à distance n&apos;est plus offerte : l&apos;examen
+            se passe en personne (
+            <Source href={SOURCES.planification}>CMC, planification</Source>
+            ).
+          </>,
         ]}
       />
       <P>
@@ -138,11 +143,19 @@ const CONTENT: Record<GuideSectionId, ReactNode> = {
         rôles CanMEDS. Le plan directeur de l&apos;examen croise deux
         catégories, les dimensions des soins et les activités du médecin, de
         quatre domaines chacune (
-        <Source href={SOURCES.qcm}>CMC, questions à choix multiple</Source> ;{" "}
-        <Source href={SOURCES.jourExamen}>CMC, le jour de l&apos;examen</Source>
+        <Source href={SOURCES.eacmc}>CMC, l&apos;EACMC</Source>). Le format est
+        détaillé par le CMC dans{" "}
+        <Source href={SOURCES.qcm}>les questions à choix multiple</Source> et{" "}
+        <Source href={SOURCES.jourExamen}>le jour de l&apos;examen</Source>.
+      </P>
+      <P>
+        L&apos;examen est offert en français et en anglais : vous choisissez la
+        langue de votre rendez-vous en le réservant (
+        <Source href={SOURCES.prometric}>
+          CMC, réserver auprès de Prometric
+        </Source>
         ).
       </P>
-      <P>L&apos;examen est offert en français et en anglais.</P>
     </>
   ),
   notation: (
@@ -164,8 +177,8 @@ const CONTENT: Record<GuideSectionId, ReactNode> = {
       <P>
         Un pourcentage de bonnes réponses dans une banque de questions ne se
         convertit pas en note de l&apos;EACMC : il sert à repérer vos domaines
-        faibles, pas à prédire votre note (
-        <Source href={SOURCES.resultats}>CMC, résultats</Source>).
+        faibles, pas à prédire votre note. Le détail de la notation est sur la
+        page <Source href={SOURCES.resultats}>Résultats du CMC</Source>.
       </P>
     </>
   ),
@@ -201,10 +214,10 @@ const CONTENT: Record<GuideSectionId, ReactNode> = {
         ]}
       />
       <P>
-        Le CMC offre quatre sessions par année. Les rendez-vous ouvrent
-        jusqu&apos;à cinq mois avant le début d&apos;une session, selon le
-        principe du premier arrivé, premier servi : réservez tôt. Les dates
-        changent d&apos;une année à l&apos;autre ; consultez le{" "}
+        Le CMC offre plusieurs sessions par année, quatre en temps normal. Les
+        rendez-vous ouvrent jusqu&apos;à cinq mois avant le début d&apos;une
+        session, selon le principe du premier arrivé, premier servi : réservez
+        tôt. Les dates changent d&apos;une année à l&apos;autre ; consultez le{" "}
         <Source href={SOURCES.planification}>calendrier officiel</Source>.
       </P>
       <P>
@@ -257,11 +270,12 @@ const CONTENT: Record<GuideSectionId, ReactNode> = {
         ]}
       />
       <P>
-        L&apos;exigence des deux examens pour le jumelage vise les diplômés dont
-        le diplôme date du 1er juillet 2025 ou après. Pour qu&apos;un résultat
-        compte dans un cycle de jumelage, il doit arriver avant l&apos;examen
-        des dossiers : le CMC publie chaque année les sessions qui conviennent.
-        Planifiez votre date d&apos;examen à partir de ce calendrier.
+        Un diplômé à l&apos;étranger doit fournir les résultats des deux examens
+        pour le jumelage, quelle que soit la date de son diplôme. Pour
+        qu&apos;un résultat compte dans un cycle de jumelage, il doit arriver
+        avant l&apos;examen des dossiers : le CMC publie chaque année les
+        sessions qui conviennent. Planifiez votre date d&apos;examen à partir de
+        ce calendrier.
       </P>
     </>
   ),
@@ -317,8 +331,8 @@ const CONTENT: Record<GuideSectionId, ReactNode> = {
             <strong className="text-ink font-semibold">
               Entraînez-vous en conditions d&apos;examen.
             </strong>{" "}
-            L&apos;EACMC laisse environ 1 min 25 s par question (2 h 40 pour 115
-            questions). Des examens blancs chronométrés vous habituent à ce
+            L&apos;EACMC laisse en moyenne 1 min 23 s par question (2 h 40 pour
+            115 questions). Des examens blancs chronométrés vous habituent à ce
             rythme et à l&apos;endurance d&apos;une longue section.
           </>,
           <>
@@ -349,6 +363,7 @@ const OFFICIAL_SOURCES = [
   { href: SOURCES.resultats, label: "Résultats et notation (CMC)" },
   { href: SOURCES.admissibilite, label: "Admissibilité et demande (CMC)" },
   { href: SOURCES.planification, label: "Calendrier des sessions (CMC)" },
+  { href: SOURCES.prometric, label: "Réserver auprès de Prometric (CMC)" },
   { href: SOURCES.frais, label: "Frais d'examen (CMC)" },
   { href: SOURCES.lcmc, label: "Le titre de LCMC (CMC)" },
   { href: SOURCES.carms, label: "CaRMS et les examens du CMC (CMC)" },
@@ -369,7 +384,7 @@ export default function EacmcGuidePage() {
       />
       <MarketingHero
         label="Guide EACMC"
-        title="L'EACMC, anciennement Partie I : le guide en français"
+        title={`L'EACMC, anciennement Partie${NBSP}I : le guide en français`}
         description="Ce qu'est l'examen, comment il se déroule et se note, comment s'inscrire, où il se place dans le parcours des diplômés à l'étranger et comment s'y préparer. Chaque fait renvoie à sa source au Conseil médical du Canada."
       >
         <p className="text-ink-3 font-mono text-[13px]">

@@ -150,7 +150,8 @@ export const offersJsonLd = (
 /**
  * Article de la vitrine : l'équipe reste anonyme, l'organisation en est
  * l'auteur. `dateModified` = dernière révision des faits, pas du fichier.
- * L'image est celle que génère le segment de la page.
+ * Image du site : celle d'un segment sous un groupe de routes porte un
+ * suffixe calculé par Next (`opengraph-image-<hash>`), inconnu ici.
  */
 export const articleJsonLd = ({
   path,
@@ -173,7 +174,7 @@ export const articleJsonLd = ({
   datePublished,
   dateModified,
   mainEntityOfPage: siteUrl(path),
-  image: `${siteUrl(path)}/opengraph-image`,
+  image: siteUrl(SITE_OG_IMAGE.url),
   author: ORGANIZATION,
   publisher: ORGANIZATION,
 })

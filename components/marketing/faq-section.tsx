@@ -34,7 +34,8 @@ export const FaqAccordion = ({
         <AccordionTrigger className="min-h-11 text-base">
           {item.question}
         </AccordionTrigger>
-        <AccordionContent className="text-[15px] leading-relaxed">
+        {/* Monté fermé : réponses et liens restent dans le HTML indexé. */}
+        <AccordionContent forceMount className="text-[15px] leading-relaxed">
           {item.answer}
           {item.href && (
             <>
