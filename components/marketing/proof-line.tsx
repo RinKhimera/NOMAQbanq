@@ -1,6 +1,5 @@
 import { Star } from "lucide-react"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import { MARKETING_CLAIMS } from "@/constants"
 import { testimonials } from "@/data/testimonials"
 import { cn } from "@/lib/utils"
 
@@ -25,7 +24,7 @@ export const Stars = ({ rating = 5, className }: StarsProps) => (
   </span>
 )
 
-/** Preuve sociale : avatars des témoignages, note, nombre de candidats. */
+/** Preuve sociale : avatars des témoignages, nombre de candidats. */
 export const ProofLine = ({ totalUsers }: { totalUsers: string }) => (
   <div className="flex flex-wrap items-center gap-3.5">
     <div className="flex">
@@ -39,16 +38,8 @@ export const ProofLine = ({ totalUsers }: { totalUsers: string }) => (
         />
       ))}
     </div>
-    <div className="flex flex-col gap-0.5">
-      <span className="flex items-center gap-2">
-        <Stars />
-        <span className="text-ink font-mono text-[13px] tabular-nums">
-          {MARKETING_CLAIMS.rating}
-        </span>
-      </span>
-      <span className="text-ink-3 text-[13px]">
-        {totalUsers} candidats inscrits
-      </span>
-    </div>
+    <span className="text-ink-3 text-[13px]">
+      {totalUsers} candidats inscrits
+    </span>
   </div>
 )

@@ -9,7 +9,8 @@ import { formatMarketingStat, resolveSuccessRate } from "./lib"
 export type MarketingStats = {
   totalQuestions: string
   totalUsers: string
-  successRate: string
+  /** Taux de réussite aux examens blancs, `null` tant qu'il n'est pas publiable. */
+  successRate: string | null
 }
 
 /**

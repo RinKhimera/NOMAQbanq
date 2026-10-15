@@ -18,7 +18,7 @@ export const CtaBand = () => (
             Commencez votre préparation dès aujourd&apos;hui.
           </h2>
           <p className="type-body-lg">
-            Rejoignez les candidats qui ont réussi grâce à NOMAQbanq.
+            Rejoignez les candidats qui se préparent avec NOMAQbanq.
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">

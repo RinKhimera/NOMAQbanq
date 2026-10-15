@@ -1,40 +1,42 @@
 import { describe, expect, it } from "vitest"
-import { MARKETING_CLAIMS } from "@/constants"
 import {
   MIN_COMPLETED_PARTICIPATIONS,
   MIN_PUBLISHABLE_SUCCESS_RATE,
   resolveSuccessRate,
 } from "@/features/marketing/lib"
 
-const EDITORIAL = MARKETING_CLAIMS.successRate
-
 describe("resolveSuccessRate", () => {
-  it("retombe sur l'éditorial sous le seuil de volume", () => {
-    expect(resolveSuccessRate({ completed: 49, passed: 49 })).toBe(EDITORIAL)
+  it("ne publie rien sous le seuil de volume", () => {
+    expect(resolveSuccessRate({ completed: 49, passed: 49 })).toBeNull()
   })
 
-  it("retombe sur l'éditorial à 0 participation (pas de division par zéro)", () => {
-    expect(resolveSuccessRate({ completed: 0, passed: 0 })).toBe(EDITORIAL)
+  it("ne publie rien à 0 participation (pas de division par zéro)", () => {
+    expect(resolveSuccessRate({ completed: 0, passed: 0 })).toBeNull()
   })
 
   it("publie le taux calculé au seuil exact de volume si ≥ plancher", () => {
     // 50 terminées, 40 réussies → 80 % ≥ 70 % → publié.
-    expect(resolveSuccessRate({ completed: 50, passed: 40 })).toBe("80 %")
+    expect(resolveSuccessRate({ completed: 50, passed: 40 })).toBe("80\u00a0%")
   })
 
-  it("retombe sur l'éditorial quand le taux est sous le plancher de publication", () => {
-    // 100 terminées, 42 réussies → 42 % < 70 % → éditorial.
-    expect(resolveSuccessRate({ completed: 100, passed: 42 })).toBe(EDITORIAL)
+  it("ne publie rien quand le taux est sous le plancher de publication", () => {
+    expect(resolveSuccessRate({ completed: 100, passed: 42 })).toBeNull()
   })
 
   it("publie exactement au plancher (70 %) mais pas juste en dessous (69 %)", () => {
-    expect(resolveSuccessRate({ completed: 100, passed: 70 })).toBe("70 %")
-    expect(resolveSuccessRate({ completed: 100, passed: 69 })).toBe(EDITORIAL)
+    expect(resolveSuccessRate({ completed: 100, passed: 70 })).toBe("70\u00a0%")
+    expect(resolveSuccessRate({ completed: 100, passed: 69 })).toBeNull()
   })
 
-  it("arrondit le taux (Math.round)", () => {
-    // 60 terminées, 47 réussies → 78,33 % → 78 %.
-    expect(resolveSuccessRate({ completed: 60, passed: 47 })).toBe("78 %")
+  it("arrondit le taux vers le bas, jamais au-dessus du réel", () => {
+    // 1000 terminées, 846 réussies → 84,6 % → 84 %.
+    expect(resolveSuccessRate({ completed: 1000, passed: 846 })).toBe(
+      "84\u00a0%",
+    )
+  })
+
+  it("compare le plancher au taux exact : 69,5 % n'est pas publié", () => {
+    expect(resolveSuccessRate({ completed: 200, passed: 139 })).toBeNull()
   })
 
   it("expose des seuils cohérents avec la spec", () => {

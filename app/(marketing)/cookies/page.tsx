@@ -5,15 +5,14 @@ import {
   type LegalArticle,
   LegalDocument,
 } from "@/components/shared/legal-document"
+import { MARKETING_PATHS } from "@/constants"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata: Metadata = {
-  title: "Politique de cookies | NOMAQbanq",
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.cookies, {
+  title: "Politique de cookies",
   description:
     "Informations sur l'utilisation des cookies et traceurs sur la plateforme NOMAQbanq.",
-  alternates: {
-    canonical: "https://nomaqbanq.ca/cookies",
-  },
-}
+})
 
 const Code = ({ children }: { children: ReactNode }) => (
   <code className="bg-surface-2 border-line text-ink rounded-xs border px-1.5 py-px font-mono text-[0.88em]">

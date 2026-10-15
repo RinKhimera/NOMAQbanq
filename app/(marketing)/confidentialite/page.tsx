@@ -4,15 +4,17 @@ import {
   type LegalArticle,
   LegalDocument,
 } from "@/components/shared/legal-document"
+import { MARKETING_PATHS } from "@/constants"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata: Metadata = {
-  title: "Politique de confidentialité | NOMAQbanq",
-  description:
-    "Découvrez comment NOMAQbanq protège vos données personnelles et respecte votre vie privée.",
-  alternates: {
-    canonical: "https://nomaqbanq.ca/confidentialite",
+export const metadata: Metadata = pageMetadata(
+  MARKETING_PATHS.confidentialite,
+  {
+    title: "Politique de confidentialité",
+    description:
+      "Découvrez comment NOMAQbanq protège vos données personnelles et respecte votre vie privée.",
   },
-}
+)
 
 const ARTICLES: LegalArticle[] = [
   {

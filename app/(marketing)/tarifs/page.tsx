@@ -1,25 +1,22 @@
 import { Metadata } from "next"
+import { JsonLd } from "@/components/seo/json-ld"
+import { MARKETING_PATHS } from "@/constants"
 import {
   getCachedAvailableProducts,
   getCachedMarketingStats,
 } from "@/features/marketing/cached"
 import { getAccessStatus } from "@/features/payments/dal"
 import { getCurrentSession } from "@/lib/dal"
+import { offersJsonLd, pageMetadata } from "@/lib/seo"
 import TarifsPageContent from "./_components/tarifs-page"
 
-export const metadata: Metadata = {
-  title: "Tarifs",
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.tarifs, {
+  title: "Tarifs de la préparation à l'EACMC Partie I",
   description:
-    "Découvrez nos formules d'abonnement NOMAQbanq : accès à la banque de questions et aux examens blancs. Paiement sécurisé, accès instantané, temps cumulable.",
-  alternates: {
-    canonical: "https://nomaqbanq.ca/tarifs",
-  },
-  openGraph: {
-    title: "Tarifs et abonnements | NOMAQbanq",
-    description:
-      "Formules flexibles pour préparer l'EACMC. Banque de questions et examens blancs. Commencez dès aujourd'hui.",
-  },
-}
+    "Formules NOMAQbanq pour préparer l'EACMC partie 1 : accès à la banque de questions et aux examens blancs, en dollars canadiens. Paiement sécurisé, accès instantané, temps cumulable.",
+  ogDescription:
+    "Formules flexibles pour préparer l'EACMC Partie I : banque de questions et examens blancs.",
+})
 
 export default async function TarifsRoute({
   searchParams,
@@ -38,13 +35,17 @@ export default async function TarifsRoute({
     getCachedMarketingStats(),
     getCurrentSession(),
   ])
+  const offers = offersJsonLd(products)
   return (
-    <TarifsPageContent
-      products={products}
-      accessStatus={accessStatus}
-      stats={stats}
-      isAuthenticated={!!session?.user}
-      checkoutCancelled={annule === "1"}
-    />
+    <>
+      {offers && <JsonLd data={offers} />}
+      <TarifsPageContent
+        products={products}
+        accessStatus={accessStatus}
+        stats={stats}
+        isAuthenticated={!!session?.user}
+        checkoutCancelled={annule === "1"}
+      />
+    </>
   )
 }

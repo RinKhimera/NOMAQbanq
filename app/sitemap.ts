@@ -1,9 +1,9 @@
 import { MetadataRoute } from "next"
-import { DOMAINS } from "@/constants/domains"
+import { MARKETING_PATHS } from "@/constants"
+import { INDEXED_DOMAINS, domainPath } from "@/constants/domains"
+import { siteUrl } from "@/lib/seo"
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://nomaqbanq.ca"
-
   // Date de dernière mise à jour majeure du contenu
   const lastContentUpdate = new Date("2026-09-28")
   const legalPagesUpdate = new Date("2026-01-15")
@@ -12,68 +12,68 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     // Pages marketing principales
     {
-      url: baseUrl,
+      url: siteUrl(MARKETING_PATHS.home),
       lastModified: lastContentUpdate,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: `${baseUrl}/domaines`,
+      url: siteUrl(MARKETING_PATHS.domaines),
       lastModified: lastContentUpdate,
       changeFrequency: "monthly",
       priority: 0.9,
     },
-    ...DOMAINS.map((d) => ({
-      url: `${baseUrl}/domaines/${d.slug}`,
+    ...INDEXED_DOMAINS.map((d) => ({
+      url: siteUrl(domainPath(d)),
       lastModified: lastContentUpdate,
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
     {
-      url: `${baseUrl}/fonctionnement`,
+      url: siteUrl(MARKETING_PATHS.fonctionnement),
       lastModified: lastContentUpdate,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/tarifs`,
+      url: siteUrl(MARKETING_PATHS.tarifs),
       lastModified: lastContentUpdate,
       changeFrequency: "weekly",
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/evaluation`,
+      url: siteUrl(MARKETING_PATHS.evaluation),
       lastModified: lastContentUpdate,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/faq`,
+      url: siteUrl(MARKETING_PATHS.faq),
       lastModified: lastContentUpdate,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/a-propos`,
+      url: siteUrl(MARKETING_PATHS.aPropos),
       lastModified: lastContentUpdate,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     // Pages légales
     {
-      url: `${baseUrl}/conditions`,
+      url: siteUrl(MARKETING_PATHS.conditions),
       lastModified: termsUpdate,
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
-      url: `${baseUrl}/confidentialite`,
+      url: siteUrl(MARKETING_PATHS.confidentialite),
       lastModified: legalPagesUpdate,
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
-      url: `${baseUrl}/cookies`,
+      url: siteUrl(MARKETING_PATHS.cookies),
       lastModified: legalPagesUpdate,
       changeFrequency: "yearly",
       priority: 0.3,

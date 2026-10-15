@@ -1,31 +1,16 @@
 import { Metadata } from "next"
+import { MARKETING_PATHS } from "@/constants"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
+import { SITE_DESCRIPTION, pageMetadata } from "@/lib/seo"
 import HomeLanding from "./_components/home-landing"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.home, {
   title: "Préparation EACMC Partie I - 3000+ QCM francophones",
   description:
-    "NOMAQbanq : la première plateforme francophone pour préparer l'EACMC Partie I. Plus de 3000 QCM, examens blancs, modes tuteur et chronomètre. Rejoignez des candidats satisfaits.",
-  alternates: {
-    canonical: "https://nomaqbanq.ca",
-    languages: {
-      "fr-CA": "https://nomaqbanq.ca",
-    },
-  },
-  openGraph: {
-    title: "NOMAQbanq - Préparation EACMC Partie I",
-    description:
-      "Première plateforme francophone de préparation à l'EACMC. Plus de 3000 QCM, examens blancs et suivi de progression pour réussir votre examen.",
-    images: [
-      {
-        url: "/images/home-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "NOMAQbanq - Plateforme de préparation EACMC",
-      },
-    ],
-  },
-}
+    "NOMAQbanq, plateforme francophone pour préparer l'EACMC partie 1 : plus de 3000 QCM, examens blancs, modes tuteur et chronométré, suivi de progression.",
+  ogTitle: "NOMAQbanq - Préparation EACMC Partie I",
+  ogDescription: SITE_DESCRIPTION,
+})
 
 // Aligné sur le cache des stats (1 semaine), invalidé plus tôt par leur tag :
 // une page régénérée plus souvent referait le rendu pour les mêmes données.

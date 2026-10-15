@@ -4,15 +4,14 @@ import {
   type LegalArticle,
   LegalDocument,
 } from "@/components/shared/legal-document"
+import { MARKETING_PATHS } from "@/constants"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata: Metadata = {
-  title: "Conditions d'utilisation | NOMAQbanq",
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.conditions, {
+  title: "Conditions d'utilisation",
   description:
     "Conditions générales d'utilisation de la plateforme NOMAQbanq pour la préparation à l'EACMC Partie I.",
-  alternates: {
-    canonical: "https://nomaqbanq.ca/conditions",
-  },
-}
+})
 
 const ARTICLES: LegalArticle[] = [
   {

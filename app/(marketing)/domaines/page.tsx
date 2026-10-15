@@ -10,34 +10,19 @@ import {
   MarketingHero,
 } from "@/components/marketing/marketing-hero"
 import { Button } from "@/components/ui/button"
+import { MARKETING_PATHS } from "@/constants"
 import { DOMAINS } from "@/constants/domains"
 import { HERO_QUESTION_KEY_ONLY } from "@/constants/sample-questions"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
+import { pageMetadata } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 import { DomainsBrowser } from "./_components/domains-browser"
 
-export const metadata: Metadata = {
-  title: "Domaines médicaux",
-  description: `Explorez nos ${DOMAINS.length} domaines médicaux : cardiologie, pédiatrie, chirurgie, neurologie et plus. Questions EACMC organisées par spécialité pour une préparation ciblée.`,
-  alternates: {
-    canonical: "https://nomaqbanq.ca/domaines",
-    languages: {
-      "fr-CA": "https://nomaqbanq.ca/domaines",
-    },
-  },
-  openGraph: {
-    title: "Domaines médicaux | NOMAQbanq",
-    description: `${DOMAINS.length} domaines médicaux pour préparer l'EACMC : cardiologie, pédiatrie, chirurgie, neurologie. Questions organisées par spécialité.`,
-    images: [
-      {
-        url: "/images/home-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "NOMAQbanq - Domaines médicaux EACMC",
-      },
-    ],
-  },
-}
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.domaines, {
+  title: "QCM de l'EACMC Partie I par domaine médical",
+  description: `Explorez nos ${DOMAINS.length} domaines médicaux pour préparer l'EACMC partie 1 : cardiologie, pédiatrie, chirurgie, neurologie et plus. Questions organisées par spécialité pour une préparation ciblée.`,
+  ogDescription: `${DOMAINS.length} domaines médicaux pour préparer l'EACMC : cardiologie, pédiatrie, chirurgie, neurologie. Questions organisées par spécialité.`,
+})
 
 // Aligné sur le cache des stats (1 semaine), invalidé plus tôt par leur tag :
 // une page régénérée plus souvent referait le rendu pour les mêmes données.

@@ -70,6 +70,7 @@ describe("getMarketingStats — successRate calculé", () => {
       completed: PASSED + FAILED,
       passed: PASSED,
     })
+    expect(expected).not.toBeNull()
     expect(stats.successRate).toBe(expected)
     expect(expected).not.toBe(
       resolveSuccessRate({
