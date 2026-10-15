@@ -128,6 +128,7 @@ export const offersJsonLd = (
         "@context": "https://schema.org",
         "@type": "Product",
         name: "Accès NOMAQbanq",
+        image: siteUrl(SITE_OG_IMAGE.url),
         description:
           "Accès à la banque de QCM et aux examens blancs pour préparer l'EACMC Partie I.",
         brand: { "@type": "Brand", name: "NOMAQbanq" },
