@@ -4,13 +4,14 @@ import {
   type LegalArticle,
   LegalDocument,
 } from "@/components/shared/legal-document"
+import { SITE_URL } from "@/lib/seo"
 
 export const metadata: Metadata = {
   title: "Conditions d'utilisation",
   description:
     "Conditions générales d'utilisation de la plateforme NOMAQbanq pour la préparation à l'EACMC Partie I.",
   alternates: {
-    canonical: "https://nomaqbanq.ca/conditions",
+    canonical: `${SITE_URL}/conditions`,
   },
 }
 

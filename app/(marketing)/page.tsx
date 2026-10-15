@@ -1,6 +1,11 @@
 import { Metadata } from "next"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
-import { SITE_DESCRIPTION, SITE_OG_IMAGE, SITE_OPEN_GRAPH } from "@/lib/seo"
+import {
+  SITE_DESCRIPTION,
+  SITE_OG_IMAGE,
+  SITE_OPEN_GRAPH,
+  SITE_URL,
+} from "@/lib/seo"
 import HomeLanding from "./_components/home-landing"
 
 export const metadata: Metadata = {
@@ -8,9 +13,9 @@ export const metadata: Metadata = {
   description:
     "NOMAQbanq, plateforme francophone pour préparer l'EACMC partie 1 : plus de 3000 QCM, examens blancs, modes tuteur et chronométré, suivi de progression.",
   alternates: {
-    canonical: "https://nomaqbanq.ca",
+    canonical: SITE_URL,
     languages: {
-      "fr-CA": "https://nomaqbanq.ca",
+      "fr-CA": SITE_URL,
     },
   },
   openGraph: {

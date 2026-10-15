@@ -16,7 +16,7 @@ import { ProofLine } from "@/components/marketing/proof-line"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { testimonials } from "@/data/testimonials"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH } from "@/lib/seo"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -24,9 +24,9 @@ export const metadata: Metadata = {
   description:
     "NOMAQbanq, plateforme francophone de préparation à l'EACMC Partie I basée à Gatineau (Québec) : notre histoire, notre mission et les témoignages de nos candidats.",
   alternates: {
-    canonical: "https://nomaqbanq.ca/a-propos",
+    canonical: `${SITE_URL}/a-propos`,
     languages: {
-      "fr-CA": "https://nomaqbanq.ca/a-propos",
+      "fr-CA": `${SITE_URL}/a-propos`,
     },
   },
   openGraph: {

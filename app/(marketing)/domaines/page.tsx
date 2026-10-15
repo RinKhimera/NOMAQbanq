@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { DOMAINS } from "@/constants/domains"
 import { HERO_QUESTION_KEY_ONLY } from "@/constants/sample-questions"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH } from "@/lib/seo"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 import { DomainsBrowser } from "./_components/domains-browser"
 
@@ -21,9 +21,9 @@ export const metadata: Metadata = {
   title: "QCM de l'EACMC Partie I par domaine médical",
   description: `Explorez nos ${DOMAINS.length} domaines médicaux pour préparer l'EACMC partie 1 : cardiologie, pédiatrie, chirurgie, neurologie et plus. Questions organisées par spécialité pour une préparation ciblée.`,
   alternates: {
-    canonical: "https://nomaqbanq.ca/domaines",
+    canonical: `${SITE_URL}/domaines`,
     languages: {
-      "fr-CA": "https://nomaqbanq.ca/domaines",
+      "fr-CA": `${SITE_URL}/domaines`,
     },
   },
   openGraph: {

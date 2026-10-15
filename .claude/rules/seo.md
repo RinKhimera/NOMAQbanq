@@ -21,6 +21,8 @@ paths:
 
 **IMPORTANT - Images de partage** : une page qui redéfinit `openGraph` remplace celui du layout au lieu de le compléter → elle reprend `SITE_OG_IMAGE` (`lib/seo.ts`). Les pages domaine ont leur image générée (`domaines/[slug]/opengraph-image.tsx`, polices de `assets/fonts/`, jetons recopiés en hex : Satori ne lit pas les variables CSS). Le layout ne fixe que la carte Twitter : titre, description et image en sont repris de l'Open Graph de chaque page.
 
+**URL du site** : toujours `SITE_URL` (`lib/seo.ts`) — canonicals, `alternates`, sitemap, robots, JSON-LD, `llms.txt` — jamais `https://nomaqbanq.ca` écrit en dur.
+
 **Indexation d'un domaine** : `indexed: false` dans `DOMAINS` (aujourd'hui « Autres ») = page servie et liée, mais `noindex, follow`, absente du sitemap et du `llms.txt` (`INDEXED_DOMAINS`).
 
 **Données structurées** : objets produits par les fonctions pures de `lib/seo.ts`, rendus par `JsonLd` (`components/seo/json-ld.tsx`) — `EducationalOrganization` et `WebSite` (sans `SearchAction` : la FAQ n'a pas de recherche par URL) dans le layout, `BreadcrumbList` sur les pages domaine (aligné sur le fil d'Ariane visible), `Product` + une `Offer` par produit sur Tarifs (prix du catalogue en cache), `FAQPage` sur la FAQ.

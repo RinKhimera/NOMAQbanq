@@ -12,7 +12,7 @@ import {
 import { ScoreRing } from "@/components/shared/score-ring"
 import { HERO_QUESTION } from "@/constants/sample-questions"
 import { PASS_THRESHOLD, formatScore, scoreTone } from "@/lib/score"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH } from "@/lib/seo"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
 import { TONE_COLOR } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { ExamSessionDemo, SeriesComposerDemo } from "./_components/demos"
@@ -22,8 +22,8 @@ export const metadata: Metadata = {
   description:
     "Composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression : la méthode NOMAQbanq pour préparer l'EACMC Partie I.",
   alternates: {
-    canonical: "https://nomaqbanq.ca/fonctionnement",
-    languages: { "fr-CA": "https://nomaqbanq.ca/fonctionnement" },
+    canonical: `${SITE_URL}/fonctionnement`,
+    languages: { "fr-CA": `${SITE_URL}/fonctionnement` },
   },
   openGraph: {
     ...SITE_OPEN_GRAPH,

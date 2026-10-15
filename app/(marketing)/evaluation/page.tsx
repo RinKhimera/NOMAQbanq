@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { HERO_QUESTION_KEY_ONLY } from "@/constants/sample-questions"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH } from "@/lib/seo"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
 import { TimerDemo } from "./_components/timer-demo"
 
 export const metadata: Metadata = {
@@ -25,9 +25,9 @@ export const metadata: Metadata = {
   description:
     "Évaluation gratuite pour l'EACMC partie 1 : testez votre niveau en conditions réelles, découvrez l'interface et la qualité des questions avant de vous abonner.",
   alternates: {
-    canonical: "https://nomaqbanq.ca/evaluation",
+    canonical: `${SITE_URL}/evaluation`,
     languages: {
-      "fr-CA": "https://nomaqbanq.ca/evaluation",
+      "fr-CA": `${SITE_URL}/evaluation`,
     },
   },
   openGraph: {

@@ -6,7 +6,12 @@ import {
 } from "@/features/marketing/cached"
 import { getAccessStatus } from "@/features/payments/dal"
 import { getCurrentSession } from "@/lib/dal"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, offersJsonLd } from "@/lib/seo"
+import {
+  SITE_OG_IMAGE,
+  SITE_OPEN_GRAPH,
+  SITE_URL,
+  offersJsonLd,
+} from "@/lib/seo"
 import TarifsPageContent from "./_components/tarifs-page"
 
 export const metadata: Metadata = {
@@ -14,7 +19,7 @@ export const metadata: Metadata = {
   description:
     "Formules NOMAQbanq pour préparer l'EACMC partie 1 : accès à la banque de questions et aux examens blancs, en dollars canadiens. Paiement sécurisé, accès instantané, temps cumulable.",
   alternates: {
-    canonical: "https://nomaqbanq.ca/tarifs",
+    canonical: `${SITE_URL}/tarifs`,
   },
   openGraph: {
     ...SITE_OPEN_GRAPH,

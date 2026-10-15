@@ -5,13 +5,14 @@ import {
   type LegalArticle,
   LegalDocument,
 } from "@/components/shared/legal-document"
+import { SITE_URL } from "@/lib/seo"
 
 export const metadata: Metadata = {
   title: "Politique de cookies",
   description:
     "Informations sur l'utilisation des cookies et traceurs sur la plateforme NOMAQbanq.",
   alternates: {
-    canonical: "https://nomaqbanq.ca/cookies",
+    canonical: `${SITE_URL}/cookies`,
   },
 }
 
