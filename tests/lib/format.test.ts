@@ -483,6 +483,12 @@ describe("formatIsoDay", () => {
     expect(formatIsoDay("2026-07-03", "weekday")).toBe(
       "vendredi 3 juillet 2026",
     )
+    expect(formatIsoDay("2026-07-03", "long")).toBe("3 juillet 2026")
+  })
+
+  it("écrit « 1er » le premier du mois", () => {
+    expect(formatIsoDay("2026-11-01")).toBe("1er nov.")
+    expect(formatIsoDay("2026-11-01", "long")).toBe("1er novembre 2026")
   })
 
   it("rend l'entrée telle quelle quand elle n'est pas un jour ISO", () => {

@@ -75,12 +75,16 @@ export type JsonLdData = {
   [key: string]: unknown
 }
 
-export const organizationJsonLd = (): JsonLdData => ({
-  "@context": "https://schema.org",
+const ORGANIZATION = {
   "@type": "EducationalOrganization",
   name: "NOMAQbanq",
   url: SITE_URL,
   logo: `${SITE_URL}/icons/icon-512.png`,
+} as const
+
+export const organizationJsonLd = (): JsonLdData => ({
+  "@context": "https://schema.org",
+  ...ORGANIZATION,
   description: SITE_DESCRIPTION,
   address: {
     "@type": "PostalAddress",
@@ -142,6 +146,37 @@ export const offersJsonLd = (
           url: siteUrl(MARKETING_PATHS.tarifs),
         })),
       }
+
+/**
+ * Article de la vitrine : l'équipe reste anonyme, l'organisation en est
+ * l'auteur. `dateModified` = dernière révision des faits, pas du fichier.
+ * L'image est celle que génère le segment de la page.
+ */
+export const articleJsonLd = ({
+  path,
+  headline,
+  description,
+  datePublished,
+  dateModified,
+}: {
+  path: string
+  headline: string
+  description: string
+  datePublished: string
+  dateModified: string
+}): JsonLdData => ({
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline,
+  description,
+  inLanguage: "fr-CA",
+  datePublished,
+  dateModified,
+  mainEntityOfPage: siteUrl(path),
+  image: `${siteUrl(path)}/opengraph-image`,
+  author: ORGANIZATION,
+  publisher: ORGANIZATION,
+})
 
 export const faqPageJsonLd = (
   questions: readonly { q: string; a: string }[],

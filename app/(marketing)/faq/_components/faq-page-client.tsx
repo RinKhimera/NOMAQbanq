@@ -59,7 +59,7 @@ export default function FaqPageClient() {
       <MarketingHero
         label="FAQ"
         title="Questions fréquentes"
-        description="Tout ce qu'il faut savoir sur la plateforme, les accès et le contenu."
+        description="Tout ce qu'il faut savoir sur l'examen, la plateforme, les accès et le contenu."
       >
         <div className="w-full max-w-120 pt-1">
           <SearchInput
@@ -127,6 +127,7 @@ export default function FaqPageClient() {
                   items={c.questions.map((item) => ({
                     question: item.q,
                     answer: item.a,
+                    href: item.href,
                   }))}
                   defaultOpen={!!needle}
                 />

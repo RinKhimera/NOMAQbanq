@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { GUIDE_REVIEWED_ON } from "@/app/(marketing)/eacmc-partie-1/_data/guide"
 import robots from "@/app/robots"
 import sitemap from "@/app/sitemap"
 
@@ -14,6 +15,13 @@ describe("sitemap", () => {
       "https://nomaqbanq.ca/domaines/sante-publique",
     )
     expect(urls()).toContain("https://nomaqbanq.ca/fonctionnement")
+  })
+
+  it("date le guide de sa dernière révision factuelle", () => {
+    const entry = sitemap().find(
+      (e) => e.url === "https://nomaqbanq.ca/eacmc-partie-1",
+    )
+    expect(entry?.lastModified).toEqual(new Date(GUIDE_REVIEWED_ON))
   })
 
   it("ne liste pas la page des questions transversales", () => {

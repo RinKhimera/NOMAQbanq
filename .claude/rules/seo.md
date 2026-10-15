@@ -23,9 +23,11 @@ paths:
 
 **URL et chemins** : chemins des pages publiques dans `MARKETING_PATHS` (`constants/index.tsx`) et `domainPath` (`constants/domains.ts`) ; URL absolue par `siteUrl(path)` (`lib/seo.ts`) — canonicals, sitemap, robots, JSON-LD, `llms.txt`. Jamais `https://nomaqbanq.ca` ni un chemin de la vitrine écrits en dur.
 
+**Guide de l'EACMC** (`/eacmc-partie-1`) : le CMC a renommé l'examen « EACMC » (anciennement « EACMC, partie I ») ; le guide porte les deux noms, le reste de la vitrine garde « EACMC Partie I » que tapent les candidats. Il est la seule page qui vise « préparer l'EACMC » (`/fonctionnement` décrit le produit). Chaque fait renvoie à sa page mcc.ca ; frais, dates de session et taux de réussite à l'EACMC ne sont jamais recopiés. `GUIDE_REVIEWED_ON` (`_data/guide.ts`) ne change qu'après une relecture des faits contre mcc.ca : il est affiché et repris par le sitemap et le JSON-LD. Les questions de la FAQ sur l'examen renvoient chacune à une section du guide (`guideAnchor`, verrou `tests/marketing/faq-data.test.ts`).
+
 **Indexation d'un domaine** : `noindex: true` dans `DOMAINS` (aujourd'hui « Autres ») = page servie et liée, mais `noindex, follow`, absente du sitemap et du `llms.txt` (`INDEXED_DOMAINS`).
 
-**Données structurées** : objets produits par les fonctions pures de `lib/seo.ts`, rendus par `JsonLd` (`components/seo/json-ld.tsx`) — `EducationalOrganization` et `WebSite` (sans `SearchAction` : la FAQ n'a pas de recherche par URL) dans le layout, `BreadcrumbList` sur les pages domaine (aligné sur le fil d'Ariane visible), `Product` + une `Offer` par produit sur Tarifs (prix du catalogue en cache), `FAQPage` sur la FAQ (`faqPageJsonLd`).
+**Données structurées** : objets produits par les fonctions pures de `lib/seo.ts`, rendus par `JsonLd` (`components/seo/json-ld.tsx`) — `EducationalOrganization` et `WebSite` (sans `SearchAction` : la FAQ n'a pas de recherche par URL) dans le layout, `BreadcrumbList` sur les pages domaine (aligné sur le fil d'Ariane visible), `Product` + une `Offer` par produit sur Tarifs (prix du catalogue en cache), `FAQPage` sur la FAQ (`faqPageJsonLd`). `Article` sur le guide de l'EACMC (`articleJsonLd`, auteur = l'organisation : l'équipe reste anonyme).
 
 | Fichier                 | Role                                                                                                                        |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |

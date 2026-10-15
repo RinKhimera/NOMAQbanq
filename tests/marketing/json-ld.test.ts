@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { domainBySlug } from "@/constants/domains"
 import type { ProductView } from "@/features/payments/dal"
 import {
+  articleJsonLd,
   domainBreadcrumbJsonLd,
   faqPageJsonLd,
   offersJsonLd,
@@ -102,6 +103,36 @@ describe("faqPageJsonLd", () => {
           acceptedAnswer: { "@type": "Answer", text: "Parce que." },
         },
       ],
+    })
+  })
+})
+
+describe("articleJsonLd", () => {
+  it("un article de l'organisation, daté de sa dernière révision", () => {
+    const data = articleJsonLd({
+      path: "/eacmc-partie-1",
+      headline: "EACMC",
+      description: "Guide",
+      datePublished: "2026-10-01",
+      dateModified: "2026-10-15",
+    })
+
+    expect(data).toMatchObject({
+      "@type": "Article",
+      headline: "EACMC",
+      description: "Guide",
+      inLanguage: "fr-CA",
+      datePublished: "2026-10-01",
+      dateModified: "2026-10-15",
+      mainEntityOfPage: "https://nomaqbanq.ca/eacmc-partie-1",
+      image: "https://nomaqbanq.ca/eacmc-partie-1/opengraph-image",
+    })
+    expect(data.author).toEqual(data.publisher)
+    expect(data.author).toMatchObject({
+      "@type": "EducationalOrganization",
+      name: "NOMAQbanq",
+      url: "https://nomaqbanq.ca",
+      logo: expect.stringMatching(/\.png$/),
     })
   })
 })

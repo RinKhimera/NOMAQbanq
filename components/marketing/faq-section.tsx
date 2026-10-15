@@ -8,7 +8,12 @@ import {
 import { cn } from "@/lib/utils"
 import { Eyebrow, MARKETING_SECTION, MARKETING_WRAP } from "./marketing-hero"
 
-export type FaqItem = { question: string; answer: string }
+export type FaqItem = {
+  question: string
+  answer: string
+  /** Page qui développe la réponse. */
+  href?: string
+}
 
 /** Questions en accordéon, la première ouverte au chargement. */
 export const FaqAccordion = ({
@@ -31,6 +36,18 @@ export const FaqAccordion = ({
         </AccordionTrigger>
         <AccordionContent className="text-[15px] leading-relaxed">
           {item.answer}
+          {item.href && (
+            <>
+              {" "}
+              <Link
+                href={item.href}
+                className="focus-ring text-accent-ink rounded-sm whitespace-nowrap hover:underline"
+              >
+                Lire la suite<span className="sr-only"> : {item.question}</span>{" "}
+                →
+              </Link>
+            </>
+          )}
         </AccordionContent>
       </AccordionItem>
     ))}

@@ -33,6 +33,7 @@ describe("/llms.txt", () => {
   it("liste les pages clés de la vitrine", async () => {
     const { text } = await llms()
     for (const path of [
+      "/eacmc-partie-1",
       "/domaines",
       "/fonctionnement",
       "/tarifs",

@@ -220,13 +220,11 @@ const dayIndex = (day: string) => {
   return Date.UTC(y, m - 1, d) / 86_400_000
 }
 
-const shortDay = (day: string) => formatIsoDay(day).replace(/^1 /, "1er ")
-
 /** « Ouvert 3 jours : du 6 nov. 0 h 00 au 9 nov. 0 h 00 » (fin exclusive). */
 export const windowNote = (startDay: string, endDay: string) => {
   const n = dayIndex(endDay) - dayIndex(startDay)
   const midnight = `0${NBSP}h${NBSP}00`
-  return `Ouvert ${countLabel(n, "jour")}${NBSP}: du ${shortDay(startDay)} ${midnight} au ${shortDay(endDay)} ${midnight}`
+  return `Ouvert ${countLabel(n, "jour")}${NBSP}: du ${formatIsoDay(startDay)} ${midnight} au ${formatIsoDay(endDay)} ${midnight}`
 }
 
 export type SelectionSummary = {

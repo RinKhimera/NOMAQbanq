@@ -8,13 +8,19 @@ export const dynamic = "force-static"
 
 const KEY_PAGES = [
   {
+    path: MARKETING_PATHS.eacmc,
+    name: "Guide de l'EACMC (anciennement EACMC Partie I)",
+    about:
+      "format de l'examen, notation, inscription, parcours des diplômés à l'étranger et méthode de préparation, sourcés au Conseil médical du Canada",
+  },
+  {
     path: MARKETING_PATHS.domaines,
     name: "Domaines médicaux",
     about: `les ${DOMAINS.length} domaines de la banque de questions, rattachés aux objectifs du CMC ; ${INDEXED_DOMAINS.length} ont leur page, listée ci-dessous, les questions transversales n'en ont pas`,
   },
   {
     path: MARKETING_PATHS.fonctionnement,
-    name: "Fonctionnement",
+    name: "Comment fonctionne NOMAQbanq",
     about:
       "composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression",
   },

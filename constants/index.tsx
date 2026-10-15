@@ -30,6 +30,7 @@ export const PRICING_HREF = "/tarifs"
 export const MARKETING_PATHS = {
   home: "/",
   fonctionnement: "/fonctionnement",
+  eacmc: "/eacmc-partie-1",
   domaines: "/domaines",
   evaluation: "/evaluation",
   tarifs: PRICING_HREF,
@@ -168,6 +169,7 @@ export const HEADER_MENU_ONLY_NAV = [
 export const FOOTER_QUICK_LINKS = [
   { name: "Accueil", href: MARKETING_PATHS.home },
   { name: "Comment ça marche", href: MARKETING_PATHS.fonctionnement },
+  { name: "Guide EACMC", href: MARKETING_PATHS.eacmc },
   { name: "Domaines", href: MARKETING_PATHS.domaines },
   { name: "Évaluation", href: MARKETING_PATHS.evaluation },
   { name: "Tarifs", href: MARKETING_PATHS.tarifs },

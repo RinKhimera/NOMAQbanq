@@ -1,6 +1,10 @@
+import { guideAnchor } from "@/app/(marketing)/eacmc-partie-1/_data/guide"
+
 export interface FaqQuestion {
   q: string
   a: string
+  /** Section du guide qui développe la réponse. */
+  href?: string
 }
 
 export interface FaqCategory {
@@ -10,6 +14,37 @@ export interface FaqCategory {
 }
 
 export const faqCategories: FaqCategory[] = [
+  {
+    id: "eacmc",
+    title: "L'EACMC",
+    questions: [
+      {
+        q: "Qu'est-ce que l'EACMC Partie I ?",
+        a: "C'est l'ancien nom de l'EACMC, l'Examen d'aptitude du Conseil médical du Canada. Cet examen informatisé évalue les connaissances médicales et la prise de décisions cliniques attendues d'un diplômé en médecine au Canada ; il est exigé des diplômés internationaux qui postulent à la résidence.",
+        href: guideAnchor("definition"),
+      },
+      {
+        q: "Peut-on passer l'EACMC en français ?",
+        a: "Oui. L'examen est offert en français et en anglais. Les Objectifs d'examen du CMC et ses ressources de préparation sont aussi publiés en français.",
+        href: guideAnchor("deroulement"),
+      },
+      {
+        q: "Combien de temps dure l'EACMC et combien comporte-t-il de questions ?",
+        a: "L'EACMC compte 230 questions à choix multiple, en deux sections de 115 questions, avec au plus 2 h 40 par section et une pause facultative de 45 minutes entre les deux. Le rendez-vous dure 6,5 heures au total.",
+        href: guideAnchor("deroulement"),
+      },
+      {
+        q: "Comment s'inscrire à l'EACMC ?",
+        a: "La demande se fait dans votre compte inscriptionmed.ca, sous Examens, puis Admission à un examen. Une fois la demande acceptée (comptez jusqu'à 4 semaines), vous réservez votre rendez-vous chez Prometric. Un diplômé international fait d'abord vérifier son diplôme à la source par le CMC.",
+        href: guideAnchor("inscription"),
+      },
+      {
+        q: "Combien de temps faut-il pour se préparer à l'EACMC ?",
+        a: "Cela dépend de votre point de départ. Commencez par un diagnostic, comme l'évaluation gratuite de NOMAQbanq, pour repérer vos domaines faibles, puis bâtissez votre plan à partir des Objectifs d'examen du CMC.",
+        href: guideAnchor("preparation"),
+      },
+    ],
+  },
   {
     id: "plateforme",
     title: "Plateforme et apprentissage",

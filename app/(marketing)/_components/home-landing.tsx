@@ -18,6 +18,7 @@ import { ProofLine, Stars } from "@/components/marketing/proof-line"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MARKETING_PATHS } from "@/constants"
 import { HERO_QUESTION_KEY_ONLY } from "@/constants/sample-questions"
 import { testimonials } from "@/data/testimonials"
 import type { MarketingStats } from "@/features/marketing/dal"
@@ -179,11 +180,19 @@ export default function HomeLanding({ stats }: { stats: MarketingStats }) {
                 Tout ce qu&apos;il faut pour réviser, au même endroit.
               </h2>
             </div>
-            <p className="type-body-lg self-end">
-              Les objectifs du CMC décrivent ce que l&apos;on attend des
-              diplômés qui visent la résidence au Canada. NOMAQbanq organise sa
-              banque de questions autour de ces objectifs.
-            </p>
+            <div className="flex flex-col gap-3 self-end">
+              <p className="type-body-lg">
+                Les objectifs du CMC décrivent ce que l&apos;on attend des
+                diplômés qui visent la résidence au Canada. NOMAQbanq organise
+                sa banque de questions autour de ces objectifs.
+              </p>
+              <Link
+                href={MARKETING_PATHS.eacmc}
+                className="focus-ring text-accent-ink w-fit rounded-sm text-sm hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center"
+              >
+                Format, notation, inscription : le guide de l&apos;EACMC →
+              </Link>
+            </div>
           </div>
           <FeatureCells items={FEATURES} columns={4} />
         </div>
