@@ -1,35 +1,22 @@
 import { Metadata } from "next"
 import { JsonLd } from "@/components/seo/json-ld"
+import { MARKETING_PATHS } from "@/constants"
 import {
   getCachedAvailableProducts,
   getCachedMarketingStats,
 } from "@/features/marketing/cached"
 import { getAccessStatus } from "@/features/payments/dal"
 import { getCurrentSession } from "@/lib/dal"
-import {
-  SITE_OG_IMAGE,
-  SITE_OPEN_GRAPH,
-  SITE_URL,
-  offersJsonLd,
-} from "@/lib/seo"
+import { offersJsonLd, pageMetadata } from "@/lib/seo"
 import TarifsPageContent from "./_components/tarifs-page"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.tarifs, {
   title: "Tarifs de la préparation à l'EACMC Partie I",
   description:
     "Formules NOMAQbanq pour préparer l'EACMC partie 1 : accès à la banque de questions et aux examens blancs, en dollars canadiens. Paiement sécurisé, accès instantané, temps cumulable.",
-  alternates: {
-    canonical: `${SITE_URL}/tarifs`,
-  },
-  openGraph: {
-    ...SITE_OPEN_GRAPH,
-    url: `${SITE_URL}/tarifs`,
-    title: "Tarifs de la préparation à l'EACMC Partie I",
-    description:
-      "Formules flexibles pour préparer l'EACMC Partie I : banque de questions et examens blancs.",
-    images: [SITE_OG_IMAGE],
-  },
-}
+  ogDescription:
+    "Formules flexibles pour préparer l'EACMC Partie I : banque de questions et examens blancs.",
+})
 
 export default async function TarifsRoute({
   searchParams,
@@ -48,9 +35,10 @@ export default async function TarifsRoute({
     getCachedMarketingStats(),
     getCurrentSession(),
   ])
+  const offers = offersJsonLd(products)
   return (
     <>
-      {products.length > 0 && <JsonLd data={offersJsonLd(products)} />}
+      {offers && <JsonLd data={offers} />}
       <TarifsPageContent
         products={products}
         accessStatus={accessStatus}

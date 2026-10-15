@@ -1,4 +1,6 @@
-import type { PublicDomain } from "@/constants/domains"
+import type { Metadata } from "next"
+import { MARKETING_PATHS } from "@/constants"
+import { type PublicDomain, domainPath } from "@/constants/domains"
 import type { ProductView } from "@/features/payments/dal"
 
 export const SITE_URL = "https://nomaqbanq.ca"
@@ -18,12 +20,53 @@ export const SITE_OPEN_GRAPH = {
   siteName: "NOMAQbanq",
 } as const
 
+export const OG_SIZE = { width: 1200, height: 630 }
+
+export const SITE_OG_ALT = "NOMAQbanq, préparation à l'EACMC Partie I"
+
 /** Générée par `app/opengraph-image.tsx`. */
 export const SITE_OG_IMAGE = {
   url: "/opengraph-image",
-  width: 1200,
-  height: 630,
-  alt: "NOMAQbanq, préparation à l'EACMC Partie I",
+  ...OG_SIZE,
+  alt: SITE_OG_ALT,
+}
+
+export const siteUrl = (path: string) =>
+  path === MARKETING_PATHS.home ? SITE_URL : `${SITE_URL}${path}`
+
+/**
+ * Métadonnées d'une page de la vitrine : canonical et Open Graph complet sur
+ * la même URL. `ogImage: false` quand le segment génère sa propre image.
+ */
+export const pageMetadata = (
+  path: string,
+  {
+    title,
+    description,
+    ogTitle = title,
+    ogDescription = description,
+    ogImage = true,
+  }: {
+    title: string
+    description: string
+    ogTitle?: string
+    ogDescription?: string
+    ogImage?: boolean
+  },
+): Metadata => {
+  const url = siteUrl(path)
+  return {
+    title,
+    description,
+    alternates: { canonical: url, languages: { "fr-CA": url } },
+    openGraph: {
+      ...SITE_OPEN_GRAPH,
+      url,
+      title: ogTitle,
+      description: ogDescription,
+      ...(ogImage && { images: [SITE_OG_IMAGE] }),
+    },
+  }
 }
 
 export type JsonLdData = {
@@ -70,26 +113,43 @@ export const domainBreadcrumbJsonLd = (domain: PublicDomain): JsonLdData => ({
   "@type": "BreadcrumbList",
   itemListElement: [
     { name: "Accueil", item: SITE_URL },
-    { name: "Domaines", item: `${SITE_URL}/domaines` },
-    { name: domain.name, item: `${SITE_URL}/domaines/${domain.slug}` },
+    { name: "Domaines", item: siteUrl(MARKETING_PATHS.domaines) },
+    { name: domain.name, item: siteUrl(domainPath(domain)) },
   ].map((crumb, i) => ({ "@type": "ListItem", position: i + 1, ...crumb })),
 })
 
-/** À ne rendre qu'avec au moins un produit : une offre vide est invalide. */
-export const offersJsonLd = (products: readonly ProductView[]): JsonLdData => ({
+/** `null` sans produit : un `Product` sans offre est invalide. */
+export const offersJsonLd = (
+  products: readonly ProductView[],
+): JsonLdData | null =>
+  products.length === 0
+    ? null
+    : {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        name: "Accès NOMAQbanq",
+        description:
+          "Accès à la banque de QCM et aux examens blancs pour préparer l'EACMC Partie I.",
+        brand: { "@type": "Brand", name: "NOMAQbanq" },
+        offers: products.map((p) => ({
+          "@type": "Offer",
+          name: p.name,
+          description: p.description,
+          price: (p.priceCAD / 100).toFixed(2),
+          priceCurrency: "CAD",
+          availability: "https://schema.org/InStock",
+          url: siteUrl(MARKETING_PATHS.tarifs),
+        })),
+      }
+
+export const faqPageJsonLd = (
+  questions: readonly { q: string; a: string }[],
+): JsonLdData => ({
   "@context": "https://schema.org",
-  "@type": "Product",
-  name: "Accès NOMAQbanq",
-  description:
-    "Accès à la banque de QCM et aux examens blancs pour préparer l'EACMC Partie I.",
-  brand: { "@type": "Brand", name: "NOMAQbanq" },
-  offers: products.map((p) => ({
-    "@type": "Offer",
-    name: p.name,
-    description: p.description,
-    price: (p.priceCAD / 100).toFixed(2),
-    priceCurrency: "CAD",
-    availability: "https://schema.org/InStock",
-    url: `${SITE_URL}/tarifs`,
+  "@type": "FAQPage",
+  mainEntity: questions.map((faq) => ({
+    "@type": "Question",
+    name: faq.q,
+    acceptedAnswer: { "@type": "Answer", text: faq.a },
   })),
 })

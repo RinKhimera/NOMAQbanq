@@ -10,30 +10,21 @@ import {
   MarketingHero,
 } from "@/components/marketing/marketing-hero"
 import { ScoreRing } from "@/components/shared/score-ring"
+import { MARKETING_PATHS } from "@/constants"
 import { HERO_QUESTION } from "@/constants/sample-questions"
 import { PASS_THRESHOLD, formatScore, scoreTone } from "@/lib/score"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
+import { pageMetadata } from "@/lib/seo"
 import { TONE_COLOR } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { ExamSessionDemo, SeriesComposerDemo } from "./_components/demos"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.fonctionnement, {
   title: "Comment préparer l'EACMC Partie I",
   description:
     "Composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression : la méthode NOMAQbanq pour préparer l'EACMC Partie I.",
-  alternates: {
-    canonical: `${SITE_URL}/fonctionnement`,
-    languages: { "fr-CA": `${SITE_URL}/fonctionnement` },
-  },
-  openGraph: {
-    ...SITE_OPEN_GRAPH,
-    url: `${SITE_URL}/fonctionnement`,
-    title: "Comment préparer l'EACMC Partie I",
-    description:
-      "Une méthode en quatre temps pour préparer l'EACMC Partie I en français.",
-    images: [SITE_OG_IMAGE],
-  },
-}
+  ogDescription:
+    "Une méthode en quatre temps pour préparer l'EACMC Partie I en français.",
+})
 
 const DEMO_SCORES = [
   { label: "Cardiologie", value: 81 },

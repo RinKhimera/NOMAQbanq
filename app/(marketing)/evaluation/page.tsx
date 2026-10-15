@@ -15,30 +15,20 @@ import {
   MarketingHero,
 } from "@/components/marketing/marketing-hero"
 import { Button } from "@/components/ui/button"
+import { MARKETING_PATHS } from "@/constants"
 import { HERO_QUESTION_KEY_ONLY } from "@/constants/sample-questions"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
+import { pageMetadata } from "@/lib/seo"
 import { TimerDemo } from "./_components/timer-demo"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.evaluation, {
   title: "Évaluation gratuite",
   description:
     "Évaluation gratuite pour l'EACMC partie 1 : testez votre niveau en conditions réelles, découvrez l'interface et la qualité des questions avant de vous abonner.",
-  alternates: {
-    canonical: `${SITE_URL}/evaluation`,
-    languages: {
-      "fr-CA": `${SITE_URL}/evaluation`,
-    },
-  },
-  openGraph: {
-    ...SITE_OPEN_GRAPH,
-    url: `${SITE_URL}/evaluation`,
-    title: "Évaluation gratuite pour l'EACMC Partie I",
-    description:
-      "Testez gratuitement notre plateforme de préparation EACMC. Découvrez la qualité de nos questions et évaluez votre niveau.",
-    images: [SITE_OG_IMAGE],
-  },
-}
+  ogTitle: "Évaluation gratuite pour l'EACMC Partie I",
+  ogDescription:
+    "Testez gratuitement notre plateforme de préparation EACMC. Découvrez la qualité de nos questions et évaluez votre niveau.",
+})
 
 // Aligné sur le cache des stats (1 semaine), invalidé plus tôt par leur tag :
 // une page régénérée plus souvent referait le rendu pour les mêmes données.

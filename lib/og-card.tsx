@@ -1,8 +1,7 @@
 import { ImageResponse } from "next/og"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-
-export const OG_SIZE = { width: 1200, height: 630 }
+import { OG_SIZE } from "@/lib/seo"
 
 // Valeurs des jetons clairs de `app/globals.css` : Satori ne lit pas les
 // variables CSS.
@@ -35,19 +34,11 @@ const DOTS = svgDataUri(
   `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="630"><defs><pattern id="d" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="11" cy="11" r="1.3" fill="${TOKENS.patternDot}"/></pattern></defs><rect width="100%" height="100%" fill="url(#d)"/></svg>`,
 )
 
-export const OG_EYEBROW = `EACMC Partie${NBSP}I · QCM`
-
 /**
  * Image de partage sur la charte « Manuel » : marque, libellé mono, titre
  * serif, trame de points. Rendue au build par les routes `opengraph-image`.
  */
-export const ogCard = ({
-  eyebrow = OG_EYEBROW,
-  title,
-}: {
-  eyebrow?: string
-  title: string
-}) =>
+export const ogCard = (title: string) =>
   new ImageResponse(
     <div
       style={{
@@ -108,7 +99,7 @@ export const ogCard = ({
               letterSpacing: "0.06em",
             }}
           >
-            {eyebrow}
+            {`EACMC Partie${NBSP}I · QCM`}
           </span>
           <span
             style={{

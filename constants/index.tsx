@@ -26,6 +26,20 @@ export const ACCESS_HREF = "/tableau-de-bord/abonnements"
 /** Grille tarifaire de la vitrine. */
 export const PRICING_HREF = "/tarifs"
 
+/** Pages publiques de la vitrine : navigation, métadonnées, sitemap, `llms.txt`. */
+export const MARKETING_PATHS = {
+  home: "/",
+  fonctionnement: "/fonctionnement",
+  domaines: "/domaines",
+  evaluation: "/evaluation",
+  tarifs: PRICING_HREF,
+  faq: "/faq",
+  aPropos: "/a-propos",
+  confidentialite: "/confidentialite",
+  conditions: "/conditions",
+  cookies: "/cookies",
+} as const
+
 export const studentNavSections: NavSection[] = [
   {
     heading: "Espace étudiant",
@@ -138,34 +152,34 @@ export const isMedicalDomain = (domain: string): domain is MedicalDomain => {
 
 // Liens de l'en-tête de la vitrine
 export const HEADER_NAV = [
-  { name: "Comment ça marche", href: "/fonctionnement" },
-  { name: "Domaines", href: "/domaines" },
-  { name: "Tarifs", href: "/tarifs" },
-  { name: "FAQ", href: "/faq" },
+  { name: "Comment ça marche", href: MARKETING_PATHS.fonctionnement },
+  { name: "Domaines", href: MARKETING_PATHS.domaines },
+  { name: "Tarifs", href: MARKETING_PATHS.tarifs },
+  { name: "FAQ", href: MARKETING_PATHS.faq },
 ]
 
 /** Liens réservés au menu mobile : l'en-tête large les porte en boutons. */
 export const HEADER_MENU_ONLY_NAV = [
-  { name: "Essai gratuit", href: "/evaluation" },
-  { name: "À propos", href: "/a-propos" },
+  { name: "Essai gratuit", href: MARKETING_PATHS.evaluation },
+  { name: "À propos", href: MARKETING_PATHS.aPropos },
 ]
 
 // Liens du footer
 export const FOOTER_QUICK_LINKS = [
-  { name: "Accueil", href: "/" },
-  { name: "Comment ça marche", href: "/fonctionnement" },
-  { name: "Domaines", href: "/domaines" },
-  { name: "Évaluation", href: "/evaluation" },
-  { name: "Tarifs", href: "/tarifs" },
-  { name: "FAQ", href: "/faq" },
-  { name: "À propos", href: "/a-propos" },
+  { name: "Accueil", href: MARKETING_PATHS.home },
+  { name: "Comment ça marche", href: MARKETING_PATHS.fonctionnement },
+  { name: "Domaines", href: MARKETING_PATHS.domaines },
+  { name: "Évaluation", href: MARKETING_PATHS.evaluation },
+  { name: "Tarifs", href: MARKETING_PATHS.tarifs },
+  { name: "FAQ", href: MARKETING_PATHS.faq },
+  { name: "À propos", href: MARKETING_PATHS.aPropos },
 ] as const
 
 export const FOOTER_LEGAL_LINKS = [
   {
     name: "Politique de confidentialité",
-    href: "/confidentialite",
+    href: MARKETING_PATHS.confidentialite,
   },
-  { name: "Conditions d'utilisation", href: "/conditions" },
-  { name: "Cookies", href: "/cookies" },
+  { name: "Conditions d'utilisation", href: MARKETING_PATHS.conditions },
+  { name: "Cookies", href: MARKETING_PATHS.cookies },
 ] as const

@@ -89,10 +89,19 @@ describe("metadata de la vitrine", () => {
     },
   )
 
-  it("les pages domaine ont leur image de partage générée", () => {
-    expect(domaineImage.size).toEqual({ width: 1200, height: 630 })
-    expect(domaineImage.contentType).toBe("image/png")
-  })
+  it.each(DOMAINS.map((d) => [d.slug, d.name]))(
+    "/domaines/%s : image de partage générée, nommée dans son texte alternatif",
+    (slug, name) => {
+      expect(domaineImage.generateImageMetadata({ params: { slug } })).toEqual([
+        {
+          id: "partage",
+          alt: `${name} : QCM pour l'EACMC Partie I`,
+          size: { width: 1200, height: 630 },
+          contentType: "image/png",
+        },
+      ])
+    },
+  )
 
   it("/domaines/autres reste servie mais hors index", async () => {
     expect((await domainMetadata("autres")).robots).toEqual({

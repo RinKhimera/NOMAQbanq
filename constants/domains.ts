@@ -4,7 +4,7 @@
  * référentiel, à travers le cache (`getCachedDomainObjectives`). Aucun nombre
  * de questions par domaine ici, il est réservé à l'admin.
  */
-import type { MedicalDomain } from "@/constants"
+import { MARKETING_PATHS, type MedicalDomain } from "@/constants"
 
 export type DomainGroupId = "med" | "chir" | "me" | "sp"
 
@@ -16,11 +16,11 @@ export type PublicDomain = {
   description: string
   group: DomainGroup
   /**
-   * `false` : page servie et liée depuis `/domaines`, mais hors index (robots
+   * Page servie et liée depuis `/domaines`, mais hors index (robots
    * `noindex`, absente du sitemap et du `llms.txt`), faute de recherche à
    * laquelle elle réponde.
    */
-  indexed?: false
+  noindex?: true
 }
 
 export const DOMAIN_GROUPS: readonly DomainGroup[] = [
@@ -181,12 +181,15 @@ export const DOMAINS: readonly PublicDomain[] = [
     slug: "autres",
     description: "Questions transversales et cas multidisciplinaires",
     group: group("sp"),
-    indexed: false,
+    noindex: true,
   },
 ]
 
 /** Les pages domaine proposées aux moteurs de recherche. */
-export const INDEXED_DOMAINS = DOMAINS.filter((d) => d.indexed !== false)
+export const INDEXED_DOMAINS = DOMAINS.filter((d) => !d.noindex)
+
+export const domainPath = (domain: PublicDomain) =>
+  `${MARKETING_PATHS.domaines}/${domain.slug}`
 
 export const domainBySlug = (slug: string): PublicDomain | undefined =>
   DOMAINS.find((d) => d.slug === slug)

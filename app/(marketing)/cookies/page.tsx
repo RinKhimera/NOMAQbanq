@@ -5,22 +5,14 @@ import {
   type LegalArticle,
   LegalDocument,
 } from "@/components/shared/legal-document"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
+import { MARKETING_PATHS } from "@/constants"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.cookies, {
   title: "Politique de cookies",
   description:
     "Informations sur l'utilisation des cookies et traceurs sur la plateforme NOMAQbanq.",
-  alternates: {
-    canonical: `${SITE_URL}/cookies`,
-  },
-  openGraph: {
-    ...SITE_OPEN_GRAPH,
-    url: `${SITE_URL}/cookies`,
-    title: "Politique de cookies",
-    images: [SITE_OG_IMAGE],
-  },
-}
+})
 
 const Code = ({ children }: { children: ReactNode }) => (
   <code className="bg-surface-2 border-line text-ink rounded-xs border px-1.5 py-px font-mono text-[0.88em]">

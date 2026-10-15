@@ -14,30 +14,20 @@ import {
 } from "@/components/marketing/marketing-hero"
 import { ProofLine } from "@/components/marketing/proof-line"
 import { UserAvatar } from "@/components/shared/user-avatar"
+import { MARKETING_PATHS } from "@/constants"
 import { testimonials } from "@/data/testimonials"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
+import { pageMetadata } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.aPropos, {
   title: "À propos",
   description:
     "NOMAQbanq, plateforme francophone de préparation à l'EACMC Partie I basée à Gatineau (Québec) : notre histoire, notre mission et les témoignages de nos candidats.",
-  alternates: {
-    canonical: `${SITE_URL}/a-propos`,
-    languages: {
-      "fr-CA": `${SITE_URL}/a-propos`,
-    },
-  },
-  openGraph: {
-    ...SITE_OPEN_GRAPH,
-    url: `${SITE_URL}/a-propos`,
-    title: "À propos de NOMAQbanq",
-    description:
-      "Notre mission : accompagner les candidats francophones dans leur préparation à l'EACMC Partie I.",
-    images: [SITE_OG_IMAGE],
-  },
-}
+  ogTitle: "À propos de NOMAQbanq",
+  ogDescription:
+    "Notre mission : accompagner les candidats francophones dans leur préparation à l'EACMC Partie I.",
+})
 
 // Aligné sur le cache des stats (1 semaine), invalidé plus tôt par leur tag :
 // une page régénérée plus souvent referait le rendu pour les mêmes données.

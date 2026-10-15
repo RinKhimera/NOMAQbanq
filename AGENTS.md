@@ -99,6 +99,8 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Prettier** : Import order enforce: 1) node/npm 2) @/ 3) relatifs
 - **Sentry** : Tunnel route a `/monitoring` dans next.config.ts
 - **Dev server qui crashe au demarrage** (`An error occurred while loading instrumentation hook ... module factory is not available`, hook Sentry `instrumentation.ts`) : cache `.next` corrompu (souvent apres un gros diff ou des runs e2e), PAS la config → `rm -rf .next` puis relancer `bun dev`
+- **Dev server qui sert du code périmé** (500 sur un export qui n'existe plus, layout racine pas rechargé à chaud) après un gros diff : faire relancer `bun dev` avant de conclure à un bug
+- **`next build` pendant que `bun dev` tourne** : les deux écrivent dans `.next` → cache corrompu ; vérifier via le serveur de dev (curl), ou attendre la preview Vercel
 - **Second serveur de dev (worktree, session parallèle)** : `BETTER_AUTH_URL=http://localhost:3001 bun dev --port 3001` — sans la variable, l'auth vise le 3000 ; copier `.env.local` dans le worktree (gitignoré, absent d'un `git worktree add`)
 - **Image domains** : pexels.com, \*.cloudfront.net, cdn.nomaqbanq.ca (next.config.ts)
 - **Uploads médias** : presigned POST direct navigateur→S3 (`lib/aws.ts` + `lib/storage.ts`) ; rate-limit + validation à l'étape presign ; jamais via Server Action proxy

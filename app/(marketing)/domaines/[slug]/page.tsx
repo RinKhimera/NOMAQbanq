@@ -14,13 +14,13 @@ import {
 } from "@/components/marketing/marketing-hero"
 import { JsonLd } from "@/components/seo/json-ld"
 import { Button } from "@/components/ui/button"
-import { DOMAINS, domainBySlug } from "@/constants/domains"
+import { DOMAINS, domainBySlug, domainPath } from "@/constants/domains"
 import {
   DOMAIN_SAMPLE_QUESTIONS,
   HERO_QUESTION_KEY_ONLY,
 } from "@/constants/sample-questions"
 import { getCachedDomainObjectives } from "@/features/marketing/cached"
-import { SITE_OPEN_GRAPH, SITE_URL, domainBreadcrumbJsonLd } from "@/lib/seo"
+import { domainBreadcrumbJsonLd, pageMetadata } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 
 type Props = { params: Promise<{ slug: string }> }
@@ -35,18 +35,14 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const domain = domainBySlug((await params).slug)
   if (!domain) return {}
-  const url = `${SITE_URL}/domaines/${domain.slug}`
-  const title = `${domain.name} : QCM pour l'EACMC Partie I`
-  const description = `${domain.description} : QCM pour préparer l'EACMC partie 1, rattachés aux objectifs du CMC.`
   // L'image de partage vient de `opengraph-image.tsx`, à côté.
   return {
-    title,
-    description,
-    alternates: { canonical: url, languages: { "fr-CA": url } },
-    openGraph: { ...SITE_OPEN_GRAPH, title, description, url },
-    ...(domain.indexed === false && {
-      robots: { index: false, follow: true },
+    ...pageMetadata(domainPath(domain), {
+      title: `${domain.name} : QCM pour l'EACMC Partie I`,
+      description: `${domain.description} : QCM pour préparer l'EACMC partie 1, rattachés aux objectifs du CMC.`,
+      ogImage: false,
     }),
+    ...(domain.noindex && { robots: { index: false, follow: true } }),
   }
 }
 

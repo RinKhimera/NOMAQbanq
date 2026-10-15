@@ -10,30 +10,19 @@ import {
   MarketingHero,
 } from "@/components/marketing/marketing-hero"
 import { Button } from "@/components/ui/button"
+import { MARKETING_PATHS } from "@/constants"
 import { DOMAINS } from "@/constants/domains"
 import { HERO_QUESTION_KEY_ONLY } from "@/constants/sample-questions"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
-import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
+import { pageMetadata } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 import { DomainsBrowser } from "./_components/domains-browser"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata(MARKETING_PATHS.domaines, {
   title: "QCM de l'EACMC Partie I par domaine médical",
   description: `Explorez nos ${DOMAINS.length} domaines médicaux pour préparer l'EACMC partie 1 : cardiologie, pédiatrie, chirurgie, neurologie et plus. Questions organisées par spécialité pour une préparation ciblée.`,
-  alternates: {
-    canonical: `${SITE_URL}/domaines`,
-    languages: {
-      "fr-CA": `${SITE_URL}/domaines`,
-    },
-  },
-  openGraph: {
-    ...SITE_OPEN_GRAPH,
-    url: `${SITE_URL}/domaines`,
-    title: "QCM de l'EACMC Partie I par domaine médical",
-    description: `${DOMAINS.length} domaines médicaux pour préparer l'EACMC : cardiologie, pédiatrie, chirurgie, neurologie. Questions organisées par spécialité.`,
-    images: [SITE_OG_IMAGE],
-  },
-}
+  ogDescription: `${DOMAINS.length} domaines médicaux pour préparer l'EACMC : cardiologie, pédiatrie, chirurgie, neurologie. Questions organisées par spécialité.`,
+})
 
 // Aligné sur le cache des stats (1 semaine), invalidé plus tôt par leur tag :
 // une page régénérée plus souvent referait le rendu pour les mêmes données.

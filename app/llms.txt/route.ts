@@ -1,36 +1,37 @@
 import { faqCategories } from "@/app/(marketing)/faq/_data/faq-data"
-import { DOMAINS, INDEXED_DOMAINS } from "@/constants/domains"
-import { SITE_DESCRIPTION, SITE_URL } from "@/lib/seo"
+import { MARKETING_PATHS } from "@/constants"
+import { DOMAINS, INDEXED_DOMAINS, domainPath } from "@/constants/domains"
+import { SITE_DESCRIPTION, siteUrl } from "@/lib/seo"
 
 // Rendu au build : la vitrine ne lit pas la base au rendu.
 export const dynamic = "force-static"
 
 const KEY_PAGES = [
   {
-    path: "/domaines",
+    path: MARKETING_PATHS.domaines,
     name: "Domaines médicaux",
     about: `les ${DOMAINS.length} domaines de la banque de questions, rattachés aux objectifs du CMC ; ${INDEXED_DOMAINS.length} ont leur page, listée ci-dessous, les questions transversales n'en ont pas`,
   },
   {
-    path: "/fonctionnement",
+    path: MARKETING_PATHS.fonctionnement,
     name: "Fonctionnement",
     about:
       "composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression",
   },
   {
-    path: "/tarifs",
+    path: MARKETING_PATHS.tarifs,
     name: "Tarifs",
     about:
       "accès Examens, accès Entraînement et Pack Premium, en dollars canadiens",
   },
   {
-    path: "/evaluation",
+    path: MARKETING_PATHS.evaluation,
     name: "Évaluation gratuite",
     about: "une série de questions chronométrée, sans inscription",
   },
-  { path: "/faq", name: "FAQ", about: "questions fréquentes" },
+  { path: MARKETING_PATHS.faq, name: "FAQ", about: "questions fréquentes" },
   {
-    path: "/a-propos",
+    path: MARKETING_PATHS.aPropos,
     name: "À propos",
     about: "l'histoire et la mission de NOMAQbanq",
   },
@@ -46,12 +47,12 @@ const llmsTxt = () =>
     "",
     "## Pages clés",
     "",
-    ...KEY_PAGES.map((p) => `- [${p.name}](${SITE_URL}${p.path}) : ${p.about}`),
+    ...KEY_PAGES.map((p) => `- [${p.name}](${siteUrl(p.path)}) : ${p.about}`),
     "",
     "## Domaines médicaux",
     "",
     ...INDEXED_DOMAINS.map(
-      (d) => `- [${d.name}](${SITE_URL}/domaines/${d.slug}) : ${d.description}`,
+      (d) => `- [${d.name}](${siteUrl(domainPath(d))}) : ${d.description}`,
     ),
     "",
     "## FAQ",

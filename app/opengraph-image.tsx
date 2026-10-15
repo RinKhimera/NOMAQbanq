@@ -1,9 +1,10 @@
-import { NBSP, OG_SIZE, ogCard } from "@/lib/og-card"
+import { NBSP, ogCard } from "@/lib/og-card"
+import { OG_SIZE, SITE_OG_ALT } from "@/lib/seo"
 
-export const alt = "NOMAQbanq, préparation à l'EACMC Partie I"
+export const alt = SITE_OG_ALT
 export const size = OG_SIZE
 export const contentType = "image/png"
 
 export default function Image() {
-  return ogCard({ title: `Préparez l'EACMC Partie${NBSP}I en français` })
+  return ogCard(`Préparez l'EACMC Partie${NBSP}I en français`)
 }
