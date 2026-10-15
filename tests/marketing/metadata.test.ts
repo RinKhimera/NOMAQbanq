@@ -89,19 +89,17 @@ describe("metadata de la vitrine", () => {
     },
   )
 
-  it.each(DOMAINS.map((d) => [d.slug, d.name]))(
-    "/domaines/%s : image de partage générée, nommée dans son texte alternatif",
-    (slug, name) => {
-      expect(domaineImage.generateImageMetadata({ params: { slug } })).toEqual([
-        {
-          id: "partage",
-          alt: `${name} : QCM pour l'EACMC Partie I`,
-          size: { width: 1200, height: 630 },
-          contentType: "image/png",
-        },
-      ])
-    },
-  )
+  it("les pages domaine ont une image de partage prérendue par slug", () => {
+    expect(domaineImage.size).toEqual({ width: 1200, height: 630 })
+    expect(domaineImage.contentType).toBe("image/png")
+    expect(domaineImage.dynamicParams).toBe(false)
+    expect(domaineImage.generateStaticParams()).toEqual(
+      DOMAINS.map((d) => ({ slug: d.slug })),
+    )
+    // Avec `generateImageMetadata`, Next génère son propre
+    // `generateStaticParams` : les images ne sont plus prérendues (404).
+    expect(domaineImage).not.toHaveProperty("generateImageMetadata")
+  })
 
   it("/domaines/autres reste servie mais hors index", async () => {
     expect((await domainMetadata("autres")).robots).toEqual({
