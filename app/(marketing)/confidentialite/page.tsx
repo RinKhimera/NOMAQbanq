@@ -4,7 +4,7 @@ import {
   type LegalArticle,
   LegalDocument,
 } from "@/components/shared/legal-document"
-import { SITE_URL } from "@/lib/seo"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
 
 export const metadata: Metadata = {
   title: "Politique de confidentialité",
@@ -12,6 +12,12 @@ export const metadata: Metadata = {
     "Découvrez comment NOMAQbanq protège vos données personnelles et respecte votre vie privée.",
   alternates: {
     canonical: `${SITE_URL}/confidentialite`,
+  },
+  openGraph: {
+    ...SITE_OPEN_GRAPH,
+    url: `${SITE_URL}/confidentialite`,
+    title: "Politique de confidentialité",
+    images: [SITE_OG_IMAGE],
   },
 }
 

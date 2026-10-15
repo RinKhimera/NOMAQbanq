@@ -23,6 +23,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     ...SITE_OPEN_GRAPH,
+    url: `${SITE_URL}/tarifs`,
     title: "Tarifs de la préparation à l'EACMC Partie I",
     description:
       "Formules flexibles pour préparer l'EACMC Partie I : banque de questions et examens blancs.",

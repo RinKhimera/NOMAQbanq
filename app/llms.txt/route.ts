@@ -9,7 +9,7 @@ const KEY_PAGES = [
   {
     path: "/domaines",
     name: "Domaines médicaux",
-    about: `les ${DOMAINS.length} domaines de la banque de questions, rattachés aux objectifs du CMC`,
+    about: `les ${DOMAINS.length} domaines de la banque de questions, rattachés aux objectifs du CMC ; ${INDEXED_DOMAINS.length} ont leur page, listée ci-dessous, les questions transversales n'en ont pas`,
   },
   {
     path: "/fonctionnement",

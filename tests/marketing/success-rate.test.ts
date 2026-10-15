@@ -28,9 +28,15 @@ describe("resolveSuccessRate", () => {
     expect(resolveSuccessRate({ completed: 100, passed: 69 })).toBeNull()
   })
 
-  it("arrondit le taux (Math.round)", () => {
-    // 60 terminées, 47 réussies → 78,33 % → 78 %.
-    expect(resolveSuccessRate({ completed: 60, passed: 47 })).toBe("78\u00a0%")
+  it("arrondit le taux vers le bas, jamais au-dessus du réel", () => {
+    // 1000 terminées, 846 réussies → 84,6 % → 84 %.
+    expect(resolveSuccessRate({ completed: 1000, passed: 846 })).toBe(
+      "84\u00a0%",
+    )
+  })
+
+  it("compare le plancher au taux exact : 69,5 % n'est pas publié", () => {
+    expect(resolveSuccessRate({ completed: 200, passed: 139 })).toBeNull()
   })
 
   it("expose des seuils cohérents avec la spec", () => {

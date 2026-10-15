@@ -31,6 +31,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     ...SITE_OPEN_GRAPH,
+    url: `${SITE_URL}/a-propos`,
     title: "À propos de NOMAQbanq",
     description:
       "Notre mission : accompagner les candidats francophones dans leur préparation à l'EACMC Partie I.",
@@ -125,7 +126,7 @@ export default async function AProposPage() {
               Aujourd&apos;hui, {stats.totalUsers} candidats sont inscrits sur
               la plateforme.
               {stats.successRate !== null &&
-                ` Leur taux de réussite aux examens blancs de NOMAQbanq est de ${stats.successRate}.`}
+                ` Le taux de réussite aux examens blancs de NOMAQbanq est de ${stats.successRate}.`}
             </p>
             <div className="pt-2">
               <ProofLine totalUsers={stats.totalUsers} />

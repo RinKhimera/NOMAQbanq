@@ -8,8 +8,9 @@ export const SITE_DESCRIPTION =
 
 /**
  * Une page qui redéfinit `openGraph` remplace celui du layout racine au lieu
- * de le compléter : elle repart de `SITE_OPEN_GRAPH` et reprend l'image du
- * site, sauf si son segment en génère une.
+ * de le compléter : elle repart de `SITE_OPEN_GRAPH`, pose son `url` et
+ * reprend l'image du site, sauf si son segment en génère une. Une clé
+ * `images` l'emporte sur le fichier `opengraph-image` du même segment.
  */
 export const SITE_OPEN_GRAPH = {
   type: "website",
@@ -17,8 +18,9 @@ export const SITE_OPEN_GRAPH = {
   siteName: "NOMAQbanq",
 } as const
 
+/** Générée par `app/opengraph-image.tsx`. */
 export const SITE_OG_IMAGE = {
-  url: "/images/home-image.jpg",
+  url: "/opengraph-image",
   width: 1200,
   height: 630,
   alt: "NOMAQbanq, préparation à l'EACMC Partie I",

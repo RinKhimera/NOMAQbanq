@@ -5,7 +5,6 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import {
   SITE_DESCRIPTION,
-  SITE_OG_IMAGE,
   SITE_OPEN_GRAPH,
   SITE_URL,
   organizationJsonLd,
@@ -62,7 +61,6 @@ export const metadata: Metadata = {
     url: SITE_URL,
     title: "NOMAQbanq - Préparation EACMC Partie I",
     description: SITE_DESCRIPTION,
-    images: [SITE_OG_IMAGE],
   },
   // Ni titre, ni description, ni image : Next les reprend de l'Open Graph de
   // chaque page. Les fixer ici servirait ceux de l'accueil sur tout le site.

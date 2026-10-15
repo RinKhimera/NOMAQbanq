@@ -16,8 +16,10 @@ export const resolveSuccessRate = ({
   passed: number
 }): string | null => {
   if (completed < MIN_COMPLETED_PARTICIPATIONS) return null
-  const rate = Math.round((passed / completed) * 100)
-  if (rate < MIN_PUBLISHABLE_SUCCESS_RATE) return null
+  // Plancher comparé au taux exact, puis arrondi vers le bas : un chiffre
+  // public ne se présente jamais au-dessus du réel (69,5 % n'est pas 70 %).
+  if (passed * 100 < MIN_PUBLISHABLE_SUCCESS_RATE * completed) return null
+  const rate = Math.floor((passed * 100) / completed)
   // Espace insécable avant « % » (fr-CA).
   return `${rate} %`
 }

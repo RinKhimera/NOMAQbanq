@@ -52,6 +52,17 @@ describe("metadata de la vitrine", () => {
     },
   )
 
+  it.each(Object.entries(STATIC_PAGES))(
+    "%s : un Open Graph propre, dont l'URL est le canonical",
+    (_, m) => {
+      expect(m.openGraph).toMatchObject({
+        url: m.alternates?.canonical,
+        siteName: "NOMAQbanq",
+        locale: "fr_CA",
+      })
+    },
+  )
+
   it.each(["/tarifs", "/fonctionnement"])(
     "%s : le titre nomme l'EACMC",
     (p) => {
@@ -72,6 +83,9 @@ describe("metadata de la vitrine", () => {
       const m = await domainMetadata(slug)
       expect(titleOf(m)).toBe(`${name} : QCM pour l'EACMC Partie I`)
       expect(m.description).toMatch(/partie 1/)
+      expect(m.openGraph).toMatchObject({
+        url: `https://nomaqbanq.ca/domaines/${slug}`,
+      })
     },
   )
 

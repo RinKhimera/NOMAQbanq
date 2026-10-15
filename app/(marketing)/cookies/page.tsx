@@ -5,7 +5,7 @@ import {
   type LegalArticle,
   LegalDocument,
 } from "@/components/shared/legal-document"
-import { SITE_URL } from "@/lib/seo"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
 
 export const metadata: Metadata = {
   title: "Politique de cookies",
@@ -13,6 +13,12 @@ export const metadata: Metadata = {
     "Informations sur l'utilisation des cookies et traceurs sur la plateforme NOMAQbanq.",
   alternates: {
     canonical: `${SITE_URL}/cookies`,
+  },
+  openGraph: {
+    ...SITE_OPEN_GRAPH,
+    url: `${SITE_URL}/cookies`,
+    title: "Politique de cookies",
+    images: [SITE_OG_IMAGE],
   },
 }
 

@@ -27,6 +27,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     ...SITE_OPEN_GRAPH,
+    url: `${SITE_URL}/fonctionnement`,
     title: "Comment préparer l'EACMC Partie I",
     description:
       "Une méthode en quatre temps pour préparer l'EACMC Partie I en français.",

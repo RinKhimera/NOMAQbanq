@@ -28,6 +28,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     ...SITE_OPEN_GRAPH,
+    url: `${SITE_URL}/domaines`,
     title: "QCM de l'EACMC Partie I par domaine médical",
     description: `${DOMAINS.length} domaines médicaux pour préparer l'EACMC : cardiologie, pédiatrie, chirurgie, neurologie. Questions organisées par spécialité.`,
     images: [SITE_OG_IMAGE],

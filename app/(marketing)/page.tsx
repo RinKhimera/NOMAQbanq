@@ -20,6 +20,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     ...SITE_OPEN_GRAPH,
+    url: SITE_URL,
     title: "NOMAQbanq - Préparation EACMC Partie I",
     description: SITE_DESCRIPTION,
     images: [SITE_OG_IMAGE],

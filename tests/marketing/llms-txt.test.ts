@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { getAllFaqQuestions } from "@/app/(marketing)/faq/_data/faq-data"
 import { GET } from "@/app/llms.txt/route"
-import { INDEXED_DOMAINS } from "@/constants/domains"
+import { DOMAINS, INDEXED_DOMAINS } from "@/constants/domains"
 
 const llms = async () => {
   const res = GET()
@@ -20,6 +20,14 @@ describe("/llms.txt", () => {
       expect(text).toContain(`(https://nomaqbanq.ca/domaines/${d.slug})`)
     }
     expect(text).not.toContain("/domaines/autres")
+  })
+
+  it("le nombre de domaines annoncé correspond à la liste", async () => {
+    const { text } = await llms()
+    const listed = text.match(/\(https:\/\/nomaqbanq\.ca\/domaines\/[a-z-]+\)/g)
+
+    expect(text).toContain(`les ${DOMAINS.length} domaines`)
+    expect(text).toContain(`${listed?.length} ont leur page`)
   })
 
   it("liste les pages clés de la vitrine", async () => {

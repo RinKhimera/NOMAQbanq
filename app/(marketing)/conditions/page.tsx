@@ -4,7 +4,7 @@ import {
   type LegalArticle,
   LegalDocument,
 } from "@/components/shared/legal-document"
-import { SITE_URL } from "@/lib/seo"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH, SITE_URL } from "@/lib/seo"
 
 export const metadata: Metadata = {
   title: "Conditions d'utilisation",
@@ -12,6 +12,12 @@ export const metadata: Metadata = {
     "Conditions générales d'utilisation de la plateforme NOMAQbanq pour la préparation à l'EACMC Partie I.",
   alternates: {
     canonical: `${SITE_URL}/conditions`,
+  },
+  openGraph: {
+    ...SITE_OPEN_GRAPH,
+    url: `${SITE_URL}/conditions`,
+    title: "Conditions d'utilisation",
+    images: [SITE_OG_IMAGE],
   },
 }
 

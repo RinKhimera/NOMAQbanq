@@ -32,6 +32,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     ...SITE_OPEN_GRAPH,
+    url: `${SITE_URL}/evaluation`,
     title: "Évaluation gratuite pour l'EACMC Partie I",
     description:
       "Testez gratuitement notre plateforme de préparation EACMC. Découvrez la qualité de nos questions et évaluez votre niveau.",
