@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { CtaBand } from "@/components/marketing/cta-band"
 import { FaqSchema } from "@/components/seo/faq-schema"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH } from "@/lib/seo"
 import FaqPageClient from "./_components/faq-page-client"
 import { getAllFaqQuestions } from "./_data/faq-data"
 
@@ -15,17 +16,11 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "FAQ - Questions fréquentes | NOMAQbanq",
+    ...SITE_OPEN_GRAPH,
+    title: "FAQ - Questions fréquentes",
     description:
       "Trouvez les réponses à vos questions sur la préparation EACMC : inscription, tarifs, fonctionnement de la plateforme et support.",
-    images: [
-      {
-        url: "/images/home-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "NOMAQbanq FAQ - Questions fréquentes",
-      },
-    ],
+    images: [SITE_OG_IMAGE],
   },
 }
 

@@ -6,7 +6,7 @@ import {
 } from "@/components/shared/legal-document"
 
 export const metadata: Metadata = {
-  title: "Politique de confidentialité | NOMAQbanq",
+  title: "Politique de confidentialité",
   description:
     "Découvrez comment NOMAQbanq protège vos données personnelles et respecte votre vie privée.",
   alternates: {

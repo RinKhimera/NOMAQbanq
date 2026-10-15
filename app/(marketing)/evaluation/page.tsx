@@ -4,7 +4,10 @@ import Link from "next/link"
 import { CtaBand } from "@/components/marketing/cta-band"
 import { DemoQuestion } from "@/components/marketing/demo-question"
 import { FeatureCells } from "@/components/marketing/feature-cells"
-import { MarketingFigures } from "@/components/marketing/marketing-figures"
+import {
+  MarketingFigures,
+  publicFigures,
+} from "@/components/marketing/marketing-figures"
 import {
   Eyebrow,
   MARKETING_SECTION,
@@ -12,15 +15,15 @@ import {
   MarketingHero,
 } from "@/components/marketing/marketing-hero"
 import { Button } from "@/components/ui/button"
-import { DOMAINS } from "@/constants/domains"
 import { HERO_QUESTION_KEY_ONLY } from "@/constants/sample-questions"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH } from "@/lib/seo"
 import { TimerDemo } from "./_components/timer-demo"
 
 export const metadata: Metadata = {
   title: "Évaluation gratuite",
   description:
-    "Testez gratuitement NOMAQbanq avec notre évaluation EACMC. Découvrez notre interface, la qualité de nos questions et évaluez votre niveau avant de vous abonner.",
+    "Évaluation gratuite pour l'EACMC partie 1 : testez votre niveau en conditions réelles, découvrez l'interface et la qualité des questions avant de vous abonner.",
   alternates: {
     canonical: "https://nomaqbanq.ca/evaluation",
     languages: {
@@ -28,17 +31,11 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Évaluation gratuite EACMC | NOMAQbanq",
+    ...SITE_OPEN_GRAPH,
+    title: "Évaluation gratuite pour l'EACMC Partie I",
     description:
       "Testez gratuitement notre plateforme de préparation EACMC. Découvrez la qualité de nos questions et évaluez votre niveau.",
-    images: [
-      {
-        url: "/images/home-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "NOMAQbanq - Évaluation gratuite EACMC",
-      },
-    ],
+    images: [SITE_OG_IMAGE],
   },
 }
 
@@ -96,16 +93,7 @@ export default async function EvaluationPage() {
             />
           </div>
         }
-        band={
-          <MarketingFigures
-            figures={[
-              { value: stats.totalQuestions, label: "questions disponibles" },
-              { value: stats.successRate, label: "taux de réussite moyen" },
-              { value: String(DOMAINS.length), label: "domaines médicaux" },
-              { value: stats.totalUsers, label: "candidats préparés" },
-            ]}
-          />
-        }
+        band={<MarketingFigures figures={publicFigures(stats)} />}
       >
         <div className="flex flex-wrap gap-2.5">
           <StartButton />

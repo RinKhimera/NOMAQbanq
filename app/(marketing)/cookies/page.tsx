@@ -7,7 +7,7 @@ import {
 } from "@/components/shared/legal-document"
 
 export const metadata: Metadata = {
-  title: "Politique de cookies | NOMAQbanq",
+  title: "Politique de cookies",
   description:
     "Informations sur l'utilisation des cookies et traceurs sur la plateforme NOMAQbanq.",
   alternates: {

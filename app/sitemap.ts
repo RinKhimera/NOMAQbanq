@@ -1,8 +1,9 @@
 import { MetadataRoute } from "next"
-import { DOMAINS } from "@/constants/domains"
+import { INDEXED_DOMAINS } from "@/constants/domains"
+import { SITE_URL } from "@/lib/seo"
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://nomaqbanq.ca"
+  const baseUrl = SITE_URL
 
   // Date de dernière mise à jour majeure du contenu
   const lastContentUpdate = new Date("2026-09-28")
@@ -23,7 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.9,
     },
-    ...DOMAINS.map((d) => ({
+    ...INDEXED_DOMAINS.map((d) => ({
       url: `${baseUrl}/domaines/${d.slug}`,
       lastModified: lastContentUpdate,
       changeFrequency: "monthly" as const,

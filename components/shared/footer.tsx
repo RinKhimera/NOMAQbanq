@@ -28,7 +28,7 @@ export default function Footer() {
               <Logo />
             </Link>
             <p className="text-ink-3 max-w-90 text-sm leading-relaxed">
-              La première plateforme francophone de préparation à l&apos;EACMC
+              Plateforme francophone de préparation à l&apos;EACMC
               Partie&nbsp;I.
             </p>
           </div>

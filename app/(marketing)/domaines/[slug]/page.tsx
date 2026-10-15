@@ -12,6 +12,7 @@ import {
   MARKETING_WRAP,
   MarketingHero,
 } from "@/components/marketing/marketing-hero"
+import { JsonLd } from "@/components/seo/json-ld"
 import { Button } from "@/components/ui/button"
 import { DOMAINS, domainBySlug } from "@/constants/domains"
 import {
@@ -19,6 +20,7 @@ import {
   HERO_QUESTION_KEY_ONLY,
 } from "@/constants/sample-questions"
 import { getCachedDomainObjectives } from "@/features/marketing/cached"
+import { SITE_OPEN_GRAPH, SITE_URL, domainBreadcrumbJsonLd } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 
 type Props = { params: Promise<{ slug: string }> }
@@ -33,13 +35,18 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const domain = domainBySlug((await params).slug)
   if (!domain) return {}
-  const url = `https://nomaqbanq.ca/domaines/${domain.slug}`
-  const description = `${domain.description}. Questions au format de l'EACMC Partie I, rattachées aux objectifs du CMC.`
+  const url = `${SITE_URL}/domaines/${domain.slug}`
+  const title = `${domain.name} : QCM pour l'EACMC Partie I`
+  const description = `${domain.description} : QCM pour préparer l'EACMC partie 1, rattachés aux objectifs du CMC.`
+  // L'image de partage vient de `opengraph-image.tsx`, à côté.
   return {
-    title: domain.name,
+    title,
     description,
     alternates: { canonical: url, languages: { "fr-CA": url } },
-    openGraph: { title: `${domain.name} | NOMAQbanq`, description, url },
+    openGraph: { ...SITE_OPEN_GRAPH, title, description, url },
+    ...(domain.indexed === false && {
+      robots: { index: false, follow: true },
+    }),
   }
 }
 
@@ -70,6 +77,7 @@ export default async function DomainPage({ params }: Props) {
 
   return (
     <>
+      <JsonLd data={domainBreadcrumbJsonLd(domain)} />
       <MarketingHero
         label={domain.group.label}
         title={domain.name}

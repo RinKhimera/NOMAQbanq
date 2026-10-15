@@ -95,13 +95,14 @@ Lucide uniquement, trait 1.75, 14–18 px, couleur `--ink-3` ou sémantique. Une
 
 ### Chiffres publics (source unique)
 
-| Affiché          | Réalité                          | Règle                                    |
-| ---------------- | -------------------------------- | ---------------------------------------- |
-| 3000+ QCM        | 2 880                            | arrondi du code, ne pas écrire « 5000+ » |
-| 22 domaines      | 22                               | jamais « 23 »                            |
-| 300+ candidats   | 232 comptes                      | arrondi du code                          |
-| 85 % de réussite | constante éditoriale             |                                          |
-| 4,9/5            | constante (aucun système d'avis) |                                          |
+| Affiché                             | Réalité                               | Règle                                      |
+| ----------------------------------- | ------------------------------------- | ------------------------------------------ |
+| 3000+ QCM                           | 2 880                                 | arrondi du code, ne pas écrire « 5000+ »   |
+| 22 domaines                         | 22                                    | jamais « 23 »                              |
+| 300+ candidats                      | 232 comptes                           | arrondi du code                            |
+| 82 % de réussite aux examens blancs | calculé sur les participations closes | absent sous le volume minimal, aucun repli |
+
+Aucun chiffre éditorial : ni note moyenne (aucun système d'avis), ni taux écrit à la main, ni « première plateforme ». Les étoiles n'accompagnent qu'un témoignage réel.
 
 **Ne jamais afficher publiquement le nombre de questions par domaine** (réservé à l'admin).
 

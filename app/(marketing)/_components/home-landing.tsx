@@ -94,7 +94,7 @@ const FAQ: FaqItem[] = [
   {
     question: "La plateforme est-elle entièrement en français ?",
     answer:
-      "Oui. NOMAQbanq est la première plateforme francophone de préparation à l'EACMC Partie I.",
+      "Oui. NOMAQbanq est une plateforme francophone de préparation à l'EACMC Partie I.",
   },
 ]
 

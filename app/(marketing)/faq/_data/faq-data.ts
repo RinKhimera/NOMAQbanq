@@ -16,7 +16,7 @@ export const faqCategories: FaqCategory[] = [
     questions: [
       {
         q: "Qu'est-ce que NOMAQbanq ?",
-        a: "NOMAQbanq est la première plateforme francophone de préparation à l'EACMC (Examen d'aptitude du Conseil médical du Canada) Partie I. Nous offrons une banque de questions complète, des examens blancs et des outils d'apprentissage adaptés aux médecins diplômés à l'étranger.",
+        a: "NOMAQbanq est une plateforme francophone de préparation à l'EACMC (Examen d'aptitude du Conseil médical du Canada) Partie I. Nous offrons une banque de questions complète, des examens blancs et des outils d'apprentissage adaptés aux médecins diplômés à l'étranger.",
       },
       {
         q: "Comment fonctionne la plateforme ?",

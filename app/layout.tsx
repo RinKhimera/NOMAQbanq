@@ -3,6 +3,14 @@ import { IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google"
 import { JsonLd } from "@/components/seo/json-ld"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
+import {
+  SITE_DESCRIPTION,
+  SITE_OG_IMAGE,
+  SITE_OPEN_GRAPH,
+  SITE_URL,
+  organizationJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo"
 import "./globals.css"
 
 // Direction « Manuel » : serif pour les titres et vignettes, sans pour
@@ -27,16 +35,13 @@ const plexMono = IBM_Plex_Mono({
   subsets: ["latin", "latin-ext"],
 })
 
-const baseUrl = "https://nomaqbanq.ca"
-
 export const metadata: Metadata = {
-  metadataBase: new URL(baseUrl),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "NOMAQbanq - Préparation EACMC Partie I",
     template: "%s | NOMAQbanq",
   },
-  description:
-    "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM, examens blancs et suivi de progression pour réussir votre examen.",
+  description: SITE_DESCRIPTION,
   keywords: [
     "EACMC",
     "EACMC Partie 1",
@@ -53,29 +58,15 @@ export const metadata: Metadata = {
   creator: "NOMAQbanq",
   publisher: "NOMAQbanq",
   openGraph: {
-    type: "website",
-    locale: "fr_CA",
-    url: baseUrl,
-    siteName: "NOMAQbanq",
+    ...SITE_OPEN_GRAPH,
+    url: SITE_URL,
     title: "NOMAQbanq - Préparation EACMC Partie I",
-    description:
-      "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM pour réussir votre examen.",
-    images: [
-      {
-        url: "/images/home-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "NOMAQbanq - Plateforme de préparation EACMC",
-      },
-    ],
+    description: SITE_DESCRIPTION,
+    images: [SITE_OG_IMAGE],
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "NOMAQbanq - Préparation EACMC Partie I",
-    description:
-      "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM pour réussir votre examen.",
-    images: ["/images/home-image.jpg"],
-  },
+  // Ni titre, ni description, ni image : Next les reprend de l'Open Graph de
+  // chaque page. Les fixer ici servirait ceux de l'accueil sur tout le site.
+  twitter: { card: "summary_large_image" },
   robots: {
     index: true,
     follow: true,
@@ -88,48 +79,16 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: baseUrl,
+    canonical: SITE_URL,
     languages: {
-      "fr-CA": baseUrl,
-      "x-default": baseUrl,
+      "fr-CA": SITE_URL,
+      "x-default": SITE_URL,
     },
   },
 }
 
 export const viewport: Viewport = {
   themeColor: "#2563eb",
-}
-
-const organizationSchema = {
-  "@context": "https://schema.org" as const,
-  "@type": "Organization" as const,
-  name: "NOMAQbanq",
-  url: baseUrl,
-  logo: `${baseUrl}/icon.svg`,
-  description:
-    "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM, examens blancs et suivi de progression.",
-  contactPoint: {
-    "@type": "ContactPoint",
-    email: "nomaqbanq@outlook.com",
-    telephone: "+1-438-875-0746",
-    contactType: "customer service",
-    availableLanguage: "French",
-  },
-}
-
-const websiteSchema = {
-  "@context": "https://schema.org" as const,
-  "@type": "WebSite" as const,
-  name: "NOMAQbanq",
-  url: baseUrl,
-  description:
-    "Plateforme francophone de préparation à l'EACMC Partie I avec QCM et examens blancs.",
-  inLanguage: "fr-CA",
-  potentialAction: {
-    "@type": "SearchAction",
-    target: `${baseUrl}/faq?q={search_term_string}`,
-    "query-input": "required name=search_term_string",
-  },
 }
 
 export default function RootLayout({
@@ -147,8 +106,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://cdn.nomaqbanq.ca" />
       </head>
       <body className="antialiased">
-        <JsonLd data={organizationSchema} />
-        <JsonLd data={websiteSchema} />
+        <JsonLd data={organizationJsonLd()} />
+        <JsonLd data={websiteJsonLd()} />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

@@ -6,7 +6,7 @@ import {
 } from "@/components/shared/legal-document"
 
 export const metadata: Metadata = {
-  title: "Conditions d'utilisation | NOMAQbanq",
+  title: "Conditions d'utilisation",
   description:
     "Conditions générales d'utilisation de la plateforme NOMAQbanq pour la préparation à l'EACMC Partie I.",
   alternates: {

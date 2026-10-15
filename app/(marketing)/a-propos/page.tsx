@@ -12,16 +12,17 @@ import {
   MARKETING_WRAP,
   MarketingHero,
 } from "@/components/marketing/marketing-hero"
-import { ProofLine, Stars } from "@/components/marketing/proof-line"
+import { ProofLine } from "@/components/marketing/proof-line"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import { MARKETING_CLAIMS } from "@/constants"
 import { testimonials } from "@/data/testimonials"
 import { getCachedMarketingStats } from "@/features/marketing/cached"
+import { SITE_OG_IMAGE, SITE_OPEN_GRAPH } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "À propos",
-  description: `Découvrez NOMAQbanq : notre mission, notre équipe et notre engagement envers la communauté médicale francophone. ${MARKETING_CLAIMS.successRate} de taux de réussite, des milliers de candidats accompagnés.`,
+  description:
+    "NOMAQbanq, plateforme francophone de préparation à l'EACMC Partie I basée à Gatineau (Québec) : notre histoire, notre mission et les témoignages de nos candidats.",
   alternates: {
     canonical: "https://nomaqbanq.ca/a-propos",
     languages: {
@@ -29,16 +30,11 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
+    ...SITE_OPEN_GRAPH,
     title: "À propos de NOMAQbanq",
-    description: `Notre mission : accompagner les médecins francophones vers la réussite à l'EACMC. ${MARKETING_CLAIMS.successRate} de taux de réussite, des milliers de candidats satisfaits.`,
-    images: [
-      {
-        url: "/images/home-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "NOMAQbanq - À propos de notre équipe",
-      },
-    ],
+    description:
+      "Notre mission : accompagner les candidats francophones dans leur préparation à l'EACMC Partie I.",
+    images: [SITE_OG_IMAGE],
   },
 }
 
@@ -103,7 +99,7 @@ export default async function AProposPage() {
       <MarketingHero
         label="À propos"
         title="D'une initiative à une communauté."
-        description="NOMAQbanq est la première plateforme francophone de préparation à l'EACMC Partie I, basée à Gatineau (Québec)."
+        description="NOMAQbanq est une plateforme francophone de préparation à l'EACMC Partie I, basée à Gatineau (Québec)."
       />
 
       <section className={MARKETING_SECTION}>
@@ -126,9 +122,10 @@ export default async function AProposPage() {
               compréhension des défis propres aux candidats francophones.
             </p>
             <p className="type-body-lg">
-              Aujourd&apos;hui, nous accompagnons des centaines de candidats,
-              avec un taux de succès de {stats.successRate} parmi nos
-              utilisateurs actifs.
+              Aujourd&apos;hui, {stats.totalUsers} candidats sont inscrits sur
+              la plateforme.
+              {stats.successRate !== null &&
+                ` Leur taux de réussite aux examens blancs de NOMAQbanq est de ${stats.successRate}.`}
             </p>
             <div className="pt-2">
               <ProofLine totalUsers={stats.totalUsers} />
@@ -150,19 +147,9 @@ export default async function AProposPage() {
 
       <section className={cn(MARKETING_SECTION, "bg-surface-2")}>
         <div className={MARKETING_WRAP}>
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-6">
-            <div className="flex flex-col gap-3.5">
-              <Eyebrow>Témoignages</Eyebrow>
-              <h2 className="type-h2 text-ink">
-                Ils se sont préparés avec nous
-              </h2>
-            </div>
-            <span className="flex items-center gap-2">
-              <Stars />
-              <span className="text-ink font-mono text-sm tabular-nums">
-                {MARKETING_CLAIMS.rating}
-              </span>
-            </span>
+          <div className="mb-8 flex flex-col gap-3.5">
+            <Eyebrow>Témoignages</Eyebrow>
+            <h2 className="type-h2 text-ink">Ils se sont préparés avec nous</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {testimonials.map((t) => (

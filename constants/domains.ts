@@ -15,6 +15,12 @@ export type PublicDomain = {
   slug: string
   description: string
   group: DomainGroup
+  /**
+   * `false` : page servie et liée depuis `/domaines`, mais hors index (robots
+   * `noindex`, absente du sitemap et du `llms.txt`), faute de recherche à
+   * laquelle elle réponde.
+   */
+  indexed?: false
 }
 
 export const DOMAIN_GROUPS: readonly DomainGroup[] = [
@@ -175,8 +181,12 @@ export const DOMAINS: readonly PublicDomain[] = [
     slug: "autres",
     description: "Questions transversales et cas multidisciplinaires",
     group: group("sp"),
+    indexed: false,
   },
 ]
+
+/** Les pages domaine proposées aux moteurs de recherche. */
+export const INDEXED_DOMAINS = DOMAINS.filter((d) => d.indexed !== false)
 
 export const domainBySlug = (slug: string): PublicDomain | undefined =>
   DOMAINS.find((d) => d.slug === slug)
