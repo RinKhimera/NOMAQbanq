@@ -76,6 +76,14 @@ describe("offersJsonLd", () => {
   })
 })
 
+describe("offersJsonLd : image du produit", () => {
+  it("porte une image absolue, exigée par les fiches marchand de Google", () => {
+    expect(offersJsonLd([product({})])?.image).toBe(
+      "https://nomaqbanq.ca/opengraph-image",
+    )
+  })
+})
+
 describe("offersJsonLd sans produit", () => {
   it("ne produit rien : un Product sans offre est invalide", () => {
     expect(offersJsonLd([])).toBeNull()
