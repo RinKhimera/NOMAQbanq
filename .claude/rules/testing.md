@@ -45,6 +45,10 @@ paths:
 
 ## Pièges de happy-dom (tests de composants)
 
+- happy-dom n'applique pas les classes Tailwind (`hidden`,
+  `data-[state=closed]:hidden`) : `toBeVisible()` n'en voit rien. Asserter
+  l'attribut d'état et la classe ; la visibilité réelle se vérifie au
+  navigateur.
 - happy-dom ne retire pas le focus d'un bouton qui passe à `disabled` : un test
   « le focus reste » y passe à tort. Asserter l'attribut (`aria-disabled`,
   `not.toBeDisabled()`) pendant l'attente, puis le focus.
