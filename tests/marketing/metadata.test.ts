@@ -7,6 +7,8 @@ import * as cookies from "@/app/(marketing)/cookies/page"
 import * as domaineImage from "@/app/(marketing)/domaines/[slug]/opengraph-image"
 import * as domaine from "@/app/(marketing)/domaines/[slug]/page"
 import * as domaines from "@/app/(marketing)/domaines/page"
+import * as guideImage from "@/app/(marketing)/eacmc-partie-1/opengraph-image"
+import * as guide from "@/app/(marketing)/eacmc-partie-1/page"
 import * as evaluation from "@/app/(marketing)/evaluation/page"
 import * as faq from "@/app/(marketing)/faq/page"
 import * as fonctionnement from "@/app/(marketing)/fonctionnement/page"
@@ -23,6 +25,7 @@ const STATIC_PAGES: Record<string, Metadata> = {
   "/": accueil.metadata,
   "/domaines": domaines.metadata,
   "/fonctionnement": fonctionnement.metadata,
+  "/eacmc-partie-1": guide.metadata,
   "/tarifs": tarifs.metadata,
   "/evaluation": evaluation.metadata,
   "/faq": faq.metadata,
@@ -45,7 +48,10 @@ describe("metadata de la vitrine", () => {
     },
   )
 
-  it.each(Object.entries(STATIC_PAGES).filter(([, m]) => m.openGraph))(
+  // Leur segment génère l'image de partage : une clé `images` l'écraserait.
+  const SEGMENT_IMAGE = new Set(["/eacmc-partie-1"])
+
+  it.each(Object.entries(STATIC_PAGES).filter(([p]) => !SEGMENT_IMAGE.has(p)))(
     "%s : un Open Graph redéfini porte une image",
     (_, m) => {
       expect(m.openGraph?.images).toBeTruthy()
@@ -63,12 +69,26 @@ describe("metadata de la vitrine", () => {
     },
   )
 
-  it.each(["/tarifs", "/fonctionnement"])(
-    "%s : le titre nomme l'EACMC",
-    (p) => {
-      expect(titleOf(STATIC_PAGES[p])).toMatch(/EACMC Partie I/)
-    },
-  )
+  it.each(["/tarifs"])("%s : le titre nomme l'EACMC", (p) => {
+    expect(titleOf(STATIC_PAGES[p])).toMatch(/EACMC Partie I/)
+  })
+
+  it("le guide nomme l'EACMC sous son nom actuel et son ancien nom", () => {
+    expect(titleOf(guide.metadata)).toMatch(/^EACMC \(anciennement Partie I\)/)
+    expect(guide.metadata.description).toMatch(/partie 1/)
+  })
+
+  it("une seule page vise « préparer l'EACMC » : le guide", () => {
+    expect(titleOf(fonctionnement.metadata)).not.toMatch(/préparer/i)
+    expect(titleOf(guide.metadata)).toMatch(/préparation/)
+  })
+
+  it("le guide a sa propre image de partage", () => {
+    expect(guide.metadata.openGraph).not.toHaveProperty("images")
+    expect(guideImage.size).toEqual({ width: 1200, height: 630 })
+    expect(guideImage.contentType).toBe("image/png")
+    expect(guideImage.alt).toMatch(/EACMC/)
+  })
 
   it.each(["/", "/domaines", "/tarifs", "/evaluation"])(
     "%s : la description reprend « partie 1 »",

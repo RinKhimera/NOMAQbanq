@@ -23,20 +23,27 @@ import { inAppZone } from "@/lib/app-zone"
  */
 export const APP_TIME_ZONE_LABEL = "heure de l'Est"
 
+// `do` : ordinal de la locale, « 1er » le premier du mois, « 2 » ensuite.
+// La locale fr ne ramène `do` à `d` (sinon « 2ème ») que si le motif nomme
+// le mois (`MMM`, `MMMM`) : tout nouveau motif doit le garder.
+const ISO_DAY_PATTERN = {
+  short: "do MMM",
+  long: "do MMMM yyyy",
+  weekday: "EEEE do MMMM yyyy",
+} as const
+
 /**
- * Jour ISO (`yyyy-MM-dd`) d'une série agrégée par jour : « 3 juil. », ou
- * « vendredi 3 juillet 2026 » en `weekday`. Un jour n'est pas un instant, il
- * n'a pas de fuseau à ancrer.
+ * Jour ISO (`yyyy-MM-dd`) : « 3 juil. », « 3 juillet 2026 » en `long`, ou
+ * « vendredi 3 juillet 2026 » en `weekday` ; « 1er » le premier du mois. Un
+ * jour n'est pas un instant, il n'a pas de fuseau à ancrer.
  */
 export const formatIsoDay = (
   iso: string,
-  style: "short" | "weekday" = "short",
+  style: keyof typeof ISO_DAY_PATTERN = "short",
 ): string => {
   const day = parseISO(iso)
   if (!isValid(day)) return iso
-  return format(day, style === "short" ? "d MMM" : "EEEE d MMMM yyyy", {
-    locale: fr,
-  })
+  return format(day, ISO_DAY_PATTERN[style], { locale: fr })
 }
 
 /**

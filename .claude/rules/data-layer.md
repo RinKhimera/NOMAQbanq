@@ -175,7 +175,8 @@ Les règles métier des examens et de la banque de questions vivent dans
     navigateur, l'horloge de celui qui enregistre le fichier ;
   - `SESSION_DATE_FMT` (`features/users/dal.ts`) : formatage côté DAL, antérieur
     au module et volontairement autonome ;
-  - `formatIsoDay` (séries de `getRevenueByDay`) : `parseISO` sur du date-only
+  - `formatIsoDay` (jour ISO : séries de `getRevenueByDay`, fenêtre d'un
+    examen, date de révision du guide) : `parseISO` sur du date-only
     (`YYYY-MM-DD`) rend bien le même jour partout — le bucket SQL est lui aussi
     un jour de l'Est depuis la correction de #132.
 - **Filtres et agrégats « par jour » : transporter une journée civile, pas un

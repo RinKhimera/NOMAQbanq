@@ -1,5 +1,6 @@
 import { Check, Minus } from "lucide-react"
 import type { Metadata } from "next"
+import Link from "next/link"
 import type { ReactNode } from "react"
 import { CtaBand } from "@/components/marketing/cta-band"
 import { DemoQuestion } from "@/components/marketing/demo-question"
@@ -19,11 +20,11 @@ import { cn } from "@/lib/utils"
 import { ExamSessionDemo, SeriesComposerDemo } from "./_components/demos"
 
 export const metadata: Metadata = pageMetadata(MARKETING_PATHS.fonctionnement, {
-  title: "Comment préparer l'EACMC Partie I",
+  title: "Comment ça marche : QCM, mode tuteur et examens blancs",
   description:
-    "Composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression : la méthode NOMAQbanq pour préparer l'EACMC Partie I.",
+    "Composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression : chaque étape de NOMAQbanq, la banque de QCM pour l'EACMC Partie I.",
   ogDescription:
-    "Une méthode en quatre temps pour préparer l'EACMC Partie I en français.",
+    "Séries, mode tuteur, examens blancs et suivi de progression, en français.",
 })
 
 const DEMO_SCORES = [
@@ -172,7 +173,15 @@ export default function FonctionnementPage() {
         label="Comment ça marche"
         title="Une méthode en quatre temps."
         description="Composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression. Voici comment chaque étape se présente dans l'application."
-      />
+      >
+        <Link
+          href={MARKETING_PATHS.eacmc}
+          className="focus-ring text-accent-ink w-fit rounded-sm text-sm hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center"
+        >
+          Format de l&apos;examen et méthode de préparation : le guide de
+          l&apos;EACMC →
+        </Link>
+      </MarketingHero>
 
       <section className={MARKETING_SECTION}>
         <ol className={cn(MARKETING_WRAP, "flex flex-col")}>

@@ -1,4 +1,5 @@
 import { MetadataRoute } from "next"
+import { GUIDE_REVIEWED_ON } from "@/app/(marketing)/eacmc-partie-1/_data/guide"
 import { MARKETING_PATHS } from "@/constants"
 import { INDEXED_DOMAINS, domainPath } from "@/constants/domains"
 import { siteUrl } from "@/lib/seo"
@@ -29,6 +30,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
+    {
+      url: siteUrl(MARKETING_PATHS.eacmc),
+      lastModified: new Date(GUIDE_REVIEWED_ON),
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
     {
       url: siteUrl(MARKETING_PATHS.fonctionnement),
       lastModified: lastContentUpdate,

@@ -9,7 +9,7 @@ import { getAllFaqQuestions } from "./_data/faq-data"
 export const metadata: Metadata = pageMetadata(MARKETING_PATHS.faq, {
   title: "FAQ - Questions fréquentes",
   description:
-    "Questions fréquentes sur NOMAQbanq : inscription, abonnements, fonctionnement des QCM, examens blancs, support technique. Trouvez rapidement vos réponses.",
+    "Questions fréquentes sur l'EACMC partie 1 et sur NOMAQbanq : format et inscription à l'examen, abonnements, fonctionnement des QCM, examens blancs, support.",
   ogDescription:
     "Trouvez les réponses à vos questions sur la préparation EACMC : inscription, tarifs, fonctionnement de la plateforme et support.",
 })
