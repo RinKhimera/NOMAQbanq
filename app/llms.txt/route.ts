@@ -20,7 +20,7 @@ const KEY_PAGES = [
   },
   {
     path: MARKETING_PATHS.fonctionnement,
-    name: "Comment fonctionne NOMAQbanq",
+    name: "Comment ça marche",
     about:
       "composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression",
   },

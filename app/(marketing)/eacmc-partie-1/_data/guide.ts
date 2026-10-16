@@ -7,7 +7,7 @@ import { MARKETING_PATHS } from "@/constants"
  * aussi les réponses de la catégorie « eacmc » de la FAQ, qui en reprennent
  * des chiffres.
  */
-export const GUIDE_REVIEWED_ON = "2026-10-15"
+export const GUIDE_REVIEWED_ON = "2026-10-16"
 
 export const GUIDE_PUBLISHED_ON = "2026-10-15"
 
@@ -65,5 +65,6 @@ export const SOURCES = {
     "https://mcc.ca/fr/examens-et-evaluations/ressources-pour-aider-a-la-preparation-dun-examen/",
   ressourcesGratuites: "https://mcc.ca/fr/ressources-gratuites/",
   inscriptionmed: "https://portail.inscriptionmed.ca/Account/InitialLogin",
+  carmsSite: "https://www.carms.ca/fr/",
   cmq: "https://www.cmq.org/fr/acceder-a-la-profession/examens",
 } as const

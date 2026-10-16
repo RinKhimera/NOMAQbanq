@@ -259,7 +259,11 @@ const CONTENT: Record<GuideSectionId, ReactNode> = {
             choisissez l&apos;ordre (
             <Source href={SOURCES.carms}>CMC, CaRMS et les examens</Source>).
           </>,
-          "Postuler au jumelage en résidence par CaRMS, avec les résultats des deux examens.",
+          <>
+            Postuler au jumelage en résidence par{" "}
+            <Source href={SOURCES.carmsSite}>CaRMS</Source>, avec les résultats
+            des deux examens.
+          </>,
           <>
             Remplir les exigences de votre province. Le Québec, la
             Colombie-Britannique et l&apos;Alberta ont leurs propres conditions
@@ -347,7 +351,7 @@ const CONTENT: Record<GuideSectionId, ReactNode> = {
       <P>
         Le détail de chaque étape dans l&apos;application est sur la page{" "}
         <Internal href={MARKETING_PATHS.fonctionnement}>
-          Comment fonctionne NOMAQbanq
+          Comment ça marche
         </Internal>
         . Le CMC propose aussi des{" "}
         <Source href={SOURCES.ressources}>ressources de préparation</Source>,
