@@ -178,8 +178,7 @@ export default function FonctionnementPage() {
           href={MARKETING_PATHS.eacmc}
           className="focus-ring text-accent-ink w-fit rounded-sm text-sm hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center"
         >
-          Format de l&apos;examen et méthode de préparation : le guide de
-          l&apos;EACMC →
+          Lire le guide de l&apos;EACMC →
         </Link>
       </MarketingHero>
 
