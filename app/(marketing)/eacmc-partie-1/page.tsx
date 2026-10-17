@@ -108,11 +108,6 @@ const CONTENT: Record<GuideSectionId, ReactNode> = {
         médecins pour le permis d&apos;exercice (
         <Source href={SOURCES.lcmc}>CMC, le LCMC</Source>).
       </P>
-      <P>
-        Beaucoup de ressources, de forums et de candidats parlent encore de la «
-        partie 1 » ou de l&apos;« EACMC 1 » : ces noms désignent tous cet
-        examen.
-      </P>
     </>
   ),
   deroulement: (
@@ -389,10 +384,10 @@ export default function EacmcGuidePage() {
       <MarketingHero
         label="Guide EACMC"
         title={`L'EACMC, anciennement Partie${NBSP}I : le guide en français`}
-        description="Ce qu'est l'examen, comment il se déroule et se note, comment s'inscrire, où il se place dans le parcours des diplômés à l'étranger et comment s'y préparer. Chaque fait renvoie à sa source au Conseil médical du Canada."
+        description="Ce qu'est l'examen, comment il se déroule et se note, comment s'inscrire, où il se place dans le parcours des diplômés à l'étranger et comment s'y préparer."
       >
         <p className="text-ink-3 font-mono text-[13px]">
-          Faits vérifiés le{" "}
+          Mis à jour le{" "}
           <time dateTime={GUIDE_REVIEWED_ON}>
             {formatIsoDay(GUIDE_REVIEWED_ON, "long")}
           </time>
@@ -439,8 +434,7 @@ export default function EacmcGuidePage() {
                 Sources officielles
               </h2>
               <p className="text-ink-3 text-sm">
-                Les règles de l&apos;examen changent : en cas d&apos;écart, les
-                pages du Conseil médical du Canada font foi.
+                En cas de doute, référez-vous au Conseil médical du Canada.
               </p>
               <ul className="flex flex-col gap-1.5 text-[15px]">
                 {OFFICIAL_SOURCES.map((s) => (

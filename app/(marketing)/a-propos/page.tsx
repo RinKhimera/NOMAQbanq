@@ -116,7 +116,7 @@ export default async function AProposPage() {
               Aujourd&apos;hui, {stats.totalUsers} candidats sont inscrits sur
               la plateforme.
               {stats.successRate !== null &&
-                ` Le taux de réussite aux examens blancs de NOMAQbanq est de ${stats.successRate}.`}
+                ` ${stats.successRate} des examens blancs passés sur NOMAQbanq sont réussis.`}
             </p>
             <div className="pt-2">
               <ProofLine totalUsers={stats.totalUsers} />
