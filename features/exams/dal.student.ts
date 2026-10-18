@@ -73,6 +73,12 @@ export const participationScoreReadable = (viewer: LockUser) =>
   sql`not ${scoreWithheldFor(viewer, answeredQuestionIds, ownExamId)}`
 
 /**
+ * Forme propriétaire de `participationScoreReadable` : lisible pour l'étudiant
+ * de la ligne, quel qu'il soit. Pour un agrégat sur plusieurs étudiants.
+ */
+export const ownerParticipationScoreReadable = sql`not ${scoreWithheldForOwner(sql`${examParticipations.userId}`, answeredQuestionIds, ownExamId)}`
+
+/**
  * Titre de l'examen encore OUVERT qui retient le score de la ligne lue (une
  * de ses questions y a été répondue), pour « Publié à la fermeture de … » ;
  * `null` si le score est lisible, ou pour un admin. L'examen propre est

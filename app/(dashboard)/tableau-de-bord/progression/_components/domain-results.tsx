@@ -330,16 +330,18 @@ const DomainCells = ({
  * Résultats par domaine : maîtrise, tendance sur la période, couverture et
  * réponses de la période ; un domaine pratiqué se déplie sur ses objectifs du
  * CMC et ses actions de révision. Les domaines jamais pratiqués viennent en
- * fin de liste, sans dépliage.
+ * fin de liste, sans dépliage. `readOnly` (vue admin) retire les actions.
  */
 export const DomainResults = ({
   domains,
   period,
   trainingAccess,
+  readOnly = false,
 }: {
   domains: DomainProgress[]
   period: DashboardPeriod
   trainingAccess: boolean
+  readOnly?: boolean
 }) => {
   const [sort, setSort] = useState<DomainSort>("weakest")
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set())
@@ -410,7 +412,7 @@ export const DomainResults = ({
                       domain={d}
                       withTrend={withTrend}
                       trailing={
-                        trainingAccess ? (
+                        trainingAccess && !readOnly ? (
                           <Button
                             asChild
                             size="sm"
@@ -490,12 +492,14 @@ export const DomainResults = ({
                         </ul>
                       </>
                     )}
-                    <div className="md:pl-9">
-                      <RevisionActions
-                        domain={d}
-                        trainingAccess={trainingAccess}
-                      />
-                    </div>
+                    {!readOnly && (
+                      <div className="md:pl-9">
+                        <RevisionActions
+                          domain={d}
+                          trainingAccess={trainingAccess}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </li>

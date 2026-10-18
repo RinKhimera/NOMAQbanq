@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  ArrowRight,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -23,7 +24,7 @@ import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
 import type { ProductView } from "@/features/payments/dal"
 import type { UserBanView, UserFile } from "@/features/users/dal"
-import { clientFileHref } from "@/lib/admin-links"
+import { adminProgressionHref, clientFileHref } from "@/lib/admin-links"
 import {
   NBSP,
   formatCurrency,
@@ -31,6 +32,7 @@ import {
   formatMediumDateTime,
 } from "@/lib/format"
 import { scoreTextClass } from "@/lib/score"
+import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import {
   accessState,
@@ -44,16 +46,21 @@ import { UserRoleSection } from "./user-role-section"
 const Section = ({
   eyebrow,
   title,
+  action,
   children,
 }: {
   eyebrow: string
   title: string
+  action?: ReactNode
   children: ReactNode
 }) => (
   <section className="bg-surface border-line flex min-w-0 flex-col gap-3.5 rounded-lg border px-5.5 py-5 max-md:p-4">
-    <div className="flex flex-col gap-0.5">
-      <span className="type-label">{eyebrow}</span>
-      <h2 className="type-h4 text-ink">{title}</h2>
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="flex flex-col gap-0.5">
+        <span className="type-label">{eyebrow}</span>
+        <h2 className="type-h4 text-ink">{title}</h2>
+      </div>
+      {action}
     </div>
     {children}
   </section>
@@ -576,7 +583,20 @@ export const UserFileClient = ({
         </Section>
       </div>
 
-      <Section eyebrow="Activité pédagogique" title="Examens blancs et séries">
+      <Section
+        eyebrow="Activité pédagogique"
+        title="Examens blancs et séries"
+        action={
+          u.role === "admin" ? undefined : (
+            <Button asChild size="sm" variant="ghost" className={TOUCH_HEIGHT}>
+              <Link href={adminProgressionHref(u.id)}>
+                Voir la progression
+                <ArrowRight aria-hidden="true" />
+              </Link>
+            </Button>
+          )
+        }
+      >
         <Activity file={file} now={initialNow} />
       </Section>
 

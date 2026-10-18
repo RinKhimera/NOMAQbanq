@@ -100,6 +100,7 @@ export default defineConfig({
         /admin-questions\.spec\.ts/,
         /admin-transactions\.spec\.ts/,
         /admin-users\.spec\.ts/,
+        /admin-progression\.spec\.ts/,
         /navigation-admin\.spec\.ts/,
       ],
       dependencies: ["global-setup"],

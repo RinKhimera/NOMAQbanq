@@ -39,17 +39,36 @@ const PERIOD_LABEL: Record<Exclude<DashboardPeriod, "tout">, string> = {
 
 const points = (n: number) => `${n} point${n > 1 ? "s" : ""}`
 
+/** Qui lit : l'étudiant lui-même, ou un admin qui regarde sa progression. */
+export type SummaryPerson = "you" | "they"
+
+const WORDS: Record<
+  SummaryPerson,
+  { score: string; domain: string; fallback: string }
+> = {
+  you: {
+    score: "Votre score moyen",
+    domain: "votre domaine le plus faible",
+    fallback:
+      "Suivez ici vos scores, vos séries et votre maîtrise par domaine.",
+  },
+  they: {
+    score: "Son score moyen",
+    domain: "son domaine le plus faible",
+    fallback: "Ses scores, ses séries et sa maîtrise par domaine.",
+  },
+}
+
 const trendSentence = (
   period: DashboardPeriod,
   trend: number | null,
+  score: string,
 ): string | null => {
   if (trend === null || period === "tout") return null
   const span = PERIOD_LABEL[period]
-  if (trend > 0)
-    return `Votre score moyen a progressé de ${points(trend)} sur ${span}.`
-  if (trend < 0)
-    return `Votre score moyen a reculé de ${points(-trend)} sur ${span}.`
-  return `Votre score moyen est stable sur ${span}.`
+  if (trend > 0) return `${score} a progressé de ${points(trend)} sur ${span}.`
+  if (trend < 0) return `${score} a reculé de ${points(-trend)} sur ${span}.`
+  return `${score} est stable sur ${span}.`
 }
 
 /** Phrase de synthèse sous le salut du tableau de bord. */
@@ -57,18 +76,19 @@ export const dashboardSummary = ({
   period,
   trend,
   weakest,
+  person = "you",
 }: {
   period: DashboardPeriod
   trend: number | null
   weakest: string | null
+  person?: SummaryPerson
 }): string => {
+  const words = WORDS[person]
   const sentences = [
-    trendSentence(period, trend),
-    weakest && `${weakest} reste votre domaine le plus faible.`,
+    trendSentence(period, trend, words.score),
+    weakest && `${weakest} reste ${words.domain}.`,
   ].filter(Boolean)
-  return sentences.length > 0
-    ? sentences.join(" ")
-    : "Suivez ici vos scores, vos séries et votre maîtrise par domaine."
+  return sentences.length > 0 ? sentences.join(" ") : words.fallback
 }
 
 /**

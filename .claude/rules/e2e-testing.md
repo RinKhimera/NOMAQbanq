@@ -44,8 +44,10 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
   `hasAccess` (pas d'octroi nécessaire).
 - Auth = **Better Auth via le formulaire réel** (`global.setup.ts` :
   `getByTestId("auth-email"|"auth-password"|"auth-submit")` sur `/connexion`),
-  storageState sauvegardé dans `e2e/.auth/{user,admin}.json`. Si auth bizarre →
-  supprimer `e2e/.auth/` et relancer.
+  storageState sauvegardé dans `e2e/.auth/{user,admin}.json`. Il expire au bout
+  de quelques semaines (spec renvoyée sur `/connexion`) : régénérer la seule
+  connexion par `bun run test:e2e --project=global-setup -g "authenticate as admin" --no-deps`
+  (ou `as user`), sans le reste du setup ni le teardown, qui écrivent sur develop.
 - **Page étudiant sans données** (état vide de Progression…) : jouer avec
   l'admin, qui n'a ni série ni participation sur develop (le vérifier par
   `SELECT`). Pas d'inscription pour obtenir un compte vierge : les courriels
@@ -106,6 +108,8 @@ Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-acces
 `timeline-{transactionId}` (dossier client des transactions),
 `transactions-summary`, `segment-{all|active|expiring|expired|never}`,
 `filter-suspended`, `access-{exam|training}`, `grant-access`,
+`progression-table`, `filter-active-only`, `student-position` (suivi admin
+de la progression),
 `participation-{id}` (liste et fiche utilisateurs),
 `exams-section-{live|prepare|finished}`, `btn-create-exam`,
 `prep-exam-card-{id}`, `live-exam-card-{id}` (vue de pilotage des examens),
@@ -154,6 +158,10 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
 
 ## Gotchas Playwright (à jour)
 
+- **Clic avant l'hydratation (dev à froid)** : un lien de liste cliqué dès
+  que le titre est visible peut ne rien faire, sans aucune requête. Rejouer
+  clic et attente d'URL dans `expect(async () => …).toPass()` (POM
+  `openFirstClient`, `openFirstStudent`), plutôt qu'allonger les timeouts.
 - **Pas de `waitForLoadState("networkidle")`** : en dev Next.js (HMR websocket +
   tunnel Sentry + fetch charts) le réseau n'est jamais idle → `goto` pend jusqu'au
   **timeout 30 s** sur toute page authentifiée. `page.goto` attend déjà `load` ;

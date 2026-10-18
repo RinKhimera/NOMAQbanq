@@ -71,7 +71,11 @@ describe("AdminShell", () => {
 
     expect(groupLinks("Pilotage")).toEqual(["Tableau de bord", "Transactions"])
     expect(groupLinks("Contenu")).toEqual(["Questions", "Examens blancs"])
-    expect(groupLinks("Comptes")).toEqual(["Utilisateurs", "Profil"])
+    expect(groupLinks("Comptes")).toEqual([
+      "Utilisateurs",
+      "Progression",
+      "Profil",
+    ])
   })
 
   it("marque la page courante et titre la barre du haut", () => {

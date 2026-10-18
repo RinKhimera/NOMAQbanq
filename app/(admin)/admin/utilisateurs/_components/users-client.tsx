@@ -2,8 +2,8 @@
 
 import { Download, Info, SearchX, X } from "lucide-react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 import {
   DataTable,
   type DataTableColumn,
@@ -32,7 +32,7 @@ import type {
   UsersHeadline,
 } from "@/features/users/dal"
 import { USERS_PAGE_SIZE } from "@/features/users/page-size"
-import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { toggledOrder, useUrlListState } from "@/hooks/use-url-list-state"
 import { formatMediumDate } from "@/lib/format"
 import type { Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
@@ -169,38 +169,26 @@ export const UsersClient = ({
   initialNow: number
 }) => {
   const router = useRouter()
-  const pathname = usePathname()
-  const [isPending, startTransition] = useTransition()
-  const [search, setSearch] = useState(state.q)
+  const { search, setSearch, isPending, latest, go } = useUrlListState({
+    state,
+    serialize: serializeUserList,
+    withSearch: (current, q) => withChange(current, { q }),
+  })
   const [exportOpen, setExportOpen] = useState(false)
 
-  const go = (next: UserListState) =>
-    startTransition(() => {
-      const params = serializeUserList(next)
-      router.replace(params.size ? `${pathname}?${params}` : pathname, {
-        scroll: false,
-      })
-    })
   const change = (c: Partial<Omit<UserListState, "page">>) =>
-    go(withChange(state, c))
-
-  useDebouncedValue(search, 300, (value) => {
-    if (value.trim() !== state.q) change({ q: value.trim() })
-  })
+    go(withChange(latest(), c))
 
   const sortOn = (field: UserSort) => ({
     direction: state.sort === field ? state.order : null,
     onToggle: () =>
-      change({
-        sort: field,
-        order: state.sort === field && state.order === "desc" ? "asc" : "desc",
-      }),
+      change({ sort: field, order: toggledOrder(latest(), field) }),
   })
 
   const clear = () => {
     setSearch("")
     go({
-      ...state,
+      ...latest(),
       q: "",
       role: "all",
       period: "all",
@@ -487,7 +475,7 @@ export const UsersClient = ({
               isLoading={isPending}
               itemNoun={{ one: "utilisateur", many: "utilisateurs" }}
               onPageChange={(p) => {
-                go({ ...state, page: p })
+                go({ ...latest(), page: p })
                 window.scrollTo({ top: 0 })
               }}
             />

@@ -42,36 +42,63 @@ const activitySub = (period: DashboardPeriod, firstDay: string | null) => {
   return firstDay ? `depuis le ${formatIsoDay(firstDay)}` : "aucune activité"
 }
 
+/**
+ * L'étudiant vu par un admin : la page reprend ses chiffres à l'identique,
+ * sans ses actions, et mène chaque examen à la copie admin.
+ */
+export type AdminStudent = {
+  id: string
+  name: string
+  /** Fiche utilisateur de l'étudiant. */
+  ficheHref: string
+}
+
 /** Page sans aucune série close ni examen soumis. */
 export const ProgressionEmpty = ({
   trainingAccess,
+  student,
 }: {
   trainingAccess: boolean
-}) => (
-  <>
-    <PageIntro
-      eyebrow="Rapport"
-      title={TITLE}
-      description="Vos résultats par domaine, vos examens blancs et votre entraînement, réunis sur une page."
-    />
-    <EmptyState
-      icons={[ChartNoAxesColumn]}
-      title="Aucune donnée pour le moment"
-      description="Votre rapport se remplit dès votre première série d'entraînement ou votre premier examen blanc."
-    >
-      <Button asChild className="max-md:h-11">
-        {trainingAccess ? (
-          <Link href={TRAINING_HREF} prefetch={false}>
-            Commencer une série
-            <LinkPendingIndicator className="ml-2" />
-          </Link>
-        ) : (
-          <Link href={PRICING_HREF}>Voir les tarifs</Link>
-        )}
-      </Button>
-    </EmptyState>
-  </>
-)
+  student?: AdminStudent
+}) =>
+  student ? (
+    <>
+      <PageIntro eyebrow="Rapport" title={student.name} />
+      <EmptyState
+        icons={[ChartNoAxesColumn]}
+        title="Aucune activité pour le moment"
+        description={`${student.name} n'a encore fait aucune série d'entraînement ni aucun examen blanc.`}
+      >
+        <Button asChild variant="outline" className="max-md:h-11">
+          <Link href={student.ficheHref}>Voir la fiche</Link>
+        </Button>
+      </EmptyState>
+    </>
+  ) : (
+    <>
+      <PageIntro
+        eyebrow="Rapport"
+        title={TITLE}
+        description="Vos résultats par domaine, vos examens blancs et votre entraînement, réunis sur une page."
+      />
+      <EmptyState
+        icons={[ChartNoAxesColumn]}
+        title="Aucune donnée pour le moment"
+        description="Votre rapport se remplit dès votre première série d'entraînement ou votre premier examen blanc."
+      >
+        <Button asChild className="max-md:h-11">
+          {trainingAccess ? (
+            <Link href={TRAINING_HREF} prefetch={false}>
+              Commencer une série
+              <LinkPendingIndicator className="ml-2" />
+            </Link>
+          ) : (
+            <Link href={PRICING_HREF}>Voir les tarifs</Link>
+          )}
+        </Button>
+      </EmptyState>
+    </>
+  )
 
 type ProgressionViewProps = {
   period: DashboardPeriod
@@ -81,6 +108,7 @@ type ProgressionViewProps = {
   percentiles: ExamPercentiles
   isAdmin: boolean
   now: number
+  student?: AdminStudent
 }
 
 /** Détail de la progression : chiffres de la période, domaines, examens blancs, entraînement. */
@@ -92,6 +120,7 @@ export const ProgressionView = ({
   percentiles,
   isAdmin,
   now,
+  student,
 }: ProgressionViewProps) => {
   const { exams, training } = dashboard
   const { activity } = progression
@@ -107,11 +136,12 @@ export const ProgressionView = ({
     <>
       <PageIntro
         eyebrow={periodEyebrow(period)}
-        title={TITLE}
+        title={student?.name ?? TITLE}
         description={dashboardSummary({
           period,
           trend: exams.averageTrend,
           weakest: weakestDomain(progression.domains),
+          person: student ? "they" : "you",
         })}
       />
 
@@ -148,6 +178,7 @@ export const ProgressionView = ({
           domains={progression.domains}
           period={period}
           trainingAccess={progression.trainingAccess}
+          readOnly={student !== undefined}
         />
 
         <DashboardCard eyebrow="Historique" title="Examens blancs" flush>
@@ -156,6 +187,7 @@ export const ProgressionView = ({
             percentiles={percentiles}
             isAdmin={isAdmin}
             now={now}
+            copyOf={student?.id}
           />
         </DashboardCard>
 
@@ -163,13 +195,15 @@ export const ProgressionView = ({
           eyebrow="Entraînement"
           title="Score par semaine"
           action={
-            <Button asChild size="sm" variant="ghost" className="max-md:h-11">
-              <Link href={TRAINING_HREF} prefetch={false}>
-                Historique des séries
-                <ArrowRight aria-hidden="true" />
-                <LinkPendingIndicator />
-              </Link>
-            </Button>
+            student ? undefined : (
+              <Button asChild size="sm" variant="ghost" className="max-md:h-11">
+                <Link href={TRAINING_HREF} prefetch={false}>
+                  Historique des séries
+                  <ArrowRight aria-hidden="true" />
+                  <LinkPendingIndicator />
+                </Link>
+              </Button>
+            )
           }
         >
           <ScoreChart
