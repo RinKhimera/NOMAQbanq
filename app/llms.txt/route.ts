@@ -1,6 +1,7 @@
 import { faqCategories } from "@/app/(marketing)/faq/_data/faq-data"
 import { MARKETING_PATHS } from "@/constants"
 import { DOMAINS, INDEXED_DOMAINS, domainPath } from "@/constants/domains"
+import { NBSP } from "@/lib/format"
 import { SITE_DESCRIPTION, siteUrl } from "@/lib/seo"
 
 // Rendu au build : la vitrine ne lit pas la base au rendu.
@@ -9,7 +10,7 @@ export const dynamic = "force-static"
 const KEY_PAGES = [
   {
     path: MARKETING_PATHS.eacmc,
-    name: "Guide de l'EACMC (anciennement Partie I)",
+    name: `Guide de l'EACMC (anciennement Partie${NBSP}I)`,
     about:
       "format de l'examen, notation, inscription, parcours des diplômés à l'étranger et méthode de préparation, sourcés au Conseil médical du Canada",
   },

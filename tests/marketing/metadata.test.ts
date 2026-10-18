@@ -76,8 +76,9 @@ describe("metadata de la vitrine", () => {
 
   it.each(
     Object.entries(STATIC_PAGES).filter(([p]) => p !== "/eacmc-partie-1"),
-  )("%s : le titre ne porte pas l'ancien nom de l'examen", (_, m) => {
+  )("%s : ni le titre ni celui de partage ne portent l'ancien nom", (_, m) => {
     expect(titleOf(m)).not.toMatch(/partie\s(I|1)\b/i)
+    expect(String(m.openGraph?.title ?? "")).not.toMatch(/partie\s(I|1)\b/i)
   })
 
   it("le texte des images de partage ne porte pas l'ancien nom", () => {
