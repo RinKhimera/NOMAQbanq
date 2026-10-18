@@ -316,6 +316,12 @@ Une journée civile, à l'heure de l'Est, où l'étudiant a terminé au moins un
 série ou soumis au moins un examen blanc.
 _Avoid_ : streak, jour de connexion
 
+**Dernière activité** :
+La date de la dernière série terminée ou du dernier examen blanc soumis par
+l'étudiant, sur tout son historique. Une connexion ou une série en cours n'en
+est pas une ; un étudiant qui n'a jamais rien terminé n'en a pas.
+_Avoid_ : dernière connexion, dernière visite
+
 **Verdict d'une réponse** :
 Juste ou fausse, fixé au moment où l'étudiant répond, contre la clé de ce
 moment-là, et jamais réécrit. Scores, maîtrise, percentile et
