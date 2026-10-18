@@ -56,7 +56,6 @@ export const PricingGrid = ({
         icons={[PackageX]}
         title="Aucune offre disponible"
         description="Les offres seront bientôt disponibles. Revenez plus tard."
-        className="mx-auto"
       />
     )
   }

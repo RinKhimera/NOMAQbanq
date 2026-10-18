@@ -54,24 +54,22 @@ export const ProgressionEmpty = ({
       title={TITLE}
       description="Vos résultats par domaine, vos examens blancs et votre entraînement, réunis sur une page."
     />
-    <div className="bg-surface border-line shadow-1 rounded-lg border py-10">
-      <EmptyState
-        icons={[ChartNoAxesColumn]}
-        title="Aucune donnée pour le moment"
-        description="Votre rapport se remplit dès votre première série d'entraînement ou votre premier examen blanc."
-      >
-        <Button asChild className="max-md:h-11">
-          {trainingAccess ? (
-            <Link href={TRAINING_HREF} prefetch={false}>
-              Commencer une série
-              <LinkPendingIndicator className="ml-2" />
-            </Link>
-          ) : (
-            <Link href={PRICING_HREF}>Voir les tarifs</Link>
-          )}
-        </Button>
-      </EmptyState>
-    </div>
+    <EmptyState
+      icons={[ChartNoAxesColumn]}
+      title="Aucune donnée pour le moment"
+      description="Votre rapport se remplit dès votre première série d'entraînement ou votre premier examen blanc."
+    >
+      <Button asChild className="max-md:h-11">
+        {trainingAccess ? (
+          <Link href={TRAINING_HREF} prefetch={false}>
+            Commencer une série
+            <LinkPendingIndicator className="ml-2" />
+          </Link>
+        ) : (
+          <Link href={PRICING_HREF}>Voir les tarifs</Link>
+        )}
+      </Button>
+    </EmptyState>
   </>
 )
 
