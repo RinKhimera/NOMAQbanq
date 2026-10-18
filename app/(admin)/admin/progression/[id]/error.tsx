@@ -15,7 +15,7 @@ export default function AdminStudentProgressionError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  // Le retour garde les filtres et la période du tableau d'où l'on vient.
+  // Filtres et période gardés ; la page de l'étudiant n'est plus connue ici.
   const list = parseProgressionList(new URLSearchParams(useSearchParams()))
   return (
     <RouteError

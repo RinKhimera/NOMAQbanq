@@ -15,6 +15,7 @@ import {
   examBandSql,
   trainingBandSql,
 } from "./dal.dashboard"
+import { type ExamPercentiles, percentilesOf } from "./dal.percentiles"
 import {
   type MyExamHistoryPage,
   type MyProgression,
@@ -23,7 +24,6 @@ import {
   examHistoryOf,
   progressionOf,
 } from "./dal.progression"
-import { type ExamPercentiles, percentilesOf } from "./percentiles"
 
 // ============================================
 // [Admin] Tableau de suivi
@@ -196,16 +196,14 @@ export const getStudentProgressList = async ({
     select *, (count(*) over ())::int as total from (${rows}) s
      order by ${rowsOrderSql(filters)}
      limit ${STUDENT_PROGRESS_PAGE_SIZE} offset ${safeOffset}`)
+  let total = page.rows[0]?.total ?? 0
   // Une page au-delà de la dernière ne porte aucune ligne, donc aucun total.
-  const total =
-    page.rows[0]?.total ??
-    (safeOffset > 0
-      ? ((
-          await db.execute<{ total: number }>(
-            sql`select count(*)::int as total from (${rows}) s`,
-          )
-        ).rows[0]?.total ?? 0)
-      : 0)
+  if (page.rows.length === 0 && safeOffset > 0) {
+    const count = await db.execute<{ total: number }>(
+      sql`select count(*)::int as total from (${rows}) s`,
+    )
+    total = count.rows[0]?.total ?? 0
+  }
 
   return {
     items: page.rows.map((r) => ({

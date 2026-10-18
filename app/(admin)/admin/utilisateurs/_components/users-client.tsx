@@ -32,7 +32,7 @@ import type {
   UsersHeadline,
 } from "@/features/users/dal"
 import { USERS_PAGE_SIZE } from "@/features/users/page-size"
-import { useUrlListState } from "@/hooks/use-url-list-state"
+import { toggledOrder, useUrlListState } from "@/hooks/use-url-list-state"
 import { formatMediumDate } from "@/lib/format"
 import type { Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
@@ -181,14 +181,8 @@ export const UsersClient = ({
 
   const sortOn = (field: UserSort) => ({
     direction: state.sort === field ? state.order : null,
-    onToggle: () => {
-      const current = latest()
-      change({
-        sort: field,
-        order:
-          current.sort === field && current.order === "desc" ? "asc" : "desc",
-      })
-    },
+    onToggle: () =>
+      change({ sort: field, order: toggledOrder(latest(), field) }),
   })
 
   const clear = () => {

@@ -16,12 +16,12 @@ import { type SubmittedStatus, submittedStatus } from "../exams/dal.shared"
 import { SUBMITTED } from "../exams/population"
 import { viewerOf } from "../questions/answer-key-lock"
 import { firstAnswersSql, questionSuccessStats } from "./answers-sql"
+import { type ExamPercentiles, percentilesOf } from "./dal.percentiles"
 import { type DomainMastery, domainMastery } from "./mastery"
-import { type ExamPercentiles, percentilesOf } from "./percentiles"
 
-// Liste explicite : les cœurs paramétrés par l'étudiant (`dashboardOf`,
-// `progressionOf`, `examHistoryOf`, `percentilesOf`) n'ont pas de garde et ne
-// passent pas par ce module, que les pages importent.
+// Liste explicite, sans `export *` : les lectures paramétrées par l'étudiant
+// (les `…Of`) n'ont pas de garde et ne passent pas par ce module, que les
+// pages importent.
 export {
   type ActivityItem,
   type ExamHistoryPoint,
@@ -44,7 +44,7 @@ export {
   getMyExamHistory,
   getMyProgression,
 } from "./dal.progression"
-export { type ExamPercentiles, PERCENTILE_MIN_COHORT } from "./percentiles"
+export { type ExamPercentiles, PERCENTILE_MIN_COHORT } from "./dal.percentiles"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 

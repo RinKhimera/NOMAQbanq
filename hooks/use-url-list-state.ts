@@ -5,6 +5,17 @@ import { useEffect, useRef, useState, useTransition } from "react"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
 /**
+ * Sens du tri après un clic sur la colonne `field` : décroissant d'abord, puis
+ * bascule. Se calcule sur `latest()`, pas sur les props d'un rechargement en
+ * cours.
+ */
+export const toggledOrder = <K extends string>(
+  current: { sort: K; order: "asc" | "desc" },
+  field: K,
+): "asc" | "desc" =>
+  current.sort === field && current.order === "desc" ? "asc" : "desc"
+
+/**
  * État d'une liste filtrée qui vit dans l'URL : la page serveur le lit, l'écran
  * le réécrit dans une transition (rechargement en place). Porte le champ de
  * recherche débouncé et le « dernier état demandé ».

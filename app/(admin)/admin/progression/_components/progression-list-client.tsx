@@ -29,7 +29,7 @@ import type {
   StudentProgressRow,
   StudentProgressSort,
 } from "@/features/analytics/dal.admin-progression"
-import { useUrlListState } from "@/hooks/use-url-list-state"
+import { toggledOrder, useUrlListState } from "@/hooks/use-url-list-state"
 import { STUDENT_PROGRESS_PAGE_SIZE } from "@/lib/admin-progression"
 import type { DashboardPeriod } from "@/lib/dashboard-period"
 import { NBSP, formatMediumDate } from "@/lib/format"
@@ -166,14 +166,8 @@ export const ProgressionListClient = ({
 
   const sortOn = (field: StudentProgressSort) => ({
     direction: state.sort === field ? state.order : null,
-    onToggle: () => {
-      const current = latest()
-      change({
-        sort: field,
-        order:
-          current.sort === field && current.order === "desc" ? "asc" : "desc",
-      })
-    },
+    onToggle: () =>
+      change({ sort: field, order: toggledOrder(latest(), field) }),
   })
 
   const clear = () => {

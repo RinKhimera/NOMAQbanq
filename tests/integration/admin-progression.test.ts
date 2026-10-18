@@ -498,6 +498,8 @@ describe("getStudentProgressList — tri et pagination", () => {
     expect(first.total).toBe(22)
     expect(first.items.map((r) => r.id)).toEqual(ids.slice(0, 20))
     expect(second.items.map((r) => r.id)).toEqual(ids.slice(20))
+    // Au-delà de la dernière page : aucune ligne, mais le total reste connu.
+    expect(await list(t, { offset: 40 })).toEqual({ items: [], total: 22 })
 
     expect(await getStudentProgressNeighbors(ids[19], filters)).toEqual({
       position: 20,
