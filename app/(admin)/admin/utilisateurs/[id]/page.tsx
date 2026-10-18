@@ -45,18 +45,15 @@ export default async function AdminUserDetailPage({
             </Link>{" "}
             › <span className="text-ink">Introuvable</span>
           </nav>
-          <div className="bg-surface border-line rounded-lg border py-12">
-            <EmptyState
-              size="compact"
-              icons={[UserX]}
-              title="Utilisateur introuvable"
-              description="Ce lien ne correspond à aucun compte. Le compte a peut-être été supprimé par l'étudiant : il est anonymisé après 30 jours et n'apparaît plus dans les listes."
-            >
-              <Button asChild variant="outline">
-                <Link href="/admin/utilisateurs">Retour aux utilisateurs</Link>
-              </Button>
-            </EmptyState>
-          </div>
+          <EmptyState
+            icons={[UserX]}
+            title="Utilisateur introuvable"
+            description="Ce lien ne correspond à aucun compte. Le compte a peut-être été supprimé par l'étudiant : il est anonymisé après 30 jours et n'apparaît plus dans les listes."
+          >
+            <Button asChild variant="outline">
+              <Link href="/admin/utilisateurs">Retour aux utilisateurs</Link>
+            </Button>
+          </EmptyState>
         </>
       )}
     </div>
