@@ -8,7 +8,6 @@ import { pageOfPosition } from "@/lib/admin-progression"
 import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import {
   type ProgressionListState,
-  progressionListHref,
   studentProgressHref,
 } from "../../_components/progression-params"
 
@@ -77,7 +76,7 @@ export const StudentProgressNav = ({
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link
-              href={progressionListHref({ ...list, page: 1 })}
+              href={listHref}
               prefetch={false}
               className="focus-ring hover:text-ink rounded-xs"
             >

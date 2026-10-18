@@ -167,9 +167,13 @@ export const ExamHistory = ({
                       variant="ghost"
                       className="max-md:h-11"
                     >
-                      <Link href={examCopyHref(p.examId, copyOf)}>
+                      <Link
+                        href={examCopyHref(p.examId, copyOf)}
+                        prefetch={false}
+                      >
                         Voir la copie
                         <span className="sr-only"> : {p.title}</span>
+                        <LinkPendingIndicator />
                       </Link>
                     </Button>
                   ) : (

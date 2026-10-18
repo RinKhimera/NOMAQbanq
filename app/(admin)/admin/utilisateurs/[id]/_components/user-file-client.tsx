@@ -32,6 +32,7 @@ import {
   formatMediumDateTime,
 } from "@/lib/format"
 import { scoreTextClass } from "@/lib/score"
+import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import {
   accessState,
@@ -587,7 +588,7 @@ export const UserFileClient = ({
         title="Examens blancs et séries"
         action={
           u.role === "admin" ? undefined : (
-            <Button asChild size="sm" variant="ghost" className="max-lg:h-11">
+            <Button asChild size="sm" variant="ghost" className={TOUCH_HEIGHT}>
               <Link href={adminProgressionHref(u.id)}>
                 Voir la progression
                 <ArrowRight aria-hidden="true" />

@@ -3,7 +3,7 @@ import type {
   StudentProgressFilters,
   StudentProgressSort,
 } from "@/features/analytics/dal.admin-progression"
-import { ADMIN_PROGRESSION_HREF } from "@/lib/admin-links"
+import { ADMIN_PROGRESSION_HREF, adminProgressionHref } from "@/lib/admin-links"
 import {
   DEFAULT_PERIOD,
   type DashboardPeriod,
@@ -136,5 +136,5 @@ export const progressionListHref = (s: ProgressionListState) =>
 export const studentProgressHref = (id: string, s: ProgressionListState) => {
   const params = serializeProgressionList(s)
   params.set(FROM_LIST_PARAM, "1")
-  return withQuery(`${ADMIN_PROGRESSION_HREF}/${id}`, params)
+  return withQuery(adminProgressionHref(id), params)
 }

@@ -228,10 +228,10 @@ const examActivityAt = sql`case when ${examParticipations.status} = 'auto_submit
   else ${examParticipations.completedAt} end`
 
 /**
- * Activité (`CONTEXT.md`) : une ligne `(user_id, at)` par série close et par
+ * Activité : une ligne `(user_id, at)` par série close et par
  * examen blanc soumis, de `userId` ou de tous les comptes. Une série seulement
- * commencée n'en est pas. Source des jours d'activité et de la dernière
- * activité.
+ * commencée n'en est pas. Source du jour d'activité et de la dernière
+ * activité (`CONTEXT.md`).
  */
 export const activityEventsSql = (userId?: string) => sql`
   select ${trainingSessions.userId} as user_id, ${trainingSessions.completedAt} as at
