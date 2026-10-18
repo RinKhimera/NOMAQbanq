@@ -22,10 +22,9 @@ import { pageMetadata } from "@/lib/seo"
 import { TimerDemo } from "./_components/timer-demo"
 
 export const metadata: Metadata = pageMetadata(MARKETING_PATHS.evaluation, {
-  title: "Évaluation gratuite",
+  title: "Évaluation gratuite pour l'EACMC",
   description:
     "Évaluation gratuite pour l'EACMC partie 1 : testez votre niveau en conditions réelles, découvrez l'interface et la qualité des questions avant de vous abonner.",
-  ogTitle: "Évaluation gratuite pour l'EACMC",
   ogDescription:
     "Testez gratuitement notre plateforme de préparation EACMC. Découvrez la qualité de nos questions et évaluez votre niveau.",
 })

@@ -70,9 +70,12 @@ describe("metadata de la vitrine", () => {
     },
   )
 
-  it.each(["/", "/domaines", "/tarifs"])("%s : le titre nomme l'EACMC", (p) => {
-    expect(titleOf(STATIC_PAGES[p])).toMatch(/EACMC/)
-  })
+  it.each(["/", "/domaines", "/tarifs", "/evaluation"])(
+    "%s : le titre nomme l'EACMC",
+    (p) => {
+      expect(titleOf(STATIC_PAGES[p])).toMatch(/EACMC/)
+    },
+  )
 
   it.each(
     Object.entries(STATIC_PAGES).filter(([p]) => p !== "/eacmc-partie-1"),
