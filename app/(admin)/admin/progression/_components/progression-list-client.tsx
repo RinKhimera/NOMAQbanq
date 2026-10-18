@@ -2,8 +2,7 @@
 
 import { SearchX, X } from "lucide-react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import {
   DataTable,
   type DataTableColumn,
@@ -30,7 +29,7 @@ import type {
   StudentProgressRow,
   StudentProgressSort,
 } from "@/features/analytics/dal.admin-progression"
-import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { useUrlListState } from "@/hooks/use-url-list-state"
 import { STUDENT_PROGRESS_PAGE_SIZE } from "@/lib/admin-progression"
 import type { DashboardPeriod } from "@/lib/dashboard-period"
 import { NBSP, formatMediumDate } from "@/lib/format"
@@ -157,36 +156,29 @@ export const ProgressionListClient = ({
   page: StudentProgressPage
 }) => {
   const router = useRouter()
-  const pathname = usePathname()
-  const [isPending, startTransition] = useTransition()
-  const [search, setSearch] = useState(state.q)
-
-  const go = (next: ProgressionListState) =>
-    startTransition(() => {
-      const params = serializeProgressionList(next)
-      router.replace(params.size ? `${pathname}?${params}` : pathname, {
-        scroll: false,
-      })
-    })
-  const change = (c: Partial<Omit<ProgressionListState, "page">>) =>
-    go(withChange(state, c))
-
-  useDebouncedValue(search, 300, (value) => {
-    if (value.trim() !== state.q) change({ q: value.trim() })
+  const { search, setSearch, isPending, latest, go } = useUrlListState({
+    state,
+    serialize: serializeProgressionList,
+    withSearch: (current, q) => withChange(current, { q }),
   })
+  const change = (c: Partial<Omit<ProgressionListState, "page">>) =>
+    go(withChange(latest(), c))
 
   const sortOn = (field: StudentProgressSort) => ({
     direction: state.sort === field ? state.order : null,
-    onToggle: () =>
+    onToggle: () => {
+      const current = latest()
       change({
         sort: field,
-        order: state.sort === field && state.order === "desc" ? "asc" : "desc",
-      }),
+        order:
+          current.sort === field && current.order === "desc" ? "asc" : "desc",
+      })
+    },
   })
 
   const clear = () => {
     setSearch("")
-    go(cleared(state))
+    go(cleared(latest()))
   }
 
   const hrefOf = (row: StudentProgressRow) => studentProgressHref(row.id, state)
@@ -423,7 +415,7 @@ export const ProgressionListClient = ({
               isLoading={isPending}
               itemNoun={{ one: "étudiant", many: "étudiants" }}
               onPageChange={(p) => {
-                go({ ...state, page: p })
+                go({ ...latest(), page: p })
                 window.scrollTo({ top: 0 })
               }}
             />
