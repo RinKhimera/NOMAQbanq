@@ -119,20 +119,15 @@ export function ExamenBlancClient({
 
   if (exams.length === 0) {
     return (
-      <div className="bg-surface border-line rounded-lg border px-6 py-14">
-        <EmptyState
-          size="compact"
-          icons={[ClipboardList]}
-          title="Aucun examen blanc pour l'instant"
-          description="Les examens blancs sont publiés ici avec leur fenêtre d'ouverture. En attendant, les séries d'entraînement couvrent les 22 domaines."
-        >
-          <Button asChild variant="outline" className="max-md:h-11">
-            <Link href="/tableau-de-bord/entrainement">
-              Commencer une série
-            </Link>
-          </Button>
-        </EmptyState>
-      </div>
+      <EmptyState
+        icons={[ClipboardList]}
+        title="Aucun examen blanc pour l'instant"
+        description="Les examens blancs sont publiés ici avec leur fenêtre d'ouverture. En attendant, les séries d'entraînement couvrent les 22 domaines."
+      >
+        <Button asChild variant="outline" className="max-md:h-11">
+          <Link href="/tableau-de-bord/entrainement">Commencer une série</Link>
+        </Button>
+      </EmptyState>
     )
   }
 

@@ -1,10 +1,16 @@
 # NOMAQbanq
 
-Plateforme de préparation à l'EACMC Partie I : une banque de questions partagée
-sert à la fois l'entraînement, les examens blancs et le quiz public. Ce glossaire
-fixe les termes du domaine ; l'implémentation vit dans le code.
+Plateforme de préparation à l'EACMC : une banque de questions partagée sert à
+la fois l'entraînement, les examens blancs et le quiz public. Ce glossaire fixe
+les termes du domaine ; l'implémentation vit dans le code.
 
 ## Language
+
+**EACMC** :
+L'Examen d'aptitude du Conseil médical du Canada, que la plateforme prépare.
+Le CMC l'appelait auparavant « EACMC, partie I » ; la partie II n'existe plus.
+L'ancien nom ne s'écrit plus qu'en rappel : « EACMC (anciennement Partie I) ».
+_Avoid_ : EACMC Partie I, EACMC partie 1, MCCQE1
 
 ### Banque de questions
 
@@ -309,6 +315,12 @@ _Avoid_ : avancement, complétion (réservé aux examens disponibles)
 Une journée civile, à l'heure de l'Est, où l'étudiant a terminé au moins une
 série ou soumis au moins un examen blanc.
 _Avoid_ : streak, jour de connexion
+
+**Dernière activité** :
+La date de la dernière série terminée ou du dernier examen blanc soumis par
+l'étudiant, sur tout son historique. Une connexion ou une série en cours n'en
+est pas une ; un étudiant qui n'a jamais rien terminé n'en a pas.
+_Avoid_ : dernière connexion, dernière visite
 
 **Verdict d'une réponse** :
 Juste ou fausse, fixé au moment où l'étudiant répond, contre la clé de ce

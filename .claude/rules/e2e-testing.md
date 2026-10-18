@@ -46,6 +46,10 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
   `getByTestId("auth-email"|"auth-password"|"auth-submit")` sur `/connexion`),
   storageState sauvegardé dans `e2e/.auth/{user,admin}.json`. Si auth bizarre →
   supprimer `e2e/.auth/` et relancer.
+- **Page étudiant sans données** (état vide de Progression…) : jouer avec
+  l'admin, qui n'a ni série ni participation sur develop (le vérifier par
+  `SELECT`). Pas d'inscription pour obtenir un compte vierge : les courriels
+  partent par SES réel, même en dev.
 
 ## Route support `/api/e2e` (Drizzle) — actions
 

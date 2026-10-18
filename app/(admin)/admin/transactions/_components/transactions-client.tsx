@@ -196,17 +196,15 @@ export const TransactionsClient = ({
     return (
       <>
         {intro}
-        <div className="bg-surface border-line rounded-lg border">
-          <EmptyState
-            icons={[Receipt]}
-            title="Aucune transaction pour l'instant"
-            description="Les paiements Stripe apparaîtront ici dès le premier achat. Vous pouvez aussi enregistrer un paiement manuel."
-            action={{
-              label: "Enregistrer un paiement manuel",
-              onClick: () => setManual({}),
-            }}
-          />
-        </div>
+        <EmptyState
+          icons={[Receipt]}
+          title="Aucune transaction pour l'instant"
+          description="Les paiements Stripe apparaîtront ici dès le premier achat. Vous pouvez aussi enregistrer un paiement manuel."
+          action={{
+            label: "Enregistrer un paiement manuel",
+            onClick: () => setManual({}),
+          }}
+        />
         {dialogs}
       </>
     )

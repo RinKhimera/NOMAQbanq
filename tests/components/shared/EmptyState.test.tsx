@@ -27,6 +27,21 @@ describe("EmptyState", () => {
     },
   )
 
+  it("taille par défaut : porte son cadre et se centre seule", () => {
+    const { container } = render(<EmptyState title="Aucune donnée" />)
+    const root = container.firstElementChild
+    expect(root).toHaveClass("border-line", "shadow-1", "max-w-155", "mx-auto")
+  })
+
+  it("compact : sans cadre, à poser dans une carte", () => {
+    const { container } = render(
+      <EmptyState size="compact" title="Aucune donnée" />,
+    )
+    const root = container.firstElementChild
+    expect(root).not.toHaveClass("bg-surface")
+    expect(root).not.toHaveClass("border-line")
+  })
+
   it("compact sans description ni icône : le titre seul", () => {
     const { container } = render(
       <EmptyState size="compact" title="Aucune activité récente" />,

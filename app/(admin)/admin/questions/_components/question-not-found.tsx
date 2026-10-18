@@ -12,17 +12,14 @@ export const QuestionNotFound = ({ listHref }: { listHref: string }) => (
       </Link>{" "}
       › <span className="text-ink">Introuvable</span>
     </nav>
-    <div className="bg-surface border-line rounded-lg border py-12">
-      <EmptyState
-        size="compact"
-        icons={[FileQuestion]}
-        title="Question introuvable"
-        description="Cette question n'existe pas ou a été supprimée."
-      >
-        <Button asChild variant="outline">
-          <Link href={listHref}>Retour aux questions</Link>
-        </Button>
-      </EmptyState>
-    </div>
+    <EmptyState
+      icons={[FileQuestion]}
+      title="Question introuvable"
+      description="Cette question n'existe pas ou a été supprimée."
+    >
+      <Button asChild variant="outline">
+        <Link href={listHref}>Retour aux questions</Link>
+      </Button>
+    </EmptyState>
   </div>
 )
