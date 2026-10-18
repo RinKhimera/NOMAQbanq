@@ -1,10 +1,16 @@
 # NOMAQbanq
 
-Plateforme de préparation à l'EACMC Partie I : une banque de questions partagée
-sert à la fois l'entraînement, les examens blancs et le quiz public. Ce glossaire
-fixe les termes du domaine ; l'implémentation vit dans le code.
+Plateforme de préparation à l'EACMC : une banque de questions partagée sert à
+la fois l'entraînement, les examens blancs et le quiz public. Ce glossaire fixe
+les termes du domaine ; l'implémentation vit dans le code.
 
 ## Language
+
+**EACMC** :
+L'Examen d'aptitude du Conseil médical du Canada, que la plateforme prépare.
+Le CMC l'appelait auparavant « EACMC, partie I » ; la partie II n'existe plus.
+L'ancien nom ne s'écrit plus qu'en rappel : « EACMC (anciennement Partie I) ».
+_Avoid_ : EACMC Partie I, EACMC partie 1, MCCQE1
 
 ### Banque de questions
 
