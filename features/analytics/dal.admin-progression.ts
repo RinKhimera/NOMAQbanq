@@ -9,7 +9,6 @@ import { type DashboardPeriod, periodWindow } from "@/lib/dashboard-period"
 import { ownerParticipationScoreReadable } from "../exams/dal.student"
 import { populationAccount } from "../exams/population"
 import { viewerOf } from "../questions/answer-key-lock"
-import { type ExamPercentiles, percentilesOf } from "./dal"
 import {
   type MyDashboard,
   dashboardOf,
@@ -24,6 +23,7 @@ import {
   examHistoryOf,
   progressionOf,
 } from "./dal.progression"
+import { type ExamPercentiles, percentilesOf } from "./percentiles"
 
 // ============================================
 // [Admin] Tableau de suivi
@@ -123,7 +123,7 @@ const studentRowsSql = (f: StudentProgressFilters, now: number) => {
                  (${band.periodGradedCount})::int as graded,
                  (${band.periodPassedCount})::int as passed
             from ${examParticipations}
-           where ${band.closed}
+           where ${band.closed} and ${band.inWindow}
            group by ${examParticipations.userId}
         ) ex on ex.user_id = ${user.id}
         left join (
@@ -192,15 +192,20 @@ export const getStudentProgressList = async ({
   const rows = studentRowsSql(filters, Date.now())
   const safeOffset = Math.max(0, Math.floor(offset))
 
-  const [page, count] = await Promise.all([
-    db.execute<RawRow>(sql`
-      select * from (${rows}) s
-       order by ${rowsOrderSql(filters)}
-       limit ${STUDENT_PROGRESS_PAGE_SIZE} offset ${safeOffset}`),
-    db.execute<{ total: number }>(
-      sql`select count(*)::int as total from (${rows}) s`,
-    ),
-  ])
+  const page = await db.execute<RawRow & { total: number }>(sql`
+    select *, (count(*) over ())::int as total from (${rows}) s
+     order by ${rowsOrderSql(filters)}
+     limit ${STUDENT_PROGRESS_PAGE_SIZE} offset ${safeOffset}`)
+  // Une page au-delà de la dernière ne porte aucune ligne, donc aucun total.
+  const total =
+    page.rows[0]?.total ??
+    (safeOffset > 0
+      ? ((
+          await db.execute<{ total: number }>(
+            sql`select count(*)::int as total from (${rows}) s`,
+          )
+        ).rows[0]?.total ?? 0)
+      : 0)
 
   return {
     items: page.rows.map((r) => ({
@@ -220,7 +225,7 @@ export const getStudentProgressList = async ({
         ? new Date(r.last_activity_at).getTime()
         : null,
     })),
-    total: count.rows[0]?.total ?? 0,
+    total,
   }
 }
 

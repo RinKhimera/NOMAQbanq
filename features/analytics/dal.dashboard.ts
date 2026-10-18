@@ -127,19 +127,23 @@ export const examBandSql = ({
       : sql`false`
   // Plancher partout : un score affiché ne surestime jamais (59,67 → 59, pas
   // 60 %, « réussite »). La tendance aussi, recul compris : −1,7 → −2.
-  const periodAverage = sql`avg(${examParticipations.score}) filter (where ${graded} and ${inPeriod})`
-  const previousAverage = sql`avg(${examParticipations.score}) filter (where ${graded} and ${inPrevious})`
+  const periodAverage = sql`avg(${examParticipations.score}) filter (where ${inPeriod} and ${graded})`
+  const previousAverage = sql`avg(${examParticipations.score}) filter (where ${inPrevious} and ${graded})`
   return {
     closed: inArray(examParticipations.status, [...CLOSED]),
     inPeriod,
+    /** Toutes les participations que lisent ces fragments : période et précédente. */
+    inWindow: previousFrom
+      ? sql`${examParticipations.completedAt} >= ${previousFrom}`
+      : sql`true`,
     averageScore: sql<number | null>`floor(${periodAverage})`,
     // Écart des moyennes brutes, en numeric exact : une différence de
     // moyennes déjà arrondies annoncerait « +1 » pour +0,1.
     averageTrend: sql<
       number | null
     >`floor(${periodAverage} - ${previousAverage})`,
-    periodGradedCount: sql<number>`count(*) filter (where ${graded} and ${inPeriod})`,
-    periodPassedCount: sql<number>`count(*) filter (where ${graded} and ${inPeriod} and ${examParticipations.score} >= ${PASS_THRESHOLD})`,
+    periodGradedCount: sql<number>`count(*) filter (where ${inPeriod} and ${graded})`,
+    periodPassedCount: sql<number>`count(*) filter (where ${inPeriod} and ${graded} and ${examParticipations.score} >= ${PASS_THRESHOLD})`,
   }
 }
 

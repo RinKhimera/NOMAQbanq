@@ -1,13 +1,4 @@
-import {
-  and,
-  desc,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  lte,
-  sql,
-} from "drizzle-orm"
+import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
@@ -22,14 +13,38 @@ import {
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 import { type SubmittedStatus, submittedStatus } from "../exams/dal.shared"
-import { ownerReadableScore } from "../exams/dal.student"
-import { SUBMITTED, examPopulation } from "../exams/population"
+import { SUBMITTED } from "../exams/population"
 import { viewerOf } from "../questions/answer-key-lock"
 import { firstAnswersSql, questionSuccessStats } from "./answers-sql"
 import { type DomainMastery, domainMastery } from "./mastery"
+import { type ExamPercentiles, percentilesOf } from "./percentiles"
 
-export * from "./dal.dashboard"
-export * from "./dal.progression"
+// Liste explicite : les cœurs paramétrés par l'étudiant (`dashboardOf`,
+// `progressionOf`, `examHistoryOf`, `percentilesOf`) n'ont pas de garde et ne
+// passent pas par ce module, que les pages importent.
+export {
+  type ActivityItem,
+  type ExamHistoryPoint,
+  type ExamInProgress,
+  type MyDashboard,
+  type RecentParticipation,
+  type TrainingWeek,
+  getMyDashboard,
+  getMyExamInProgress,
+  getMyRecentActivity,
+  getMyRecentParticipations,
+  questionCountOf,
+} from "./dal.dashboard"
+export {
+  type DomainProgress,
+  type ExamHistoryRow,
+  type MyExamHistoryPage,
+  type MyProgression,
+  type ObjectiveProgress,
+  getMyExamHistory,
+  getMyProgression,
+} from "./dal.progression"
+export { type ExamPercentiles, PERCENTILE_MIN_COHORT } from "./percentiles"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -238,78 +253,6 @@ export const getDashboardTrends = async (): Promise<DashboardTrends> => {
 // ============================================
 // Percentile d'examen
 // ============================================
-
-/** En dessous de ce nombre de participations lisibles, pas de percentile. */
-export const PERCENTILE_MIN_COHORT = 5
-
-/** Percentile d'examen par id d'examen ; `null` = non disponible. */
-export type ExamPercentiles = Record<string, number | null>
-
-/**
- * Percentiles des participations de `userId` aux examens clos (tous, ou ceux
- * de `examIds`). Le groupe de pairs est celui du classement, restreint aux
- * comptes étudiants non supprimés, et lu par la même retenue
- * (`ownerReadableScore`) : une participation au score retenu n'est ni cible
- * ni pair. Sans garde : l'appelant la porte.
- */
-export const percentilesOf = async (
-  userId: string,
-  examIds?: string[],
-): Promise<ExamPercentiles> => {
-  const cohort = db
-    .select({
-      id: examParticipations.id,
-      examId: examParticipations.examId,
-      userId: examParticipations.userId,
-      score: ownerReadableScore.as("score"),
-    })
-    .from(examParticipations)
-    .innerJoin(exams, eq(exams.id, examParticipations.examId))
-    .innerJoin(user, eq(user.id, examParticipations.userId))
-    .where(
-      and(
-        lte(exams.endDate, new Date()),
-        examPopulation,
-        inArray(
-          examParticipations.examId,
-          db
-            .select({ examId: examParticipations.examId })
-            .from(examParticipations)
-            .where(
-              and(
-                eq(examParticipations.userId, userId),
-                examIds
-                  ? inArray(examParticipations.examId, examIds)
-                  : undefined,
-              ),
-            )
-            .limit(200),
-        ),
-      ),
-    )
-
-  const result = await db.execute<{
-    exam_id: string
-    percentile: number | null
-  }>(sql`
-    with cohort as (${cohort})
-    -- Arrondi inférieur : « mieux que X % » ne doit jamais surestimer.
-    select t.exam_id,
-           case
-             when t.score is null
-               or count(o.score) < ${PERCENTILE_MIN_COHORT} then null
-             else floor(
-               100.0 * count(*) filter (where o.score < t.score)
-                     / (count(o.score) - 1)
-             )::int
-           end as percentile
-      from cohort t
-      join cohort o on o.exam_id = t.exam_id
-     where t.user_id = ${userId}
-     group by t.exam_id, t.score`)
-
-  return Object.fromEntries(result.rows.map((r) => [r.exam_id, r.percentile]))
-}
 
 /**
  * Percentiles de l'utilisateur courant, par examen : tous, ou ceux de

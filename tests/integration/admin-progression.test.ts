@@ -76,18 +76,19 @@ const newQuestion = async (domain: string, objectiveId: string) => {
   return id
 }
 
-/** Une série close à `at`, une réponse par question. */
+/** Une série close à `at` (ou abandonnée), une réponse par question. */
 const train = async (
   userId: string,
   at: Date,
   answers: { questionId: string; isCorrect: boolean }[] = [],
   questionCount = Math.max(answers.length, 1),
+  status: "completed" | "abandoned" = "completed",
 ) => {
   const sessionId = createId()
   await db.insert(trainingSessions).values({
     id: sessionId,
     userId,
-    status: "completed",
+    status,
     mode: "test",
     questionCount,
     score: 80,
@@ -117,11 +118,15 @@ const sitExam = async (
     completedAt,
     score,
     questionIds = [],
+    status = "completed",
+    startedAt = new Date(completedAt.getTime() - HOUR),
   }: {
     open: boolean
     completedAt: Date
     score: number
     questionIds?: string[]
+    status?: "completed" | "auto_submitted"
+    startedAt?: Date
   },
 ) => {
   const examId = createId()
@@ -151,9 +156,9 @@ const sitExam = async (
     id: participationId,
     examId,
     userId,
-    status: "completed",
+    status,
     score,
-    startedAt: new Date(completedAt.getTime() - HOUR),
+    startedAt,
     completedAt,
   })
   if (questionIds.length > 0) {
@@ -291,6 +296,103 @@ describe("getStudentProgressList — chiffres de la bande", () => {
       activityDays: 0,
       averageScore: null,
       examsGraded: null,
+    })
+  })
+})
+
+describe("getStudentProgressList — retenue et activité par étudiant", () => {
+  it("retient le score d'un étudiant, pas celui d'un autre, quand une question répondue est dans un examen ouvert", async () => {
+    const t = token()
+    const objective = await objectiveIdFor(`Retenue ${t}`)
+    const q = await newQuestion("Cardiologie", objective)
+    const a = await newAccount({ name: `A ${t}` })
+    const b = await newAccount({ name: `B ${t}` })
+    // A a répondu à q dans un examen clos ; seul B passe l'examen ouvert qui contient q.
+    await sitExam(a, {
+      open: false,
+      completedAt: daysAgo(5),
+      score: 70,
+      questionIds: [q],
+    })
+    const openExam = await sitExam(b, {
+      open: true,
+      completedAt: daysAgo(1),
+      score: 50,
+      questionIds: [q],
+    })
+    signIn(await newAdmin(), "admin")
+    const rowOf = async (id: string) =>
+      (await list(t)).items.find((r) => r.id === id)
+
+    expect(await rowOf(a)).toMatchObject({
+      averageScore: 70,
+      examsGraded: 1,
+    })
+
+    // A participe à son tour à l'examen ouvert : sa note close dirait la clé.
+    await db.insert(examParticipations).values({
+      id: createId(),
+      examId: openExam,
+      userId: a,
+      status: "completed",
+      score: 40,
+      startedAt: daysAgo(1),
+      completedAt: daysAgo(1),
+    })
+    expect(await rowOf(a)).toMatchObject({
+      averageScore: null,
+      examsGraded: null,
+      examsPassed: null,
+    })
+  })
+
+  it("une copie soumise automatiquement compte le jour de son début, son score à sa clôture, comme sur la page", async () => {
+    const t = token()
+    const student = await newAccount({ name: `Auto ${t}` })
+    const startedAt = daysAgo(10)
+    await sitExam(student, {
+      open: false,
+      status: "auto_submitted",
+      startedAt,
+      completedAt: daysAgo(2),
+      score: 64,
+    })
+    const admin = await newAdmin()
+
+    const own = await ownReads(student, "7")
+    signIn(admin, "admin")
+    const [row] = (await list(t, { period: "7" })).items
+
+    expect(row).toMatchObject({
+      lastActivityAt: startedAt.getTime(),
+      activityDays: 0,
+      averageScore: 64,
+      examsGraded: 1,
+    })
+    expect(row).toMatchObject({
+      activityDays: own.progression!.activity.days,
+      averageScore: own.dashboard!.exams.averageScore,
+    })
+  })
+
+  it("des séries abandonnées seulement ne sont pas une activité : « — » partout", async () => {
+    const t = token()
+    const objective = await objectiveIdFor(`Abandon ${t}`)
+    const q = await newQuestion("Cardiologie", objective)
+    const student = await newAccount({ name: `Abandon ${t}` })
+    await train(
+      student,
+      daysAgo(2),
+      [{ questionId: q, isCorrect: true }],
+      10,
+      "abandoned",
+    )
+    signIn(await newAdmin(), "admin")
+
+    expect((await list(t)).items[0]).toMatchObject({
+      questionCount: null,
+      activityDays: null,
+      lastActivityAt: null,
     })
   })
 })

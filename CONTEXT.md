@@ -321,7 +321,9 @@ _Avoid_ : streak, jour de connexion
 **Dernière activité** :
 La date de la dernière série terminée ou du dernier examen blanc soumis par
 l'étudiant, sur tout son historique. Une connexion ou une série en cours n'en
-est pas une ; un étudiant qui n'a jamais rien terminé n'en a pas.
+est pas une ; un étudiant qui n'a jamais rien terminé n'en a pas. Une
+participation soumise automatiquement date du jour où il l'a commencée, comme
+le jour d'activité : sa clôture par le cron ne dit rien de lui.
 _Avoid_ : dernière connexion, dernière visite
 
 **Verdict d'une réponse** :
