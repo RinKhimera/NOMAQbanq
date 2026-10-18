@@ -180,7 +180,7 @@ type RawRow = {
 
 /**
  * [Admin] Tableau de suivi de la progression, trié et borné en SQL : 20
- * lignes par offset, une requête agrégée pour la page et une pour le total.
+ * lignes par offset, une requête agrégée qui porte aussi le total.
  */
 export const getStudentProgressList = async ({
   offset = 0,
