@@ -22,7 +22,7 @@ import { ExamSessionDemo, SeriesComposerDemo } from "./_components/demos"
 export const metadata: Metadata = pageMetadata(MARKETING_PATHS.fonctionnement, {
   title: "Comment ça marche : QCM, mode tuteur et examens blancs",
   description:
-    "Composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression : chaque étape de NOMAQbanq, la banque de QCM pour l'EACMC Partie I.",
+    "Composer une série, apprendre en mode tuteur, se mettre en conditions d'examen, suivre sa progression : chaque étape de NOMAQbanq, la banque de QCM pour l'EACMC.",
   ogDescription:
     "Séries, mode tuteur, examens blancs et suivi de progression, en français.",
 })

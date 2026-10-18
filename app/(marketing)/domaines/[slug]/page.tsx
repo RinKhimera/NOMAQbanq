@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // L'image de partage vient de `opengraph-image.tsx`, à côté.
   return {
     ...pageMetadata(domainPath(domain), {
-      title: `${domain.name} : QCM pour l'EACMC Partie I`,
+      title: `${domain.name} : QCM pour l'EACMC`,
       description: `${domain.description} : QCM pour préparer l'EACMC partie 1, rattachés aux objectifs du CMC.`,
       ogImage: false,
     }),
@@ -77,7 +77,7 @@ export default async function DomainPage({ params }: Props) {
       <MarketingHero
         label={domain.group.label}
         title={domain.name}
-        description={`${domain.description}. Des questions au format de l'EACMC Partie I, rattachées aux objectifs du CMC.`}
+        description={`${domain.description}. Des questions au format de l'EACMC, rattachées aux objectifs du CMC.`}
         breadcrumb={
           <nav aria-label="Fil d'Ariane">
             <ol className="text-ink-3 flex flex-wrap items-center gap-1.5 text-[13px]">

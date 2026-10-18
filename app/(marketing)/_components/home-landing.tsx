@@ -78,7 +78,7 @@ const OFFER = [
 
 const FAQ: FaqItem[] = [
   {
-    question: "Les questions suivent-elles le format de l'EACMC Partie I ?",
+    question: "Les questions suivent-elles le format de l'EACMC ?",
     answer:
       "Oui. Chaque question reprend le format de l'examen : vignette clinique, quatre ou cinq choix et une seule bonne réponse, avec explication et références.",
   },
@@ -95,7 +95,7 @@ const FAQ: FaqItem[] = [
   {
     question: "La plateforme est-elle entièrement en français ?",
     answer:
-      "Oui. NOMAQbanq est une plateforme francophone de préparation à l'EACMC Partie I.",
+      "Oui. NOMAQbanq est une plateforme francophone de préparation à l'EACMC.",
   },
 ]
 
@@ -141,8 +141,8 @@ export default function HomeLanding({ stats }: { stats: MarketingStats }) {
     <>
       <MarketingHero
         size="display"
-        label="EACMC Partie I · en français"
-        title="Préparez l'EACMC Partie I avec méthode."
+        label="EACMC · en français"
+        title="Préparez l'EACMC avec méthode."
         description="Plus de 3000 QCM basés sur les objectifs du Conseil médical du Canada, des examens blancs chronométrés et un mode tuteur qui explique chaque réponse."
         aside={
           <DemoQuestion

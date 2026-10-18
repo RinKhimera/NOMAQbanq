@@ -15,6 +15,7 @@ import * as fonctionnement from "@/app/(marketing)/fonctionnement/page"
 import * as accueil from "@/app/(marketing)/page"
 import * as tarifs from "@/app/(marketing)/tarifs/page"
 import { DOMAINS } from "@/constants/domains"
+import { SITE_OG_ALT } from "@/lib/seo"
 
 vi.mock("@/features/marketing/cached", () => ({}))
 vi.mock("@/features/payments/dal", () => ({}))
@@ -69,8 +70,20 @@ describe("metadata de la vitrine", () => {
     },
   )
 
-  it.each(["/tarifs"])("%s : le titre nomme l'EACMC", (p) => {
-    expect(titleOf(STATIC_PAGES[p])).toMatch(/EACMC Partie I/)
+  it.each(["/", "/domaines", "/tarifs"])("%s : le titre nomme l'EACMC", (p) => {
+    expect(titleOf(STATIC_PAGES[p])).toMatch(/EACMC/)
+  })
+
+  it.each(
+    Object.entries(STATIC_PAGES).filter(([p]) => p !== "/eacmc-partie-1"),
+  )("%s : le titre ne porte pas l'ancien nom de l'examen", (_, m) => {
+    expect(titleOf(m)).not.toMatch(/partie\s(I|1)\b/i)
+  })
+
+  it("le texte des images de partage ne porte pas l'ancien nom", () => {
+    expect(SITE_OG_ALT).toMatch(/EACMC/)
+    expect(SITE_OG_ALT).not.toMatch(/partie/i)
+    expect(domaineImage.alt).not.toMatch(/partie/i)
   })
 
   it("le guide nomme l'EACMC sous son nom actuel et son ancien nom", () => {
@@ -98,10 +111,10 @@ describe("metadata de la vitrine", () => {
   )
 
   it.each(DOMAINS.map((d) => [d.slug, d.name]))(
-    "/domaines/%s : titre dérivé du domaine, « EACMC Partie I », sans la marque",
+    "/domaines/%s : titre dérivé du domaine, « EACMC », sans la marque",
     async (slug, name) => {
       const m = await domainMetadata(slug)
-      expect(titleOf(m)).toBe(`${name} : QCM pour l'EACMC Partie I`)
+      expect(titleOf(m)).toBe(`${name} : QCM pour l'EACMC`)
       expect(m.description).toMatch(/partie 1/)
       expect(m.openGraph).toMatchObject({
         url: `https://nomaqbanq.ca/domaines/${slug}`,

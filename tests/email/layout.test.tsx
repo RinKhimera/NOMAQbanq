@@ -46,7 +46,8 @@ describe("EmailLayout", () => {
       </EmailLayout>,
     )
     expect(html).toMatch(/NOMAQ<span style="color:#2563eb[^"]*">banq<\/span>/)
-    expect(html).toContain("Préparation à l&#x27;EACMC Partie I")
+    expect(html).toContain("Préparation à l&#x27;EACMC<")
+    expect(html).not.toMatch(/Partie\s(I|1)\b/i)
     expect(html).toMatch(/<h1[^>]*font-family:Georgia/)
     expect(html).toContain("background-color:#fbfbfa")
     expect(html).toContain("border:1px solid #e6e4df")

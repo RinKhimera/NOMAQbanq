@@ -240,7 +240,7 @@ export const buildEvidenceMarkdown = (input: EvidenceInput): string => {
     `# Preuves — litige sur ${transaction.stripePaymentIntentId}`,
     `## customer_name\n\n${customer.name}`,
     `## customer_email_address\n\n${customer.email}${customer.emailVerified ? " (vérifié)" : ""}\n\nConnexion : ${customer.providers.join(", ") || "inconnue"}`,
-    `## product_description\n\nAccès en ligne « ${transaction.productName} » à la plateforme NOMAQbanq (préparation à l'EACMC Partie I) : banque de questions, examens blancs et suivi de progression, livré immédiatement après paiement, valide jusqu'au ${stamp(transaction.accessExpiresAt)}.`,
+    `## product_description\n\nAccès en ligne « ${transaction.productName} » à la plateforme NOMAQbanq (préparation à l'EACMC) : banque de questions, examens blancs et suivi de progression, livré immédiatement après paiement, valide jusqu'au ${stamp(transaction.accessExpiresAt)}.`,
     `## access_activity_log\n\n\`\`\`\n${formatActivityLog(buildActivityEvents(input))}\n\`\`\``,
   ]
   if (dispute) {

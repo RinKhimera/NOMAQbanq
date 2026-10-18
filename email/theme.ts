@@ -32,7 +32,7 @@ export const emailTheme = {
 // anti-pourriel dans tout message commercial ; elle est publique par nature.
 export const emailBrand = {
   name: "NOMAQbanq",
-  tagline: "Préparation à l'EACMC Partie I",
+  tagline: "Préparation à l'EACMC",
   postalAddress: "114 rue Isabelle, Gatineau (Québec) J8Y 5H3",
   // PNG (le SVG du site n'est pas affiché par Gmail ni Outlook), toujours sur
   // le domaine de production : le proxy d'images des webmails ne joint ni

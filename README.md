@@ -1,6 +1,6 @@
 # NOMAQbanq
 
-> The first French-language platform for EACMC Part I exam preparation
+> The first French-language platform for EACMC exam preparation
 
 NOMAQbanq is a modern medical exam preparation web application, offering a comprehensive question bank, timed mock exams, and a personalized progress tracking system.
 

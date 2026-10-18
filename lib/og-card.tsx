@@ -99,7 +99,7 @@ export const ogCard = (title: string) =>
               letterSpacing: "0.06em",
             }}
           >
-            {`EACMC Partie${NBSP}I · QCM`}
+            EACMC · QCM
           </span>
           <span
             style={{

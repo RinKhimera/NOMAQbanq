@@ -1,4 +1,5 @@
 import { guideAnchor } from "@/app/(marketing)/eacmc-partie-1/_data/guide"
+import { NBSP } from "@/lib/format"
 
 export interface FaqQuestion {
   q: string
@@ -19,8 +20,8 @@ export const faqCategories: FaqCategory[] = [
     title: "L'EACMC",
     questions: [
       {
-        q: "Qu'est-ce que l'EACMC Partie I ?",
-        a: "C'est l'ancien nom de l'EACMC, l'Examen d'aptitude du Conseil médical du Canada. Cet examen informatisé évalue les connaissances médicales et la prise de décisions cliniques attendues d'un diplômé en médecine au Canada ; il est exigé des diplômés internationaux qui postulent à la résidence.",
+        q: `Qu'est-ce que l'EACMC (anciennement Partie${NBSP}I) ?`,
+        a: "C'est l'Examen d'aptitude du Conseil médical du Canada : le même examen, renommé par le CMC. Cet examen informatisé évalue les connaissances médicales et la prise de décisions cliniques attendues d'un diplômé en médecine au Canada ; il est exigé des diplômés internationaux qui postulent à la résidence.",
         href: guideAnchor("definition"),
       },
       {
@@ -51,7 +52,7 @@ export const faqCategories: FaqCategory[] = [
     questions: [
       {
         q: "Qu'est-ce que NOMAQbanq ?",
-        a: "NOMAQbanq est une plateforme francophone de préparation à l'EACMC (Examen d'aptitude du Conseil médical du Canada) Partie I. Nous offrons une banque de questions complète, des examens blancs et des outils d'apprentissage adaptés aux médecins diplômés à l'étranger.",
+        a: "NOMAQbanq est une plateforme francophone de préparation à l'EACMC (Examen d'aptitude du Conseil médical du Canada). Nous offrons une banque de questions complète, des examens blancs et des outils d'apprentissage adaptés aux médecins diplômés à l'étranger.",
       },
       {
         q: "Comment fonctionne la plateforme ?",
@@ -59,7 +60,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Les questions sont-elles similaires à celles de l'EACMC ?",
-        a: "Oui. Nos questions reflètent le format, le niveau de difficulté et le contenu de l'EACMC Partie I. Elles sont régulièrement mises à jour et révisées par des médecins qualifiés.",
+        a: "Oui. Nos questions reflètent le format, le niveau de difficulté et le contenu de l'EACMC. Elles sont régulièrement mises à jour et révisées par des médecins qualifiés.",
       },
       {
         q: "Puis-je utiliser la plateforme sur mobile ?",
@@ -95,7 +96,7 @@ export const faqCategories: FaqCategory[] = [
     questions: [
       {
         q: "Combien de questions sont disponibles ?",
-        a: "Notre banque contient plus de 3000 questions couvrant tous les domaines de l'EACMC Partie I : médecine interne, chirurgie, pédiatrie, obstétrique-gynécologie, psychiatrie et d'autres.",
+        a: "Notre banque contient plus de 3000 questions couvrant tous les domaines de l'EACMC : médecine interne, chirurgie, pédiatrie, obstétrique-gynécologie, psychiatrie et d'autres.",
       },
       {
         q: "Les questions sont-elles mises à jour régulièrement ?",

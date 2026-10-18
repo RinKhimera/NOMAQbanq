@@ -9,7 +9,7 @@ export const dynamic = "force-static"
 const KEY_PAGES = [
   {
     path: MARKETING_PATHS.eacmc,
-    name: "Guide de l'EACMC (anciennement EACMC Partie I)",
+    name: "Guide de l'EACMC (anciennement Partie I)",
     about:
       "format de l'examen, notation, inscription, parcours des diplômés à l'étranger et méthode de préparation, sourcés au Conseil médical du Canada",
   },
@@ -49,7 +49,7 @@ const llmsTxt = () =>
     "",
     `> ${SITE_DESCRIPTION}`,
     "",
-    "NOMAQbanq s'adresse aux candidats francophones à l'EACMC Partie I (Examen d'aptitude du Conseil médical du Canada), notamment aux diplômés en médecine à l'étranger. Questions, explications et interface en français. Basée à Gatineau (Québec).",
+    "NOMAQbanq s'adresse aux candidats francophones à l'EACMC (Examen d'aptitude du Conseil médical du Canada), notamment aux diplômés en médecine à l'étranger. Questions, explications et interface en français. Basée à Gatineau (Québec).",
     "",
     "## Pages clés",
     "",
