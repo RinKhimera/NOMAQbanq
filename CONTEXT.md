@@ -11,9 +11,6 @@ L'Examen d'aptitude du Conseil médical du Canada, que la plateforme prépare.
 Le CMC l'appelait auparavant « EACMC, partie I » ; la partie II n'existe plus.
 L'ancien nom ne s'écrit plus qu'en rappel : « EACMC (anciennement Partie I) ».
 _Avoid_ : EACMC Partie I, EACMC partie 1, MCCQE1
-Tant que #321 n'est pas livrée, les titres de la vitrine gardent « EACMC Partie I »
-(`.claude/rules/seo.md`, verrou `tests/marketing/metadata.test.ts`) ; « partie 1 »
-reste admis dans les descriptions de recherche.
 
 ### Banque de questions
 
