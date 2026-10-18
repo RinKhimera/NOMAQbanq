@@ -85,7 +85,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "bg-surface border-line mx-auto w-full max-w-155 rounded-lg border p-14 text-center",
+        "bg-surface border-line shadow-1 mx-auto w-full max-w-155 rounded-lg border p-14 text-center",
         className,
       )}
     >

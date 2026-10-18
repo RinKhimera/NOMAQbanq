@@ -30,7 +30,7 @@ describe("EmptyState", () => {
   it("taille par défaut : porte son cadre et se centre seule", () => {
     const { container } = render(<EmptyState title="Aucune donnée" />)
     const root = container.firstElementChild
-    expect(root).toHaveClass("border-line", "max-w-155", "mx-auto")
+    expect(root).toHaveClass("border-line", "shadow-1", "max-w-155", "mx-auto")
   })
 
   it("compact : sans cadre, à poser dans une carte", () => {
