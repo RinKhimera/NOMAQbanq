@@ -11,11 +11,11 @@ import { offersJsonLd, pageMetadata } from "@/lib/seo"
 import TarifsPageContent from "./_components/tarifs-page"
 
 export const metadata: Metadata = pageMetadata(MARKETING_PATHS.tarifs, {
-  title: "Tarifs de la préparation à l'EACMC Partie I",
+  title: "Tarifs de la préparation à l'EACMC",
   description:
     "Formules NOMAQbanq pour préparer l'EACMC partie 1 : accès à la banque de questions et aux examens blancs, en dollars canadiens. Paiement sécurisé, accès instantané, temps cumulable.",
   ogDescription:
-    "Formules flexibles pour préparer l'EACMC Partie I : banque de questions et examens blancs.",
+    "Formules flexibles pour préparer l'EACMC : banque de questions et examens blancs.",
 })
 
 export default async function TarifsRoute({

@@ -109,7 +109,7 @@ Les libellés suivent `CONTEXT.md` : l'étudiant fait une **série** (jamais
 Entraînement) se **prolonge** ; le **Pack Premium** octroie les deux. Casse de
 phrase partout ; capitales réservées aux libellés mono (`font-mono text-xs
 uppercase tracking-[0.06em]`). Vouvoiement, fr-CA, espace insécable avant « ! ? : ; »
-et dans « Partie I », « 85 % ».
+et dans « (anciennement Partie I) », « 85 % ».
 
 ## Catalogue des composants partagés
 

@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # NOMAQbanq
 
-Plateforme francophone de preparation a l'EACMC Partie I. 3000+ QCM, examens blancs, suivi de progression.
+Plateforme francophone de preparation a l'EACMC. 3000+ QCM, examens blancs, suivi de progression.
 
 ## Stack
 
@@ -83,7 +83,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - Unitaires `tests/**/*.test.ts` (Node) · composants/hooks `tests/**/*.test.tsx` (happy-dom) — Integration DAL/Actions: `tests/integration/` (node, Postgres Docker vide et migre via `bun run test:integration`)
 - E2E: `e2e/tests/` (Playwright + auth Better Auth) — POMs dans `e2e/pages/` ; support reset/cleanup via `app/api/e2e`
 - Config: `vitest.config.ts` (exclut `e2e/**`) — `playwright.config.ts` — env `TZ=UTC`
-- Verrous d'architecture : `tests/architecture/` (styles interdits, tonalités, chargement, requêtes en transaction, tests d'intégration, hygiène des tests) — un échec signale une convention enfreinte, pas un test à assouplir
+- Verrous d'architecture : `tests/architecture/` (styles interdits, tonalités, chargement, requêtes en transaction, tests d'intégration, hygiène des tests, nom de l'examen) — un échec signale une convention enfreinte, pas un test à assouplir
 
 ## Gotchas
 
@@ -109,6 +109,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Env** : valide via zod (`lib/env/schema.ts`) ; nouvelles vars optionnelles + erreur claire a l'usage. `.env.local` est GÉNÉRÉ (`bun run env:sync` depuis le scope Vercel Development) : nouvelle var = `vercel env add <KEY> development` d'abord, pas d'édition manuelle durable
 - **GitGuardian** (check de PR, non requis) : aucun mot de passe littéral, même de test (`POSTGRES_PASSWORD=postgres` l'a déclenché) ; un incident regroupe une même valeur de secret tous dépôts confondus, d'où des dates antérieures au commit
 - **`.playwright-cli/`** : gitignoré mais parcouru par ESLint. Un script d'audit laissé là fait échouer `bun run check` ; le supprimer après le run.
+- **Chercher un libellé avec espace** : l'espace peut être une insécable littérale (U+00A0, invisible), `&nbsp;`, `{NBSP}` ou `${NBSP}` (deux constantes : `lib/format`, `lib/og-card`) → chercher `rg 'Partie(\s|&nbsp;|\$?\{NBSP\})I'` (guillemets simples : en doubles, le shell mange `\$`), jamais avec une espace simple
 - **data-testid** : Obligatoire sur composants quiz interactifs (`components/quiz/`). Convention : `answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`
 - **Usage Vercel (Hobby, 4 h d'Active CPU/mois)** : chaque invocation compte, proxy inclus. `proxy.ts` ne matche que `/`, `/a-propos`, `/domaines` **avec cookie de session** — la zone protégée est gardée par les layouts, ne pas ré-élargir le matcher (verrou : `tests/proxy.test.ts`). Prefetch et session côté client : `.claude/rules/loading-ui.md`. Sentry serveur : `lib/sentry-sampling.ts`. Diagnostic : MCP `vercel` (`get_runtime_logs` `group_by: source`), page Usage.
 

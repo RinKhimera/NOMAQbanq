@@ -37,7 +37,7 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "NOMAQbanq - Préparation EACMC Partie I",
+    default: "NOMAQbanq - Préparation EACMC",
     template: "%s | NOMAQbanq",
   },
   description: SITE_DESCRIPTION,
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   openGraph: {
     ...SITE_OPEN_GRAPH,
     url: SITE_URL,
-    title: "NOMAQbanq - Préparation EACMC Partie I",
+    title: "NOMAQbanq - Préparation EACMC",
     description: SITE_DESCRIPTION,
   },
   // Ni titre, ni description, ni image : Next les reprend de l'Open Graph de

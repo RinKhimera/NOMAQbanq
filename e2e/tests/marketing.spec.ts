@@ -9,7 +9,7 @@ test.describe("Pages marketing (publiques)", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Préparez l'EACMC Partie I avec méthode.",
+        name: "Préparez l'EACMC avec méthode.",
       }),
     ).toBeVisible({ timeout: 15_000 })
 

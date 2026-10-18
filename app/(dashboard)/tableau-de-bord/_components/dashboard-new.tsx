@@ -89,7 +89,7 @@ export const DashboardNew = ({
       <PageIntro
         eyebrow="Bienvenue"
         title={`Bonjour ${firstName}.`}
-        description="Votre compte est créé. Trois étapes pour commencer votre préparation à l'EACMC Partie I."
+        description="Votre compte est créé. Trois étapes pour commencer votre préparation à l'EACMC."
       />
 
       <ol className="bg-surface border-line shadow-1 rounded-lg border">

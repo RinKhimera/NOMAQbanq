@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/seo"
 export const metadata: Metadata = pageMetadata(MARKETING_PATHS.conditions, {
   title: "Conditions d'utilisation",
   description:
-    "Conditions générales d'utilisation de la plateforme NOMAQbanq pour la préparation à l'EACMC Partie I.",
+    "Conditions générales d'utilisation de la plateforme NOMAQbanq pour la préparation à l'EACMC.",
 })
 
 const ARTICLES: LegalArticle[] = [
@@ -26,7 +26,7 @@ const ARTICLES: LegalArticle[] = [
     id: "services",
     title: "Description des services",
     blocks: [
-      "NOMAQbanq est une plateforme francophone de préparation à l'examen EACMC Partie I (Examen d'aptitude du Conseil médical du Canada). Nos services comprennent :",
+      "NOMAQbanq est une plateforme francophone de préparation à l'examen EACMC (Examen d'aptitude du Conseil médical du Canada). Nos services comprennent :",
       {
         list: [
           "Accès à une banque de plus de 3000 questions à choix multiples",

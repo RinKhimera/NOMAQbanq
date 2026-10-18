@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "NOMAQbanq - Préparation EACMC Partie I",
+    name: "NOMAQbanq - Préparation EACMC",
     short_name: "NOMAQbanq",
     description:
-      "Plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM, examens blancs et suivi de progression.",
+      "Plateforme francophone de préparation à l'EACMC. Plus de 3000 QCM, examens blancs et suivi de progression.",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

@@ -5,10 +5,10 @@ import { SITE_DESCRIPTION, pageMetadata } from "@/lib/seo"
 import HomeLanding from "./_components/home-landing"
 
 export const metadata: Metadata = pageMetadata(MARKETING_PATHS.home, {
-  title: "Préparation EACMC Partie I - 3000+ QCM francophones",
+  title: "Préparation EACMC - 3000+ QCM francophones",
   description:
     "NOMAQbanq, plateforme francophone pour préparer l'EACMC partie 1 : plus de 3000 QCM, examens blancs, modes tuteur et chronométré, suivi de progression.",
-  ogTitle: "NOMAQbanq - Préparation EACMC Partie I",
+  ogTitle: "NOMAQbanq - Préparation EACMC",
   ogDescription: SITE_DESCRIPTION,
 })
 

@@ -6,7 +6,7 @@ import type { ProductView } from "@/features/payments/dal"
 export const SITE_URL = "https://nomaqbanq.ca"
 
 export const SITE_DESCRIPTION =
-  "Plateforme francophone de préparation à l'EACMC Partie I : plus de 3000 QCM, examens blancs et suivi de progression."
+  "Plateforme francophone de préparation à l'EACMC : plus de 3000 QCM, examens blancs et suivi de progression."
 
 /**
  * Une page qui redéfinit `openGraph` remplace celui du layout racine au lieu
@@ -22,7 +22,7 @@ export const SITE_OPEN_GRAPH = {
 
 export const OG_SIZE = { width: 1200, height: 630 }
 
-export const SITE_OG_ALT = "NOMAQbanq, préparation à l'EACMC Partie I"
+export const SITE_OG_ALT = "NOMAQbanq, préparation à l'EACMC"
 
 /** Générée par `app/opengraph-image.tsx`. */
 export const SITE_OG_IMAGE = {
@@ -134,7 +134,7 @@ export const offersJsonLd = (
         name: "Accès NOMAQbanq",
         image: siteUrl(SITE_OG_IMAGE.url),
         description:
-          "Accès à la banque de QCM et aux examens blancs pour préparer l'EACMC Partie I.",
+          "Accès à la banque de QCM et aux examens blancs pour préparer l'EACMC.",
         brand: { "@type": "Brand", name: "NOMAQbanq" },
         offers: products.map((p) => ({
           "@type": "Offer",

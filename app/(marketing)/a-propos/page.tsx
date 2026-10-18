@@ -23,10 +23,10 @@ import { cn } from "@/lib/utils"
 export const metadata: Metadata = pageMetadata(MARKETING_PATHS.aPropos, {
   title: "À propos",
   description:
-    "NOMAQbanq, plateforme francophone de préparation à l'EACMC Partie I basée à Gatineau (Québec) : notre histoire, notre mission et les témoignages de nos candidats.",
+    "NOMAQbanq, plateforme francophone de préparation à l'EACMC basée à Gatineau (Québec) : notre histoire, notre mission et les témoignages de nos candidats.",
   ogTitle: "À propos de NOMAQbanq",
   ogDescription:
-    "Notre mission : accompagner les candidats francophones dans leur préparation à l'EACMC Partie I.",
+    "Notre mission : accompagner les candidats francophones dans leur préparation à l'EACMC.",
 })
 
 // Aligné sur le cache des stats (1 semaine), invalidé plus tôt par leur tag :
@@ -90,7 +90,7 @@ export default async function AProposPage() {
       <MarketingHero
         label="À propos"
         title="D'une initiative à une communauté."
-        description="NOMAQbanq est une plateforme francophone de préparation à l'EACMC Partie I, basée à Gatineau (Québec)."
+        description="NOMAQbanq est une plateforme francophone de préparation à l'EACMC, basée à Gatineau (Québec)."
       />
 
       <section className={MARKETING_SECTION}>

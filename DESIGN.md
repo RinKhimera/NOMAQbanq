@@ -87,7 +87,7 @@ Lucide uniquement, trait 1.75, 14–18 px, couleur `--ink-3` ou sémantique. Une
 
 ## 5. Contenu et ton
 
-- Français **fr-CA**, **vouvoiement**, accents obligatoires. Espace insécable avant « ! ? : ; » et dans « Partie I », « 85 % ».
+- Français **fr-CA**, **vouvoiement**, accents obligatoires. Espace insécable avant « ! ? : ; » et dans « (anciennement Partie I) », « 85 % ».
 - Ton de coach sobre : **aucun superlatif** (« #1 », « révolutionnaire », « SANS LIMITES »). Les chiffres suffisent.
 - Casse de phrase partout ; capitales réservées aux libellés mono.
 - Unités compactes en mono : « 42j restants », « Question 12 / 50 », « 01:24:36 », « 5 h 18 ».

@@ -5,7 +5,7 @@ import { OG_SIZE } from "@/lib/seo"
 // Texte alternatif commun aux domaines : un `alt` par domaine exigerait
 // `generateImageMetadata`, dont le `generateStaticParams` généré par Next
 // entre en conflit avec celui-ci et laisse les images non prérendues (404).
-export const alt = "QCM pour l'EACMC Partie I, par domaine médical"
+export const alt = "QCM pour l'EACMC, par domaine médical"
 export const size = OG_SIZE
 export const contentType = "image/png"
 

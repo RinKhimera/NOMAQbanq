@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
 import { DomainsBrowser } from "./_components/domains-browser"
 
 export const metadata: Metadata = pageMetadata(MARKETING_PATHS.domaines, {
-  title: "QCM de l'EACMC Partie I par domaine médical",
+  title: "QCM de l'EACMC par domaine médical",
   description: `Explorez nos ${DOMAINS.length} domaines médicaux pour préparer l'EACMC partie 1 : cardiologie, pédiatrie, chirurgie, neurologie et plus. Questions organisées par spécialité pour une préparation ciblée.`,
   ogDescription: `${DOMAINS.length} domaines médicaux pour préparer l'EACMC : cardiologie, pédiatrie, chirurgie, neurologie. Questions organisées par spécialité.`,
 })

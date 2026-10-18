@@ -12,6 +12,17 @@ describe("FAQ : questions sur l'EACMC", () => {
     expect(examQuestions.length).toBeGreaterThanOrEqual(4)
   })
 
+  it("ne rappellent l'ancien nom de l'examen que dans la question qui le définit", () => {
+    expect(examQuestions[0].q).toBe(
+      "Qu'est-ce que l'EACMC (anciennement Partie\u00a0I) ?",
+    )
+    const rest = faqCategories
+      .flatMap((c) => c.questions)
+      .flatMap(({ q, a }) => [q, a])
+      .filter((text) => text !== examQuestions[0].q)
+    for (const text of rest) expect(text).not.toMatch(/partie\s(I|1)\b/i)
+  })
+
   it.each(examQuestions.map((q) => [q.q, q.href]))(
     "« %s » renvoie à une section existante du guide",
     (_, href) => {
