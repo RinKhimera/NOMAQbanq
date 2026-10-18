@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react"
 import type { RevisionCriterion } from "@/features/training/schemas"
+import { ADMIN_PROGRESSION_HREF } from "@/lib/admin-links"
 
 export type NavItem = { title: string; url: string; icon: LucideIcon }
 export type NavSection = { heading: string; items: NavItem[] }
@@ -94,6 +95,11 @@ export const adminNavSections: NavSection[] = [
     heading: "Comptes",
     items: [
       { title: "Utilisateurs", url: "/admin/utilisateurs", icon: Users },
+      {
+        title: "Progression",
+        url: ADMIN_PROGRESSION_HREF,
+        icon: ChartNoAxesColumn,
+      },
       { title: "Profil", url: "/admin/profil", icon: User },
     ],
   },

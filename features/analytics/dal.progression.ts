@@ -2,7 +2,7 @@ import { type SQL, and, asc, desc, eq, isNotNull, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
-import { examParticipations, exams } from "@/db/schema"
+import { examParticipations, exams, trainingSessions } from "@/db/schema"
 import { APP_TIME_ZONE } from "@/lib/app-zone"
 import { getCurrentSession } from "@/lib/dal"
 import { type DashboardPeriod, periodWindow } from "@/lib/dashboard-period"
@@ -83,48 +83,63 @@ export const getMyProgression = cache(
   async (period: DashboardPeriod): Promise<MyProgression | null> => {
     const session = await getCurrentSession()
     if (!session?.user) return null
-    const viewer = viewerOf(session.user)
-    const { from } = periodWindow(period, Date.now())
-
-    const [
-      mastery,
-      startMastery,
-      totals,
-      periodAnswers,
-      objectives,
-      revision,
-      activity,
-    ] = await Promise.all([
-      masteryCounts(viewer),
-      from ? masteryCounts(viewer, from) : null,
-      activeQuestionsByDomain(viewer),
-      answersByDomain(viewer, from),
-      objectiveProgress(viewer),
-      hasAccess("training").then((ok) =>
-        ok ? getRevisionCountsByDomain(viewer) : null,
-      ),
-      activityDays(viewer.id, from),
-    ])
-
-    const domains = toDomainMastery(mastery).map((d): DomainProgress => {
-      const now = mastery.get(d.domain)
-      const start = startMastery?.get(d.domain)
-      return {
-        domain: d.domain,
-        total: totals.get(d.domain) ?? 0,
-        answered: d.answered,
-        mastery: d.mastery,
-        trend: now && start ? masteryTrend(now, start) : null,
-        periodAnswers: periodAnswers.get(d.domain) ?? 0,
-        objectives: objectives.get(d.domain) ?? [],
-        revision: revision
-          ? (revision.get(d.domain) ?? { failed: 0, unseen: 0, bookmarked: 0 })
-          : null,
-      }
-    })
-    return { domains, trainingAccess: revision !== null, activity }
+    return progressionOf(viewerOf(session.user), period)
   },
 )
+
+/**
+ * Progression de `viewer` lue par lui-même (voir `getMyProgression`). Sans
+ * garde : l'appelant la porte.
+ */
+export const progressionOf = async (
+  viewer: LockUser,
+  period: DashboardPeriod,
+): Promise<MyProgression> => {
+  const { from } = periodWindow(period, Date.now())
+  // Même règle que `hasAccess` sans identifiant : un admin a tout.
+  const trainingAccess =
+    viewer.role === "admin"
+      ? Promise.resolve(true)
+      : hasAccess("training", viewer.id)
+
+  const [
+    mastery,
+    startMastery,
+    totals,
+    periodAnswers,
+    objectives,
+    revision,
+    activity,
+  ] = await Promise.all([
+    masteryCounts(viewer),
+    from ? masteryCounts(viewer, from) : null,
+    activeQuestionsByDomain(viewer),
+    answersByDomain(viewer, from),
+    objectiveProgress(viewer),
+    trainingAccess.then((ok) =>
+      ok ? getRevisionCountsByDomain(viewer) : null,
+    ),
+    activityDays(viewer.id, from),
+  ])
+
+  const domains = toDomainMastery(mastery).map((d): DomainProgress => {
+    const now = mastery.get(d.domain)
+    const start = startMastery?.get(d.domain)
+    return {
+      domain: d.domain,
+      total: totals.get(d.domain) ?? 0,
+      answered: d.answered,
+      mastery: d.mastery,
+      trend: now && start ? masteryTrend(now, start) : null,
+      periodAnswers: periodAnswers.get(d.domain) ?? 0,
+      objectives: objectives.get(d.domain) ?? [],
+      revision: revision
+        ? (revision.get(d.domain) ?? { failed: 0, unseen: 0, bookmarked: 0 })
+        : null,
+    }
+  })
+  return { domains, trainingAccess: revision !== null, activity }
+}
 
 /** Questions actives par domaine, sans celles dont la clé est retenue pour `viewer`. */
 const activeQuestionsByDomain = async (
@@ -206,38 +221,48 @@ const objectiveProgress = async (
   return byDomain
 }
 
+// Une participation auto-soumise a pu être close par le cron, des heures
+// après l'épreuve : elle compte le jour où l'étudiant l'a commencée.
+const examActivityAt = sql`case when ${examParticipations.status} = 'auto_submitted'
+  then coalesce(${examParticipations.startedAt}, ${examParticipations.completedAt})
+  else ${examParticipations.completedAt} end`
+
 /**
- * Jours d'activité : journées civiles de l'Est où l'utilisateur a clos une
- * série ou soumis un examen blanc. Une série seulement commencée ne compte pas.
+ * Activité (`CONTEXT.md`) : une ligne `(user_id, at)` par série close et par
+ * examen blanc soumis, de `userId` ou de tous les comptes. Une série seulement
+ * commencée n'en est pas. Source des jours d'activité et de la dernière
+ * activité.
  */
+export const activityEventsSql = (userId?: string) => sql`
+  select ${trainingSessions.userId} as user_id, ${trainingSessions.completedAt} as at
+    from ${trainingSessions}
+   where ${trainingSessions.status} = 'completed'
+     and ${trainingSessions.completedAt} is not null
+     ${userId ? sql`and ${trainingSessions.userId} = ${userId}` : sql``}
+  union all
+  select ${examParticipations.userId}, ${examActivityAt}
+    from ${examParticipations}
+   where ${SUBMITTED}
+     and ${examParticipations.completedAt} is not null
+     ${userId ? sql`and ${examParticipations.userId} = ${userId}` : sql``}`
+
+/** Journée civile de l'Est d'un instant d'activité. */
+export const activityDaySql = (at: SQL) =>
+  sql`(${at} at time zone ${APP_TIME_ZONE})::date`
+
+/** Jours d'activité de l'utilisateur dans la période, et le premier d'entre eux. */
 const activityDays = async (
   userId: string,
   from: Date | null,
 ): Promise<MyProgression["activity"]> => {
-  // Une participation auto-soumise a pu être close par le cron, des heures
-  // après l'épreuve : elle compte le jour où l'étudiant l'a commencée.
-  const examDay = sql`case when ${examParticipations.status} = 'auto_submitted'
-    then coalesce(${examParticipations.startedAt}, ${examParticipations.completedAt})
-    else ${examParticipations.completedAt} end`
-  const since = (column: SQL) => (from ? sql`and ${column} >= ${from}` : sql``)
   const result = await db.execute<{ days: number; first_day: string | null }>(
     sql`
     select count(distinct d)::int as days,
            to_char(min(d), 'YYYY-MM-DD') as first_day
       from (
-        select (s.completed_at at time zone ${APP_TIME_ZONE})::date as d
-          from training_sessions s
-         where s.user_id = ${userId}
-           and s.status = 'completed'
-           and s.completed_at is not null
-           ${since(sql`s.completed_at`)}
-        union all
-        select (${examDay} at time zone ${APP_TIME_ZONE})::date
-          from ${examParticipations}
-         where ${examParticipations.userId} = ${userId}
-           and ${SUBMITTED}
-           and ${examParticipations.completedAt} is not null
-           ${since(examDay)}
+        select ${activityDaySql(sql`e.at`)} as d
+          from (${activityEventsSql(userId)}) e
+         ${from ? sql`where e.at >= ${from}` : sql``}
       ) a`,
   )
   const row = result.rows[0]
@@ -289,98 +314,106 @@ export const getMyExamHistory = cache(
     after?: string | null,
     before?: string | null,
   ): Promise<MyExamHistoryPage> => {
-    const empty: MyExamHistoryPage = {
-      items: [],
-      firstIndex: 0,
-      total: 0,
-      prevCursor: null,
-      nextCursor: null,
-    }
     const session = await getCurrentSession()
-    if (!session?.user) return empty
-    const viewer = viewerOf(session.user)
-
-    const afterKey = after ? decodeCursor(after) : null
-    const beforeKey = before && !afterKey ? decodeCursor(before) : null
-    const key = sql`(${examParticipations.completedAt}, ${examParticipations.id})`
-    const mine = and(
-      eq(examParticipations.userId, viewer.id),
-      SUBMITTED,
-      isNotNull(examParticipations.completedAt),
-    )
-
-    const rows = await db
-      .select({
-        id: examParticipations.id,
-        examId: examParticipations.examId,
-        title: exams.title,
-        questionCount: questionCountOf,
-        score: readableParticipationScore(viewer),
-        completedAt: examParticipations.completedAt,
-        endDate: exams.endDate,
-      })
-      .from(examParticipations)
-      .innerJoin(exams, eq(exams.id, examParticipations.examId))
-      .where(
-        and(
-          mine,
-          afterKey
-            ? sql`${key} < (${afterKey.completedAt}, ${afterKey.id})`
-            : undefined,
-          beforeKey
-            ? sql`${key} > (${beforeKey.completedAt}, ${beforeKey.id})`
-            : undefined,
-        ),
-      )
-      .orderBy(
-        ...(beforeKey
-          ? [asc(examParticipations.completedAt), asc(examParticipations.id)]
-          : [
-              desc(examParticipations.completedAt),
-              desc(examParticipations.id),
-            ]),
-      )
-      .limit(EXAM_HISTORY_PAGE_SIZE)
-    if (beforeKey) rows.reverse()
-    // Curseur périmé (copie supprimée depuis) : retour en tête de liste plutôt
-    // qu'une page vide sans bouton.
-    if (rows.length === 0 && (afterKey || beforeKey)) return getMyExamHistory()
-
-    const first = rows[0]
-    const last = rows.at(-1)
-    const [position] = await db
-      .select({
-        total: sql<number>`count(*)`.mapWith(Number),
-        newer: first?.completedAt
-          ? sql<number>`count(*) filter (where ${key} > (${first.completedAt}, ${first.id}))`.mapWith(
-              Number,
-            )
-          : sql<number>`0`.mapWith(Number),
-      })
-      .from(examParticipations)
-      .where(mine)
-    const firstIndex = position?.newer ?? 0
-    const total = position?.total ?? 0
-
-    return {
-      items: rows.map((r) => ({
-        examId: r.examId,
-        title: r.title,
-        questionCount: r.questionCount,
-        score: r.score,
-        completedAt: r.completedAt?.getTime() ?? 0,
-        endDate: finalizedDate(r.endDate),
-      })),
-      firstIndex,
-      total,
-      prevCursor:
-        first?.completedAt && firstIndex > 0
-          ? encodeCursor(first.completedAt, first.id)
-          : null,
-      nextCursor:
-        last?.completedAt && firstIndex + rows.length < total
-          ? encodeCursor(last.completedAt, last.id)
-          : null,
-    }
+    if (!session?.user) return EMPTY_HISTORY
+    return examHistoryOf(viewerOf(session.user), after, before)
   },
 )
+
+const EMPTY_HISTORY: MyExamHistoryPage = {
+  items: [],
+  firstIndex: 0,
+  total: 0,
+  prevCursor: null,
+  nextCursor: null,
+}
+
+/**
+ * Historique des examens de `viewer` lu par lui-même (voir
+ * `getMyExamHistory`). Sans garde : l'appelant la porte.
+ */
+export const examHistoryOf = async (
+  viewer: LockUser,
+  after?: string | null,
+  before?: string | null,
+): Promise<MyExamHistoryPage> => {
+  const afterKey = after ? decodeCursor(after) : null
+  const beforeKey = before && !afterKey ? decodeCursor(before) : null
+  const key = sql`(${examParticipations.completedAt}, ${examParticipations.id})`
+  const mine = and(
+    eq(examParticipations.userId, viewer.id),
+    SUBMITTED,
+    isNotNull(examParticipations.completedAt),
+  )
+
+  const rows = await db
+    .select({
+      id: examParticipations.id,
+      examId: examParticipations.examId,
+      title: exams.title,
+      questionCount: questionCountOf,
+      score: readableParticipationScore(viewer),
+      completedAt: examParticipations.completedAt,
+      endDate: exams.endDate,
+    })
+    .from(examParticipations)
+    .innerJoin(exams, eq(exams.id, examParticipations.examId))
+    .where(
+      and(
+        mine,
+        afterKey
+          ? sql`${key} < (${afterKey.completedAt}, ${afterKey.id})`
+          : undefined,
+        beforeKey
+          ? sql`${key} > (${beforeKey.completedAt}, ${beforeKey.id})`
+          : undefined,
+      ),
+    )
+    .orderBy(
+      ...(beforeKey
+        ? [asc(examParticipations.completedAt), asc(examParticipations.id)]
+        : [desc(examParticipations.completedAt), desc(examParticipations.id)]),
+    )
+    .limit(EXAM_HISTORY_PAGE_SIZE)
+  if (beforeKey) rows.reverse()
+  // Curseur périmé (copie supprimée depuis) : retour en tête de liste plutôt
+  // qu'une page vide sans bouton.
+  if (rows.length === 0 && (afterKey || beforeKey)) return examHistoryOf(viewer)
+
+  const first = rows[0]
+  const last = rows.at(-1)
+  const [position] = await db
+    .select({
+      total: sql<number>`count(*)`.mapWith(Number),
+      newer: first?.completedAt
+        ? sql<number>`count(*) filter (where ${key} > (${first.completedAt}, ${first.id}))`.mapWith(
+            Number,
+          )
+        : sql<number>`0`.mapWith(Number),
+    })
+    .from(examParticipations)
+    .where(mine)
+  const firstIndex = position?.newer ?? 0
+  const total = position?.total ?? 0
+
+  return {
+    items: rows.map((r) => ({
+      examId: r.examId,
+      title: r.title,
+      questionCount: r.questionCount,
+      score: r.score,
+      completedAt: r.completedAt?.getTime() ?? 0,
+      endDate: finalizedDate(r.endDate),
+    })),
+    firstIndex,
+    total,
+    prevCursor:
+      first?.completedAt && firstIndex > 0
+        ? encodeCursor(first.completedAt, first.id)
+        : null,
+    nextCursor:
+      last?.completedAt && firstIndex + rows.length < total
+        ? encodeCursor(last.completedAt, last.id)
+        : null,
+  }
+}

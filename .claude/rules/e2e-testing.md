@@ -106,6 +106,8 @@ Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-acces
 `timeline-{transactionId}` (dossier client des transactions),
 `transactions-summary`, `segment-{all|active|expiring|expired|never}`,
 `filter-suspended`, `access-{exam|training}`, `grant-access`,
+`progression-table`, `filter-active-only`, `student-position` (suivi admin
+de la progression),
 `participation-{id}` (liste et fiche utilisateurs),
 `exams-section-{live|prepare|finished}`, `btn-create-exam`,
 `prep-exam-card-{id}`, `live-exam-card-{id}` (vue de pilotage des examens),

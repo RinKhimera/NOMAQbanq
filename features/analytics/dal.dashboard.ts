@@ -1,4 +1,14 @@
-import { and, desc, eq, inArray, isNotNull, lte, or, sql } from "drizzle-orm"
+import {
+  type SQL,
+  and,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
@@ -25,7 +35,7 @@ import {
 } from "../exams/dal.student"
 import { DEFAULT_PAUSE_MINUTES } from "../exams/schemas"
 import { hasAccess } from "../payments/dal"
-import { viewerOf } from "../questions/answer-key-lock"
+import { type LockUser, viewerOf } from "../questions/answer-key-lock"
 import { sessionScoreReadable } from "../training/dal"
 
 /** `mapWith(Number)` ferait de `null` un `0` — faux « 0 % » quand rien n'est lisible. */
@@ -93,6 +103,58 @@ export type MyDashboard = {
 }
 
 /**
+ * Fragments de la bande « examens blancs » d'une période, sur les
+ * participations closes : moyenne et tendance au plancher, réussis sur notés.
+ * `graded` dit quelles participations ont un score lisible pour leur lecteur.
+ * Partagés par le tableau de bord d'un étudiant et le suivi admin, pour qu'un
+ * chiffre ait une seule définition.
+ */
+export const examBandSql = ({
+  graded,
+  from,
+  previousFrom,
+}: {
+  graded: SQL
+  from: Date | null
+  previousFrom: Date | null
+}) => {
+  const inPeriod = from
+    ? sql`${examParticipations.completedAt} >= ${from}`
+    : sql`true`
+  const inPrevious =
+    from && previousFrom
+      ? sql`${examParticipations.completedAt} >= ${previousFrom} and ${examParticipations.completedAt} < ${from}`
+      : sql`false`
+  // Plancher partout : un score affiché ne surestime jamais (59,67 → 59, pas
+  // 60 %, « réussite »). La tendance aussi, recul compris : −1,7 → −2.
+  const periodAverage = sql`avg(${examParticipations.score}) filter (where ${graded} and ${inPeriod})`
+  const previousAverage = sql`avg(${examParticipations.score}) filter (where ${graded} and ${inPrevious})`
+  return {
+    closed: inArray(examParticipations.status, [...CLOSED]),
+    inPeriod,
+    averageScore: sql<number | null>`floor(${periodAverage})`,
+    // Écart des moyennes brutes, en numeric exact : une différence de
+    // moyennes déjà arrondies annoncerait « +1 » pour +0,1.
+    averageTrend: sql<
+      number | null
+    >`floor(${periodAverage} - ${previousAverage})`,
+    periodGradedCount: sql<number>`count(*) filter (where ${graded} and ${inPeriod})`,
+    periodPassedCount: sql<number>`count(*) filter (where ${graded} and ${inPeriod} and ${examParticipations.score} >= ${PASS_THRESHOLD})`,
+  }
+}
+
+/** Séries closes, et celles de la période : « questions pratiquées » et nombre de séries. */
+export const trainingBandSql = (from: Date | null) => ({
+  closed: and(
+    eq(trainingSessions.status, "completed"),
+    isNotNull(trainingSessions.completedAt),
+  ),
+  inPeriod: from ? sql`${trainingSessions.completedAt} >= ${from}` : sql`true`,
+  sessionCount: sql<number>`count(*)`,
+  questionCount: sql<number>`coalesce(sum(${trainingSessions.questionCount}), 0)`,
+})
+
+/**
  * Tableau de bord de l'utilisateur courant pour une période. Un score retenu
  * (examen encore ouvert, réponse différée) n'entre dans aucune moyenne ni
  * aucun compte de réussite : avant/après le restituerait. `null` sans session.
@@ -101,178 +163,156 @@ export const getMyDashboard = cache(
   async (period: DashboardPeriod): Promise<MyDashboard | null> => {
     const session = await getCurrentSession()
     if (!session?.user) return null
-    const uid = session.user.id
-    const viewer = viewerOf(session.user)
-    const { from, previousFrom } = periodWindow(period, Date.now())
-    const fromDay = from ? toAppZoneCalendarDay(from) : null
-
-    const graded = participationScoreReadable(viewer)
-    const inPeriod = from
-      ? sql`${examParticipations.completedAt} >= ${from}`
-      : sql`true`
-    const inPrevious =
-      from && previousFrom
-        ? sql`${examParticipations.completedAt} >= ${previousFrom} and ${examParticipations.completedAt} < ${from}`
-        : sql`false`
-    const mine = and(
-      eq(examParticipations.userId, uid),
-      inArray(examParticipations.status, [...CLOSED]),
-    )
-    // Plancher partout : un score affiché ne surestime jamais (59,67 → 59, pas
-    // 60 %, « réussite »). La tendance aussi, recul compris : −1,7 → −2.
-    const periodAverage = sql`avg(${examParticipations.score}) filter (where ${graded} and ${inPeriod})`
-    const previousAverage = sql`avg(${examParticipations.score}) filter (where ${graded} and ${inPrevious})`
-
-    const readableSession = sessionScoreReadable(viewer)
-    const sessionInPeriod = from
-      ? sql`${trainingSessions.completedAt} >= ${from}`
-      : sql`true`
-    const closedSessions = and(
-      eq(trainingSessions.userId, uid),
-      eq(trainingSessions.status, "completed"),
-      isNotNull(trainingSessions.completedAt),
-    )
-
-    // Lundi de la semaine CIVILE de l'Est : `date_trunc` sur l'heure locale,
-    // pas sur l'instant UTC, sinon un dimanche soir tomberait dans la semaine
-    // suivante.
-    const weekStart = sql<string>`to_char(date_trunc('week', ${trainingSessions.completedAt} at time zone ${APP_TIME_ZONE}), 'YYYY-MM-DD')`
-
-    const [[exam], history, available, [training], weekly, [anySeries]] =
-      await Promise.all([
-        db
-          .select({
-            averageScore: sql<number | null>`floor(${periodAverage})`.mapWith(
-              nullableNumber,
-            ),
-            // Écart des moyennes brutes, en numeric exact : une différence de
-            // moyennes déjà arrondies annoncerait « +1 » pour +0,1.
-            averageTrend: sql<
-              number | null
-            >`floor(${periodAverage} - ${previousAverage})`.mapWith(
-              nullableNumber,
-            ),
-            completedCount: sql<number>`count(*)`.mapWith(Number),
-            gradedCount: sql<number>`count(*) filter (where ${graded})`.mapWith(
-              Number,
-            ),
-            passedCount:
-              sql<number>`count(*) filter (where ${graded} and ${examParticipations.score} >= ${PASS_THRESHOLD})`.mapWith(
-                Number,
-              ),
-            periodGradedCount:
-              sql<number>`count(*) filter (where ${graded} and ${inPeriod})`.mapWith(
-                Number,
-              ),
-            periodPassedCount:
-              sql<number>`count(*) filter (where ${graded} and ${inPeriod} and ${examParticipations.score} >= ${PASS_THRESHOLD})`.mapWith(
-                Number,
-              ),
-            overallAverage: sql<
-              number | null
-            >`floor(avg(${examParticipations.score}) filter (where ${graded}))`.mapWith(
-              nullableNumber,
-            ),
-          })
-          .from(examParticipations)
-          .where(mine),
-        db
-          .select({
-            examId: examParticipations.examId,
-            title: exams.title,
-            score: examParticipations.score,
-            completedAt: examParticipations.completedAt,
-          })
-          .from(examParticipations)
-          .innerJoin(exams, eq(exams.id, examParticipations.examId))
-          .where(and(mine, graded, inPeriod))
-          .orderBy(
-            desc(examParticipations.completedAt),
-            desc(examParticipations.id),
-          )
-          .limit(HISTORY_LIMIT),
-        countAvailableExams(uid),
-        db
-          .select({
-            sessionCount: sql<number>`count(*)`.mapWith(Number),
-            questionCount:
-              sql<number>`coalesce(sum(${trainingSessions.questionCount}), 0)`.mapWith(
-                Number,
-              ),
-          })
-          .from(trainingSessions)
-          .where(and(closedSessions, sessionInPeriod)),
-        db
-          .select({
-            weekStart,
-            averageScore:
-              sql<number>`floor(avg(${trainingSessions.score}) filter (where ${readableSession}))`.mapWith(
-                Number,
-              ),
-            sessionCount:
-              sql<number>`count(${trainingSessions.score}) filter (where ${readableSession})`.mapWith(
-                Number,
-              ),
-          })
-          .from(trainingSessions)
-          .where(and(closedSessions, sessionInPeriod))
-          .groupBy(sql`1`)
-          .having(
-            sql`count(${trainingSessions.score}) filter (where ${readableSession}) > 0`,
-          )
-          .orderBy(sql`1 desc`)
-          .limit(WEEKS_LIMIT),
-        db
-          .select({ id: trainingSessions.id })
-          .from(trainingSessions)
-          .where(
-            and(
-              eq(trainingSessions.userId, uid),
-              eq(trainingSessions.status, "completed"),
-            ),
-          )
-          .limit(1),
-      ])
-
-    return {
-      exams: {
-        averageScore: exam?.averageScore ?? null,
-        averageTrend: exam?.averageTrend ?? null,
-        completedCount: exam?.completedCount ?? 0,
-        availableCount: available.available,
-        completedOfAvailableCount: available.completed,
-        gradedCount: exam?.gradedCount ?? 0,
-        passedCount: exam?.passedCount ?? 0,
-        periodGradedCount: exam?.periodGradedCount ?? 0,
-        periodPassedCount: exam?.periodPassedCount ?? 0,
-        overallAverage: exam?.overallAverage ?? null,
-        history: history.reverse().flatMap((h) =>
-          h.score === null || !h.completedAt
-            ? []
-            : [
-                {
-                  examId: h.examId,
-                  title: h.title,
-                  score: h.score,
-                  completedAt: h.completedAt.getTime(),
-                },
-              ],
-        ),
-      },
-      training: {
-        sessionCount: training?.sessionCount ?? 0,
-        questionCount: training?.questionCount ?? 0,
-        // Une semaine entamée avant la période ne compte que ses jours dans la
-        // période : son libellé part de là, pas du lundi.
-        weekly: weekly.reverse().map((w) => ({
-          ...w,
-          startDay: fromDay && fromDay > w.weekStart ? fromDay : w.weekStart,
-        })),
-      },
-      hasHistory: (exam?.completedCount ?? 0) > 0 || anySeries !== undefined,
-    }
+    return dashboardOf(viewerOf(session.user), period)
   },
 )
+
+/**
+ * Tableau de bord de `viewer` lu par lui-même (voir `getMyDashboard`). Sans
+ * garde : l'appelant la porte.
+ */
+export const dashboardOf = async (
+  viewer: LockUser,
+  period: DashboardPeriod,
+): Promise<MyDashboard> => {
+  const uid = viewer.id
+  const { from, previousFrom } = periodWindow(period, Date.now())
+  const fromDay = from ? toAppZoneCalendarDay(from) : null
+
+  const graded = participationScoreReadable(viewer)
+  const band = examBandSql({ graded, from, previousFrom })
+  const mine = and(eq(examParticipations.userId, uid), band.closed)
+
+  const readableSession = sessionScoreReadable(viewer)
+  const trainingBand = trainingBandSql(from)
+  const closedSessions = and(
+    eq(trainingSessions.userId, uid),
+    trainingBand.closed,
+  )
+  const sessionInPeriod = trainingBand.inPeriod
+
+  // Lundi de la semaine CIVILE de l'Est : `date_trunc` sur l'heure locale,
+  // pas sur l'instant UTC, sinon un dimanche soir tomberait dans la semaine
+  // suivante.
+  const weekStart = sql<string>`to_char(date_trunc('week', ${trainingSessions.completedAt} at time zone ${APP_TIME_ZONE}), 'YYYY-MM-DD')`
+
+  const [[exam], history, available, [training], weekly, [anySeries]] =
+    await Promise.all([
+      db
+        .select({
+          averageScore: band.averageScore.mapWith(nullableNumber),
+          averageTrend: band.averageTrend.mapWith(nullableNumber),
+          completedCount: sql<number>`count(*)`.mapWith(Number),
+          gradedCount: sql<number>`count(*) filter (where ${graded})`.mapWith(
+            Number,
+          ),
+          passedCount:
+            sql<number>`count(*) filter (where ${graded} and ${examParticipations.score} >= ${PASS_THRESHOLD})`.mapWith(
+              Number,
+            ),
+          periodGradedCount: band.periodGradedCount.mapWith(Number),
+          periodPassedCount: band.periodPassedCount.mapWith(Number),
+          overallAverage: sql<
+            number | null
+          >`floor(avg(${examParticipations.score}) filter (where ${graded}))`.mapWith(
+            nullableNumber,
+          ),
+        })
+        .from(examParticipations)
+        .where(mine),
+      db
+        .select({
+          examId: examParticipations.examId,
+          title: exams.title,
+          score: examParticipations.score,
+          completedAt: examParticipations.completedAt,
+        })
+        .from(examParticipations)
+        .innerJoin(exams, eq(exams.id, examParticipations.examId))
+        .where(and(mine, graded, band.inPeriod))
+        .orderBy(
+          desc(examParticipations.completedAt),
+          desc(examParticipations.id),
+        )
+        .limit(HISTORY_LIMIT),
+      countAvailableExams(uid),
+      db
+        .select({
+          sessionCount: trainingBand.sessionCount.mapWith(Number),
+          questionCount: trainingBand.questionCount.mapWith(Number),
+        })
+        .from(trainingSessions)
+        .where(and(closedSessions, sessionInPeriod)),
+      db
+        .select({
+          weekStart,
+          averageScore:
+            sql<number>`floor(avg(${trainingSessions.score}) filter (where ${readableSession}))`.mapWith(
+              Number,
+            ),
+          sessionCount:
+            sql<number>`count(${trainingSessions.score}) filter (where ${readableSession})`.mapWith(
+              Number,
+            ),
+        })
+        .from(trainingSessions)
+        .where(and(closedSessions, sessionInPeriod))
+        .groupBy(sql`1`)
+        .having(
+          sql`count(${trainingSessions.score}) filter (where ${readableSession}) > 0`,
+        )
+        .orderBy(sql`1 desc`)
+        .limit(WEEKS_LIMIT),
+      db
+        .select({ id: trainingSessions.id })
+        .from(trainingSessions)
+        .where(
+          and(
+            eq(trainingSessions.userId, uid),
+            eq(trainingSessions.status, "completed"),
+          ),
+        )
+        .limit(1),
+    ])
+
+  return {
+    exams: {
+      averageScore: exam?.averageScore ?? null,
+      averageTrend: exam?.averageTrend ?? null,
+      completedCount: exam?.completedCount ?? 0,
+      availableCount: available.available,
+      completedOfAvailableCount: available.completed,
+      gradedCount: exam?.gradedCount ?? 0,
+      passedCount: exam?.passedCount ?? 0,
+      periodGradedCount: exam?.periodGradedCount ?? 0,
+      periodPassedCount: exam?.periodPassedCount ?? 0,
+      overallAverage: exam?.overallAverage ?? null,
+      history: history.reverse().flatMap((h) =>
+        h.score === null || !h.completedAt
+          ? []
+          : [
+              {
+                examId: h.examId,
+                title: h.title,
+                score: h.score,
+                completedAt: h.completedAt.getTime(),
+              },
+            ],
+      ),
+    },
+    training: {
+      sessionCount: training?.sessionCount ?? 0,
+      questionCount: training?.questionCount ?? 0,
+      // Une semaine entamée avant la période ne compte que ses jours dans la
+      // période : son libellé part de là, pas du lundi.
+      weekly: weekly.reverse().map((w) => ({
+        ...w,
+        startDay: fromDay && fromDay > w.weekStart ? fromDay : w.weekStart,
+      })),
+    },
+    hasHistory: (exam?.completedCount ?? 0) > 0 || anySeries !== undefined,
+  }
+}
 
 /**
  * Examens que l'utilisateur voit (`visibleToStudent`), sans filtre de

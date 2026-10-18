@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  examCopyHref,
   studentExamRankingHref,
   studentExamResultsHref,
 } from "@/constants/exam-routes"
@@ -40,17 +41,21 @@ import { cn } from "@/lib/utils"
 /**
  * Toutes les participations soumises, 10 par page. Un score retenu se lit
  * « À la clôture », sans verdict, percentile ni lien vers les résultats.
+ * `copyOf` (vue admin d'un étudiant) mène chaque ligne, ouverte comprise, à
+ * sa copie admin : le miroir porte sur les chiffres, pas sur les outils.
  */
 export const ExamHistory = ({
   history,
   percentiles,
   isAdmin,
   now,
+  copyOf,
 }: {
   history: MyExamHistoryPage
   percentiles: ExamPercentiles
   isAdmin: boolean
   now: number
+  copyOf?: string
 }) => {
   const router = useRouter()
   const pathname = usePathname()
@@ -155,19 +160,33 @@ export const ExamHistory = ({
                   )}
                 </TableCell>
                 <TableCell className="pr-5 text-right md:pr-6">
-                  {readable && (
+                  {copyOf ? (
                     <Button
                       asChild
                       size="sm"
                       variant="ghost"
                       className="max-md:h-11"
                     >
-                      <Link href={resultsHref} prefetch={false}>
-                        Résultats
+                      <Link href={examCopyHref(p.examId, copyOf)}>
+                        Voir la copie
                         <span className="sr-only"> : {p.title}</span>
-                        <LinkPendingIndicator />
                       </Link>
                     </Button>
+                  ) : (
+                    readable && (
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="ghost"
+                        className="max-md:h-11"
+                      >
+                        <Link href={resultsHref} prefetch={false}>
+                          Résultats
+                          <span className="sr-only"> : {p.title}</span>
+                          <LinkPendingIndicator />
+                        </Link>
+                      </Button>
+                    )
                   )}
                 </TableCell>
               </TableRow>

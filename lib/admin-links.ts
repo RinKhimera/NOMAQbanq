@@ -16,3 +16,10 @@ export const adminExamHref = (examId: string) => `/admin/examens/${examId}`
 
 export const adminQuestionHref = (questionId: string) =>
   `/admin/questions/${questionId}`
+
+/** Tableau de suivi de la progression des étudiants. */
+export const ADMIN_PROGRESSION_HREF = "/admin/progression"
+
+/** Progression d'un étudiant, ouverte hors du tableau (fiche, lien direct). */
+export const adminProgressionHref = (userId: string) =>
+  `${ADMIN_PROGRESSION_HREF}/${userId}`

@@ -18,6 +18,25 @@ paths:
 - **Etat derive de l'URL** : la page serveur lit les paramètres, l'écran client
   les réécrit dans une transition (rechargement en place, contenu conservé).
 
+## Progression des étudiants : tableau et vue miroir
+
+- **Tableau** `/admin/progression` : une ligne par étudiant (population de
+  l'examen : ni admin ni compte supprimé ; suspendus et inactifs compris),
+  chiffres de la bande de sa page Progression sur la période, « Dernière
+  activité » toutes périodes. Une requête agrégée par page
+  (`getStudentProgressList`), bâtie sur les fragments du tableau de bord et de
+  la progression (`examBandSql`, `trainingBandSql`, `activityEventsSql`) :
+  un chiffre n'a qu'une définition, ne pas le recopier. Valeur absente en
+  dernier dans les deux sens. État dans l'URL (`progression-params.ts` :
+  `?q=&acces=&actifs=1&periode=&tri=&ordre=&page=`).
+- **Détail** `/admin/progression/[id]` : la vue étudiante elle-même
+  (`ProgressionView` avec `student`), lue avec l'étudiant pour lecteur
+  (`getStudentProgress` → `dashboardOf`, `progressionOf`, `examHistoryOf`) :
+  score et clé retenus pour lui le restent. Sans actions étudiantes, chaque
+  examen mène à la copie admin. Le lien du tableau porte `liste=1` : sans lui
+  (fiche, lien direct), « Hors de la liste filtrée ». Voisins :
+  `getStudentProgressNeighbors`. Consultation ni journalisée ni signalée.
+
 ## Questions : liste et page de détail
 
 - **Liste** `/admin/questions` : onglets à compteur (Toutes, Clé à vérifier,

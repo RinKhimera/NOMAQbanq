@@ -250,9 +250,9 @@ export type ExamPercentiles = Record<string, number | null>
  * de `examIds`). Le groupe de pairs est celui du classement, restreint aux
  * comptes étudiants non supprimés, et lu par la même retenue
  * (`ownerReadableScore`) : une participation au score retenu n'est ni cible
- * ni pair.
+ * ni pair. Sans garde : l'appelant la porte.
  */
-const percentilesOf = async (
+export const percentilesOf = async (
   userId: string,
   examIds?: string[],
 ): Promise<ExamPercentiles> => {

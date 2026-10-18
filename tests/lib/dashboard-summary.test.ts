@@ -69,6 +69,26 @@ describe("dashboardSummary", () => {
       "Suivez ici vos scores, vos séries et votre maîtrise par domaine.",
     )
   })
+
+  it("à la troisième personne, pour la vue admin d'un étudiant", () => {
+    const they = { person: "they" } as const
+    expect(
+      dashboardSummary({
+        period: "30",
+        trend: -3,
+        weakest: "Pédiatrie",
+        ...they,
+      }),
+    ).toBe(
+      "Son score moyen a reculé de 3 points sur 30 jours. Pédiatrie reste son domaine le plus faible.",
+    )
+    expect(
+      dashboardSummary({ period: "7", trend: 0, weakest: null, ...they }),
+    ).toBe("Son score moyen est stable sur 7 jours.")
+    expect(
+      dashboardSummary({ period: "30", trend: null, weakest: null, ...they }),
+    ).toBe("Ses scores, ses séries et sa maîtrise par domaine.")
+  })
 })
 
 describe("isNewcomer", () => {
