@@ -3,13 +3,14 @@
  * Docker `postgres:18` par run, sur un port hôte aléatoire, supprimé à l'arrêt
  * (`--rm`). Même chemin en local (Docker Desktop) et en CI (runner ubuntu).
  *
- * L'image officielle est tirée du miroir ECR Public d'AWS, pas de Docker Hub :
- * les runners GitHub partagent leurs IP, et Docker Hub y épuise son quota de
- * tirages anonymes (`toomanyrequests`) au point de faire échouer le CI.
+ * L'image officielle a deux sources, essayées dans l'ordre : Docker Hub, puis
+ * son miroir ECR Public. Les runners GitHub partagent leurs IP, et chacun des
+ * deux registres y épuise par moments son quota de tirages anonymes
+ * (`toomanyrequests`) : une seule source suffit à faire échouer le CI.
  */
 import { spawnSync } from "node:child_process"
 
-const IMAGE = "public.ecr.aws/docker/library/postgres:18"
+const IMAGES = ["postgres:18", "public.ecr.aws/docker/library/postgres:18"]
 const LABEL = "nomaq-test"
 const CREATED_LABEL = `${LABEL}.created`
 const STALE_AFTER_MS = 60 * 60 * 1000
@@ -56,6 +57,24 @@ export const removeStaleTestContainers = (): string[] => {
   return stale
 }
 
+/** Une image déjà présente ne se retire pas : aucun quota consommé. */
+const resolveImage = (): string => {
+  const isLocal = (image: string) =>
+    spawnSync("docker", ["image", "inspect", image]).status === 0
+  const local = IMAGES.find(isLocal)
+  if (local) return local
+
+  const failures: string[] = []
+  for (const image of IMAGES) {
+    const res = spawnSync("docker", ["pull", "--quiet", image], {
+      encoding: "utf8",
+    })
+    if (res.status === 0) return image
+    failures.push(`${image} : ${res.stderr?.trim() || res.error?.message}`)
+  }
+  throw new Error(`docker pull a échoué partout :\n${failures.join("\n")}`)
+}
+
 /**
  * `pg_isready` par TCP, depuis le conteneur : pendant son initialisation,
  * l'image lance un serveur temporaire joignable seulement par socket Unix, qui
@@ -85,6 +104,7 @@ const waitUntilReady = async (name: string): Promise<void> => {
 
 export const startTestPostgres = async (): Promise<TestPostgres> => {
   const name = `${LABEL}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const image = resolveImage()
   docker([
     "run",
     "--detach",
@@ -109,7 +129,7 @@ export const startTestPostgres = async (): Promise<TestPostgres> => {
     "/var/lib/postgresql",
     "--publish",
     "127.0.0.1::5432",
-    IMAGE,
+    image,
     // Base jetable : la durabilité ne sert à rien, la latence d'écriture si.
     "-c",
     "fsync=off",
