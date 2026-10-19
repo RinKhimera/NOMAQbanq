@@ -65,6 +65,9 @@ Les règles métier des examens et de la banque de questions vivent dans
   par `runSchedule` (`features/cron/run.ts`). Ajouter une tâche = ajouter une
   entrée `{ key, label, tag, run }` à la bonne place, avec sa contrainte
   d'ordre en commentaire à côté ; ni la route ni son test ne changent.
+  Chaque tâche borne son lot par passage (`limit`) : débit quotidien =
+  borne × nombre de passages de `vercel.json`. Changer l'horaire impose de
+  recalculer chaque borne et les débits cités en commentaire.
 - **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
   sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
   renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou
