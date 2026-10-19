@@ -3,7 +3,7 @@ import { db } from "@/db"
 import { closeAttempts } from "../attempts/close"
 
 /**
- * Clôt par lot borné (100) les sessions d'entraînement `in_progress` dont
+ * Clôt par lot borné (300) les sessions d'entraînement `in_progress` dont
  * l'expiration est passée, en `abandoned`. Le score de clôture et sa garde
  * appartiennent à `closeAttempts` (`docs/adr/0001`) ; `createTrainingSession`
  * appelle le même écrivain pour la seule session qui lui barre la place.
@@ -17,7 +17,7 @@ export async function closeExpiredTrainingSessions(): Promise<{
     kind: "training",
     status: "abandoned",
     now,
-    where: { expiredBefore: now, limit: 100 },
+    where: { expiredBefore: now, limit: 300 },
   })
   return { closedCount: closed.length }
 }

@@ -45,8 +45,8 @@ export const SCHEDULE: readonly CronTask[] = [
     run: sendPendingNotifications,
   },
   // EN DERNIER : seule tâche purement informative, et seule à faire un
-  // aller-retour hors Neon. Le passage est borné par la durée maximale de la
-  // fonction Vercel (300 s par défaut) — ce qui peut être perdu ici est un
+  // aller-retour hors Neon. Le passage est borné par le `maxDuration` de la
+  // route (300 s) — ce qui peut être perdu ici est un
   // rapport de dérive, pas une clôture ni un courriel.
   {
     key: "priceDrift",

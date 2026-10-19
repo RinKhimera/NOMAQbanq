@@ -38,11 +38,12 @@ Invariants métier (vocabulaire dans `CONTEXT.md`). Les patterns génériques
   une action qui constate l'expiration refuse (`EXPIRED`) sans rien écrire.
   Les examens ferment à minuit : le formulaire admin ne propose que des
   dates, et `fromLocalDay` pose le minuit du navigateur de l'admin, à l'heure
-  de l'Est. Le cron est calé dessus (`vercel.json`, `5 4,5,6 * * *` UTC, sans
-  heure d'été) : minuit à Toronto tombe à 4 h UTC en été et à 5 h UTC en
-  hiver, d'où un passage 5 min après la fermeture et un réessai 1 h plus tard
-  toute l'année (Vercel ne relance pas un appel en échec) ; le passage
-  restant (6 h UTC en été, 4 h UTC en hiver) n'a rien à clore. Permettre une
+  de l'Est. Le cron est calé dessus (`vercel.json`, passages à 4 h 05, 5 h 05
+  et 6 h 05 UTC, sans heure d'été) : minuit à Toronto tombe à 4 h UTC en été
+  et à 5 h UTC en hiver, d'où un passage 5 min après la fermeture et un
+  réessai 1 h plus tard toute l'année (Vercel ne relance pas un appel en
+  échec). Le troisième passage est un second réessai en été ; en hiver, celui
+  de 4 h 05 UTC précède la fermeture et n'a rien à clore. Permettre une
   heure de fermeture, ou un admin hors de l'heure de l'Est, impose de revoir
   `vercel.json`.
   **La clôture elle-même a UN écrivain : `closeAttempts`**

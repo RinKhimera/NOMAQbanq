@@ -28,6 +28,13 @@ paths:
   est prouvée une fois dans `tests/integration/one-shot.test.ts`. Seule
   exception voulue : le courriel de confirmation d'achat (webhook, « envoi
   puis marquage », `.claude/rules/payments.md`).
+- **Heure d'envoi des courriels du cron** : tous les courriels de
+  `sendPendingNotifications` (résultats, rappels d'expiration, relances
+  d'inactivité) partent aux passages du cron, entre 23 h et 2 h, heure de
+  l'Est (calendrier dans `exams.md`). Voulu pour les résultats, accepté pour
+  les rappels et les relances commerciales : ils se lisent au réveil. Un
+  envoi en journée demanderait une seconde entrée de cron réservée aux
+  courriels.
 - **Alerte de paiement** (`sendPaymentAlert`, `features/payments/alerts.ts`) :
   le marqueur vit sur `payment_alerts`, une ligne par (événement Stripe,
   administrateur), créées à la première livraison seulement (un rejeu
