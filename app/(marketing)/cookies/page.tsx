@@ -85,7 +85,7 @@ const ARTICLES: LegalArticle[] = [
     id: "analytiques",
     title: "Mesure d'audience et erreurs",
     blocks: [
-      "NOMAQbanq n'utilise actuellement aucun cookie de mesure d'audience. Les seules mesures d'usage proviennent des journaux techniques de notre hébergeur (Vercel), qui ne reposent sur aucun cookie.",
+      "NOMAQbanq n'utilise aucun cookie de mesure d'audience. L'audience du site et sa vitesse d'affichage sont mesurées par notre hébergeur, Vercel (Web Analytics et Speed Insights), de façon anonyme et agrégée, sans cookie ni stockage dans votre navigateur.",
       "Le suivi des erreurs techniques (Sentry) ne dépose pas de cookie. Lorsqu'une erreur survient, il reçoit le contexte technique (page, navigateur, adresse IP, identifiant et adresse courriel du compte connecté) ainsi qu'une reconstitution des dernières secondes de votre navigation (contenu affiché à l'écran, clics, défilement), afin de reproduire et corriger le problème.",
     ],
   },
@@ -182,7 +182,7 @@ export default function CookiesPage() {
         num="03"
         title="Politique de cookies"
         lead="Comprendre comment nous utilisons les cookies et traceurs pour améliorer votre expérience."
-        updated="15 janvier 2026"
+        updated="19 octobre 2026"
         articles={ARTICLES}
       />
       <CtaBand />

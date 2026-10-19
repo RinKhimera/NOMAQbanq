@@ -10,7 +10,7 @@ import {
   Users,
 } from "lucide-react"
 import type { RevisionCriterion } from "@/features/training/schemas"
-import { ADMIN_PROGRESSION_HREF } from "@/lib/admin-links"
+import { ADMIN_HREF, ADMIN_PROGRESSION_HREF } from "@/lib/admin-links"
 
 export type NavItem = { title: string; url: string; icon: LucideIcon }
 export type NavSection = { heading: string; items: NavItem[] }
@@ -80,7 +80,7 @@ export const adminNavSections: NavSection[] = [
   {
     heading: "Pilotage",
     items: [
-      { title: "Tableau de bord", url: "/admin", icon: LayoutDashboard },
+      { title: "Tableau de bord", url: ADMIN_HREF, icon: LayoutDashboard },
       { title: "Transactions", url: "/admin/transactions", icon: Receipt },
     ],
   },
