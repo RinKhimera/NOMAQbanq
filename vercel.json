@@ -4,7 +4,7 @@
   "crons": [
     {
       "path": "/api/cron/close-expired",
-      "schedule": "0 0 * * *"
+      "schedule": "5 4,5,6 * * *"
     }
   ]
 }

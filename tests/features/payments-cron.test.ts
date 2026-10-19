@@ -119,8 +119,8 @@ describe("auditProductPriceDrift", () => {
   })
 
   // Invariant capital : un audit informatif ne doit JAMAIS faire repondre 500 au
-  // cron. L'appelant GitHub Actions relance sur erreur — une panne Stripe
-  // rejouerait clotures et notifications jusqu'a 4 fois par heure.
+  // cron — une panne Stripe marquerait en echec un passage dont clotures et
+  // notifications ont reussi.
   it("Stripe en panne → echec signale, aucune exception propagee", async () => {
     stripeBox.failNext("listActivePrices", new Error("Stripe down"))
 

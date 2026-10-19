@@ -36,8 +36,9 @@ const summarize = (tasks: readonly CronTask[], report: CronReport): string =>
  * Exécute les tâches dans l'ordre, chacune isolée : un échec est capturé
  * sous le tag et le libellé de la tâche, rend un résultat vide et n'empêche
  * pas les suivantes (notamment l'anonymisation RGPD) ; `failed` permet à la
- * route de répondre 500 après avoir tout tenté, pour conserver le retry du
- * planificateur.
+ * route de répondre 500 après avoir tout tenté, pour que l'échec se voie dans
+ * les journaux du cron Vercel (qui ne relance pas : le rattrapage est le
+ * passage suivant).
  *
  * Séquentiel volontairement (Sentry NOMAQBANQ-17) : en parallèle sur un
  * pool froid, chaque tâche ouvre sa propre connexion Neon — le détecteur N+1
