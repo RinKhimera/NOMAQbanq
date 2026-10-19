@@ -21,6 +21,8 @@ describe("analyticsBeforeSend", () => {
     "/tableau-de-bord/entrainement",
     "/tableau-de-bord/entrainement/sess_1/resultats",
     "/tableau-de-bord/examen-blanc",
+    "/tableau-de-bord/examen-blanc/exam_1",
+    "/tableau-de-bord/examen-blanc/exam_1/soumis",
     "/tableau-de-bord/examen-blanc/exam_1/resultats",
   ])("garde %s", (path) => {
     expect(analyticsBeforeSend(pageview(path))).toEqual(pageview(path))

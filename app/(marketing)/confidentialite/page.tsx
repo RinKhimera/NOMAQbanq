@@ -105,7 +105,7 @@ const ARTICLES: LegalArticle[] = [
           ["Autorités compétentes", "en cas d'obligation légale"],
         ],
       },
-      "Pour mesurer l'audience du site et sa vitesse d'affichage, nous utilisons Vercel Web Analytics et Vercel Speed Insights. Ces mesures sont anonymes et agrégées : elles ne déposent aucun cookie, ne sont rattachées ni à votre compte ni à votre adresse IP, et l'empreinte technique qui permet de compter une visite est effacée au bout de 24 heures. Les pages de l'administration ne sont pas mesurées, et les adresses envoyées sont dépouillées de leurs paramètres (liens de réinitialisation ou de désabonnement compris).",
+      "Pour mesurer l'audience du site et sa vitesse d'affichage, nous utilisons Vercel Web Analytics et Vercel Speed Insights. Ces mesures sont anonymes et agrégées : elles ne déposent aucun cookie, ne sont rattachées ni à votre compte ni à votre adresse IP, et l'empreinte technique qui permet de compter une visite est effacée au bout de 24 heures. Les adresses des pages de l'administration ne sont pas transmises, et les adresses envoyées sont dépouillées de leurs paramètres (liens de réinitialisation ou de désabonnement compris).",
       "Nous ne vendons jamais vos données personnelles à des tiers à des fins commerciales.",
     ],
   },

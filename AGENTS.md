@@ -109,7 +109,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Env** : valide via zod (`lib/env/schema.ts`) ; nouvelles vars optionnelles + erreur claire a l'usage. `.env.local` est GÉNÉRÉ (`bun run env:sync` depuis le scope Vercel Development) : nouvelle var = `vercel env add <KEY> development` d'abord, pas d'édition manuelle durable
 - **GitGuardian** (check de PR, non requis) : aucun mot de passe littéral, même de test (`POSTGRES_PASSWORD=postgres` l'a déclenché) ; un incident regroupe une même valeur de secret tous dépôts confondus, d'où des dates antérieures au commit
 - **`.playwright-cli/`** : gitignoré mais parcouru par ESLint. Un script d'audit laissé là fait échouer `bun run check` ; le supprimer après le run.
-- **`docs/superpowers/`** : plans, specs et revues datés, historiques — les exclure d'un grep de restes après un retrait ou un renommage, ne pas les « corriger »
+- **`docs/superpowers/`** : documents datés, historiques — les exclure d'un grep de restes après un retrait ou un renommage, ne pas les « corriger »
 - **Cron Vercel = UTC, sans heure d'été** : tout horaire calé sur l'heure de l'Est se vérifie aux deux décalages (UTC−4 l'été, UTC−5 l'hiver) ; calendrier et hypothèse de fermeture dans `.claude/rules/exams.md`
 - **Chercher un libellé avec espace** : l'espace peut être une insécable littérale (U+00A0, invisible), `&nbsp;`, `{NBSP}` ou `${NBSP}` (deux constantes : `lib/format`, `lib/og-card`) → chercher `rg 'Partie(\s|&nbsp;|\$?\{NBSP\})I'` (guillemets simples : en doubles, le shell mange `\$`), jamais avec une espace simple
 - **data-testid** : Obligatoire sur composants quiz interactifs (`components/quiz/`). Convention : `answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`
