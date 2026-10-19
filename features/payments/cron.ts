@@ -26,11 +26,10 @@ const LOOKUP_KEYS_PER_CALL = 10
  *
  * Lecture seule : aucune écriture en base, aucune écriture chez Stripe.
  *
- * **Ne lève JAMAIS.** Une panne Stripe ferait répondre 500 au dispatcher, or
- * l'appelant GitHub Actions relance sur erreur (`--retry 3 --retry-all-errors`) :
- * un audit informatif provoquerait jusqu'à 4 exécutions complètes du cron par
- * heure, clôtures et notifications comprises. L'échec se signale par `failed`
- * et par Sentry, pas par une exception.
+ * **Ne lève JAMAIS.** Une panne Stripe ferait répondre 500 au dispatcher : un
+ * audit informatif marquerait en échec un passage dont les clôtures et les
+ * notifications ont réussi. L'échec se signale par `failed` et par Sentry, pas
+ * par une exception.
  */
 export async function auditProductPriceDrift(): Promise<PriceDriftResult> {
   if (!env.STRIPE_SECRET_KEY) return { checked: 0, drifted: 0, failed: false }

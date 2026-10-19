@@ -13,8 +13,8 @@ import { StripeConfigurationError } from "@/lib/stripe-errors"
  * Requêtes bornées à la construction. Le SDK attend 80 s par défaut et
  * réessaie 2 fois : un appel qui pend peut donc durer ~4 min. Inacceptable sur
  * le chemin du checkout et du portail, où l'utilisateur attend, comme dans le
- * cron, dont l'appelant coupe à `--max-time 60` puis relance — soit jusqu'à
- * 4 exécutions complètes par heure.
+ * cron : un seul appel bloqué épuiserait presque les 300 s de la fonction
+ * Vercel, que toutes les tâches du passage doivent se partager.
  */
 let client: Stripe | null = null
 

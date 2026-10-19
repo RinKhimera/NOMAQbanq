@@ -167,8 +167,8 @@ The project uses Next.js route groups to organize the application:
 - **Neon Postgres** accessed via **Drizzle ORM** (a single `pg` Pool at module scope — Vercel Fluid Compute)
 - **Data Access Layer** (`features/<domain>/dal.ts`): `server-only` reads, React `cache()`, targeted columns, keyset pagination
 - **Server Actions** (`features/<domain>/actions.ts`): writes guarded by auth + Zod, `revalidatePath`, row-locking for per-user concurrency
-- **Route handlers** (`app/api/**`): Stripe webhook, hourly cron (close expired exams/training), E2E support
-- **Cron** hitting `app/api/cron/close-expired`: `vercel.json` daily (Hobby plan floor) + a GitHub Actions workflow (`cron-hourly.yml`) that calls it hourly
+- **Route handlers** (`app/api/**`): Stripe webhook, cron (close expired exams/training), E2E support
+- **Cron** hitting `app/api/cron/close-expired`: a single Vercel cron (`vercel.json`), timed on exam closing at midnight Eastern time (rationale in `.claude/rules/exams.md`; requires the Pro plan)
 
 ### Authentication
 
@@ -212,7 +212,7 @@ The project uses Next.js route groups to organize the application:
 1. Connect your GitHub repo to Vercel
 2. Add environment variables (see `.env.example`)
 3. Add the Neon integration (or set `DATABASE_URL` / `DATABASE_URL_UNPOOLED`)
-4. Deploy. The hourly job runs via GitHub Actions (`cron-hourly.yml`); set the `CRON_SECRET` repo secret + `CRON_ENDPOINT_URL` repo variable. `vercel.json` keeps a daily fallback that works on the free Hobby plan.
+4. Deploy. Set `CRON_SECRET` on Vercel: the cron declared in `vercel.json` sends it as a bearer token. Its several-runs-a-day schedule needs the Pro plan; on Hobby, deployments fail unless it is reduced to one daily run.
 
 ## 🤝 Contributing
 

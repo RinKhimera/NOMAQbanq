@@ -37,10 +37,10 @@ const ACCESS_REMINDER_LIMIT = 200
 const INACTIVITY_DAYS = 21
 // Consentement tacite LCAP : 6 mois après une demande (inscription) ou un achat.
 const CONSENT_WINDOW_DAYS = 183
-// Borne par EXÉCUTION (pas par cadence) : un appel du cron GitHub Actions est
-// limité dans le temps, un arriéré vidé d'un coup le dépasserait et
-// déclencherait des retries. À 5 appels/jour, débit maximal 250 relances/jour —
-// un ordre de grandeur au-dessus du besoin.
+// Borne par EXÉCUTION (pas par cadence) : un passage du cron est limité par la
+// durée maximale de la fonction Vercel, un arriéré vidé d'un coup la
+// dépasserait. À 3 passages/jour, débit maximal 150 relances/jour — largement
+// au-dessus du besoin.
 const INACTIVITY_LIMIT = 50
 
 export type NotificationSweepResult = {
@@ -53,9 +53,9 @@ export type NotificationSweepResult = {
 // désormais visibles. Marqueur posé pour tout éligible-par-date, envoi aux
 // seuls opt-in (`shouldSend`) → pas de re-scan des lignes opt-out.
 //
-// ⚠️ Concurrence : `close-expired` est frappé par DEUX schedulers (GitHub Actions
-// toutes les 6 h + Vercel quotidien) qui se recouvrent à minuit UTC ; c'est le
-// claim de `sendOnce` qui garantit l'envoi unique.
+// ⚠️ Concurrence : deux exécutions de `close-expired` peuvent se chevaucher (un
+// déclenchement manuel depuis l'onglet Cron Jobs, un événement cron que Vercel
+// livre deux fois) ; c'est le claim de `sendOnce` qui garantit l'envoi unique.
 export const examResultsSpec = () =>
   defineOneShot({
     label: "résultats",
