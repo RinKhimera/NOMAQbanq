@@ -23,6 +23,8 @@ paths:
 
 **URL et chemins** : chemins des pages publiques dans `MARKETING_PATHS` (`constants/index.tsx`) et `domainPath` (`constants/domains.ts`) ; URL absolue par `siteUrl(path)` (`lib/seo.ts`) — canonicals, sitemap, robots, JSON-LD, `llms.txt`. Jamais `https://nomaqbanq.ca` ni un chemin de la vitrine écrits en dur.
 
+**Date d'une page légale** : la date affichée (`updated` du `LegalDocument`) a un double dans `app/sitemap.ts` (`legalPagesUpdate`, `termsUpdate`) ; changer l'une sans l'autre ment aux moteurs.
+
 **Guide de l'EACMC** (`/eacmc-partie-1`) : le CMC a renommé l'examen « EACMC » (anciennement « EACMC, partie I ») ; le reste de la vitrine dit « EACMC ». L'ancien nom ne s'affiche qu'en rappel, « EACMC (anciennement Partie I) », dans le guide et dans la question de la FAQ qui définit l'examen (verrou `tests/marketing/faq-data.test.ts`). Il est la seule page qui vise « préparer l'EACMC » (`/fonctionnement` décrit le produit). Chaque fait renvoie à sa page mcc.ca ; frais, dates de session et taux de réussite à l'EACMC ne sont jamais recopiés. `GUIDE_REVIEWED_ON` (`_data/guide.ts`) ne change qu'après une relecture des faits contre mcc.ca : il est affiché et repris par le sitemap et le JSON-LD. Les questions de la FAQ sur l'examen renvoient chacune à une section du guide (`guideAnchor`, verrou `tests/marketing/faq-data.test.ts`). mcc.ca répond 403 à `curl` (Cloudflare) : vérifier une page ou un lien par WebFetch, pas par curl.
 
 **Indexation d'un domaine** : `noindex: true` dans `DOMAINS` (aujourd'hui « Autres ») = page servie et liée, mais `noindex, follow`, absente du sitemap et du `llms.txt` (`INDEXED_DOMAINS`).

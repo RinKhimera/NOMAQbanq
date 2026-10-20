@@ -7,7 +7,7 @@ import { siteUrl } from "@/lib/seo"
 export default function sitemap(): MetadataRoute.Sitemap {
   // Date de dernière mise à jour majeure du contenu
   const lastContentUpdate = new Date("2026-09-28")
-  const legalPagesUpdate = new Date("2026-01-15")
+  const legalPagesUpdate = new Date("2026-10-19")
   const termsUpdate = new Date("2026-09-28")
 
   return [

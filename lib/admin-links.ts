@@ -1,6 +1,9 @@
 // Liens vers les pages de l'administration, sans dépendance : importables
 // d'un composant comme d'un module serveur (courriels d'alerte).
 
+/** Racine de la zone d'administration. */
+export const ADMIN_HREF = "/admin"
+
 export const ADMIN_PROFILE_PATH = "/admin/profil"
 
 /** Dossier d'un client sur la page Transactions, transaction dépliée. */

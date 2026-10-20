@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next"
 import { IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google"
 import { JsonLd } from "@/components/seo/json-ld"
+import { VercelInsights } from "@/components/shared/vercel-insights"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
+import { env } from "@/lib/env/server"
 import {
   SITE_DESCRIPTION,
   SITE_OPEN_GRAPH,
@@ -115,6 +117,9 @@ export default function RootLayout({
           {children}
           <Toaster richColors />
         </ThemeProvider>
+        {/* Production seulement : ni `bun dev`, ni les e2e (build local sans
+            `VERCEL_ENV`), ni les préproductions ne polluent les chiffres. */}
+        {env.VERCEL_ENV === "production" && <VercelInsights />}
       </body>
     </html>
   )
