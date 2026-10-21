@@ -48,6 +48,10 @@ export default defineConfig({
         "email/**/*.{ts,tsx}",
       ],
       reporter: ["text", "json", "html"],
+      // Un chemin sous `app/` contient `(groupe)` ou `[id]`, que picomatch lit
+      // comme de la syntaxe de glob : ecrit tel quel, il n'exclut que par
+      // egalite exacte. Avec un joker, echapper `[(]`, `[)]`, `[[]`, `[]]`,
+      // sinon l'exclusion ne vise plus rien, sans message.
       exclude: [
         "node_modules/**",
         "**/*.config.*",

@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   updateManualTransaction: vi.fn(),
   deleteManualTransaction: vi.fn(),
   loadTransactionAccessImpact: vi.fn(),
+  loadClientTimeline: vi.fn(),
 }))
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
@@ -46,7 +47,7 @@ vi.mock("@/features/payments/actions", () => ({
   updateManualTransaction: mocks.updateManualTransaction,
   deleteManualTransaction: mocks.deleteManualTransaction,
   loadTransactionAccessImpact: mocks.loadTransactionAccessImpact,
-  loadClientTimeline: vi.fn(),
+  loadClientTimeline: mocks.loadClientTimeline,
 }))
 vi.mock("@/features/exams/actions", () => ({
   loadSearchSelectableUsers: vi.fn(async () => []),
@@ -280,6 +281,34 @@ describe("TransactionsClient — panneau du dossier", () => {
     ).toBeInTheDocument()
   })
 
+  it("une autre transaction du même client dans l'URL : le dossier se déplie sur elle", () => {
+    const first = makeTx({ id: "tx-a" })
+    const second = makeTx({ id: "tx-b" })
+    const file = makeFile({
+      transactionCount: 2,
+      timeline: { items: [first, second], nextCursor: null },
+    })
+    const { rerender } = renderClient(
+      { clientId: "u1", file, txId: "tx-a" },
+      "?client=u1&tx=tx-a",
+    )
+    at("?client=u1&tx=tx-b")
+    rerender(
+      <TransactionsClient {...props({ clientId: "u1", file, txId: "tx-b" })} />,
+    )
+
+    expect(
+      within(screen.getByTestId("timeline-tx-b")).getByRole("button", {
+        expanded: true,
+      }),
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId("timeline-tx-a")).getByRole("button", {
+        expanded: false,
+      }),
+    ).toBeInTheDocument()
+  })
+
   it("« Paiement pour ce client » ouvre la saisie avec ce client imposé", () => {
     renderClient(withManualFile, "?client=u1")
     fireEvent.click(
@@ -315,6 +344,38 @@ describe("TransactionsClient — écritures sur un paiement manuel", () => {
     expect(mocks.refresh).toHaveBeenCalledOnce()
     await waitFor(() =>
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    )
+  })
+
+  it("une écriture repart des données fraîches : les pages plus anciennes chargées sont lâchées", async () => {
+    mocks.loadClientTimeline.mockResolvedValue({
+      items: [makeTx({ id: "tx-old" })],
+      nextCursor: null,
+    })
+    mocks.loadTransactionAccessImpact.mockResolvedValue([])
+    mocks.deleteManualTransaction.mockResolvedValue({ success: true })
+    renderClient(
+      {
+        clientId: "u1",
+        file: makeFile({
+          transactionCount: 2,
+          timeline: { items: [manual], nextCursor: "c1" },
+        }),
+        txId: "tx-m",
+      },
+      "?client=u1&tx=tx-m",
+    )
+    fireEvent.click(screen.getByRole("button", { name: /plus ancienne/ }))
+    expect(await screen.findByTestId("timeline-tx-old")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Supprimer" }))
+    const dialog = await screen.findByRole("alertdialog")
+    const confirm = within(dialog).getByRole("button", { name: "Supprimer" })
+    await waitFor(() => expect(confirm).not.toBeDisabled())
+    fireEvent.click(confirm)
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("timeline-tx-old")).not.toBeInTheDocument(),
     )
   })
 
