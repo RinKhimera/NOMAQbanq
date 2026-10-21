@@ -43,10 +43,15 @@ export default defineConfig({
         "lib/**/*.{ts,tsx}",
         "hooks/**/*.{ts,tsx}",
         "components/**/*.{ts,tsx}",
+        "app/**/_components/**/*.{ts,tsx}",
         "schemas/**/*.ts",
         "email/**/*.{ts,tsx}",
       ],
       reporter: ["text", "json", "html"],
+      // Un chemin sous `app/` contient `(groupe)` ou `[id]`, que picomatch lit
+      // comme de la syntaxe de glob : ecrit tel quel, il n'exclut que par
+      // egalite exacte. Avec un joker, echapper `[(]`, `[)]`, `[[]`, `[]]`,
+      // sinon l'exclusion ne vise plus rien, sans message.
       exclude: [
         "node_modules/**",
         "**/*.config.*",
@@ -73,6 +78,7 @@ export default defineConfig({
         "components/shared/theme-toggle.tsx",
         "components/theme-provider.tsx",
         "components/marketing-header/**",
+        "app/(auth)/_components/auth-shell.tsx",
         // Legal (contenu statique)
         "components/shared/legal-*.tsx",
         // SEO (generation triviale)
@@ -80,6 +86,13 @@ export default defineConfig({
         // Squelettes
         "components/admin/admin-list-skeleton.tsx",
         "components/quiz/session/passation-skeleton.tsx",
+        "app/(dashboard)/tableau-de-bord/entrainement/_components/entrainement-skeleton.tsx",
+        "app/(dashboard)/tableau-de-bord/examen-blanc/_components/examens-skeleton.tsx",
+        "app/(dashboard)/tableau-de-bord/paiement/_components/payment-status-skeleton.tsx",
+        "app/(evaluation)/evaluation/quiz/_components/evaluation-skeleton.tsx",
+        // Écrans d'erreur (balisage seul)
+        "app/(admin)/admin/questions/_components/question-not-found.tsx",
+        "app/(dashboard)/tableau-de-bord/_components/dashboard-error-state.tsx",
         // Upload CDN-heavy
         "components/shared/avatar-uploader.tsx",
         "components/admin/question-image-uploader.tsx",

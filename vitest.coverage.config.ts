@@ -20,6 +20,7 @@ export default defineConfig({
         "lib/**/*.{ts,tsx}",
         "hooks/**/*.{ts,tsx}",
         "components/**/*.{ts,tsx}",
+        "app/**/_components/**/*.{ts,tsx}",
         "schemas/**/*.ts",
         "email/**/*.{ts,tsx}",
         "features/**/*.ts",

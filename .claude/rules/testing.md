@@ -22,8 +22,13 @@ paths:
 
 - `coverage.include` est comparé au chemin relatif, strictement :
   `components/**` n'attrape pas `app/**/_components/**`, et `*.ts` n'attrape pas
-  un `.tsx`. Tant que #340 est ouverte, les `_components` des pages ne sont pas
-  mesurés.
+  un `.tsx`.
+- Les parenthèses des groupes de routes et les crochets des segments
+  dynamiques (`app/(admin)/…/[id]/…`) sont de la syntaxe de glob : un chemin
+  exact matche par égalité, mais un motif à joker (`*`) qui les contient ne
+  matche rien, en silence, dans `coverage.exclude` comme en
+  `--coverage.include`. Les échapper (`[(]admin[)]`, `[[]id[]]`) ou cibler par
+  nom de fichier (`app/**/{a,b}.tsx`).
 - Après un changement de globs ou de version de Vitest, comparer la **liste des
   fichiers** de `coverage/coverage-final.json` avant et après, pas seulement
   les pourcentages : un périmètre qui rétrécit fait monter le chiffre.
