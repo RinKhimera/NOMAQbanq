@@ -19,8 +19,8 @@ const vitestArgs = process.argv
   .slice(2)
   .filter((arg) => arg !== "--keep" && arg !== "--")
 
-// Le projet `integration` mélange l'ordre des tests ; vitest n'affiche pas la
-// graine qu'il tire. Tirée ici et affichée, elle rend un échec rejouable.
+// Le projet `integration` mélange l'ordre des tests. La graine est tirée ici
+// pour figurer dans la ligne de commande à rejouer, en tête de sortie.
 const seedIndex = vitestArgs.findIndex((arg) =>
   arg.startsWith("--sequence.seed"),
 )

@@ -23,9 +23,9 @@ export default defineConfig({
   test: {
     env: { TZ: "UTC" },
     globals: true,
-    // Vitest laisse ces options a `false` : sans elles, l'historique d'appels et
-    // les implementations simulees survivent d'un test au suivant dans un meme
-    // fichier — un `toHaveBeenCalledTimes` peut alors passer grace au test precedent.
+    // Vitest ne vide par defaut que l'historique d'appels (`clearMocks`) : sans
+    // les options ci-dessous, les implementations simulees, les espions et les
+    // stubs survivent d'un test au suivant dans un meme fichier.
     // `mockReset` vide aussi les files `*Once` et ramene un `vi.fn(impl)` a `impl` :
     // une implementation par defaut se pose donc par `vi.fn(impl)` ou dans un
     // `beforeEach`, jamais par un `mockImplementation` au chargement du fichier.
@@ -37,9 +37,11 @@ export default defineConfig({
     exclude: ["e2e/**", "node_modules/**"],
     coverage: {
       provider: "v8",
+      // Globs compares au chemin relatif a la racine, sans sous-chaine :
+      // `components/**` n'attrape pas `app/**/_components/**`, ni `*.ts` un `.tsx`.
       include: [
-        "lib/**/*.ts",
-        "hooks/**/*.ts",
+        "lib/**/*.{ts,tsx}",
+        "hooks/**/*.{ts,tsx}",
         "components/**/*.{ts,tsx}",
         "schemas/**/*.ts",
         "email/**/*.{ts,tsx}",
@@ -50,10 +52,6 @@ export default defineConfig({
         "**/*.config.*",
         "**/*.d.ts",
         "components/ui/**",
-        "app/**/layout.tsx",
-        "app/**/page.tsx",
-        "app/**/error.tsx",
-        "app/**/not-found.tsx",
         "tests/**",
         "lib/auth.ts",
         // Infra server-only (I/O) : couverte par les tests d'integration
@@ -82,7 +80,6 @@ export default defineConfig({
         // Squelettes
         "components/admin/admin-list-skeleton.tsx",
         "components/quiz/session/passation-skeleton.tsx",
-        "app/(dashboard)/tableau-de-bord/paiement/_components/payment-status-skeleton.tsx",
         // Upload CDN-heavy
         "components/shared/avatar-uploader.tsx",
         "components/admin/question-image-uploader.tsx",
@@ -147,7 +144,7 @@ export default defineConfig({
             "./vitest.setup.common.ts",
             "./vitest.setup.integration.ts",
           ],
-          sequence: { shuffle: { files: false, tests: true } },
+          sequence: { shuffle: { tests: true } },
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },

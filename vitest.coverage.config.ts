@@ -17,9 +17,9 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: [
-        "lib/**/*.ts",
-        "hooks/**/*.ts",
-        "components/**/*.tsx",
+        "lib/**/*.{ts,tsx}",
+        "hooks/**/*.{ts,tsx}",
+        "components/**/*.{ts,tsx}",
         "schemas/**/*.ts",
         "email/**/*.{ts,tsx}",
         "features/**/*.ts",

@@ -90,7 +90,9 @@ const misplacedMockCalls = (
       return found
     })
 
-describe("hygiène des tests", () => {
+// Deux règles analysent l'AST de chaque fichier de test : moins d'une seconde
+// seules, plus de 5 s quand `test:coverage:full` charge la machine.
+describe("hygiène des tests", { timeout: 30_000 }, () => {
   it("aucun reset global recopié : la config les applique déjà", () => {
     expect(
       offenders(
