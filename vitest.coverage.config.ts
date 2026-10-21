@@ -19,7 +19,7 @@ export default defineConfig({
       include: [
         "lib/**/*.{ts,tsx}",
         "hooks/**/*.{ts,tsx}",
-        "components/**/*.tsx",
+        "components/**/*.{ts,tsx}",
         "schemas/**/*.ts",
         "email/**/*.{ts,tsx}",
         "features/**/*.ts",

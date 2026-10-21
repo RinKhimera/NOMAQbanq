@@ -52,10 +52,6 @@ export default defineConfig({
         "**/*.config.*",
         "**/*.d.ts",
         "components/ui/**",
-        "app/**/layout.tsx",
-        "app/**/page.tsx",
-        "app/**/error.tsx",
-        "app/**/not-found.tsx",
         "tests/**",
         "lib/auth.ts",
         // Infra server-only (I/O) : couverte par les tests d'integration
@@ -84,7 +80,6 @@ export default defineConfig({
         // Squelettes
         "components/admin/admin-list-skeleton.tsx",
         "components/quiz/session/passation-skeleton.tsx",
-        "app/(dashboard)/tableau-de-bord/paiement/_components/payment-status-skeleton.tsx",
         // Upload CDN-heavy
         "components/shared/avatar-uploader.tsx",
         "components/admin/question-image-uploader.tsx",

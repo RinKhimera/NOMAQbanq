@@ -4,9 +4,11 @@
 // Supprimer ce fichier quand jest-dom publiera le support de Vitest 5 :
 // https://github.com/testing-library/jest-dom/issues/738
 // Ne pas augmenter `AsymmetricMatchersContaining` : conflit TS2320.
+// `never` : le texte attendu reste `string | RegExp` (un matcher asymétrique,
+// typé `any`, passe toujours) ; `unknown` accepterait n'importe quelle valeur.
 import type { TestingLibraryMatchers } from "@testing-library/jest-dom/matchers"
 
 declare module "vitest" {
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-unused-vars
-  interface Matchers<R, T> extends TestingLibraryMatchers<unknown, R> {}
+  interface Matchers<R, T> extends TestingLibraryMatchers<never, R> {}
 }
