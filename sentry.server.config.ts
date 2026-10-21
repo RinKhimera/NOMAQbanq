@@ -2,6 +2,7 @@
 // The config you add here will be used whenever the server handles a request.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 import * as Sentry from "@sentry/nextjs"
+import { SENTRY_DATA_COLLECTION } from "@/lib/sentry-data-collection"
 import { serverTracesSampler } from "@/lib/sentry-sampling"
 
 Sentry.init({
@@ -14,14 +15,11 @@ Sentry.init({
     process.env.NEXT_PUBLIC_SENTRY_DISABLED !== "1",
   environment: process.env.VERCEL_ENV ?? "development",
 
-  // Webhook Stripe et cron à 100 %, le reste hérite du client ou 10 % : chaque
-  // span coûte du CPU actif Vercel sur CHAQUE invocation (`lib/sentry-sampling.ts`).
+  // Webhook Stripe et cron à 100 % (reconnus à leur chemin, pas au nom du span,
+  // encore inconnu à l'échantillonnage), le reste hérite du client ou 10 % :
+  // chaque span coûte du CPU actif Vercel sur CHAQUE invocation
+  // (`lib/sentry-sampling.ts`).
   tracesSampler: serverTracesSampler,
 
-  // Aucun émetteur de log Sentry dans le code : option fermée, sans gain attendu.
-  enableLogs: false,
-
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  dataCollection: SENTRY_DATA_COLLECTION,
 })
