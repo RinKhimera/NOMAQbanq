@@ -2,6 +2,7 @@
 // The added config here will be used whenever a users loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 import * as Sentry from "@sentry/nextjs"
+import { SENTRY_DATA_COLLECTION } from "@/lib/sentry-data-collection"
 import { isThirdPartyRsCrash } from "@/lib/sentry-filters"
 
 Sentry.init({
@@ -27,8 +28,6 @@ Sentry.init({
   // le tunnel `/monitoring` et consomme le quota Sentry Developer. Le serveur
   // hérite de cette décision pour les traces qu'il reçoit du navigateur.
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.05 : 1,
-  // Aucun émetteur de log Sentry dans le code : option fermée, sans gain attendu.
-  enableLogs: false,
 
   // Mode buffer pur : aucune session enregistree tant qu'aucune erreur ne
   // survient. Le plan Developer plafonne a 50 replays/mois ; un taux de session
@@ -39,9 +38,7 @@ Sentry.init({
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 1.0,
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  dataCollection: SENTRY_DATA_COLLECTION,
 
   beforeSend(event, hint) {
     return isThirdPartyRsCrash(event, hint) ? null : event

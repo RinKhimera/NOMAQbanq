@@ -130,3 +130,9 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
     test reste vert quel que soit le code. Toute assertion neuve se prouve par
     mutation, et `tests/architecture/test-hygiene.test.ts` refuse les
     caractères de contrôle dans `tests/`.
+29. **Défaut changé en silence par une montée majeure.** Une version majeure
+    active ou retire un comportement sans toucher au code appelant (Sentry v11 :
+    Dedupe serveur qui avale une alerte identique à la précédente, 5 lignes de
+    contexte au lieu de 7, collecte des corps HTTP). Comparer les intégrations
+    et options par défaut de l'ancienne et de la nouvelle version dans
+    `node_modules`, pas seulement le guide de migration.

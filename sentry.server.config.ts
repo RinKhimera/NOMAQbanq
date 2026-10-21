@@ -2,7 +2,9 @@
 // The config you add here will be used whenever the server handles a request.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 import * as Sentry from "@sentry/nextjs"
+import { SENTRY_DATA_COLLECTION } from "@/lib/sentry-data-collection"
 import { serverTracesSampler } from "@/lib/sentry-sampling"
+import { scrubServerEvent, scrubServerSpan } from "@/lib/sentry-scrub"
 
 Sentry.init({
   dsn: "https://c7c726531f3e9dc07a6488f3bd7ae9b4@o4510410010787842.ingest.us.sentry.io/4510410016227333",
@@ -14,14 +16,19 @@ Sentry.init({
     process.env.NEXT_PUBLIC_SENTRY_DISABLED !== "1",
   environment: process.env.VERCEL_ENV ?? "development",
 
-  // Webhook Stripe et cron à 100 %, le reste hérite du client ou 10 % : chaque
-  // span coûte du CPU actif Vercel sur CHAQUE invocation (`lib/sentry-sampling.ts`).
+  // Webhook Stripe et cron à 100 % (reconnus à leur chemin, pas au nom du span,
+  // encore inconnu à l'échantillonnage), le reste hérite du client ou 10 % :
+  // chaque span coûte du CPU actif Vercel sur CHAQUE invocation
+  // (`lib/sentry-sampling.ts`).
   tracesSampler: serverTracesSampler,
 
-  // Aucun émetteur de log Sentry dans le code : option fermée, sans gain attendu.
-  enableLogs: false,
+  // Dedupe jette une erreur identique à la précédente, même venue d'une autre
+  // requête : un second remboursement partiel, signalé dans Sentry seulement
+  // (`captureServerError`), disparaîtrait sans trace.
+  integrations: (defaults) =>
+    defaults.filter((integration) => integration.name !== "Dedupe"),
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  dataCollection: SENTRY_DATA_COLLECTION,
+  beforeSend: scrubServerEvent,
+  beforeSendSpan: scrubServerSpan,
 })

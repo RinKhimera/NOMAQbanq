@@ -4,32 +4,76 @@ import {
   serverTracesSampler,
 } from "@/lib/sentry-sampling"
 
-const context = (name: string) => ({
+const context = (name: string, attributes: Record<string, unknown> = {}) => ({
   name,
+  attributes,
   inheritOrSampleWith: vi.fn((fallback: number) => fallback),
 })
 
 describe("serverTracesSampler", () => {
-  it("trace le webhook Stripe à 100 %", () => {
-    const ctx = context("POST /api/stripe/webhook")
+  it("trace le webhook Stripe à 100 % quand seul http.target porte la route", () => {
+    const ctx = context("POST", { "http.target": "/api/stripe/webhook" })
 
     expect(serverTracesSampler(ctx)).toBe(1)
     expect(ctx.inheritOrSampleWith).not.toHaveBeenCalled()
   })
 
-  it("trace le cron à 100 %", () => {
-    const ctx = context("GET /api/cron/close-expired")
+  it("trace le cron à 100 % quand seul url.path porte la route", () => {
+    const ctx = context("GET", { "url.path": "/api/cron/close-expired" })
 
     expect(serverTracesSampler(ctx)).toBe(1)
   })
 
-  it("hérite de la décision amont, sinon 10 %, pour tout le reste", () => {
-    const ctx = context("GET /tableau-de-bord/examen-blanc")
+  it("ignore le nom du span, qui désigne le fichier de route et pas le chemin", () => {
+    const ctx = context("POST /api/stripe/webhook/route")
+
+    expect(serverTracesSampler(ctx)).toBe(SERVER_TRACE_SAMPLE_RATE)
+  })
+
+  it("trace à 100 % un webhook reçu avec une query string", () => {
+    const ctx = context("POST", { "http.target": "/api/stripe/webhook?a=1" })
+
+    expect(serverTracesSampler(ctx)).toBe(1)
+  })
+
+  it("ne reconnaît la route qu'en tête du chemin, pas dans la query string", () => {
+    const ctx = context("GET", {
+      "http.target": "/tableau-de-bord?x=/api/cron/close-expired",
+    })
+
+    expect(serverTracesSampler(ctx)).toBe(SERVER_TRACE_SAMPLE_RATE)
+  })
+
+  it("ne trace pas à 100 % un chemin qui contient seulement la route", () => {
+    const ctx = context("GET", { "url.path": "/blog/api/stripe/webhook" })
+
+    expect(serverTracesSampler(ctx)).toBe(SERVER_TRACE_SAMPLE_RATE)
+  })
+
+  it("hérite de la décision amont, sinon 10 %, quand le span ne porte que la méthode", () => {
+    const ctx = context("POST")
 
     expect(serverTracesSampler(ctx)).toBe(SERVER_TRACE_SAMPLE_RATE)
     expect(ctx.inheritOrSampleWith).toHaveBeenCalledWith(
       SERVER_TRACE_SAMPLE_RATE,
     )
+  })
+
+  it("hérite de la décision amont, sinon 10 %, pour une page", () => {
+    const ctx = context("GET", {
+      "http.target": "/tableau-de-bord/examen-blanc",
+    })
+
+    expect(serverTracesSampler(ctx)).toBe(SERVER_TRACE_SAMPLE_RATE)
+    expect(ctx.inheritOrSampleWith).toHaveBeenCalledWith(
+      SERVER_TRACE_SAMPLE_RATE,
+    )
+  })
+
+  it("ignore un attribut de route qui n'est pas une chaîne", () => {
+    const ctx = context("POST", { "http.target": ["/api/stripe/webhook"] })
+
+    expect(serverTracesSampler(ctx)).toBe(SERVER_TRACE_SAMPLE_RATE)
   })
 
   it("expose un taux serveur de 10 %", () => {

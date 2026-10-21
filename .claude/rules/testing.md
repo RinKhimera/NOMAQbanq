@@ -14,6 +14,23 @@ paths:
   `document`. Un test DOM laissé en `.ts` échoue aussitôt (« document is not
   defined ») : le renommer en `.tsx`.
 - Cibler un fichier : `bun run test <fichier>` (sans `--`).
+- Importer `describe`/`it`/`expect` depuis `vitest` : `globals: true` vaut à
+  l'exécution, mais les globals ne sont pas typés (`tsconfig` :
+  `types: ["vite/client"]`). Sans import, tsc lève TS2304.
+
+## Couverture
+
+- `coverage.include` est comparé au chemin relatif, strictement :
+  `components/**` n'attrape pas `app/**/_components/**`, et `*.ts` n'attrape pas
+  un `.tsx`. Tant que #340 est ouverte, les `_components` des pages ne sont pas
+  mesurés.
+- Après un changement de globs ou de version de Vitest, comparer la **liste des
+  fichiers** de `coverage/coverage-final.json` avant et après, pas seulement
+  les pourcentages : un périmètre qui rétrécit fait monter le chiffre.
+- Un échec de `test:coverage:full` qui ne se reproduit pas avec la même graine
+  vient d'un délai dépassé sur une machine chargée, pas d'une dépendance
+  d'ordre. Un test qui balaie tout le dépôt (AST, `tests/architecture/`) porte un
+  `timeout` explicite.
 
 ## État entre deux tests : la config s'en charge
 
@@ -42,6 +59,9 @@ paths:
   Écrire le code avec l'outil d'édition, ou en chaîne brute.
 - Vitest n'affiche la console (`console.log`) que pour un test qui échoue :
   pour déboguer, faire échouer l'assertion plutôt que de chercher un log absent.
+- Après `vi.resetModules()`, un `import()` dynamique recharge ses dépendances :
+  comparer une fonction par référence (`toBe`, `toMatchObject`) à celle importée
+  en tête du test échoue. Asserter son effet (l'appeler sur une entrée).
 
 ## Pièges de happy-dom (tests de composants)
 
