@@ -22,8 +22,7 @@ paths:
 
 - `coverage.include` est comparé au chemin relatif, strictement :
   `components/**` n'attrape pas `app/**/_components/**`, et `*.ts` n'attrape pas
-  un `.tsx`. Tant que #340 est ouverte, les `_components` des pages ne sont pas
-  mesurés.
+  un `.tsx`.
 - Après un changement de globs ou de version de Vitest, comparer la **liste des
   fichiers** de `coverage/coverage-final.json` avant et après, pas seulement
   les pourcentages : un périmètre qui rétrécit fait monter le chiffre.
