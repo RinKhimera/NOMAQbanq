@@ -70,6 +70,10 @@ describe("FaqPageClient", () => {
 
     await search(user, "e")
     expect(screen.getByText("3 résultats pour « e »")).toBeInTheDocument()
+    expect(question("Quel est le prix ?")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    )
     await user.click(question("Combien de temps dure l'examen ?"))
     expect(question("Combien de temps dure l'examen ?")).toHaveAttribute(
       "aria-expanded",
@@ -118,8 +122,10 @@ describe("FaqPageClient", () => {
 
     expect(screen.queryAllByRole("heading", { level: 2 })).toHaveLength(0)
     expect(screen.getByText("0 résultat pour « zzz »")).toBeInTheDocument()
+    const contact = screen.getByRole("link", { name: "nomaqbanq@outlook.com" })
     expect(screen.getByText(/Aucune question ne correspond/)).toContainElement(
-      screen.getByRole("link", { name: "nomaqbanq@outlook.com" }),
+      contact,
     )
+    expect(contact).toHaveAttribute("href", "mailto:nomaqbanq@outlook.com")
   })
 })

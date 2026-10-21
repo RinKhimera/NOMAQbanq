@@ -2,6 +2,10 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 import { DomainsBrowser } from "@/app/(marketing)/domaines/_components/domains-browser"
+import { DOMAINS, DOMAIN_GROUPS } from "@/constants/domains"
+
+const countIn = (groupId: string) =>
+  DOMAINS.filter((d) => d.group.id === groupId).length
 
 const groupHeadings = () =>
   screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)
@@ -12,17 +16,18 @@ const pill = (name: string) =>
     { name },
   )
 
+const search = (user: ReturnType<typeof userEvent.setup>, text: string) =>
+  user.type(
+    screen.getByRole("textbox", { name: "Rechercher un domaine" }),
+    text,
+  )
+
 describe("DomainsBrowser", () => {
-  it("affiche les quatre groupes avec leur nombre de domaines", () => {
+  it("affiche tous les groupes avec leur nombre de domaines", () => {
     render(<DomainsBrowser />)
 
-    expect(groupHeadings()).toEqual([
-      "Médecine",
-      "Chirurgie et spécialités",
-      "Mère et enfant",
-      "Santé mentale et populationnelle",
-    ])
-    expect(screen.getByText("11 domaines")).toBeInTheDocument()
+    expect(groupHeadings()).toEqual(DOMAIN_GROUPS.map((g) => g.label))
+    expect(screen.getByText(`${countIn("med")} domaines`)).toBeInTheDocument()
     expect(pill("Tous")).toHaveAttribute("aria-pressed", "true")
   })
 
@@ -30,10 +35,7 @@ describe("DomainsBrowser", () => {
     const user = userEvent.setup()
     render(<DomainsBrowser />)
 
-    await user.type(
-      screen.getByRole("textbox", { name: "Rechercher un domaine" }),
-      "enterologie",
-    )
+    await search(user, "enterologie")
 
     expect(groupHeadings()).toEqual(["Médecine"])
     expect(screen.getByText("1 domaine")).toBeInTheDocument()
@@ -49,7 +51,7 @@ describe("DomainsBrowser", () => {
     await user.click(pill("Mère et enfant"))
 
     expect(groupHeadings()).toEqual(["Mère et enfant"])
-    expect(screen.getAllByRole("link")).toHaveLength(2)
+    expect(screen.getAllByRole("link")).toHaveLength(countIn("me"))
     expect(pill("Mère et enfant")).toHaveAttribute("aria-pressed", "true")
     expect(pill("Tous")).toHaveAttribute("aria-pressed", "false")
   })
@@ -58,10 +60,7 @@ describe("DomainsBrowser", () => {
     const user = userEvent.setup()
     render(<DomainsBrowser />)
 
-    await user.type(
-      screen.getByRole("textbox", { name: "Rechercher un domaine" }),
-      "  xyz ",
-    )
+    await search(user, "  xyz ")
 
     expect(screen.queryAllByRole("heading", { level: 2 })).toHaveLength(0)
     expect(
