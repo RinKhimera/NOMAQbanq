@@ -13,19 +13,16 @@ export const SERVER_TRACE_SAMPLE_RATE = 0.1
 // fulfillment, clôtures) — tout le reste est du rendu de page.
 const FULL_TRACE_ROUTES = [/^\/api\/stripe\/webhook\/?$/, /^\/api\/cron\//]
 
-// Le sampler tourne AVANT le démarrage du span : le span racine de Next ne
-// s'appelle alors que `POST` et la route n'est posée qu'ensuite. Seuls les
+// Le sampler tourne AVANT le démarrage du span : son nom n'est alors que `POST`
+// ou `POST /api/stripe/webhook/route` (fichier, pas chemin). Seuls les
 // attributs initiaux (`http.target` chez Next, `url.path` en convention
-// Sentry) portent déjà le chemin ; le nom (`<MÉTHODE> <chemin>`) reste un
-// repli. `http.target` inclut la query : sans la retirer, `?x=/api/cron/`
-// forcerait n'importe quelle page à 100 %.
-function requestPath(ctx: SamplingContext): string {
-  const { attributes } = ctx
-  const target =
-    [attributes["url.path"], attributes["http.target"]].find(
-      (value): value is string => typeof value === "string",
-    ) ?? ctx.name.replace(/^[A-Z]+ /, "")
-  return target.split("?", 1)[0] ?? ""
+// Sentry) portent le chemin. `http.target` inclut la query : elle est retirée
+// pour qu'un `?x=/api/cron/` ne force pas une page à 100 %.
+function requestPath({ attributes }: SamplingContext): string {
+  const target = [attributes["url.path"], attributes["http.target"]].find(
+    (value): value is string => typeof value === "string",
+  )
+  return target?.split("?", 1)[0] ?? ""
 }
 
 // Un trace initié par le navigateur hérite de la décision client (5 % en

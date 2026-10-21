@@ -4,6 +4,7 @@
 import * as Sentry from "@sentry/nextjs"
 import { SENTRY_DATA_COLLECTION } from "@/lib/sentry-data-collection"
 import { serverTracesSampler } from "@/lib/sentry-sampling"
+import { scrubServerEvent, scrubServerSpan } from "@/lib/sentry-scrub"
 
 Sentry.init({
   dsn: "https://c7c726531f3e9dc07a6488f3bd7ae9b4@o4510410010787842.ingest.us.sentry.io/4510410016227333",
@@ -21,5 +22,13 @@ Sentry.init({
   // (`lib/sentry-sampling.ts`).
   tracesSampler: serverTracesSampler,
 
+  // Dedupe jette une erreur identique à la précédente, même venue d'une autre
+  // requête : un second remboursement partiel, signalé dans Sentry seulement
+  // (`captureServerError`), disparaîtrait sans trace.
+  integrations: (defaults) =>
+    defaults.filter((integration) => integration.name !== "Dedupe"),
+
   dataCollection: SENTRY_DATA_COLLECTION,
+  beforeSend: scrubServerEvent,
+  beforeSendSpan: scrubServerSpan,
 })

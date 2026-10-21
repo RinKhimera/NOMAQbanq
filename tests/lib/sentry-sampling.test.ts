@@ -24,10 +24,10 @@ describe("serverTracesSampler", () => {
     expect(serverTracesSampler(ctx)).toBe(1)
   })
 
-  it("se replie sur le nom du span quand aucun attribut ne porte la route", () => {
-    const ctx = context("POST /api/stripe/webhook")
+  it("ignore le nom du span, qui désigne le fichier de route et pas le chemin", () => {
+    const ctx = context("POST /api/stripe/webhook/route")
 
-    expect(serverTracesSampler(ctx)).toBe(1)
+    expect(serverTracesSampler(ctx)).toBe(SERVER_TRACE_SAMPLE_RATE)
   })
 
   it("trace à 100 % un webhook reçu avec une query string", () => {
@@ -36,7 +36,7 @@ describe("serverTracesSampler", () => {
     expect(serverTracesSampler(ctx)).toBe(1)
   })
 
-  it("ne laisse pas une query string forcer une page à 100 %", () => {
+  it("ne reconnaît la route qu'en tête du chemin, pas dans la query string", () => {
     const ctx = context("GET", {
       "http.target": "/tableau-de-bord?x=/api/cron/close-expired",
     })
