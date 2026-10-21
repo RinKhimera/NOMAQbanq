@@ -59,6 +59,9 @@ paths:
   Écrire le code avec l'outil d'édition, ou en chaîne brute.
 - Vitest n'affiche la console (`console.log`) que pour un test qui échoue :
   pour déboguer, faire échouer l'assertion plutôt que de chercher un log absent.
+- Après `vi.resetModules()`, un `import()` dynamique recharge ses dépendances :
+  comparer une fonction par référence (`toBe`, `toMatchObject`) à celle importée
+  en tête du test échoue. Asserter son effet (l'appeler sur une entrée).
 
 ## Pièges de happy-dom (tests de composants)
 
