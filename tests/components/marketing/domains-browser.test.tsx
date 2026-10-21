@@ -29,6 +29,9 @@ describe("DomainsBrowser", () => {
     expect(groupHeadings()).toEqual(DOMAIN_GROUPS.map((g) => g.label))
     expect(screen.getByText(`${countIn("med")} domaines`)).toBeInTheDocument()
     expect(pill("Tous")).toHaveAttribute("aria-pressed", "true")
+    expect(
+      screen.queryByText(/Aucun domaine ne correspond/),
+    ).not.toBeInTheDocument()
   })
 
   it("la recherche ignore les accents et masque les groupes vides", async () => {
@@ -63,8 +66,9 @@ describe("DomainsBrowser", () => {
     await search(user, "  xyz ")
 
     expect(screen.queryAllByRole("heading", { level: 2 })).toHaveLength(0)
-    expect(
-      screen.getByText("Aucun domaine ne correspond à « xyz »."),
-    ).toBeInTheDocument()
+    // getByText normalise les espaces : seul textContent prouve le trim.
+    expect(screen.getByText(/Aucun domaine ne correspond/).textContent).toBe(
+      "Aucun domaine ne correspond à « xyz ».",
+    )
   })
 })

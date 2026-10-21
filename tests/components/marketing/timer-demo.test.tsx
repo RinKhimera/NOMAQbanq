@@ -2,8 +2,13 @@ import { act, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { TimerDemo } from "@/app/(marketing)/evaluation/_components/timer-demo"
 
-const reducedMotion = (matches: boolean) =>
-  vi.spyOn(window, "matchMedia").mockReturnValue({ matches } as MediaQueryList)
+const reducedMotion = (reduced: boolean) =>
+  vi.spyOn(window, "matchMedia").mockImplementation(
+    (query) =>
+      ({
+        matches: reduced && query === "(prefers-reduced-motion: reduce)",
+      }) as MediaQueryList,
+  )
 
 const advance = (seconds: number) =>
   act(() => vi.advanceTimersByTime(seconds * 1000))
@@ -39,5 +44,16 @@ describe("TimerDemo", () => {
 
     advance(5)
     expect(screen.getByText("00:20")).toBeInTheDocument()
+  })
+
+  it("arrête son intervalle au démontage", () => {
+    vi.useFakeTimers()
+    reducedMotion(false)
+    const { unmount } = render(<TimerDemo />)
+    expect(vi.getTimerCount()).toBe(1)
+
+    unmount()
+
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

@@ -11,7 +11,11 @@ vi.mock("@/app/(marketing)/faq/_data/faq-data", () => ({
       title: "Examen",
       questions: [
         { q: "Combien de temps dure l'examen ?", a: "Trois heures." },
-        { q: "Peut-on le passer en français ?", a: "Oui, en français." },
+        {
+          q: "Peut-on le passer en français ?",
+          a: "Oui, en français.",
+          href: "/eacmc-partie-1#langue",
+        },
       ],
     },
     {
@@ -43,6 +47,9 @@ describe("FaqPageClient", () => {
       "false",
     )
     expect(screen.queryByText(/résultat/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/Aucune question ne correspond/),
+    ).not.toBeInTheDocument()
   })
 
   it("la recherche ignore les accents, compte les résultats et rouvre la première réponse", async () => {
@@ -61,6 +68,10 @@ describe("FaqPageClient", () => {
     expect(question("Peut-on le passer en français ?")).toHaveAttribute(
       "aria-expanded",
       "true",
+    )
+    expect(screen.getByRole("link", { name: /Lire la suite/ })).toHaveAttribute(
+      "href",
+      "/eacmc-partie-1#langue",
     )
   })
 
@@ -111,6 +122,14 @@ describe("FaqPageClient", () => {
     expect(sidebar.getByRole("button", { name: /^Toutes/ })).toHaveAttribute(
       "aria-pressed",
       "false",
+    )
+
+    await user.click(sidebar.getByRole("button", { name: /^Toutes/ }))
+
+    expect(categoryHeadings()).toEqual(["Examen", "Tarifs"])
+    expect(chips.getByRole("button", { name: "Toutes" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     )
   })
 
