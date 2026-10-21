@@ -3,6 +3,7 @@ import type { ComponentProps } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { ClientFile } from "@/app/(admin)/admin/transactions/_components/client-file"
 import type { TransactionClientFile } from "@/features/payments/dal"
+import { DAY } from "../../../helpers/time"
 import { NOW, makeFile, makeTx } from "./fixtures"
 
 const mocks = vi.hoisted(() => ({
@@ -13,8 +14,6 @@ vi.mock("@/features/payments/actions", () => ({
   loadClientTimeline: mocks.loadClientTimeline,
 }))
 vi.mock("sonner", () => ({ toast: { error: mocks.toastError } }))
-
-const DAY = 24 * 60 * 60 * 1000
 
 const props = (
   overrides: Partial<ComponentProps<typeof ClientFile>> = {},

@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { ExamDetailActions } from "@/app/(admin)/admin/examens/[id]/_components/exam-detail-actions"
 import type { DetailExam } from "@/app/(admin)/admin/examens/[id]/_components/exam-detail-model"
+import { detailExam } from "../../helpers/detail-exam"
+import { DAY } from "../../helpers/time"
 
 const { suspendExam, liftExamSuspension, setExamHidden, refresh, toast } =
   vi.hoisted(() => ({
@@ -25,32 +27,12 @@ vi.mock("next/navigation", async (orig) => ({
 }))
 vi.mock("sonner", () => ({ toast }))
 
-const DAY = 86_400_000
 const now = Date.parse("2026-10-01T16:00:00Z")
-
-const exam = (over: Partial<DetailExam> = {}): DetailExam => ({
-  id: "exam-1",
-  title: "Examen blanc 27",
-  description: null,
-  startDate: now - DAY,
-  endDate: now + 2 * DAY,
-  completionTime: 230 * 83,
-  finalizedAt: now - 3 * DAY,
-  targetQuestionCount: 230,
-  isActive: true,
-  enablePause: true,
-  pauseDurationMinutes: 45,
-  questionCount: 230,
-  deletedQuestionCount: 0,
-  audienceType: "subscribers",
-  isHidden: false,
-  ...over,
-})
 
 const renderActions = (over: Partial<DetailExam> = {}, participations = 0) => {
   render(
     <ExamDetailActions
-      exam={exam(over)}
+      exam={detailExam(now, over)}
       participations={participations}
       now={now}
     />,
@@ -93,7 +75,7 @@ describe("ExamDetailActions — masquer / afficher", () => {
       hidden: true,
     })
     expect(toast.success).toHaveBeenCalledWith("Examen masqué")
-    expect(refresh).toHaveBeenCalled()
+    expect(refresh).toHaveBeenCalledOnce()
   })
 
   it("réaffiche un examen masqué", async () => {
@@ -156,7 +138,7 @@ describe("ExamDetailActions — suspension", () => {
 
     expect(suspendExam).toHaveBeenCalledWith({ examId: "exam-1" })
     expect(toast.success).toHaveBeenCalledWith("Examen suspendu")
-    expect(refresh).toHaveBeenCalled()
+    expect(refresh).toHaveBeenCalledOnce()
   })
 
   it("échec de la suspension : toast d'erreur, le dialogue reste ouvert", async () => {
@@ -180,7 +162,21 @@ describe("ExamDetailActions — suspension", () => {
 
     expect(liftExamSuspension).toHaveBeenCalledWith({ examId: "exam-1" })
     expect(toast.success).toHaveBeenCalledWith("Suspension levée")
-    expect(refresh).toHaveBeenCalled()
+    expect(refresh).toHaveBeenCalledOnce()
+  })
+
+  it("échec de la levée : toast d'erreur, pas de rafraîchissement", async () => {
+    liftExamSuspension.mockResolvedValue({
+      success: false,
+      error: "Examen introuvable",
+    })
+    const user = renderActions({ isActive: false })
+
+    await user.click(screen.getByTestId("btn-lift-suspension"))
+
+    expect(toast.error).toHaveBeenCalledWith("Examen introuvable")
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(refresh).not.toHaveBeenCalled()
   })
 
   it("examen clos : ni suspendre ni lever, mais rouvrir", () => {

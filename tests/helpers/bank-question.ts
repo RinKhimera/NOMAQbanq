@@ -1,11 +1,11 @@
 import type { BankQuestion } from "@/features/questions/dal"
+import { DAY } from "./time"
 
 export const COMPOSER_NOW = Date.UTC(2026, 8, 30, 14)
-export const DAY = 86_400_000
 
 export const bankQuestion = (
   id: string,
-  over: Partial<BankQuestion> = {},
+  overrides: Partial<BankQuestion> = {},
 ): BankQuestion => ({
   id,
   question: `Énoncé ${id}`,
@@ -21,5 +21,5 @@ export const bankQuestion = (
   keyToVerify: false,
   lastUse: null,
   deleted: false,
-  ...over,
+  ...overrides,
 })

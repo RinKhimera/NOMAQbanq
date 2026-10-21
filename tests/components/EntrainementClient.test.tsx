@@ -7,13 +7,17 @@ import type {
 } from "@/features/training/dal"
 
 // Chaque enfant a son propre test : ici, seules les props transmises comptent.
-const received = vi.hoisted(() => ({}) as Record<string, unknown>)
+const { cardProps, formProps, historyProps } = vi.hoisted(() => ({
+  cardProps: vi.fn(),
+  formProps: vi.fn(),
+  historyProps: vi.fn(),
+}))
 
 vi.mock(
   "@/app/(dashboard)/tableau-de-bord/entrainement/_components/active-series-card",
   () => ({
     ActiveSeriesCard: (props: unknown) => {
-      received.card = props
+      cardProps(props)
       return <div data-testid="active-series-card" />
     },
   }),
@@ -22,7 +26,7 @@ vi.mock(
   "@/app/(dashboard)/tableau-de-bord/entrainement/_components/training-config-form",
   () => ({
     TrainingConfigForm: (props: unknown) => {
-      received.form = props
+      formProps(props)
       return null
     },
   }),
@@ -31,7 +35,7 @@ vi.mock(
   "@/app/(dashboard)/tableau-de-bord/entrainement/_components/training-history-section",
   () => ({
     TrainingHistorySection: (props: unknown) => {
-      received.history = props
+      historyProps(props)
       return null
     },
   }),
@@ -78,7 +82,7 @@ describe("EntrainementClient", () => {
   it("sans série en cours : pas de carte, formulaire libre, props de l'URL transmises", () => {
     renderClient(null)
     expect(screen.queryByTestId("active-series-card")).toBeNull()
-    expect(received.form).toEqual({
+    expect(formProps.mock.lastCall?.[0]).toEqual({
       domains: [{ domain: "Pédiatrie", count: 120 }],
       totalQuestions: 3000,
       initialDomain: "Pédiatrie",
@@ -86,7 +90,7 @@ describe("EntrainementClient", () => {
       initialObjectifs: objectifs,
       hasActiveSeries: false,
     })
-    expect(received.history).toEqual({ initialHistory: history })
+    expect(historyProps.mock.lastCall?.[0]).toEqual({ initialHistory: history })
   })
 
   it("série en cours : carte ancrée sur l'horloge serveur, formulaire bloqué", () => {
@@ -97,12 +101,14 @@ describe("EntrainementClient", () => {
       remainingTimeMs: 60_000,
     })
     expect(screen.getByTestId("active-series-card")).toBeInTheDocument()
-    expect(received.card).toEqual({
+    expect(cardProps.mock.lastCall?.[0]).toEqual({
       session: series,
       initialNow: NOW,
       expired: false,
     })
-    expect(received.form).toMatchObject({ hasActiveSeries: true })
+    expect(formProps.mock.lastCall?.[0]).toMatchObject({
+      hasActiveSeries: true,
+    })
   })
 
   it("série expirée : la carte reste affichée, le formulaire ne bloque pas", () => {
@@ -113,7 +119,9 @@ describe("EntrainementClient", () => {
       remainingTimeMs: 0,
     })
     expect(screen.getByTestId("active-series-card")).toBeInTheDocument()
-    expect(received.card).toMatchObject({ expired: true })
-    expect(received.form).toMatchObject({ hasActiveSeries: false })
+    expect(cardProps.mock.lastCall?.[0]).toMatchObject({ expired: true })
+    expect(formProps.mock.lastCall?.[0]).toMatchObject({
+      hasActiveSeries: false,
+    })
   })
 })

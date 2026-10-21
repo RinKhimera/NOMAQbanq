@@ -2,7 +2,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { SelectionColumn } from "@/app/(admin)/admin/examens/[id]/questions/_components/selection-column"
 import type { BankQuestion } from "@/features/questions/dal"
-import { COMPOSER_NOW, DAY, bankQuestion } from "../../helpers/bank-question"
+import { COMPOSER_NOW, bankQuestion } from "../../helpers/bank-question"
+import { DAY } from "../../helpers/time"
 
 const ITEMS: BankQuestion[] = [
   bankQuestion("q1", {

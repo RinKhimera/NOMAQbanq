@@ -5,9 +5,9 @@ import type {
   TransactionClientsPage,
   TransactionStatsView,
 } from "@/features/payments/dal"
+import { DAY } from "../../../helpers/time"
 
 export const NOW = Date.UTC(2026, 9, 18, 12)
-const DAY = 24 * 60 * 60 * 1000
 
 export const makeTx = (
   overrides: Partial<AdminTransactionView> = {},

@@ -8,6 +8,7 @@ import type {
   MyDashboard,
   RecentParticipation,
 } from "@/features/analytics/dal"
+import { DAY } from "../../helpers/time"
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
@@ -17,7 +18,6 @@ vi.mock("next/navigation", () => ({
 // Le contenu recharts est chargé à part : le cadre du graphique suffit ici.
 vi.mock("next/dynamic", () => ({ default: () => () => null }))
 
-const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.parse("2026-09-27T15:00:00Z")
 
 const emptyDashboard: MyDashboard = {

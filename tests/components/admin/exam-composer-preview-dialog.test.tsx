@@ -12,7 +12,8 @@ import {
   useQuestionPreview,
 } from "@/app/(admin)/admin/examens/[id]/questions/_components/question-preview-dialog"
 import type { QuestionFile } from "@/components/admin/question-detail/question-detail-content"
-import { COMPOSER_NOW, DAY, bankQuestion } from "../../helpers/bank-question"
+import { COMPOSER_NOW, bankQuestion } from "../../helpers/bank-question"
+import { DAY } from "../../helpers/time"
 
 const { loadQuestionFile } = vi.hoisted(() => ({
   loadQuestionFile: vi.fn(),

@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest"
 import { BankColumn } from "@/app/(admin)/admin/examens/[id]/questions/_components/bank-column"
 import { DEFAULT_COMPOSER } from "@/app/(admin)/admin/examens/[id]/questions/_components/composer-params"
 import type { BankQuestion } from "@/features/questions/dal"
-import { COMPOSER_NOW, DAY, bankQuestion } from "../../helpers/bank-question"
+import { COMPOSER_NOW, bankQuestion } from "../../helpers/bank-question"
+import { DAY } from "../../helpers/time"
 
 // Radix Select ne se monte pas fidèlement sous happy-dom : chaque option
 // devient un bouton qui remonte sa valeur, la valeur courante reste lisible.

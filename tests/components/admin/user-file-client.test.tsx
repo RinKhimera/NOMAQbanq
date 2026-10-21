@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { UserFileClient } from "@/app/(admin)/admin/utilisateurs/[id]/_components/user-file-client"
 import type { ProductView } from "@/features/payments/dal"
 import type { UserFile, UserFileParticipation } from "@/features/users/dal"
+import { DAY } from "../../helpers/time"
 
 const mocks = vi.hoisted(() => ({
   recordManualPayment: vi.fn(),
@@ -34,7 +35,6 @@ vi.mock("sonner", () => ({
   toast: { error: mocks.toastError, success: vi.fn() },
 }))
 
-const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.UTC(2026, 9, 21, 15)
 
 const products: ProductView[] = [

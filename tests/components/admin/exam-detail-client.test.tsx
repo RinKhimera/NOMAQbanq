@@ -7,6 +7,8 @@ import type {
   ExamFigures,
   LeaderboardEntry,
 } from "@/features/exams/dal"
+import { detailExam } from "../../helpers/detail-exam"
+import { DAY } from "../../helpers/time"
 
 vi.mock("@/features/exams/actions", () => ({
   suspendExam: vi.fn(),
@@ -20,27 +22,7 @@ vi.mock("next/navigation", async (orig) => ({
 }))
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
-const DAY = 86_400_000
 const now = Date.parse("2026-10-01T16:00:00Z")
-
-const exam = (over: Partial<DetailExam> = {}): DetailExam => ({
-  id: "exam-1",
-  title: "Examen blanc 27",
-  description: null,
-  startDate: now - DAY,
-  endDate: now + 2 * DAY,
-  completionTime: 230 * 83,
-  finalizedAt: now - 3 * DAY,
-  targetQuestionCount: 230,
-  isActive: true,
-  enablePause: true,
-  pauseDurationMinutes: 45,
-  questionCount: 230,
-  deletedQuestionCount: 0,
-  audienceType: "subscribers",
-  isHidden: false,
-  ...over,
-})
 
 const figures = (over: Partial<ExamFigures> = {}): ExamFigures => ({
   started: 0,
@@ -82,7 +64,7 @@ const renderClient = (
 ) =>
   render(
     <ExamDetailClient
-      exam={exam(over)}
+      exam={detailExam(now, over)}
       figures={figures(figuresOver)}
       leaderboard={leaderboard}
       audience={audience}
