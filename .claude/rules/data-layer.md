@@ -210,6 +210,22 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   d'hydratation sans audit préalable de l'arbre rendu (grep `toLocaleString()`/
   `new Date()`/`Date.now()`/`useId`/`typeof window` sur les composants rendus
   côté serveur) — un vrai mismatch applicatif doit rester visible dans Sentry.
+- **Rejet réseau passé par un `fetch` tiers, filtré** : une extension qui
+  enveloppe `window.fetch` laisse sa propre promesse sans `catch`, et l'échec
+  réseau d'une Server Action déjà absorbé par `callAction` ressort en
+  « unhandled rejection » (NOMAQBANQ-1Q). `isThirdPartyFetchRejection`
+  (`lib/sentry-filters.ts`) le droppe sur triple condition : rejet non géré,
+  message d'échec réseau (pas une annulation), frame d'un script étranger
+  (`.js` hors de `app:///_next/`, ou schéma d'extension). Même consigne : ne
+  pas l'élargir sans preuve dans l'événement brut — un rejet dont toute la pile
+  est notre bundle reste visible.
+- **Erreur d'hydratation par nœud injecté** : React 19 ne saute un nœud
+  étranger du `<body>` que si sa balise diffère de celle attendue ; un `<div>`
+  injecté par une extension avant l'hydratation est pris pour le nôtre →
+  mismatch. Signature dans le replay : texte servi et texte régénéré
+  identiques, `<div>` vide en tête de `<body>` absent du HTML de prod, souvent
+  sur un chargement `back_forward` lent (NOMAQBANQ-1E, 2026-11-03). Ce n'est pas
+  un bug applicatif : archiver, ne pas filtrer.
 - **ESLint `react-hooks/set-state-in-effect`** : pas de `setState` synchrone dans
   un `useEffect`. Fetch-par-id → tracker l'id chargé (`useState<{id,q}>` +
   comparer `state?.id === currentId`) au lieu d'un reset synchrone.
