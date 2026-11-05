@@ -3,7 +3,10 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 import * as Sentry from "@sentry/nextjs"
 import { SENTRY_DATA_COLLECTION } from "@/lib/sentry-data-collection"
-import { isThirdPartyRsCrash } from "@/lib/sentry-filters"
+import {
+  isThirdPartyFetchRejection,
+  isThirdPartyRsCrash,
+} from "@/lib/sentry-filters"
 
 Sentry.init({
   dsn: "https://c7c726531f3e9dc07a6488f3bd7ae9b4@o4510410010787842.ingest.us.sentry.io/4510410016227333",
@@ -41,7 +44,9 @@ Sentry.init({
   dataCollection: SENTRY_DATA_COLLECTION,
 
   beforeSend(event, hint) {
-    return isThirdPartyRsCrash(event, hint) ? null : event
+    return isThirdPartyRsCrash(event, hint) || isThirdPartyFetchRejection(event)
+      ? null
+      : event
   },
 })
 
