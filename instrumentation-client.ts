@@ -4,6 +4,7 @@
 import * as Sentry from "@sentry/nextjs"
 import { SENTRY_DATA_COLLECTION } from "@/lib/sentry-data-collection"
 import {
+  isHostBridgeRejection,
   isThirdPartyFetchRejection,
   isThirdPartyRsCrash,
 } from "@/lib/sentry-filters"
@@ -44,7 +45,9 @@ Sentry.init({
   dataCollection: SENTRY_DATA_COLLECTION,
 
   beforeSend(event, hint) {
-    return isThirdPartyRsCrash(event, hint) || isThirdPartyFetchRejection(event)
+    return isThirdPartyRsCrash(event, hint) ||
+      isThirdPartyFetchRejection(event) ||
+      isHostBridgeRejection(event)
       ? null
       : event
   },
