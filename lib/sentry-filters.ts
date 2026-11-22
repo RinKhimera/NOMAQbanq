@@ -58,3 +58,20 @@ export function isThirdPartyFetchRejection(event: ErrorEvent): boolean {
       (v.stacktrace?.frames ?? []).some((f) => isForeignScript(f.filename)),
   )
 }
+
+// Rejet émis par le pont JavaScript↔.NET de CefSharp, le Chromium embarqué des
+// analyseurs de liens (Outlook SafeLinks) : l'automate visite la page et
+// rejette une promesse avec une chaîne, sans pile, hors de notre code
+// (getsentry/sentry-javascript#3440). Le SDK préfixe la valeur d'un rejet qui
+// n'est pas une Error.
+const HOST_BRIDGE_REJECTION =
+  /^Non-Error promise rejection captured with value: Object Not Found Matching Id:\d+, MethodName:\w+, ParamCount:\d+$/
+
+export function isHostBridgeRejection(event: ErrorEvent): boolean {
+  const values = event.exception?.values ?? []
+  return values.some(
+    (v) =>
+      v.mechanism?.type === UNHANDLED_REJECTION &&
+      HOST_BRIDGE_REJECTION.test(v.value ?? ""),
+  )
+}

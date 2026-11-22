@@ -2,6 +2,7 @@ import { defaultStackParser } from "@sentry/browser"
 import type { ErrorEvent, EventHint } from "@sentry/nextjs"
 import { describe, expect, it } from "vitest"
 import {
+  isHostBridgeRejection,
   isThirdPartyFetchRejection,
   isThirdPartyRsCrash,
 } from "@/lib/sentry-filters"
@@ -150,5 +151,58 @@ describe("isThirdPartyFetchRejection", () => {
 
   it("laisse passer un événement sans exception", () => {
     expect(isThirdPartyFetchRejection({} as ErrorEvent)).toBe(false)
+  })
+})
+
+const BRIDGE_VALUE =
+  "Non-Error promise rejection captured with value: Object Not Found Matching Id:3, MethodName:update, ParamCount:4"
+
+const stringRejection = (
+  value: string,
+  mechanism = "auto.browser.global_handlers.onunhandledrejection",
+): ErrorEvent =>
+  ({
+    exception: {
+      values: [
+        {
+          type: "UnhandledRejection",
+          value,
+          mechanism: { type: mechanism, handled: false },
+        },
+      ],
+    },
+  }) as ErrorEvent
+
+describe("isHostBridgeRejection", () => {
+  it("droppe le rejet du pont CefSharp d'un analyseur de liens", () => {
+    expect(isHostBridgeRejection(stringRejection(BRIDGE_VALUE))).toBe(true)
+  })
+
+  it("reconnaît d'autres identifiants, méthodes et nombres de paramètres", () => {
+    const value = BRIDGE_VALUE.replace(
+      "Id:3, MethodName:update, ParamCount:4",
+      "Id:12, MethodName:simulateEvent, ParamCount:1",
+    )
+    expect(isHostBridgeRejection(stringRejection(value))).toBe(true)
+  })
+
+  it.each([
+    "Non-Error promise rejection captured with value: Object Not Found",
+    "Non-Error promise rejection captured with value: undefined",
+    `${BRIDGE_VALUE} dans notre code`,
+  ])("laisse passer « %s », un autre rejet sans Error", (value) => {
+    expect(isHostBridgeRejection(stringRejection(value))).toBe(false)
+  })
+
+  it("laisse passer le même message capturé par un autre mécanisme", () => {
+    const event = stringRejection(
+      BRIDGE_VALUE,
+      "auto.browser.global_handlers.onerror",
+    )
+    expect(isHostBridgeRejection(event)).toBe(false)
+  })
+
+  it("laisse passer un événement sans exception", () => {
+    expect(isHostBridgeRejection({} as ErrorEvent)).toBe(false)
   })
 })

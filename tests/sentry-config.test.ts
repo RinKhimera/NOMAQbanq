@@ -80,6 +80,37 @@ describe("Sentry.init", () => {
     expect(beforeSend(ours, {})).toBe(ours)
   })
 
+  it("écarte côté client le rejet du pont CefSharp d'un analyseur de liens", async () => {
+    await import("@/instrumentation-client")
+
+    const { beforeSend } = init.mock.calls[0][0]
+    const rejection = (value: string) => ({
+      exception: {
+        values: [
+          {
+            type: "UnhandledRejection",
+            value: `Non-Error promise rejection captured with value: ${value}`,
+            mechanism: {
+              type: "auto.browser.global_handlers.onunhandledrejection",
+              handled: false,
+            },
+          },
+        ],
+      },
+    })
+    const ours = rejection("panier vide")
+
+    expect(
+      beforeSend(
+        rejection(
+          "Object Not Found Matching Id:3, MethodName:update, ParamCount:4",
+        ),
+        {},
+      ),
+    ).toBeNull()
+    expect(beforeSend(ours, {})).toBe(ours)
+  })
+
   it("nettoie erreurs et spans serveur avant envoi", async () => {
     await import("@/sentry.server.config")
 
